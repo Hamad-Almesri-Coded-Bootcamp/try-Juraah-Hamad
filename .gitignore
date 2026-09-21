@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+build/
+dist/
+
+# Environment and secrets — the bot token and the VAPID private key never enter this repository
+.env
+.env.*
+!.env.example
+
+# Testing / logs
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors
+.vscode/
+.idea/
