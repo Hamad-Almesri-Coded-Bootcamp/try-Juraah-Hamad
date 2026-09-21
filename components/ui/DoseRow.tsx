@@ -1,0 +1,76 @@
+import type * as React from 'react';
+import './styles/DoseRow.css';
+import { Icon } from './Icon';
+import { StatusPill, type DoseStatus } from './StatusPill';
+import type { Locale } from '@/i18n';
+
+export interface DoseRowProps {
+  dose: {
+    status: DoseStatus;
+    /** false (or a patient with tracking off) renders no pill at all — decided by this flag, NEVER
+     * by `status`. Default true. See CLAUDE.md rule 3 / G10. */
+    tracked?: boolean;
+  };
+  drug: { genericName: string; brandName?: string; strengthMg?: number; strengthUnit?: string };
+  /** Already-formatted dose amount with its unit, e.g. "حبة واحدة · ٥٠٠ mg". No maths done here. */
+  amountLabel: React.ReactNode;
+  /** Already-formatted dose time. Optional — a row inside ScheduleGroup already sits under a time header. */
+  timeLabel?: React.ReactNode;
+  /** The only interaction this row may ever offer: a link into the prescription detail. */
+  href?: string;
+  /** Or a click handler that opens the same detail. Never a status-recording action (G1). */
+  onOpen?: () => void;
+  lang?: Locale;
+  className?: string;
+}
+
+/**
+ * One scheduled dose: drug, dose amount, and — only when tracked — its StatusPill. READ-ONLY by
+ * contract (G1): the single optional affordance opens the prescription detail and nothing else.
+ *
+ * The no-status variant is not a fallback: `dose.tracked === false` renders a calm plan entry with
+ * no pill, no placeholder and no gap where a pill would be, chosen by `tracked` alone — never by
+ * `dose.status`, which in the seed reads "upcoming" on every untracked dose too (CLAUDE.md rule 3).
+ */
+export function DoseRow({ dose, drug, amountLabel, timeLabel, href, onOpen, lang = 'en', className }: DoseRowProps) {
+  const interactive = Boolean(href) || Boolean(onOpen);
+  const classes = ['jr-dose-row', interactive ? 'wsf-focus' : null, className].filter(Boolean).join(' ');
+  const showPill = dose.tracked !== false;
+
+  const body = (
+    <>
+      <span className="jr-dose-row__body">
+        <span className="jr-dose-row__name type-body-strong">
+          {drug.genericName}
+          {drug.brandName ? <span className="jr-dose-row__brand"> {drug.brandName}</span> : null}
+        </span>
+        <span className="jr-dose-row__amount type-body-small">
+          {amountLabel}
+          {timeLabel ? <span className="jr-dose-row__time"> · {timeLabel}</span> : null}
+        </span>
+      </span>
+      {showPill ? <StatusPill status={dose.status} lang={lang} /> : null}
+      {interactive ? <Icon name="chevron" mirror className="jr-dose-row__go" /> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} className={classes} data-testid="dose-row">
+        {body}
+      </a>
+    );
+  }
+  if (onOpen) {
+    return (
+      <button type="button" onClick={onOpen} className={classes} data-testid="dose-row">
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className={classes} data-testid="dose-row">
+      {body}
+    </div>
+  );
+}

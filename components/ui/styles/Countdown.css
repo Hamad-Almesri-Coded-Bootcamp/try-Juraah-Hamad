@@ -1,0 +1,61 @@
+/* Countdown — new component (Build Prompts prompt 1). Token variables, --wsf- structural variables,
+   --hit-area and --ring only, logical properties only, prefers-reduced-motion respected. Reuses
+   .wsf-focus, .wsf-ico, .wsf-sr and the .wsf-btn family from bundle.css rather than restyling them. */
+
+.wsf-countdown {
+  font-family: var(--font-sans);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+}
+
+.wsf-countdown__label { margin: 0; }
+
+.wsf-countdown__ring {
+  --wsf-cd-pct: 100;
+  position: relative;
+  inline-size: calc(var(--space-6) * 2);
+  block-size: calc(var(--space-6) * 2);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(var(--navy) calc(var(--wsf-cd-pct) * 1%), var(--navy-tint) 0);
+  transition: background 0.3s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsf-countdown__ring { transition: none; }
+}
+.wsf-countdown__ring::before {
+  content: '';
+  position: absolute;
+  inset: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+}
+.wsf-countdown__value {
+  position: relative;
+  z-index: 1;
+  color: var(--navy);
+}
+
+.wsf-countdown__icon {
+  inline-size: var(--space-6);
+  block-size: var(--space-6);
+  color: var(--success);
+}
+
+.wsf-countdown__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: 100%;
+}

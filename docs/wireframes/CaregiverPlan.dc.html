@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>F2 · مقدّم الرعاية — بدون متابعة</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/wasfa/components/bundle.css">
+<script src="ds/wasfa/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&amp;display=swap">
+<style>
+:root{
+  --surface-app:#f5f7fa; --surface-card:#ffffff; --navy:#062958; --navy-soft:#0b356f;
+  --navy-tint:#e8eef7; --ink-muted:#55637a; --border:#e2e8f1; --border-strong:#7d8da6;
+  --danger:#d5272c; --warning:#8a5200; --success:#0e7c61; --on-fill:#ffffff;
+  --font-sans:"IBM Plex Sans Arabic","IBM Plex Sans",system-ui,sans-serif;
+  --space-1:4px; --space-2:8px; --space-3:16px; --space-4:24px; --space-5:32px; --space-6:48px;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:20px; --radius-full:999px;
+  --shadow-sm:0 1px 2px rgba(6,41,88,.10), 0 1px 1px rgba(6,41,88,.06);
+  --shadow-md:0 8px 24px rgba(6,41,88,.18), 0 2px 6px rgba(6,41,88,.10);
+}
+body{margin:0;font-family:var(--font-sans);color:var(--navy);background:var(--surface-app)}
+a{color:var(--navy-soft)} a:hover{color:var(--navy)}
+h1,h2,h3,p{margin:0}
+.sec{font-size:20px;line-height:28px;font-weight:600;color:var(--navy)}
+.cap{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.sm{font-size:14px;line-height:20px;color:var(--ink-muted)}
+.bd{font-size:17px;line-height:26px}
+.bs{font-size:17px;line-height:26px;font-weight:600}
+.h1{font-size:26px;line-height:34px;font-weight:600}
+.dsp{font-size:32px;line-height:40px;font-weight:600}
+.scroll{flex-grow:1;overflow:hidden;display:flex;flex-direction:column;gap:16px;padding:16px}
+.timehead{display:flex;align-items:center;gap:8px;font-size:13px;line-height:16px;font-weight:600;letter-spacing:.02em;color:var(--ink-muted);padding-block:4px}
+.timehead::after{content:"";flex-grow:1;height:1px;background:var(--border)}
+.doserow{display:flex;align-items:center;gap:12px;background:var(--surface-card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow-sm)}
+.menurow{display:flex;align-items:center;gap:12px;background:var(--surface-card);border-bottom:1px solid var(--border);padding:14px 16px;min-height:44px}
+.card{background:var(--surface-card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:8px}
+.tint{background:var(--navy-tint);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.rowline{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-block:6px;border-bottom:1px solid var(--border)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--border);background:var(--surface-card);padding:4px 10px;font-size:13px;line-height:16px;font-weight:600;color:var(--ink-muted)}
+.masked{font-size:17px;line-height:26px;font-weight:600;letter-spacing:.02em}
+.th{font-size:13px;line-height:16px;font-weight:600;letter-spacing:.02em;color:var(--ink-muted);text-align:start;padding:8px 10px;border-bottom:1px solid var(--border)}
+.td{font-size:14px;line-height:20px;padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+.skel{background:var(--border);border-radius:8px}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--surface-app);overflow:hidden;">
+
+  <x-import component-from-global-scope="Wasfa.AppBar" title="اليوم" action="EN"></x-import>
+  <div style="background:var(--navy-tint);border-bottom:1px solid var(--border);padding:10px 16px;">
+    <span class="sm" style="color:var(--navy);">تشوف ملف <strong>حمد</strong> · قراءة فقط</span>
+  </div>
+  <div class="scroll">
+    <div style="display:flex;flex-direction:column;"><span class="bs">الاثنين ٢١ سبتمبر</span><span class="cap">٦ جرعات مخططة</span></div>
+    <div class="timehead">٨:٠٠ ص</div>
+    <div class="doserow">
+  <div style="flex-grow:1;display:flex;flex-direction:column;gap:2px;">
+    <span class="bs">Metformin <span style="font-weight:400;color:var(--ink-muted);">Glucophage</span></span>
+    <span class="sm">حبة واحدة بعد الأكل · ٥٠٠ ملغم</span>
+  </div>
+  
+</div>
+    <div class="doserow">
+  <div style="flex-grow:1;display:flex;flex-direction:column;gap:2px;">
+    <span class="bs">Ibuprofen <span style="font-weight:400;color:var(--ink-muted);">Brufen</span></span>
+    <span class="sm">حبة واحدة بعد الأكل · ٤٠٠ ملغم</span>
+  </div>
+  
+</div>
+    <div class="timehead">٢:٠٠ م</div>
+    <div class="doserow">
+  <div style="flex-grow:1;display:flex;flex-direction:column;gap:2px;">
+    <span class="bs">Ibuprofen <span style="font-weight:400;color:var(--ink-muted);">Brufen</span></span>
+    <span class="sm">حبة واحدة بعد الأكل · ٤٠٠ ملغم</span>
+  </div>
+  
+</div>
+    <div class="timehead">٦:٠٠ م</div>
+    <div class="doserow">
+  <div style="flex-grow:1;display:flex;flex-direction:column;gap:2px;">
+    <span class="bs">Warfarin <span style="font-weight:400;color:var(--ink-muted);">Marevan</span></span>
+    <span class="sm">حبة واحدة · ٥ ملغم</span>
+  </div>
+  
+</div>
+    <x-import component-from-global-scope="Wasfa.InlineNotice" tone="info" title="حمد ما فعّل متابعة الجرعات">الجدول خطة، مو سجل — ما فيه حالات جرعات لأنه ما فعّلها. تشوف نفس اللي يشوفه بالضبط، لا أكثر.</x-import>
+    <span class="cap" style="text-align:center;">ما فيه ولا زر كتابة بهذي الشاشة — غائب مو معطّل.</span>
+  </div>
+  <x-import component-from-global-scope="Wasfa.TabBar" items="{{careTabs}}" value="today" layout="bottom" on-change="{{noop}}" label="التنقل الرئيسي"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      yes: true,
+      tabs: [
+        { id: 'today', label: 'اليوم', icon: 'clock' },
+        { id: 'meds', label: 'أدويتي', icon: 'capsule' },
+        { id: 'safety', label: 'السلامة', icon: 'shield' },
+        { id: 'more', label: 'المزيد', icon: 'settings' }
+      ],
+      careTabs: [
+        { id: 'today', label: 'اليوم', icon: 'clock' },
+        { id: 'meds', label: 'الأدوية', icon: 'capsule' },
+        { id: 'more', label: 'المزيد', icon: 'settings' }
+      ],
+      clinicTabs: [
+        { id: 'review', label: 'مراجعة', icon: 'review' },
+        { id: 'audit', label: 'تدقيق', icon: 'inbox' }
+      ],
+      tabsEN: [
+        { id: 'today', label: 'Today', icon: 'clock' },
+        { id: 'meds', label: 'My Medicines', icon: 'capsule' },
+        { id: 'safety', label: 'Safety', icon: 'shield' },
+        { id: 'more', label: 'More', icon: 'settings' }
+      ],
+      rxWar: { drug: { genericName: 'Warfarin', brandName: 'Marevan', strengthMg: 5 }, source: { facilityName: 'مستشفى الفروانية', sector: 'public' } },
+      rxIbu: { drug: { genericName: 'Ibuprofen', brandName: 'Brufen', strengthMg: 400 }, source: { facilityName: 'عيادة النخبة الطبية', sector: 'private' } },
+      rxMet: { drug: { genericName: 'Metformin', brandName: 'Glucophage', strengthMg: 500 }, source: { facilityName: 'مستشفى الفروانية', sector: 'public' } },
+      rxLev: { drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin', strengthMg: 0.05, strengthDisplay: '50 mcg' }, source: { facilityName: 'مستشفى العدان', sector: 'public' } },
+      rxCal: { drug: { genericName: 'Calcium carbonate + D3', brandName: '', strengthMg: 500 }, source: { facilityName: 'عيادة النخبة الطبية', sector: 'private' } },
+      rxPre: { drug: { genericName: 'Prednisolone', brandName: 'Prednisolone', strengthMg: 5 }, source: { facilityName: 'مركز الصباح', sector: 'public' } },
+      dUp: { status: 'upcoming' }, dOn: { status: 'taken_on_time' },
+      dLate: { status: 'taken_late' }, dMiss: { status: 'missed' },
+      noop: function () {}
+    };
+  }
+}
+</script>
+</body>
+</html>

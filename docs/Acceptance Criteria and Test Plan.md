@@ -19,7 +19,8 @@
 *v7* — the caregiver and clinician audiences got a real plan: one sign-in resolving the role from the Civil ID with a chooser for a dual-role person; the caregiver shell gained depth, its own notifications, a profile and its own help; a separate unadvertised clinic shell holds the medical reviewer (with patient context and a field-confirmation queue) and a system admin with the audit log; **browser notifications** joined under **G12**.
 *v7.1* — consistency pass: a dangling "G13" reference corrected, `MessagingLink` cleaned to one subject reference, the PWA shell stated as Phase 1 scope, and a caregiver confirmed to have no `Settings` row.
 *v7.2* — **the caregiver invitation is now safe against a mistyped Civil ID.** A single digit wrong previously handed a stranger read access to a full medication history, because signing in *was* the acceptance. Now: the patient confirms a **masked name** before the invitation is created, and **the invited person must explicitly accept** — signing in is never acceptance, and a `pending` invitation grants nothing. One screen was added (**F0**, the consent screen) and **G9** extended to cover identity disclosure. Deliberately kept simple: no double entry of the Civil ID, no phone field, no OTP.
-*v7.3 (current)* — pre-handoff audit. **(a) The screen count was wrong.** Every version from v7 onwards under-counted: the inventory below has always listed **thirty** screens, not twenty-seven or twenty-eight, because `A0`, `A1b` and `X0` were never added to the running total. The inventory itself never changed — only the number quoted in front of it, which is now stated per group so it can be audited rather than trusted. **(b) F0 had no route**; it is now `/[locale]/invitation`. **(c) The seed dataset exists** — `Seed Dataset.md` — so "use the canonical seed dataset" now points somewhere, and the messaging bot handle is a stated placeholder rather than an open question. **(d) The two stale references are gone:** the design system's `navigation.md` now describes the four surfaces and the consent gate, and the wireframe canvas covers all thirty screens. **(e) Phase 1 now owes Phase 2 a written handover**, `/docs/BACKEND-NOTES.md`, specified in `Phase 2 — Backend Handoff.md` §3.
+*v7.3* — pre-handoff audit. **(a) The screen count was wrong.** Every version from v7 onwards under-counted: the inventory below has always listed **thirty** screens, not twenty-seven or twenty-eight, because `A0`, `A1b` and `X0` were never added to the running total. The inventory itself never changed — only the number quoted in front of it, which is now stated per group so it can be audited rather than trusted. **(b) F0 had no route**; it is now `/[locale]/invitation`. **(c) The seed dataset exists** — `Seed Dataset.md` — so "use the canonical seed dataset" now points somewhere, and the messaging bot handle is a stated placeholder rather than an open question. **(d) The two stale references are gone:** the design system's `navigation.md` now describes the four surfaces and the consent gate, and the wireframe canvas covers all thirty screens. **(e) Phase 1 now owes Phase 2 a written handover**, `/docs/BACKEND-NOTES.md`, specified in `Phase 2 — Backend Handoff.md` §3.
+*v7.4 (current, Gate 0 of Phase 1)* — three Data Contract changes approved by the owner and applied per the change-request protocol: `Account` added (CR-008); `Prescription.drug.strengthUnit` added (CR-003); five `Prescription` fields made optional **only while unread**, with two stated invariants (CR-002); `strengthMg` documented as holding the number in `strengthUnit`'s unit; `Caregiver.revokedAt` added (CR-027). `docs/DECISIONS.md` holds the reasoning. The A3/F4 "Civil ID (masked)" wording is superseded by the strict rule (CR-001) and awaits the owner's text (CR-026).
 
 **Team ownership.** Two parallel tracks: **Frontend + Backend** (this document, the project owner's track) and **AI Agents** (six agents, n8n workflows, prompts, RAG — owned independently). The only requirement across the boundary is that whatever the agents produce conforms to the Data Contracts.
 
@@ -264,6 +265,15 @@ Every recorded event, newest first: what happened, when, **which actor caused it
 Fields added in v7.2 are marked. `Settings` belongs to a patient only. The values that fill these shapes live in `Seed Dataset.md`.
 
 ```
+Account {                              // v7.4 (Gate 0, CR-008) — one row per Civil ID that has a Jur'ah account,
+                                       // patient or not. Role resolution reads it; the masked-name lookup reads
+                                       // `name` and returns a masked form ONLY when a row exists (G9).
+  id: string
+  civilId: string                      // never displayed, never returned to a client
+  name: string                         // full name; shown in full only to its own holder
+  roles: ("patient" | "caregiver" | "reviewer" | "admin")[]   // caregiver counts only while a Caregiver row is active
+}
+
 Patient {
   id: string
   civilId: string                      // demo: must belong to the pre-seeded test-ID list
@@ -291,21 +301,42 @@ Caregiver {                            // one record per invitation; the role ex
   expiresAt: string                    // v7.2 — a pending invitation stops being acceptable after this
   acceptedAt?: string                  // v7.2 — set ONLY by the F0 accept action
   declinedAt?: string                  // v7.2
+  revokedAt?: string                   // v7.4 (CR-027) — when access ended. Set by BOTH kinds of withdrawal:
+                                       //      after acceptance (caregiver_revoked) and before any answer
+                                       //      (caregiver_invite_cancelled). `acceptedAt` set/unset tells them apart.
   accessLevel: "read_only"
   // Only `active` grants any read access. pending / declined / expired / revoked grant NOTHING.
+  // `revoked` is the single end state for an invitation the patient took back; the acceptedAt
+  // distinction exists for the audit log and F1's wording ONLY — no code path branches on it for access.
 }
 
 Prescription {
   id: string
   patientId: string
   source: { facilityName: string, sector: "public" | "private" }
-  drug: { genericName: string, brandName: string, strengthMg: number }
+  drug: {
+    genericName: string
+    brandName?: string                 // v7.4 — optional: absent for a generic-only record, or while unread (see below)
+    strengthMg?: number                // v7.4 — optional only while unread (see below).
+                                       // HOLDS THE NUMBER IN THE UNIT `strengthUnit` NAMES — the field name is
+                                       // historical. rx-008 is `strengthMg: 50, strengthUnit: "mcg"`, never 0.05.
+                                       // Nothing anywhere multiplies or divides this value (guard-scripted); a
+                                       // reader who trusts the name produces a 1000× levothyroxine dose.
+    strengthUnit?: "mg" | "mcg" | "g" | "ml" | "IU"   // v7.4 (Gate 0, CR-003) — default "mg"; rx-008 is the one non-default
+  }
   dosePerAdministration: number
-  frequencyPerDay: number
+  frequencyPerDay?: number             // v7.4 — optional only while unread (see below)
   durationDays: number
   dosingPattern: "daily" | "alternate_day" | "other"
-  startDate: string                    // v2 — REQUIRED. ISO date. The schedule anchor.
-  doseTimes: string[]                  // v2 — REQUIRED. "HH:mm". Length MUST equal frequencyPerDay.
+  startDate?: string                   // v2 REQUIRED, v7.4 optional only while unread. ISO date. The schedule anchor.
+  doseTimes?: string[]                 // v2 REQUIRED, v7.4 optional only while unread. "HH:mm". Length MUST equal frequencyPerDay.
+  // v7.4 (Gate 0, CR-002) — the five fields above (brandName, strengthMg, frequencyPerDay, startDate,
+  // doseTimes) may be absent ONLY while `needsReview` is true or `fieldReviewStatus` is "pending" or
+  // "returned". Two INVARIANTS, guard-scripted in Phase 1 and enforced at write time in Phase 2:
+  //   (1) a prescription with status "active" and needsReview false carries all five;
+  //   (2) the dose generator returns an EMPTY array unless startDate is present and
+  //       doseTimes.length === frequencyPerDay. "Optional" never means an active prescription may
+  //       have no schedule.
   prescribedAt?: string                // v2
   prescriberName?: string              // v2
   timingRelativeToFood?: string

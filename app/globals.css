@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+/* The design system's own stylesheet, byte-identical to docs/design-system/bundle.css (tests/unit/bundle-css.test.ts).
+   Loaded BEFORE tokens.css so the --wsf-* aliases in tokens.css win over the bundle's own :root copies (same values). */
+@import '../components/ui/styles/bundle.css';
+@import '../styles/tokens.css';
+@import '../styles/theme.css';
+@import '../styles/base.css';

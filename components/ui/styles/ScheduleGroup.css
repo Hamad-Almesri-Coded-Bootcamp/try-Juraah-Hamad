@@ -1,0 +1,26 @@
+/* ScheduleGroup — the clock-time header grouping one time's DoseRows (`.timehead` board anatomy). */
+
+.jr-schedule-group {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.jr-schedule-group__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  padding-block: var(--space-1);
+}
+.jr-schedule-group__head::after {
+  content: '';
+  flex-grow: 1;
+  block-size: var(--line);
+  background: var(--border);
+}
+.jr-schedule-group__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

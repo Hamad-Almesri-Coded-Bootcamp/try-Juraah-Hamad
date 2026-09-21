@@ -27,3 +27,12 @@ yarn-error.log*
 # Editors
 .vscode/
 .idea/
+
+# Testing artefacts
+test-results/
+playwright-report/
+.vitest/
+
+# Next.js
+next-env.d.ts
+*.tsbuildinfo

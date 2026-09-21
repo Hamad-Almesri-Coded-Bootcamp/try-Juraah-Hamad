@@ -1,0 +1,87 @@
+{
+  "accounts": [
+    { "civilId": "255031200187", "name": "حمد سالم المطيري", "roles": ["patient"] },
+    { "civilId": "258071100342", "name": "فاطمة سالم العجمي", "roles": ["patient"] },
+    { "civilId": "290022500654", "name": "سارة يوسف العجمي", "roles": ["patient", "caregiver"] },
+    { "civilId": "268110500413", "name": "بدر فهد العنزي", "roles": ["patient"] },
+    { "civilId": "285061400412", "name": "عبدالله محمد عبدالعزيز المطيري", "roles": ["caregiver"] },
+    { "civilId": "288110300229", "name": "ناصر حمد المطيري", "roles": [] },
+    { "civilId": "292043000517", "name": "منى خالد المطيري", "roles": [] },
+    { "civilId": "298052000731", "name": "طلال عبدالله المطيري", "roles": [] },
+    { "civilId": "285092200664", "name": "دلال عبدالرحمن المطيري", "roles": [] },
+    { "civilId": "280012000961", "name": "د. خالد عبدالرحمن الرشيد", "roles": ["reviewer", "admin"] },
+    { "civilId": "293080700148", "name": "م. دانة فهد السالم", "roles": ["admin"] }
+  ],
+  "noAccountCivilId": "277091900873",
+  "patients": [
+    { "civilId": "255031200187", "name": "حمد سالم المطيري", "onboardingCompleted": true },
+    { "civilId": "258071100342", "name": "فاطمة سالم العجمي", "onboardingCompleted": true },
+    { "civilId": "290022500654", "name": "سارة يوسف العجمي", "onboardingCompleted": true },
+    { "civilId": "268110500413", "name": "بدر فهد العنزي", "onboardingCompleted": false }
+  ],
+  "prescriptions": {
+    "rx-001": { "patientCivilId": "255031200187", "genericName": "Warfarin", "brandName": "Marevan", "strengthMg": 5, "dosingPattern": "daily", "doseTimes": ["18:00"], "startDate": "2026-09-01", "durationDays": 90, "status": "active", "dispensed": 90 },
+    "rx-002": { "patientCivilId": "255031200187", "genericName": "Ibuprofen", "brandName": "Brufen", "strengthMg": 400, "dosingPattern": "daily", "doseTimes": ["08:00", "14:00", "20:00"], "startDate": "2026-09-19", "durationDays": 7, "status": "active", "dispensed": 21 },
+    "rx-003": { "patientCivilId": "255031200187", "genericName": "Metformin", "brandName": "Glucophage", "strengthMg": 500, "dosingPattern": "daily", "doseTimes": ["08:00", "20:00"], "startDate": "2026-06-15", "durationDays": 180, "status": "active", "dispensed": 60 },
+    "rx-004": { "patientCivilId": "255031200187", "genericName": "Atorvastatin", "brandName": "Lipitor", "strengthMg": 20, "dosingPattern": "daily", "doseTimes": ["21:00"], "startDate": "2026-04-02", "durationDays": 90, "status": "discontinued", "discontinuedAt": "2026-06-28" },
+    "rx-005": { "patientCivilId": "258071100342", "genericName": "Prednisolone", "strengthMg": 5, "dosingPattern": "alternate_day", "doseTimes": ["09:00"], "startDate": "2026-09-14", "durationDays": 60, "status": "active" },
+    "rx-006": { "patientCivilId": "258071100342", "durationDays": 30, "needsReview": true, "fieldReviewStatus": "pending" },
+    "rx-007": { "patientCivilId": "258071100342", "genericName": "Ciprofloxacin", "strengthMg": 500, "doseTimes": ["09:00", "21:00"], "durationDays": 7, "needsReview": true, "fieldReviewStatus": "returned" },
+    "rx-008": { "patientCivilId": "290022500654", "genericName": "Levothyroxine", "brandName": "Eltroxin", "strengthMg": 50, "strengthUnit": "mcg", "dosingPattern": "daily", "doseTimes": ["07:00"], "startDate": "2026-08-10", "durationDays": 180, "status": "active", "dispensed": 180 },
+    "rx-009": { "patientCivilId": "290022500654", "genericName": "Calcium carbonate + vitamin D3", "strengthMg": 500, "dosingPattern": "daily", "doseTimes": ["13:00", "21:00"], "startDate": "2026-09-05", "durationDays": 90, "status": "active", "fieldReviewStatus": "confirmed" }
+  },
+  "alerts": {
+    "ia-001": { "patientCivilId": "255031200187", "involvedRx": ["rx-001", "rx-002"], "severity": "danger", "reviewStatus": "pending_medical_review", "createdAt": "2026-09-19T11:04:00+03:00" },
+    "ia-002": { "patientCivilId": "290022500654", "involvedRx": ["rx-008", "rx-009"], "severity": "warning", "reviewStatus": "reviewed", "reviewerDecision": "confirmed" },
+    "ia-003": { "patientCivilId": "258071100342", "involvedRx": ["rx-005"], "severity": "info", "reviewStatus": "auto_cleared" }
+  },
+  "settings": {
+    "255031200187": { "adherenceCheckInEnabled": false, "refillAlertsEnabled": true, "calendarSyncEnabled": false, "webPushEnabled": false, "notificationChannel": "none", "language": "ar" },
+    "258071100342": { "adherenceCheckInEnabled": false, "refillAlertsEnabled": true, "calendarSyncEnabled": false, "webPushEnabled": false, "notificationChannel": "none", "language": "ar" },
+    "290022500654": { "adherenceCheckInEnabled": true, "refillAlertsEnabled": true, "calendarSyncEnabled": true, "webPushEnabled": true, "notificationChannel": "telegram", "language": "ar" }
+  },
+  "noSettingsRowFor": "268110500413",
+  "messagingLinks": [
+    { "subjectCivilId": "255031200187", "status": "not_connected" },
+    { "subjectCivilId": "258071100342", "status": "expired" },
+    { "subjectCivilId": "290022500654", "status": "connected" },
+    { "caregiverOfCivilId": "285061400412", "status": "connected" },
+    { "subjectCivilId": "258071100342", "status": "pending" }
+  ],
+  "noMessagingLinkFor": "268110500413",
+  "pushSubscriptions": [
+    { "subjectCivilId": "255031200187", "permission": "default" },
+    { "subjectCivilId": "258071100342", "permission": "denied" },
+    { "subjectCivilId": "290022500654", "permission": "granted" },
+    { "caregiverOfCivilId": "285061400412", "permission": "unsupported" }
+  ],
+  "noPushSubscriptionFor": "268110500413",
+  "refillRequests": [
+    { "prescriptionId": "rx-003", "routedTo": "public_pharmacy", "status": "requested", "requestedAt": "2026-09-20" },
+    { "prescriptionId": "rx-001", "routedTo": "public_pharmacy", "status": "approved" }
+  ],
+  "calendarSubscriptions": [{ "patientCivilId": "290022500654" }],
+  "caregivers": [
+    { "civilId": "285061400412", "patientCivilId": "255031200187", "status": "active", "relationship": "ابني", "invitedAt": "2026-09-02", "acceptedAt": "2026-09-03" },
+    { "civilId": "290022500654", "patientCivilId": "255031200187", "status": "active", "relationship": "ابنتي", "invitedAt": "2026-08-20", "acceptedAt": "2026-08-20" },
+    { "civilId": "288110300229", "patientCivilId": "255031200187", "status": "pending", "relationship": "ابني", "invitedAt": "2026-09-18", "expiresAt": "2026-10-02" },
+    { "civilId": "292043000517", "patientCivilId": "255031200187", "status": "declined", "relationship": "زوجة ابني", "invitedAt": "2026-09-10", "declinedAt": "2026-09-10" },
+    { "civilId": "277091900873", "patientCivilId": "255031200187", "status": "expired", "relationship": "قريب", "invitedAt": "2026-08-01", "expiresAt": "2026-08-15" },
+    { "civilId": "298052000731", "patientCivilId": "255031200187", "status": "revoked", "relationship": "حفيدي", "invitedAt": "2026-07-10", "acceptedAt": "2026-07-11", "revokedAt": "2026-08-28" },
+    { "civilId": "285092200664", "patientCivilId": "255031200187", "status": "revoked", "relationship": "ابنة أخي", "invitedAt": "2026-06-05", "expiresAt": "2026-06-19", "revokedAt": "2026-06-06", "acceptedAtUnset": true },
+    { "civilId": "290022500654", "patientCivilId": "258071100342", "status": "pending", "relationship": "ابنة أختي", "invitedAt": "2026-09-20" }
+  ],
+  "auditEventTypeCounts": {
+    "caregiver_invited": 8,
+    "caregiver_invite_accepted": 3,
+    "caregiver_invite_declined": 1,
+    "caregiver_invite_expired": 1,
+    "caregiver_revoked": 1,
+    "caregiver_invite_cancelled": 1,
+    "prescription_added": 9,
+    "messaging_connected": 3,
+    "dose_status_recorded": 5
+  },
+  "auditEventTypesPresent": 23,
+  "auditEventTypesAbsent": ["prescription_discontinued", "caregiver_self_unlinked"]
+}

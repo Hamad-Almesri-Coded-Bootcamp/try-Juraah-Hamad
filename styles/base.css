@@ -1,0 +1,24 @@
+/* Page basics. Logical properties only; direction comes from dir on <html>. */
+html {
+  font-family: var(--font-sans);
+  color: var(--navy);
+  background: var(--surface-app);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  min-block-size: 100dvh;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+a { color: var(--navy-soft); }
+a:hover { color: var(--navy); }
+h1, h2, h3, p { margin: 0; }
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-gap) var(--on-fill), 0 0 0 calc(var(--ring-gap) + var(--ring)) var(--navy);
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}

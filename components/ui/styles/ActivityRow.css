@@ -1,0 +1,61 @@
+/* ActivityRow — one logged event, list layout (Activity board) and table layout (AuditLog1440 board). */
+
+.jr-activity-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  inline-size: 100%;
+  background: var(--surface-card);
+  border-block-end: var(--line) solid var(--border);
+  padding: var(--space-3);
+  color: var(--navy);
+  font-family: var(--font-sans);
+  text-align: start;
+  text-decoration: none;
+}
+a.jr-activity-row {
+  cursor: pointer;
+  min-block-size: var(--hit-area);
+}
+a.jr-activity-row:hover {
+  background: var(--navy-tint);
+}
+.jr-activity-row__icon {
+  color: var(--navy);
+  flex: none;
+  margin-block-start: var(--space-1);
+}
+.jr-activity-row__body {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.jr-activity-row__title { color: var(--navy); }
+.jr-activity-row__desc { color: var(--navy); }
+.jr-activity-row__meta { color: var(--ink-muted); }
+.jr-activity-row__time { color: var(--ink-muted); }
+.jr-activity-row__code { color: var(--ink-muted); }
+
+/* Table layout — one <tr> per row, paired with ActivityRow.Table's <thead>. The consumer's <table>
+   should set table-layout:fixed (column widths independent of content); overflow-wrap here keeps an
+   unbreakable token (a timestamp, an enum-shaped word) from forcing a column — and the page — wider
+   than its track, at 390px above all. */
+.jr-activity-row-table .jr-activity-row__head {
+  color: var(--ink-muted);
+  text-align: start;
+  padding: var(--space-2);
+  border-block-end: var(--line) solid var(--border);
+  overflow-wrap: anywhere;
+}
+tr.jr-activity-row--table .jr-activity-row__cell {
+  padding: var(--space-2);
+  border-block-end: var(--line) solid var(--border);
+  vertical-align: top;
+  color: var(--navy);
+  overflow-wrap: anywhere;
+}
+tr.jr-activity-row--table .jr-activity-row__cell--muted { color: var(--ink-muted); }
+.jr-activity-row__actor { display: inline-flex; align-items: center; gap: var(--space-1); }

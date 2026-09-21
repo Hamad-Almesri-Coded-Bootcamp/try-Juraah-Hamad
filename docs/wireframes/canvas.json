@@ -1,0 +1,477 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-21T09:33:29Z"
+  },
+  "title": "Jur'ah Wireframes",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Landing.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 2560,
+      "title": "L1 · الصفحة الرئيسية (جوال)"
+    },
+    "Landing1440.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 1440,
+      "h": 1180,
+      "title": "L1 · الصفحة الرئيسية ١٤٤٠"
+    },
+    "SignInStates.dc.html": {
+      "x": 470,
+      "y": 1300,
+      "w": 1660,
+      "h": 640,
+      "title": "A1 · حالات الدخول الأربع"
+    },
+    "Login.dc.html": {
+      "x": 470,
+      "y": 2040,
+      "w": 390,
+      "h": 844,
+      "title": "A1 · التحقق من الهوية"
+    },
+    "Setup.dc.html": {
+      "x": 940,
+      "y": 2040,
+      "w": 390,
+      "h": 844,
+      "title": "A2 · الإعداد الأول — العرض"
+    },
+    "RoleChooser.dc.html": {
+      "x": 1410,
+      "y": 2040,
+      "w": 390,
+      "h": 844,
+      "title": "A1b · اختيار الدور"
+    },
+    "SessionGate.dc.html": {
+      "x": 1880,
+      "y": 2040,
+      "w": 390,
+      "h": 844,
+      "title": "A0 · بوابة الجلسة"
+    },
+    "Profile.dc.html": {
+      "x": 2350,
+      "y": 2040,
+      "w": 390,
+      "h": 844,
+      "title": "A3 · الحساب"
+    },
+    "TodayPlan.dc.html": {
+      "x": 0,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B1 · اليوم — بدون متابعة (الافتراضي)"
+    },
+    "Main.dc.html": {
+      "x": 470,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B1 · اليوم — مع المتابعة"
+    },
+    "TodayMissed.dc.html": {
+      "x": 940,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B1 · اليوم — جرعة فائتة"
+    },
+    "TodayLTR.dc.html": {
+      "x": 1410,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B1 · Today — English / LTR"
+    },
+    "Today834.dc.html": {
+      "x": 1880,
+      "y": 3124,
+      "w": 834,
+      "h": 1020,
+      "title": "B1 · اليوم — تابلت ٨٣٤"
+    },
+    "Medicines.dc.html": {
+      "x": 2790,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B2 · أدويتي + تنبيه خطر"
+    },
+    "MedicinesPast.dc.html": {
+      "x": 3260,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B2 · أدويتي — السابقة"
+    },
+    "Prescription.dc.html": {
+      "x": 3730,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B3 · تفاصيل الوصفة"
+    },
+    "AddPrescription.dc.html": {
+      "x": 4200,
+      "y": 3124,
+      "w": 390,
+      "h": 844,
+      "title": "B4 · إضافة وصفة"
+    },
+    "MedicinesDesktop.dc.html": {
+      "x": 4670,
+      "y": 3124,
+      "w": 1280,
+      "h": 860,
+      "title": "B2 · ديسكتوب ١٢٨٠"
+    },
+    "Safety.dc.html": {
+      "x": 0,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "C1 · السلامة"
+    },
+    "AlertDanger.dc.html": {
+      "x": 470,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "C2 · تعارض — قيد المراجعة"
+    },
+    "AlertReviewed.dc.html": {
+      "x": 940,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "C2 · تعارض — تمت المراجعة"
+    },
+    "DrugCheck.dc.html": {
+      "x": 1410,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "C3 · فحص دواء بالصورة"
+    },
+    "Refill.dc.html": {
+      "x": 1880,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "D1 · تجديد الوصفات"
+    },
+    "More.dc.html": {
+      "x": 2350,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "المزيد — قائمة الشِل"
+    },
+    "Calendar.dc.html": {
+      "x": 2820,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "E1 · مزامنة التقويم"
+    },
+    "Activity.dc.html": {
+      "x": 3290,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "E2 · سجل الأحداث"
+    },
+    "Settings.dc.html": {
+      "x": 3760,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "E3 · الإعدادات"
+    },
+    "Help.dc.html": {
+      "x": 4230,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "E4 · المساعدة"
+    },
+    "Messaging.dc.html": {
+      "x": 4700,
+      "y": 4384,
+      "w": 390,
+      "h": 844,
+      "title": "E5 · ربط المحادثة"
+    },
+    "NotifyStates.dc.html": {
+      "x": 5170,
+      "y": 4384,
+      "w": 1660,
+      "h": 660,
+      "title": "E5 · إشعارات المتصفح — الحالات الأربع"
+    },
+    "InviteConsent.dc.html": {
+      "x": 0,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F0 · شاشة الموافقة ★"
+    },
+    "InviteStates.dc.html": {
+      "x": 470,
+      "y": 5468,
+      "w": 1240,
+      "h": 620,
+      "title": "F0 · قبول · رفض · منتهية"
+    },
+    "Caregivers.dc.html": {
+      "x": 1780,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F1 · مقدّمو الرعاية (كل الحالات)"
+    },
+    "InviteMasked.dc.html": {
+      "x": 2250,
+      "y": 5468,
+      "w": 1240,
+      "h": 660,
+      "title": "F1 · الدعوة بخطوتين + الاسم الماسك"
+    },
+    "CaregiverHome.dc.html": {
+      "x": 3560,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F2 · شاشة مقدّم الرعاية"
+    },
+    "CaregiverPlan.dc.html": {
+      "x": 4030,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F2 · والمريض مطفّي المتابعة"
+    },
+    "CaregiverDetail.dc.html": {
+      "x": 4500,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F3 · وصول التفاصيل"
+    },
+    "CaregiverProfile.dc.html": {
+      "x": 4970,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F4 · ملفه وإشعاراته"
+    },
+    "CaregiverHelp.dc.html": {
+      "x": 5440,
+      "y": 5468,
+      "w": 390,
+      "h": 844,
+      "title": "F5 · مساعدته"
+    },
+    "ClinicEntry.dc.html": {
+      "x": 0,
+      "y": 6552,
+      "w": 390,
+      "h": 844,
+      "title": "X0 · دخول العيادة"
+    },
+    "ReviewerQueue.dc.html": {
+      "x": 470,
+      "y": 6552,
+      "w": 390,
+      "h": 844,
+      "title": "G1s · قائمة التعارضات"
+    },
+    "FieldQueue.dc.html": {
+      "x": 940,
+      "y": 6552,
+      "w": 390,
+      "h": 844,
+      "title": "G3s · تأكيد حقول الوصفات"
+    },
+    "ReviewerDecision.dc.html": {
+      "x": 1410,
+      "y": 6552,
+      "w": 390,
+      "h": 844,
+      "title": "G2s · قرار المراجع"
+    },
+    "ReviewerDesktop.dc.html": {
+      "x": 1880,
+      "y": 6552,
+      "w": 1280,
+      "h": 880,
+      "title": "G2s · قرار المراجع + سياق المريض ١٢٨٠"
+    },
+    "AuditLog.dc.html": {
+      "x": 3230,
+      "y": 6552,
+      "w": 390,
+      "h": 844,
+      "title": "X1 · سجل التدقيق"
+    },
+    "AuditLog1440.dc.html": {
+      "x": 3700,
+      "y": 6552,
+      "w": 1440,
+      "h": 900,
+      "title": "X1 · سجل التدقيق ١٤٤٠ ★"
+    },
+    "States.dc.html": {
+      "x": 0,
+      "y": 7692,
+      "w": 1240,
+      "h": 844,
+      "title": "فاضي · تحميل · خطأ"
+    },
+    "SystemPages.dc.html": {
+      "x": 1320,
+      "y": 7692,
+      "w": 1280,
+      "h": 600,
+      "title": "H1 · H2 · H3"
+    }
+  },
+  "order": [
+    "Landing.dc.html",
+    "Landing1440.dc.html",
+    "SignInStates.dc.html",
+    "Login.dc.html",
+    "Setup.dc.html",
+    "RoleChooser.dc.html",
+    "SessionGate.dc.html",
+    "Profile.dc.html",
+    "TodayPlan.dc.html",
+    "Main.dc.html",
+    "TodayMissed.dc.html",
+    "TodayLTR.dc.html",
+    "Today834.dc.html",
+    "Medicines.dc.html",
+    "MedicinesPast.dc.html",
+    "Prescription.dc.html",
+    "AddPrescription.dc.html",
+    "MedicinesDesktop.dc.html",
+    "Safety.dc.html",
+    "AlertDanger.dc.html",
+    "AlertReviewed.dc.html",
+    "DrugCheck.dc.html",
+    "Refill.dc.html",
+    "More.dc.html",
+    "Calendar.dc.html",
+    "Activity.dc.html",
+    "Settings.dc.html",
+    "Help.dc.html",
+    "Messaging.dc.html",
+    "NotifyStates.dc.html",
+    "InviteConsent.dc.html",
+    "InviteStates.dc.html",
+    "Caregivers.dc.html",
+    "InviteMasked.dc.html",
+    "CaregiverHome.dc.html",
+    "CaregiverPlan.dc.html",
+    "CaregiverDetail.dc.html",
+    "CaregiverProfile.dc.html",
+    "CaregiverHelp.dc.html",
+    "ClinicEntry.dc.html",
+    "ReviewerQueue.dc.html",
+    "FieldQueue.dc.html",
+    "ReviewerDecision.dc.html",
+    "ReviewerDesktop.dc.html",
+    "AuditLog.dc.html",
+    "AuditLog1440.dc.html",
+    "States.dc.html",
+    "SystemPages.dc.html"
+  ],
+  "notes": {
+    "r0": {
+      "x": 0,
+      "y": -240,
+      "text": "الواجهة العامة والدخول",
+      "kind": "title1",
+      "maxW": 2740
+    },
+    "r1": {
+      "x": 0,
+      "y": 2884,
+      "text": "اليوم والأدوية — شِل المريض",
+      "kind": "title1",
+      "maxW": 5950
+    },
+    "r2": {
+      "x": 0,
+      "y": 4144,
+      "text": "السلامة والخدمات والتفضيلات",
+      "kind": "title1",
+      "maxW": 6830
+    },
+    "r3": {
+      "x": 0,
+      "y": 5228,
+      "text": "مقدّم الرعاية — الدعوة والشِل",
+      "kind": "title1",
+      "maxW": 5830
+    },
+    "r4": {
+      "x": 0,
+      "y": 6312,
+      "text": "شِل العيادة — المراجع والأدمن",
+      "kind": "title1",
+      "maxW": 5140
+    },
+    "r5": {
+      "x": 0,
+      "y": 7452,
+      "text": "الحالات وصفحات النظام",
+      "kind": "title1",
+      "maxW": 2600
+    },
+    "ref": {
+      "x": 0,
+      "y": -760,
+      "w": 2270,
+      "text": "المرجع البصري المعتمد للفيز ١ — محدّث على سبك v7.3 (٣٠ شاشة و٣ صفحات سستم، أربعة أسطح، أربعة أدوار).\nكل شاشة في الانفنتوري لها لوح هنا على ٣٩٠، وأحجام ٨٣٤ و١٢٨٠/١٤٤٠ موجودة للشاشات اللي يتغيّر تخطيطها فعلًا (اليوم، أدويتي، قرار المراجع، سجل التدقيق، الصفحة الرئيسية) — والباقي يتبع قواعد البريك بوينتس في navigation.md داخل الديزاين سيستم: تاب بار بالجوال، سايد ريل من ٨٣٤، ناڤيجيشن ثابت وعرض محدود ~٨٨٠ بكسل بالديسكتوب.\nالاتجاه: كل الألواح RTL عدا لوح واحد بالإنجليزية (Today — English / LTR) يثبت أن الانعكاس من logical properties وأن الكبسولة والساعة والأرقام ما تنعكس.\nالبيانات كلها من Seed Dataset.md — نفس المرضى ونفس الأدوية ونفس الساعة المثبّتة ٢١ سبتمبر ٩:١٥ ص.\nالملزم يبقى Acceptance Criteria and Test Plan؛ هذي الرسمات تشرحه ولا تحلّ محله.",
+      "color": "blue",
+      "size": "m"
+    },
+    "g1": {
+      "x": 0,
+      "y": 2644,
+      "w": 2270,
+      "text": "قاعدة G1/G10 تتقرأ من هذا الصف: «اليوم — بدون متابعة» هو الوضع الافتراضي للمريض الجديد وأكثر شاشة راح تُشاهد بالمنتج. ولا بيل حالة، ولا زر «أخذته»، ولا تشيك بوكس، ولا سوايب. وغياب البيل مربوط بحقل tracked مو بكلمة الحالة — بالبيانات المعتمدة كل جرعة غير متابَعة حالتها upcoming، فأي كمبوننت يقرر من الكلمة يطلع صحيح هنا ويكسر أول ما تتفعّل المتابعة.",
+      "color": "orange",
+      "size": "s"
+    },
+    "g0": {
+      "x": 0,
+      "y": 4988,
+      "w": 2270,
+      "text": "بوابة الموافقة: قبل القبول ما تظهر ولا معلومة من ملف المريض — لا دواء، لا جرعة، لا تنبيه، ولا حتى عدد. القبول والرفض زرّان بنفس العرض والحجم والوزن. والاسم الماسك ثلاث نجوم دائمًا لكل اسم أوسط، مهما كان طوله الحقيقي. ورقم مدني بدون حساب يعطي نفس الرسالة بالضبط — ما فيه أي فرق بصري بين الحالتين.",
+      "color": "orange",
+      "size": "s"
+    }
+  },
+  "designSystems": [
+    {
+      "title": "Jur'ah — جرعة",
+      "namespace": "wasfa",
+      "artifact": "https://claude.ai/artifact/CjZzirza9E9CUPcchGoKtH",
+      "version": "1789922179-4517",
+      "copiedAt": "2026-09-21T09:33:29Z"
+    }
+  ]
+}

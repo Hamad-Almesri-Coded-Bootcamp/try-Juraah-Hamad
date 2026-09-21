@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>F1 · الدعوة بخطوتين</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/wasfa/components/bundle.css">
+<script src="ds/wasfa/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&amp;display=swap">
+<style>
+:root{
+  --surface-app:#f5f7fa; --surface-card:#ffffff; --navy:#062958; --navy-soft:#0b356f;
+  --navy-tint:#e8eef7; --ink-muted:#55637a; --border:#e2e8f1; --border-strong:#7d8da6;
+  --danger:#d5272c; --warning:#8a5200; --success:#0e7c61; --on-fill:#ffffff;
+  --font-sans:"IBM Plex Sans Arabic","IBM Plex Sans",system-ui,sans-serif;
+  --space-1:4px; --space-2:8px; --space-3:16px; --space-4:24px; --space-5:32px; --space-6:48px;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:20px; --radius-full:999px;
+  --shadow-sm:0 1px 2px rgba(6,41,88,.10), 0 1px 1px rgba(6,41,88,.06);
+  --shadow-md:0 8px 24px rgba(6,41,88,.18), 0 2px 6px rgba(6,41,88,.10);
+}
+body{margin:0;font-family:var(--font-sans);color:var(--navy);background:var(--surface-app)}
+a{color:var(--navy-soft)} a:hover{color:var(--navy)}
+h1,h2,h3,p{margin:0}
+.sec{font-size:20px;line-height:28px;font-weight:600;color:var(--navy)}
+.cap{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.sm{font-size:14px;line-height:20px;color:var(--ink-muted)}
+.bd{font-size:17px;line-height:26px}
+.bs{font-size:17px;line-height:26px;font-weight:600}
+.h1{font-size:26px;line-height:34px;font-weight:600}
+.dsp{font-size:32px;line-height:40px;font-weight:600}
+.scroll{flex-grow:1;overflow:hidden;display:flex;flex-direction:column;gap:16px;padding:16px}
+.timehead{display:flex;align-items:center;gap:8px;font-size:13px;line-height:16px;font-weight:600;letter-spacing:.02em;color:var(--ink-muted);padding-block:4px}
+.timehead::after{content:"";flex-grow:1;height:1px;background:var(--border)}
+.doserow{display:flex;align-items:center;gap:12px;background:var(--surface-card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow-sm)}
+.menurow{display:flex;align-items:center;gap:12px;background:var(--surface-card);border-bottom:1px solid var(--border);padding:14px 16px;min-height:44px}
+.card{background:var(--surface-card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:8px}
+.tint{background:var(--navy-tint);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.rowline{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-block:6px;border-bottom:1px solid var(--border)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--border);background:var(--surface-card);padding:4px 10px;font-size:13px;line-height:16px;font-weight:600;color:var(--ink-muted)}
+.masked{font-size:17px;line-height:26px;font-weight:600;letter-spacing:.02em}
+.th{font-size:13px;line-height:16px;font-weight:600;letter-spacing:.02em;color:var(--ink-muted);text-align:start;padding:8px 10px;border-bottom:1px solid var(--border)}
+.td{font-size:14px;line-height:20px;padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+.skel{background:var(--border);border-radius:8px}
+</style>
+</helmet>
+<div style="width:1240px;height:660px;box-sizing:border-box;display:flex;gap:24px;padding:24px;background:var(--surface-app);align-items:flex-start;"><div style="display:flex;flex-direction:column;gap:8px;"><span class="pill">١ · إدخال مرة واحدة</span><div style="width:360px;height:440px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--surface-app);overflow:hidden;border:1px solid var(--border-strong);border-radius:12px;">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+    <span class="sec">دعوة مقدّم رعاية</span>
+    <x-import component-from-global-scope="Wasfa.TextField" label="الرقم المدني" value="285061400412" dir="ltr" inputMode="numeric" helper-text="مرة واحدة فقط — ما نطلبه مرتين" lang="ar"></x-import>
+    <x-import component-from-global-scope="Wasfa.TextField" label="الاسم اللي تعرفه به" value="عبدالله" lang="ar"></x-import>
+    <x-import component-from-global-scope="Wasfa.TextField" label="صلة القرابة" value="ابني" lang="ar"></x-import>
+    <x-import component-from-global-scope="Wasfa.Button" variant="primary" size="lg" full-width="{{yes}}" lang="ar">متابعة</x-import>
+  </div></div><span class="cap" style="display:block;margin-top:6px;">ولا حقل هاتف، ولا كود، ولا إعادة كتابة.</span></div>
+<div style="display:flex;flex-direction:column;gap:8px;"><span class="pill">٢ · تأكيد الاسم الماسك</span><div style="width:360px;height:440px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--surface-app);overflow:hidden;border:1px solid var(--border-strong);border-radius:12px;">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+    <span class="sec">هذا هو الشخص؟</span>
+    <div class="tint" style="text-align:center;padding:20px;">
+      <span class="masked">عبدالله م*** ع*** المطيري</span>
+    </div>
+    <span class="sm">الأسماء الوسطى مخفية دائمًا بثلاث نجوم — مو بطولها الحقيقي.</span>
+    <div style="display:flex;gap:8px;"><x-import component-from-global-scope="Wasfa.Button" variant="primary" size="lg" full-width="{{yes}}" lang="ar">نعم، هذا هو</x-import><x-import component-from-global-scope="Wasfa.Button" variant="secondary" size="lg" full-width="{{yes}}" lang="ar">لا، أصحّح الرقم</x-import></div>
+    <x-import component-from-global-scope="Wasfa.InlineNotice" tone="info" title="هذي خطوة تأكيد — مو تصريح">حتى لو ضغطت «نعم»، ما يوصل لملفك إلا لو قبل هو الدعوة بنفسه.</x-import>
+  </div></div><span class="cap" style="display:block;margin-top:6px;">تقلّل خطأ الخانة الواحدة، وما تمنح صلاحية.</span></div>
+<div style="display:flex;flex-direction:column;gap:8px;"><span class="pill">٢ · نفس الخطوة · رقم بدون حساب</span><div style="width:360px;height:440px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--surface-app);overflow:hidden;border:1px solid var(--border-strong);border-radius:12px;">
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+    <span class="sec">تم إنشاء الدعوة</span>
+    <x-import component-from-global-scope="Wasfa.InlineNotice" tone="info" title="أرسلنا الدعوة">ما نقدر نقول إذا هذا الرقم مسجّل في جرعة أو لا.</x-import>
+    <span class="sm">نفس الرسالة بالضبط تطلع لو الرقم له حساب أو ما له — عشان التطبيق ما يصير أداة استعلام عن أسماء أصحاب الأرقام المدنية.</span>
+    <x-import component-from-global-scope="Wasfa.Button" variant="primary" size="lg" full-width="{{yes}}" lang="ar">تمام</x-import>
+  </div></div><span class="cap" style="display:block;margin-top:6px;">ما فيه أي فرق بصري بين الحالتين.</span></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1240,"height":660}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      yes: true,
+      tabs: [
+        { id: 'today', label: 'اليوم', icon: 'clock' },
+        { id: 'meds', label: 'أدويتي', icon: 'capsule' },
+        { id: 'safety', label: 'السلامة', icon: 'shield' },
+        { id: 'more', label: 'المزيد', icon: 'settings' }
+      ],
+      careTabs: [
+        { id: 'today', label: 'اليوم', icon: 'clock' },
+        { id: 'meds', label: 'الأدوية', icon: 'capsule' },
+        { id: 'more', label: 'المزيد', icon: 'settings' }
+      ],
+      clinicTabs: [
+        { id: 'review', label: 'مراجعة', icon: 'review' },
+        { id: 'audit', label: 'تدقيق', icon: 'inbox' }
+      ],
+      tabsEN: [
+        { id: 'today', label: 'Today', icon: 'clock' },
+        { id: 'meds', label: 'My Medicines', icon: 'capsule' },
+        { id: 'safety', label: 'Safety', icon: 'shield' },
+        { id: 'more', label: 'More', icon: 'settings' }
+      ],
+      rxWar: { drug: { genericName: 'Warfarin', brandName: 'Marevan', strengthMg: 5 }, source: { facilityName: 'مستشفى الفروانية', sector: 'public' } },
+      rxIbu: { drug: { genericName: 'Ibuprofen', brandName: 'Brufen', strengthMg: 400 }, source: { facilityName: 'عيادة النخبة الطبية', sector: 'private' } },
+      rxMet: { drug: { genericName: 'Metformin', brandName: 'Glucophage', strengthMg: 500 }, source: { facilityName: 'مستشفى الفروانية', sector: 'public' } },
+      rxLev: { drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin', strengthMg: 0.05, strengthDisplay: '50 mcg' }, source: { facilityName: 'مستشفى العدان', sector: 'public' } },
+      rxCal: { drug: { genericName: 'Calcium carbonate + D3', brandName: '', strengthMg: 500 }, source: { facilityName: 'عيادة النخبة الطبية', sector: 'private' } },
+      rxPre: { drug: { genericName: 'Prednisolone', brandName: 'Prednisolone', strengthMg: 5 }, source: { facilityName: 'مركز الصباح', sector: 'public' } },
+      dUp: { status: 'upcoming' }, dOn: { status: 'taken_on_time' },
+      dLate: { status: 'taken_late' }, dMiss: { status: 'missed' },
+      noop: function () {}
+    };
+  }
+}
+</script>
+</body>
+</html>

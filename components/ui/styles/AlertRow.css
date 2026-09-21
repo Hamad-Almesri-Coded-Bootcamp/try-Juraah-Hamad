@@ -1,0 +1,50 @@
+/* AlertRow — one interaction finding in a list (ReviewerQueue / FieldQueue / Safety board anatomy). */
+
+.jr-alert-row {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: 100%;
+  background: var(--surface-card);
+  border: var(--line) solid var(--border);
+  border-inline-start: var(--line-2) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  font-family: var(--font-sans);
+  text-align: start;
+  text-decoration: none;
+}
+a.jr-alert-row,
+button.jr-alert-row {
+  cursor: pointer;
+  min-block-size: var(--hit-area);
+}
+a.jr-alert-row:hover,
+button.jr-alert-row:hover {
+  border-color: var(--navy-soft);
+}
+.jr-alert-row--danger { border-inline-start-color: var(--danger); }
+.jr-alert-row--warning { border-inline-start-color: var(--warning); }
+.jr-alert-row--info { border-inline-start-color: var(--navy-soft); }
+
+.jr-alert-row__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.jr-alert-row__severity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+}
+.jr-alert-row--danger .jr-alert-row__severity { color: var(--danger); }
+.jr-alert-row--warning .jr-alert-row__severity { color: var(--warning); }
+.jr-alert-row--info .jr-alert-row__severity { color: var(--navy-soft); }
+.jr-alert-row__go { color: var(--navy); flex: none; }
+.jr-alert-row__title { color: var(--navy); }
+.jr-alert-row__meta { color: var(--ink-muted); }
+.jr-alert-row__review { color: var(--ink-muted); }

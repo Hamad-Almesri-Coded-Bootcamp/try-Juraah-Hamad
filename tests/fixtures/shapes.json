@@ -1,0 +1,4651 @@
+{
+  "signIn(حمد)": {
+    "kind": "single_role",
+    "session": {
+      "subjectId": "pt-01",
+      "role": "patient"
+    }
+  },
+  "getSession (as حمد)": {
+    "subjectId": "pt-01",
+    "role": "patient"
+  },
+  "getRoleOptions (as سارة)": [
+    {
+      "role": "patient",
+      "subjectId": "pt-03"
+    },
+    {
+      "role": "caregiver",
+      "subjectId": "cg-02",
+      "linkedPatientId": "pt-01",
+      "patientFirstName": "حمد",
+      "relationship": "ابنتي"
+    }
+  ],
+  "chooseRole (as سارة → patient)": {
+    "subjectId": "pt-03",
+    "role": "patient"
+  },
+  "getPatient(pt-01)": {
+    "id": "pt-01",
+    "name": "حمد سالم المطيري",
+    "language": "ar",
+    "onboardingCompleted": true,
+    "caregiverIds": [
+      "cg-01",
+      "cg-02",
+      "cg-03",
+      "cg-04",
+      "cg-05",
+      "cg-06",
+      "cg-07"
+    ]
+  },
+  "getSettings(pt-04, no row)": {
+    "adherenceCheckInEnabled": false,
+    "adherenceCheckInFrequency": "daily",
+    "refillAlertsEnabled": false,
+    "calendarSyncEnabled": false,
+    "webPushEnabled": false,
+    "notificationChannel": "none",
+    "language": "ar",
+    "patientId": "pt-04"
+  },
+  "getSettings(pt-01)": {
+    "patientId": "pt-01",
+    "adherenceCheckInEnabled": false,
+    "adherenceCheckInFrequency": "daily",
+    "refillAlertsEnabled": true,
+    "calendarSyncEnabled": false,
+    "webPushEnabled": false,
+    "notificationChannel": "none",
+    "language": "ar"
+  },
+  "updateSettings(pt-01)": {
+    "patientId": "pt-01",
+    "adherenceCheckInEnabled": false,
+    "adherenceCheckInFrequency": "daily",
+    "refillAlertsEnabled": true,
+    "calendarSyncEnabled": false,
+    "webPushEnabled": false,
+    "notificationChannel": "none",
+    "language": "ar"
+  },
+  "getPrescriptions(pt-01)": [
+    {
+      "id": "rx-001",
+      "patientId": "pt-01",
+      "source": {
+        "facilityName": "مستشفى الفروانية",
+        "sector": "public"
+      },
+      "drug": {
+        "genericName": "Warfarin",
+        "brandName": "Marevan",
+        "strengthMg": 5
+      },
+      "dosePerAdministration": 1,
+      "frequencyPerDay": 1,
+      "durationDays": 90,
+      "dosingPattern": "daily",
+      "startDate": "2026-09-01",
+      "doseTimes": [
+        "18:00"
+      ],
+      "dispensing": {
+        "unitsPerPackage": 90,
+        "totalQuantityDispensed": 90,
+        "dispenseDate": "2026-09-01"
+      },
+      "needsReview": false,
+      "status": "active"
+    },
+    {
+      "id": "rx-002",
+      "patientId": "pt-01",
+      "source": {
+        "facilityName": "عيادة النخبة الطبية",
+        "sector": "private"
+      },
+      "drug": {
+        "genericName": "Ibuprofen",
+        "brandName": "Brufen",
+        "strengthMg": 400
+      },
+      "dosePerAdministration": 1,
+      "frequencyPerDay": 3,
+      "durationDays": 7,
+      "dosingPattern": "daily",
+      "startDate": "2026-09-19",
+      "doseTimes": [
+        "08:00",
+        "14:00",
+        "20:00"
+      ],
+      "dispensing": {
+        "unitsPerPackage": 21,
+        "totalQuantityDispensed": 21,
+        "dispenseDate": "2026-09-19"
+      },
+      "needsReview": false,
+      "status": "active"
+    },
+    {
+      "id": "rx-003",
+      "patientId": "pt-01",
+      "source": {
+        "facilityName": "مستشفى الفروانية",
+        "sector": "public"
+      },
+      "drug": {
+        "genericName": "Metformin",
+        "brandName": "Glucophage",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1,
+      "frequencyPerDay": 2,
+      "durationDays": 180,
+      "dosingPattern": "daily",
+      "startDate": "2026-06-15",
+      "doseTimes": [
+        "08:00",
+        "20:00"
+      ],
+      "dispensing": {
+        "unitsPerPackage": 60,
+        "totalQuantityDispensed": 60,
+        "dispenseDate": "2026-09-01"
+      },
+      "needsReview": false,
+      "status": "active"
+    },
+    {
+      "id": "rx-004",
+      "patientId": "pt-01",
+      "source": {
+        "facilityName": "مستشفى الفروانية",
+        "sector": "public"
+      },
+      "drug": {
+        "genericName": "Atorvastatin",
+        "brandName": "Lipitor",
+        "strengthMg": 20
+      },
+      "dosePerAdministration": 1,
+      "frequencyPerDay": 1,
+      "durationDays": 90,
+      "dosingPattern": "daily",
+      "startDate": "2026-04-02",
+      "doseTimes": [
+        "21:00"
+      ],
+      "needsReview": false,
+      "status": "discontinued",
+      "discontinuedReason": "الطبيب أوقف الدواء بسبب آلام العضلات",
+      "discontinuedAt": "2026-06-28"
+    }
+  ],
+  "getPrescription(rx-001)": {
+    "id": "rx-001",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "مستشفى الفروانية",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Warfarin",
+      "brandName": "Marevan",
+      "strengthMg": 5
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 1,
+    "durationDays": 90,
+    "dosingPattern": "daily",
+    "startDate": "2026-09-01",
+    "doseTimes": [
+      "18:00"
+    ],
+    "dispensing": {
+      "unitsPerPackage": 90,
+      "totalQuantityDispensed": 90,
+      "dispenseDate": "2026-09-01"
+    },
+    "needsReview": false,
+    "status": "active"
+  },
+  "getDosesForDay(pt-01, 2026-09-21)": [
+    {
+      "id": "rx-002-20260921-0800",
+      "prescriptionId": "rx-002",
+      "scheduledAt": "2026-09-21T08:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Ibuprofen",
+        "brandName": "Brufen",
+        "strengthMg": 400
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-003-20260921-0800",
+      "prescriptionId": "rx-003",
+      "scheduledAt": "2026-09-21T08:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Metformin",
+        "brandName": "Glucophage",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-002-20260921-1400",
+      "prescriptionId": "rx-002",
+      "scheduledAt": "2026-09-21T14:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Ibuprofen",
+        "brandName": "Brufen",
+        "strengthMg": 400
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-001-20260921-1800",
+      "prescriptionId": "rx-001",
+      "scheduledAt": "2026-09-21T18:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Warfarin",
+        "brandName": "Marevan",
+        "strengthMg": 5
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-002-20260921-2000",
+      "prescriptionId": "rx-002",
+      "scheduledAt": "2026-09-21T20:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Ibuprofen",
+        "brandName": "Brufen",
+        "strengthMg": 400
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-003-20260921-2000",
+      "prescriptionId": "rx-003",
+      "scheduledAt": "2026-09-21T20:00:00+03:00",
+      "status": "upcoming",
+      "tracked": false,
+      "source": "seed",
+      "drug": {
+        "genericName": "Metformin",
+        "brandName": "Glucophage",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    }
+  ],
+  "getDoseHistory(rx-008)": [
+    {
+      "id": "rx-008-20260810-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260811-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260812-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260813-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260814-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260815-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260816-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260817-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260818-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260819-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-19T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260820-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-20T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260821-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-21T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260822-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260823-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260824-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260825-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260826-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260827-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260828-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260829-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260830-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260831-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-08-31T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260901-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260902-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260903-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260904-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260905-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260906-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-06T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260907-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-07T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260908-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-08T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260909-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-09T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260910-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260911-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260912-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260913-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260914-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260915-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260916-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260917-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260918-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260919-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-19T07:00:00+03:00",
+      "status": "missed",
+      "tracked": true,
+      "recordedAt": "2026-09-19T07:55:00+03:00",
+      "source": "adherence_agent"
+    },
+    {
+      "id": "rx-008-20260920-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-20T07:00:00+03:00",
+      "status": "taken_on_time",
+      "tracked": true,
+      "recordedAt": "2026-09-20T07:05:00+03:00",
+      "source": "adherence_agent"
+    },
+    {
+      "id": "rx-008-20260921-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-21T07:00:00+03:00",
+      "status": "taken_on_time",
+      "tracked": true,
+      "recordedAt": "2026-09-21T07:12:00+03:00",
+      "source": "adherence_agent"
+    },
+    {
+      "id": "rx-008-20260922-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260923-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260924-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260925-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260926-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260927-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260928-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260929-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20260930-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261001-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261002-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261003-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261004-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261005-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261006-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-06T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261007-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-07T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261008-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-08T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261009-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-09T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261010-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261011-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261012-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261013-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261014-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261015-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261016-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261017-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261018-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261019-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-19T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261020-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-20T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261021-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-21T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261022-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261023-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261024-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261025-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261026-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261027-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261028-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261029-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261030-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261031-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-10-31T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261101-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261102-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261103-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261104-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261105-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261106-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-06T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261107-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-07T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261108-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-08T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261109-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-09T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261110-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261111-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261112-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261113-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261114-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261115-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261116-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261117-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261118-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261119-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-19T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261120-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-20T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261121-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-21T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261122-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261123-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261124-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261125-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261126-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261127-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261128-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261129-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261130-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-11-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261201-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261202-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261203-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261204-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261205-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261206-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-06T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261207-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-07T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261208-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-08T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261209-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-09T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261210-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261211-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261212-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261213-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261214-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261215-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261216-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261217-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261218-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261219-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-19T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261220-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-20T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261221-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-21T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261222-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261223-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261224-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261225-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261226-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261227-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261228-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261229-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261230-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20261231-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-12-31T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270101-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270102-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270103-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270104-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270105-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270106-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-06T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270107-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-07T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270108-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-08T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270109-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-09T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270110-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-10T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270111-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-11T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270112-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-12T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270113-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-13T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270114-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270115-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270116-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270117-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270118-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270119-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-19T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270120-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-20T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270121-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-21T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270122-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-22T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270123-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-23T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270124-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-24T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270125-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-25T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270126-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-26T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270127-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-27T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270128-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-28T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270129-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-29T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270130-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-30T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270131-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-01-31T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270201-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-02-01T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270202-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-02-02T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270203-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-02-03T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270204-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-02-04T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    },
+    {
+      "id": "rx-008-20270205-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2027-02-05T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed"
+    }
+  ],
+  "getRecentDoses(pt-03, 7)": [
+    {
+      "id": "rx-008-20260914-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-14T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260914-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-14T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260914-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-14T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260915-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-15T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260915-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-15T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260915-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-15T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260916-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-16T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260916-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-16T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260916-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-16T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260917-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-17T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260917-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-17T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260917-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-17T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260918-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-18T07:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260918-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-18T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260918-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-18T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260919-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-19T07:00:00+03:00",
+      "status": "missed",
+      "tracked": true,
+      "recordedAt": "2026-09-19T07:55:00+03:00",
+      "source": "adherence_agent",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260919-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-19T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260919-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-19T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260920-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-20T07:00:00+03:00",
+      "status": "taken_on_time",
+      "tracked": true,
+      "recordedAt": "2026-09-20T07:05:00+03:00",
+      "source": "adherence_agent",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260920-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-20T13:00:00+03:00",
+      "status": "taken_on_time",
+      "tracked": true,
+      "recordedAt": "2026-09-20T13:20:00+03:00",
+      "source": "adherence_agent",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260920-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-20T21:00:00+03:00",
+      "status": "taken_late",
+      "tracked": true,
+      "recordedAt": "2026-09-20T22:40:00+03:00",
+      "source": "adherence_agent",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-008-20260921-0700",
+      "prescriptionId": "rx-008",
+      "scheduledAt": "2026-09-21T07:00:00+03:00",
+      "status": "taken_on_time",
+      "tracked": true,
+      "recordedAt": "2026-09-21T07:12:00+03:00",
+      "source": "adherence_agent",
+      "drug": {
+        "genericName": "Levothyroxine",
+        "brandName": "Eltroxin",
+        "strengthMg": 50,
+        "strengthUnit": "mcg"
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260921-1300",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-21T13:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    },
+    {
+      "id": "rx-009-20260921-2100",
+      "prescriptionId": "rx-009",
+      "scheduledAt": "2026-09-21T21:00:00+03:00",
+      "status": "upcoming",
+      "tracked": true,
+      "source": "seed",
+      "drug": {
+        "genericName": "Calcium carbonate + vitamin D3",
+        "strengthMg": 500
+      },
+      "dosePerAdministration": 1
+    }
+  ],
+  "submitPrescriptionImage(pt-01)": {
+    "kind": "confident",
+    "draftId": "draft-1",
+    "prescription": {
+      "drug": {
+        "genericName": "Ibuprofen",
+        "brandName": "Brufen",
+        "strengthMg": 400
+      },
+      "dosePerAdministration": 1,
+      "frequencyPerDay": 3,
+      "durationDays": 7,
+      "dosingPattern": "daily",
+      "doseTimes": [
+        "08:00",
+        "14:00",
+        "20:00"
+      ],
+      "needsReview": false,
+      "status": "active"
+    }
+  },
+  "savePrescriptionDraft(pt-01)": {
+    "id": "rx-draft-10",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Ibuprofen",
+      "brandName": "Brufen",
+      "strengthMg": 400
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 3,
+    "durationDays": 7,
+    "dosingPattern": "daily",
+    "doseTimes": [
+      "08:00",
+      "14:00",
+      "20:00"
+    ],
+    "needsReview": false,
+    "fieldReviewStatus": "pending",
+    "status": "active"
+  },
+  "getAlerts(pt-01)": [
+    {
+      "id": "ia-001",
+      "patientId": "pt-01",
+      "involvedPrescriptionIds": [
+        "rx-001",
+        "rx-002"
+      ],
+      "severity": "danger",
+      "description": "أخذ الوارفارين مع الإيبوبروفين يرفع خطر النزيف.",
+      "sourceCitation": "[TO BE SUPPLIED]",
+      "createdAt": "2026-09-19T11:04:00+03:00",
+      "reviewStatus": "pending_medical_review"
+    }
+  ],
+  "getAlert(ia-001)": {
+    "id": "ia-001",
+    "patientId": "pt-01",
+    "involvedPrescriptionIds": [
+      "rx-001",
+      "rx-002"
+    ],
+    "severity": "danger",
+    "description": "أخذ الوارفارين مع الإيبوبروفين يرفع خطر النزيف.",
+    "sourceCitation": "[TO BE SUPPLIED]",
+    "createdAt": "2026-09-19T11:04:00+03:00",
+    "reviewStatus": "pending_medical_review"
+  },
+  "checkDrugPhoto(pt-01)": {
+    "kind": "identified",
+    "drugName": "Warfarin",
+    "verdict": "interaction_found",
+    "alertId": "ia-001"
+  },
+  "getRefillOverview(pt-01)": [
+    {
+      "prescriptionId": "rx-001",
+      "genericName": "Warfarin",
+      "brandName": "Marevan",
+      "remaining": 70,
+      "total": 90,
+      "daysRemaining": 70,
+      "routedTo": "public_pharmacy"
+    },
+    {
+      "prescriptionId": "rx-002",
+      "genericName": "Ibuprofen",
+      "brandName": "Brufen",
+      "remaining": 15,
+      "total": 21,
+      "daysRemaining": 5,
+      "routedTo": "private_pharmacy"
+    },
+    {
+      "prescriptionId": "rx-003",
+      "genericName": "Metformin",
+      "brandName": "Glucophage",
+      "remaining": 20,
+      "total": 60,
+      "daysRemaining": 10,
+      "routedTo": "public_pharmacy"
+    },
+    {
+      "prescriptionId": "rx-draft-10",
+      "genericName": "Ibuprofen",
+      "brandName": "Brufen",
+      "remaining": null,
+      "total": null,
+      "daysRemaining": null,
+      "routedTo": "public_pharmacy"
+    }
+  ],
+  "requestRefill(pt-01, rx-002)": {
+    "id": "rf-03",
+    "patientId": "pt-01",
+    "prescriptionId": "rx-002",
+    "requestedAt": "2026-09-21T09:15:00+03:00",
+    "routedTo": "private_pharmacy",
+    "status": "requested"
+  },
+  "getRefillRequests(pt-01)": [
+    {
+      "id": "rf-01",
+      "patientId": "pt-01",
+      "prescriptionId": "rx-003",
+      "requestedAt": "2026-09-20T18:05:00+03:00",
+      "routedTo": "public_pharmacy",
+      "status": "requested"
+    },
+    {
+      "id": "rf-02",
+      "patientId": "pt-01",
+      "prescriptionId": "rx-001",
+      "requestedAt": "2026-08-20T09:00:00+03:00",
+      "routedTo": "public_pharmacy",
+      "status": "approved"
+    },
+    {
+      "id": "rf-03",
+      "patientId": "pt-01",
+      "prescriptionId": "rx-002",
+      "requestedAt": "2026-09-21T09:15:00+03:00",
+      "routedTo": "private_pharmacy",
+      "status": "requested"
+    }
+  ],
+  "getCalendarSubscription(pt-03)": {
+    "patientId": "pt-03",
+    "icsUrl": "webcal://jurah.app/calendar/pt-03.ics",
+    "token": "mock-token-cal-pt-03"
+  },
+  "enableCalendarSync(pt-01)": {
+    "patientId": "pt-01",
+    "icsUrl": "webcal://jurah.app/calendar/pt-01.ics",
+    "token": "mock-token-cal-pt-01"
+  },
+  "getActivity(pt-01)": [
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_in",
+      "message": "دخول عن طريق هويّاتي",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-live-0001"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_out",
+      "message": "خروج",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-live-0002"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Ibuprofen",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rx-draft-10",
+      "id": "ae-live-0003"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "refill_requested",
+      "message": "طلب تعبئة Ibuprofen",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rf-03",
+      "id": "ae-live-0004"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_out",
+      "message": "خروج",
+      "createdAt": "2026-09-20T21:30:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-044"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "refill_requested",
+      "message": "طلب تعبئة Metformin — يُوجَّه لصيدلية حكومية",
+      "createdAt": "2026-09-20T18:05:00+03:00",
+      "relatedId": "rf-01",
+      "id": "ae-043"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "alert_raised",
+      "message": "تنبيه تعارض خطير: Warfarin و Ibuprofen",
+      "createdAt": "2026-09-19T11:04:00+03:00",
+      "relatedId": "ia-001",
+      "id": "ae-039"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Ibuprofen",
+      "createdAt": "2026-09-19T09:00:00+03:00",
+      "relatedId": "rx-002",
+      "id": "ae-038"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى ناصر ح*** المطيري",
+      "createdAt": "2026-09-18T20:10:00+03:00",
+      "relatedId": "cg-03",
+      "id": "ae-035"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-04"
+      },
+      "type": "caregiver_invite_declined",
+      "message": "منى خ*** المطيري رفضت الدعوة",
+      "createdAt": "2026-09-10T14:22:00+03:00",
+      "relatedId": "cg-04",
+      "id": "ae-030"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى منى خ*** المطيري",
+      "createdAt": "2026-09-10T12:00:00+03:00",
+      "relatedId": "cg-04",
+      "id": "ae-029"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-01"
+      },
+      "type": "messaging_connected",
+      "message": "تم ربط تيليقرام",
+      "createdAt": "2026-09-03T18:25:00+03:00",
+      "relatedId": "ml-04",
+      "id": "ae-025"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-01"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "عبدالله م*** ع*** المطيري قبل الدعوة",
+      "createdAt": "2026-09-03T18:20:00+03:00",
+      "relatedId": "cg-01",
+      "id": "ae-024"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى عبدالله م*** ع*** المطيري",
+      "createdAt": "2026-09-02T12:00:00+03:00",
+      "relatedId": "cg-01",
+      "id": "ae-023"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Warfarin",
+      "createdAt": "2026-09-01T09:00:00+03:00",
+      "relatedId": "rx-001",
+      "id": "ae-022"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_revoked",
+      "message": "سُحبت صلاحية طلال ع*** المطيري",
+      "createdAt": "2026-08-28T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-021"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "system"
+      },
+      "type": "refill_status_changed",
+      "message": "تغيّرت حالة طلب تعبئة Warfarin إلى: تمت الموافقة",
+      "createdAt": "2026-08-25T10:00:00+03:00",
+      "relatedId": "rf-02",
+      "id": "ae-020"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-02"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "سارة ي*** العجمي قبلت الدعوة",
+      "createdAt": "2026-08-20T12:05:00+03:00",
+      "relatedId": "cg-02",
+      "id": "ae-019"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى سارة ي*** العجمي",
+      "createdAt": "2026-08-20T12:00:00+03:00",
+      "relatedId": "cg-02",
+      "id": "ae-018"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "system"
+      },
+      "type": "caregiver_invite_expired",
+      "message": "انتهت صلاحية دعوة مقدّم رعاية",
+      "createdAt": "2026-08-15T12:00:00+03:00",
+      "relatedId": "cg-05",
+      "id": "ae-017"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية أُرسلت",
+      "createdAt": "2026-08-01T12:00:00+03:00",
+      "relatedId": "cg-05",
+      "id": "ae-010"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-06"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "طلال ع*** المطيري قبل الدعوة",
+      "createdAt": "2026-07-11T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-009"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى طلال ع*** المطيري",
+      "createdAt": "2026-07-10T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-008"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Metformin",
+      "createdAt": "2026-06-15T09:00:00+03:00",
+      "relatedId": "rx-003",
+      "id": "ae-005"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invite_cancelled",
+      "message": "أُلغيت دعوة دلال ع*** المطيري",
+      "createdAt": "2026-06-06T12:00:00+03:00",
+      "relatedId": "cg-07",
+      "id": "ae-004"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى دلال ع*** المطيري",
+      "createdAt": "2026-06-05T12:00:00+03:00",
+      "relatedId": "cg-07",
+      "id": "ae-003"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "messaging_disconnected",
+      "message": "تم فصل تيليقرام",
+      "createdAt": "2026-05-01T12:00:00+03:00",
+      "relatedId": "ml-01",
+      "id": "ae-002"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Atorvastatin",
+      "createdAt": "2026-04-02T09:00:00+03:00",
+      "relatedId": "rx-004",
+      "id": "ae-001"
+    }
+  ],
+  "getPushCapability()": {
+    "supported": true,
+    "iosNeedsInstall": false
+  },
+  "getPushState(patient:pt-03)": {
+    "id": "ps-03",
+    "subjectType": "patient",
+    "subjectId": "pt-03",
+    "status": "active",
+    "permission": "granted",
+    "createdAt": "2026-08-11T12:15:00+03:00"
+  },
+  "requestPushPermission(patient:pt-01)": {
+    "id": "ps-01",
+    "subjectType": "patient",
+    "subjectId": "pt-01",
+    "status": "active",
+    "permission": "granted",
+    "createdAt": "2026-01-01T12:00:00+03:00"
+  },
+  "getMessagingLink(patient:pt-02)": {
+    "id": "ml-05",
+    "subjectType": "patient",
+    "subjectId": "pt-02",
+    "channel": "telegram",
+    "status": "pending",
+    "linkToken": "mock-token-ml-05"
+  },
+  "startMessagingLink(caregiver:cg-01)": {
+    "id": "ml-live-1",
+    "subjectType": "caregiver",
+    "subjectId": "cg-01",
+    "channel": "telegram",
+    "status": "pending",
+    "linkToken": "mock-token-live-1"
+  },
+  "getCaregivers(pt-01)": [
+    {
+      "id": "cg-01",
+      "name": "عبدالله محمد عبدالعزيز المطيري",
+      "relationship": "ابني",
+      "linkedPatientId": "pt-01",
+      "status": "active",
+      "invitedAt": "2026-09-02T12:00:00+03:00",
+      "expiresAt": "2026-09-16T12:00:00+03:00",
+      "acceptedAt": "2026-09-03T18:20:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-02",
+      "name": "سارة يوسف العجمي",
+      "relationship": "ابنتي",
+      "linkedPatientId": "pt-01",
+      "status": "active",
+      "invitedAt": "2026-08-20T12:00:00+03:00",
+      "expiresAt": "2026-09-03T12:00:00+03:00",
+      "acceptedAt": "2026-08-20T12:05:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-03",
+      "name": "ناصر حمد المطيري",
+      "relationship": "ابني",
+      "linkedPatientId": "pt-01",
+      "status": "pending",
+      "invitedAt": "2026-09-18T20:10:00+03:00",
+      "expiresAt": "2026-10-02T20:10:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-04",
+      "name": "منى خالد المطيري",
+      "relationship": "زوجة ابني",
+      "linkedPatientId": "pt-01",
+      "status": "declined",
+      "invitedAt": "2026-09-10T12:00:00+03:00",
+      "expiresAt": "2026-09-24T12:00:00+03:00",
+      "declinedAt": "2026-09-10T14:22:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-05",
+      "name": "[TO BE SUPPLIED]",
+      "relationship": "قريب",
+      "linkedPatientId": "pt-01",
+      "status": "expired",
+      "invitedAt": "2026-08-01T12:00:00+03:00",
+      "expiresAt": "2026-08-15T12:00:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-06",
+      "name": "طلال عبدالله المطيري",
+      "relationship": "حفيدي",
+      "linkedPatientId": "pt-01",
+      "status": "revoked",
+      "invitedAt": "2026-07-10T12:00:00+03:00",
+      "expiresAt": "2026-07-24T12:00:00+03:00",
+      "acceptedAt": "2026-07-11T12:00:00+03:00",
+      "revokedAt": "2026-08-28T12:00:00+03:00",
+      "accessLevel": "read_only"
+    },
+    {
+      "id": "cg-07",
+      "name": "دلال عبدالرحمن المطيري",
+      "relationship": "ابنة أخي",
+      "linkedPatientId": "pt-01",
+      "status": "revoked",
+      "invitedAt": "2026-06-05T12:00:00+03:00",
+      "expiresAt": "2026-06-19T12:00:00+03:00",
+      "revokedAt": "2026-06-06T12:00:00+03:00",
+      "accessLevel": "read_only"
+    }
+  ],
+  "lookupMaskedName(عبدالله, has an account)": {
+    "maskedName": "عبدالله م*** ع*** المطيري"
+  },
+  "lookupMaskedName(no account)": {
+    "maskedName": null
+  },
+  "inviteCaregiver(pt-01)": {
+    "id": "cg-09",
+    "name": "اختبار",
+    "relationship": "قريب",
+    "linkedPatientId": "pt-01",
+    "status": "pending",
+    "invitedAt": "2026-09-21T09:15:00+03:00",
+    "expiresAt": "2026-10-05T09:15:00+03:00",
+    "accessLevel": "read_only"
+  },
+  "getPendingInvitationsForSubject (as سارة)": [
+    {
+      "id": "cg-08",
+      "patientFirstName": "فاطمة",
+      "relationship": "ابنة أختي",
+      "status": "pending",
+      "expiresAt": "2026-10-04T09:30:00+03:00"
+    }
+  ],
+  "getInvitationForConsent(cg-08)": {
+    "id": "cg-08",
+    "patientFirstName": "فاطمة",
+    "relationship": "ابنة أختي",
+    "status": "pending",
+    "expiresAt": "2026-10-04T09:30:00+03:00"
+  },
+  "acceptInvitation(cg-03, as ناصر)": {
+    "subjectId": "cg-03",
+    "role": "caregiver",
+    "linkedPatientId": "pt-01"
+  },
+  "getCaregiverLink(cg-03)": {
+    "patientId": "pt-01",
+    "patientFirstName": "حمد",
+    "acceptedAt": "2026-09-21T09:15:00+03:00"
+  },
+  "getReviewQueue (as د. خالد)": [
+    {
+      "alertId": "ia-001",
+      "patientId": "pt-01",
+      "patientFirstName": "حمد",
+      "severity": "danger",
+      "drugNames": [
+        "Warfarin",
+        "Ibuprofen"
+      ],
+      "createdAt": "2026-09-19T11:04:00+03:00"
+    }
+  ],
+  "getFieldConfirmationQueue (as د. خالد)": [
+    {
+      "prescriptionId": "rx-006",
+      "patientId": "pt-02",
+      "patientFirstName": "فاطمة",
+      "genericName": "(unreadable)",
+      "uncertainFields": [
+        "strengthMg",
+        "frequencyPerDay",
+        "startDate",
+        "doseTimes"
+      ],
+      "hasSourceImage": true
+    }
+  ],
+  "getAlertForReview(ia-001, as د. خالد)": {
+    "alert": {
+      "id": "ia-001",
+      "patientId": "pt-01",
+      "involvedPrescriptionIds": [
+        "rx-001",
+        "rx-002"
+      ],
+      "severity": "danger",
+      "description": "أخذ الوارفارين مع الإيبوبروفين يرفع خطر النزيف.",
+      "sourceCitation": "[TO BE SUPPLIED]",
+      "createdAt": "2026-09-19T11:04:00+03:00",
+      "reviewStatus": "pending_medical_review"
+    },
+    "involvedPrescriptions": [
+      {
+        "id": "rx-001",
+        "patientId": "pt-01",
+        "source": {
+          "facilityName": "مستشفى الفروانية",
+          "sector": "public"
+        },
+        "drug": {
+          "genericName": "Warfarin",
+          "brandName": "Marevan",
+          "strengthMg": 5
+        },
+        "dosePerAdministration": 1,
+        "frequencyPerDay": 1,
+        "durationDays": 90,
+        "dosingPattern": "daily",
+        "startDate": "2026-09-01",
+        "doseTimes": [
+          "18:00"
+        ],
+        "dispensing": {
+          "unitsPerPackage": 90,
+          "totalQuantityDispensed": 90,
+          "dispenseDate": "2026-09-01"
+        },
+        "needsReview": false,
+        "status": "active"
+      },
+      {
+        "id": "rx-002",
+        "patientId": "pt-01",
+        "source": {
+          "facilityName": "عيادة النخبة الطبية",
+          "sector": "private"
+        },
+        "drug": {
+          "genericName": "Ibuprofen",
+          "brandName": "Brufen",
+          "strengthMg": 400
+        },
+        "dosePerAdministration": 1,
+        "frequencyPerDay": 3,
+        "durationDays": 7,
+        "dosingPattern": "daily",
+        "startDate": "2026-09-19",
+        "doseTimes": [
+          "08:00",
+          "14:00",
+          "20:00"
+        ],
+        "dispensing": {
+          "unitsPerPackage": 21,
+          "totalQuantityDispensed": 21,
+          "dispenseDate": "2026-09-19"
+        },
+        "needsReview": false,
+        "status": "active"
+      }
+    ],
+    "patientContext": {
+      "activePrescriptions": [
+        {
+          "id": "rx-001",
+          "patientId": "pt-01",
+          "source": {
+            "facilityName": "مستشفى الفروانية",
+            "sector": "public"
+          },
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1,
+          "frequencyPerDay": 1,
+          "durationDays": 90,
+          "dosingPattern": "daily",
+          "startDate": "2026-09-01",
+          "doseTimes": [
+            "18:00"
+          ],
+          "dispensing": {
+            "unitsPerPackage": 90,
+            "totalQuantityDispensed": 90,
+            "dispenseDate": "2026-09-01"
+          },
+          "needsReview": false,
+          "status": "active"
+        },
+        {
+          "id": "rx-002",
+          "patientId": "pt-01",
+          "source": {
+            "facilityName": "عيادة النخبة الطبية",
+            "sector": "private"
+          },
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1,
+          "frequencyPerDay": 3,
+          "durationDays": 7,
+          "dosingPattern": "daily",
+          "startDate": "2026-09-19",
+          "doseTimes": [
+            "08:00",
+            "14:00",
+            "20:00"
+          ],
+          "dispensing": {
+            "unitsPerPackage": 21,
+            "totalQuantityDispensed": 21,
+            "dispenseDate": "2026-09-19"
+          },
+          "needsReview": false,
+          "status": "active"
+        },
+        {
+          "id": "rx-003",
+          "patientId": "pt-01",
+          "source": {
+            "facilityName": "مستشفى الفروانية",
+            "sector": "public"
+          },
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1,
+          "frequencyPerDay": 2,
+          "durationDays": 180,
+          "dosingPattern": "daily",
+          "startDate": "2026-06-15",
+          "doseTimes": [
+            "08:00",
+            "20:00"
+          ],
+          "dispensing": {
+            "unitsPerPackage": 60,
+            "totalQuantityDispensed": 60,
+            "dispenseDate": "2026-09-01"
+          },
+          "needsReview": false,
+          "status": "active"
+        },
+        {
+          "id": "rx-draft-10",
+          "patientId": "pt-01",
+          "source": {
+            "facilityName": "",
+            "sector": "public"
+          },
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1,
+          "frequencyPerDay": 3,
+          "durationDays": 7,
+          "dosingPattern": "daily",
+          "doseTimes": [
+            "08:00",
+            "14:00",
+            "20:00"
+          ],
+          "needsReview": false,
+          "fieldReviewStatus": "pending",
+          "status": "active"
+        }
+      ],
+      "recentDoses": [
+        {
+          "id": "rx-003-20260907-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-07T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260907-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-07T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260907-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-07T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260908-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-08T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260908-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-08T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260908-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-08T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260909-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-09T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260909-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-09T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260909-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-09T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260910-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-10T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260910-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-10T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260910-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-10T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260911-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-11T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260911-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-11T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260911-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-11T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260912-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-12T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260912-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-12T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260912-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-12T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260913-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-13T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260913-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-13T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260913-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-13T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260914-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-14T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260914-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-14T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260914-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-14T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260915-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-15T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260915-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-15T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260915-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-15T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260916-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-16T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260916-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-16T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260916-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-16T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260917-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-17T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260917-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-17T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260917-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-17T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260918-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-18T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260918-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-18T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260918-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-18T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260919-0800",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-19T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260919-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-19T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260919-1400",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-19T14:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260919-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-19T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260919-2000",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-19T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260919-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-19T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260920-0800",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-20T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260920-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-20T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260920-1400",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-20T14:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260920-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-20T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260920-2000",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-20T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260920-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-20T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260921-0800",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-21T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260921-0800",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-21T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260921-1400",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-21T14:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-001-20260921-1800",
+          "prescriptionId": "rx-001",
+          "scheduledAt": "2026-09-21T18:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Warfarin",
+            "brandName": "Marevan",
+            "strengthMg": 5
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-002-20260921-2000",
+          "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-21T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-003-20260921-2000",
+          "prescriptionId": "rx-003",
+          "scheduledAt": "2026-09-21T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Metformin",
+            "brandName": "Glucophage",
+            "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        }
+      ],
+      "trackingOn": false
+    }
+  },
+  "getFlaggedPrescription(rx-006, as د. خالد)": {
+    "id": "rx-006",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "عيادة الياسمين",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "(unreadable)"
+    },
+    "dosePerAdministration": 1,
+    "durationDays": 30,
+    "dosingPattern": "daily",
+    "needsReview": true,
+    "fieldReviewStatus": "pending",
+    "status": "active"
+  },
+  "confirmPrescriptionFields(rx-006, as د. خالد)": {
+    "id": "rx-006",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "عيادة الياسمين",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "Paracetamol"
+    },
+    "dosePerAdministration": 1,
+    "durationDays": 30,
+    "dosingPattern": "daily",
+    "needsReview": false,
+    "fieldReviewStatus": "confirmed",
+    "status": "active",
+    "frequencyPerDay": 1,
+    "startDate": "2026-09-20",
+    "doseTimes": [
+      "09:00"
+    ],
+    "fieldReviewedBy": "acc-10",
+    "fieldReviewedAt": "2026-09-21T09:15:00+03:00",
+    "fieldReviewNote": "تم التأكيد"
+  },
+  "returnPrescriptionToClinic(rx-007, as د. خالد)": {
+    "id": "rx-007",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "عيادة الياسمين",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "Ciprofloxacin",
+      "strengthMg": 500
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 2,
+    "durationDays": 7,
+    "dosingPattern": "daily",
+    "doseTimes": [
+      "09:00",
+      "21:00"
+    ],
+    "needsReview": true,
+    "fieldReviewStatus": "returned",
+    "fieldReviewNote": "الجرعة غير واضحة",
+    "fieldReviewedBy": "acc-10",
+    "fieldReviewedAt": "2026-09-21T09:15:00+03:00",
+    "status": "active"
+  },
+  "getAuditLog (as م. دانة)": [
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_in",
+      "message": "دخول عن طريق هويّاتي",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-live-0001"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_out",
+      "message": "خروج",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-live-0002"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Ibuprofen",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rx-draft-10",
+      "id": "ae-live-0003"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "refill_requested",
+      "message": "طلب تعبئة Ibuprofen",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rf-03",
+      "id": "ae-live-0004"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "push_enabled",
+      "message": "تفعيل إشعارات المتصفح",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "ps-01",
+      "id": "ae-live-0005"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "push_disabled",
+      "message": "إيقاف إشعارات المتصفح",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "ps-01",
+      "id": "ae-live-0006"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "system"
+      },
+      "type": "tracking_disabled",
+      "message": "أُوقفت متابعة الجرعات",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "pt-03",
+      "id": "ae-live-0007"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "messaging_disconnected",
+      "message": "تم فصل تيليقرام",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "ml-03",
+      "id": "ae-live-0008"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية أُرسلت",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-09",
+      "id": "ae-live-0009"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient"
+      },
+      "type": "caregiver_invite_cancelled",
+      "message": "أُلغيت دعوة اختبار",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-09",
+      "id": "ae-live-0010"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient"
+      },
+      "type": "caregiver_revoked",
+      "message": "سُحبت صلاحية عبدالله",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-01",
+      "id": "ae-live-0011"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-03"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "ناصر قبل الدعوة",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-03",
+      "id": "ae-live-0012"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-08"
+      },
+      "type": "caregiver_invite_declined",
+      "message": "سارة رفضت الدعوة",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-08",
+      "id": "ae-live-0013"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-03"
+      },
+      "type": "caregiver_self_unlinked",
+      "message": "ناصر ألغى ربط نفسه",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "cg-03",
+      "id": "ae-live-0014"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "alert_reviewed",
+      "message": "مراجعة تنبيه — تأكيد",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "ia-001",
+      "id": "ae-live-0015"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "prescription_field_confirmed",
+      "message": "تأكيد بيانات وصفة Paracetamol",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rx-006",
+      "id": "ae-live-0016"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "prescription_returned_to_clinic",
+      "message": "أُعيدت وصفة Ciprofloxacin للعيادة",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rx-007",
+      "id": "ae-live-0017"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "dose_status_recorded",
+      "message": "تسجيل حالة جرعة — في وقتها: Levothyroxine",
+      "createdAt": "2026-09-21T07:12:00+03:00",
+      "relatedId": "rx-008-20260921-0700",
+      "id": "ae-047"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "signed_in",
+      "message": "دخول عن طريق هويّاتي",
+      "createdAt": "2026-09-21T06:02:00+03:00",
+      "relatedId": "pt-03",
+      "id": "ae-046"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "dose_status_recorded",
+      "message": "تسجيل حالة جرعة — متأخرة: Calcium carbonate + D3",
+      "createdAt": "2026-09-20T22:40:00+03:00",
+      "relatedId": "rx-009-20260920-2100",
+      "id": "ae-045"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "signed_out",
+      "message": "خروج",
+      "createdAt": "2026-09-20T21:30:00+03:00",
+      "relatedId": "pt-01",
+      "id": "ae-044"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "refill_requested",
+      "message": "طلب تعبئة Metformin — يُوجَّه لصيدلية حكومية",
+      "createdAt": "2026-09-20T18:05:00+03:00",
+      "relatedId": "rf-01",
+      "id": "ae-043"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "dose_status_recorded",
+      "message": "تسجيل حالة جرعة — في وقتها: Calcium carbonate + D3",
+      "createdAt": "2026-09-20T13:20:00+03:00",
+      "relatedId": "rx-009-20260920-1300",
+      "id": "ae-042"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى سارة ي*** العجمي",
+      "createdAt": "2026-09-20T09:30:00+03:00",
+      "relatedId": "cg-08",
+      "id": "ae-041"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "dose_status_recorded",
+      "message": "تسجيل حالة جرعة — في وقتها: Levothyroxine",
+      "createdAt": "2026-09-20T07:05:00+03:00",
+      "relatedId": "rx-008-20260920-0700",
+      "id": "ae-040"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "alert_raised",
+      "message": "تنبيه تعارض خطير: Warfarin و Ibuprofen",
+      "createdAt": "2026-09-19T11:04:00+03:00",
+      "relatedId": "ia-001",
+      "id": "ae-039"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Ibuprofen",
+      "createdAt": "2026-09-19T09:00:00+03:00",
+      "relatedId": "rx-002",
+      "id": "ae-038"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "system"
+      },
+      "type": "schedule_recomputed",
+      "message": "إعادة حساب جدول Levothyroxine بعد جرعة فائتة",
+      "createdAt": "2026-09-19T07:56:00+03:00",
+      "relatedId": "rx-008",
+      "id": "ae-037"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "agent"
+      },
+      "type": "dose_status_recorded",
+      "message": "تسجيل حالة جرعة — فائتة: Levothyroxine",
+      "createdAt": "2026-09-19T07:55:00+03:00",
+      "relatedId": "rx-008-20260919-0700",
+      "id": "ae-036"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى ناصر ح*** المطيري",
+      "createdAt": "2026-09-18T20:10:00+03:00",
+      "relatedId": "cg-03",
+      "id": "ae-035"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة غير مقروءة",
+      "createdAt": "2026-09-17T09:00:00+03:00",
+      "relatedId": "rx-006",
+      "id": "ae-034"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "prescription_returned_to_clinic",
+      "message": "أُعيدت وصفة Ciprofloxacin للعيادة",
+      "createdAt": "2026-09-16T10:00:00+03:00",
+      "relatedId": "rx-007",
+      "id": "ae-033"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Ciprofloxacin",
+      "createdAt": "2026-09-15T09:00:00+03:00",
+      "relatedId": "rx-007",
+      "id": "ae-032"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Prednisolone",
+      "createdAt": "2026-09-14T09:00:00+03:00",
+      "relatedId": "rx-005",
+      "id": "ae-031"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-04"
+      },
+      "type": "caregiver_invite_declined",
+      "message": "منى خ*** المطيري رفضت الدعوة",
+      "createdAt": "2026-09-10T14:22:00+03:00",
+      "relatedId": "cg-04",
+      "id": "ae-030"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى منى خ*** المطيري",
+      "createdAt": "2026-09-10T12:00:00+03:00",
+      "relatedId": "cg-04",
+      "id": "ae-029"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "alert_reviewed",
+      "message": "مراجعة تنبيه: Levothyroxine و Calcium — تأكيد",
+      "createdAt": "2026-09-08T12:40:00+03:00",
+      "relatedId": "ia-002",
+      "id": "ae-028"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "reviewer",
+        "id": "acc-10"
+      },
+      "type": "prescription_field_confirmed",
+      "message": "تأكيد بيانات وصفة Calcium carbonate + D3",
+      "createdAt": "2026-09-06T10:00:00+03:00",
+      "relatedId": "rx-009",
+      "id": "ae-027"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Calcium carbonate + D3",
+      "createdAt": "2026-09-05T09:00:00+03:00",
+      "relatedId": "rx-009",
+      "id": "ae-026"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-01"
+      },
+      "type": "messaging_connected",
+      "message": "تم ربط تيليقرام",
+      "createdAt": "2026-09-03T18:25:00+03:00",
+      "relatedId": "ml-04",
+      "id": "ae-025"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-01"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "عبدالله م*** ع*** المطيري قبل الدعوة",
+      "createdAt": "2026-09-03T18:20:00+03:00",
+      "relatedId": "cg-01",
+      "id": "ae-024"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى عبدالله م*** ع*** المطيري",
+      "createdAt": "2026-09-02T12:00:00+03:00",
+      "relatedId": "cg-01",
+      "id": "ae-023"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Warfarin",
+      "createdAt": "2026-09-01T09:00:00+03:00",
+      "relatedId": "rx-001",
+      "id": "ae-022"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_revoked",
+      "message": "سُحبت صلاحية طلال ع*** المطيري",
+      "createdAt": "2026-08-28T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-021"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "system"
+      },
+      "type": "refill_status_changed",
+      "message": "تغيّرت حالة طلب تعبئة Warfarin إلى: تمت الموافقة",
+      "createdAt": "2026-08-25T10:00:00+03:00",
+      "relatedId": "rf-02",
+      "id": "ae-020"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-02"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "سارة ي*** العجمي قبلت الدعوة",
+      "createdAt": "2026-08-20T12:05:00+03:00",
+      "relatedId": "cg-02",
+      "id": "ae-019"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى سارة ي*** العجمي",
+      "createdAt": "2026-08-20T12:00:00+03:00",
+      "relatedId": "cg-02",
+      "id": "ae-018"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "system"
+      },
+      "type": "caregiver_invite_expired",
+      "message": "انتهت صلاحية دعوة مقدّم رعاية",
+      "createdAt": "2026-08-15T12:00:00+03:00",
+      "relatedId": "cg-05",
+      "id": "ae-017"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "push_disabled",
+      "message": "إيقاف إشعارات المتصفح",
+      "createdAt": "2026-08-15T10:00:00+03:00",
+      "relatedId": "ps-03",
+      "id": "ae-016"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "push_enabled",
+      "message": "تفعيل إشعارات المتصفح",
+      "createdAt": "2026-08-11T12:15:00+03:00",
+      "relatedId": "ps-03",
+      "id": "ae-015"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "tracking_enabled",
+      "message": "تفعيل متابعة الجرعات",
+      "createdAt": "2026-08-11T12:10:00+03:00",
+      "relatedId": "pt-03",
+      "id": "ae-014"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "messaging_connected",
+      "message": "تم ربط تيليقرام",
+      "createdAt": "2026-08-11T12:00:00+03:00",
+      "relatedId": "ml-03",
+      "id": "ae-013"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-03",
+      "actor": {
+        "role": "patient",
+        "id": "pt-03"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Levothyroxine",
+      "createdAt": "2026-08-10T09:00:00+03:00",
+      "relatedId": "rx-008",
+      "id": "ae-012"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "system"
+      },
+      "type": "tracking_disabled",
+      "message": "أُوقفت متابعة الجرعات — انتهت صلاحية رابط تيليقرام",
+      "createdAt": "2026-08-05T12:00:00+03:00",
+      "relatedId": "pt-02",
+      "id": "ae-011"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية أُرسلت",
+      "createdAt": "2026-08-01T12:00:00+03:00",
+      "relatedId": "cg-05",
+      "id": "ae-010"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "caregiver",
+        "id": "cg-06"
+      },
+      "type": "caregiver_invite_accepted",
+      "message": "طلال ع*** المطيري قبل الدعوة",
+      "createdAt": "2026-07-11T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-009"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى طلال ع*** المطيري",
+      "createdAt": "2026-07-10T12:00:00+03:00",
+      "relatedId": "cg-06",
+      "id": "ae-008"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "tracking_enabled",
+      "message": "تفعيل متابعة الجرعات",
+      "createdAt": "2026-07-01T12:05:00+03:00",
+      "relatedId": "pt-02",
+      "id": "ae-007"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "messaging_connected",
+      "message": "تم ربط تيليقرام",
+      "createdAt": "2026-07-01T12:00:00+03:00",
+      "relatedId": "ml-02",
+      "id": "ae-006"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Metformin",
+      "createdAt": "2026-06-15T09:00:00+03:00",
+      "relatedId": "rx-003",
+      "id": "ae-005"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invite_cancelled",
+      "message": "أُلغيت دعوة دلال ع*** المطيري",
+      "createdAt": "2026-06-06T12:00:00+03:00",
+      "relatedId": "cg-07",
+      "id": "ae-004"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "caregiver_invited",
+      "message": "دعوة مقدّم رعاية إلى دلال ع*** المطيري",
+      "createdAt": "2026-06-05T12:00:00+03:00",
+      "relatedId": "cg-07",
+      "id": "ae-003"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "messaging_disconnected",
+      "message": "تم فصل تيليقرام",
+      "createdAt": "2026-05-01T12:00:00+03:00",
+      "relatedId": "ml-01",
+      "id": "ae-002"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-01",
+      "actor": {
+        "role": "patient",
+        "id": "pt-01"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة Atorvastatin",
+      "createdAt": "2026-04-02T09:00:00+03:00",
+      "relatedId": "rx-004",
+      "id": "ae-001"
+    }
+  ],
+  "readLastKnownSnapshot(getPatient:pt-01)": {
+    "data": {
+      "id": "pt-01",
+      "name": "حمد سالم المطيري",
+      "language": "ar",
+      "onboardingCompleted": true,
+      "caregiverIds": [
+        "cg-01",
+        "cg-02",
+        "cg-03",
+        "cg-04",
+        "cg-05",
+        "cg-06",
+        "cg-07",
+        "cg-09"
+      ]
+    },
+    "asOf": "2026-09-21T09:15:00+03:00"
+  }
+}

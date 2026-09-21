@@ -19,6 +19,14 @@ The binding documents live in `/docs`. In this order:
 7. `docs/Phase 2 — Backend Handoff.md` — **section 3 only** during Phase 1: it specifies
    `docs/BACKEND-NOTES.md`, which you write *as you go*, not at the end.
 
+8. `docs/wireframes/` — **the approved layout for every screen.** 48 artboards, one per screen
+   (plus state sets). Read its `README.md` first: the files are layout references, not runnable
+   pages, and each one names the exact component and props to use. Build to these.
+9. `docs/design-system/` — the design system, offline: the brand book, `navigation.md` (how the
+   screens connect), `tokens.json` (every value with its usage note), `index.d.ts` (every
+   component's props) and `components/<Name>.md` (per-component rules). You never need to open
+   the published artifact to port a component.
+
 `docs/Build Prompts.md` (design-system and design prompts) and `docs/AI Agents Acceptance
 Criteria.md` (the other track) are context, not your work.
 
@@ -59,8 +67,10 @@ Criteria.md` (the other track) are context, not your work.
 - **One config module** holds the API base URL, the auth token, the bot handle (`@jurah_bot`, a
   placeholder — no bot exists), the push public-key placeholder and `REFERENCE_NOW`.
 - Design-system components are **ported** into `components/ui/<Name>.tsx` as typed React
-  components against the compiled `tokens.css`. Never load the artifact's `bundle.js`, and never
-  restyle a shared component inside a screen.
+  components against the compiled `tokens.css`, following `docs/design-system/` — the props in
+  `index.d.ts`, the rules in `components/<Name>.md`, the styles in `bundle.css`, the values in
+  `tokens.json`. Never load the artifact's `bundle.js`, and never restyle a shared component
+  inside a screen.
 - No hard-coded hex colour, px font size or px radius in `components/` or `app/`. No CSS `left` or
   `right` — logical properties only.
 - No user-facing string outside the copy catalogue.
@@ -77,3 +87,13 @@ Criteria.md` (the other track) are context, not your work.
 - **A component the design system lacks is reported, never invented inline.**
 - **Never self-certify.** Paste the command and its output.
 - Do not commit or push unless asked.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

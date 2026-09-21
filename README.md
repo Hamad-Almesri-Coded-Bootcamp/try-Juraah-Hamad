@@ -55,9 +55,20 @@ medical reviewer, system admin).
 Files Phase 1 will add: `docs/PLAN.md`, `docs/SCREENS.md`, `docs/ROLES.md`, `docs/DECISIONS.md`
 and `docs/BACKEND-NOTES.md`.
 
+Reference folders: `docs/wireframes/` (48 boards) and `docs/design-system/` (tokens, component
+props and per-component rules).
+
 ## The visual references
 
-Both are private Claude artifacts on the owner's account — attach them to the session that builds:
+**They are in this repository — you do not need anything outside it:**
+
+| Folder | What it is |
+|---|---|
+| `docs/wireframes/` | 48 artboards covering every screen, with a README on how to read them. The approved layout. |
+| `docs/design-system/` | The brand book, `navigation.md`, `tokens.json`, `index.d.ts`, `bundle.css` and 20 per-component guides. Enough to port every component offline. |
+
+The same material is also live as private Claude artifacts on the owner's account, which is where
+it gets edited and where the boards can be seen rendered:
 
 - **Jur'ah — جرعة** (design system): tokens, 20 components with previews and guidelines,
   `navigation.md` with the full entry/exit table.

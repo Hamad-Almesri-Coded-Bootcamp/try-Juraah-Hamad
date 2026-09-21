@@ -1,0 +1,71 @@
+/* PhotoInput — a pending component (Build Prompts prompt 1), not in the bundle. Token variables
+   and --hit-area/--ring only; logical properties only; prefers-reduced-motion is inherited from
+   the bundle's own .wsf-spinner (no motion of this file's own to guard). */
+
+.wsf-photoinput {
+  font-family: var(--font-sans);
+  display: block;
+}
+
+.wsf-photoinput__label {
+  display: block;
+  color: var(--navy);
+  margin-block-end: var(--space-2);
+}
+
+.wsf-photoinput__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The two file inputs are visually hidden (.wsf-sr) and sit immediately before the <label> that
+   plays their button, exactly like ChoiceGroup's input+label pattern, so the focus ring below can
+   target them as CSS siblings. */
+.wsf-photoinput__opt {
+  min-block-size: var(--hit-area-primary);
+  cursor: pointer;
+}
+.wsf-photoinput__input:disabled + .wsf-photoinput__opt {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.wsf-photoinput__input:focus-visible + .wsf-photoinput__opt {
+  outline: none;
+  box-shadow:
+    0 0 0 var(--ring-gap) var(--on-fill),
+    0 0 0 calc(var(--ring-gap) + var(--ring)) var(--navy);
+}
+
+.wsf-photoinput__preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--surface-card);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.wsf-photoinput__img {
+  inline-size: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--navy-tint);
+}
+
+.wsf-photoinput__overlay {
+  position: absolute;
+  inset: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--navy) 70%, transparent);
+  color: var(--on-fill);
+}

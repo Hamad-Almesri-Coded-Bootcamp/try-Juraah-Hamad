@@ -1,0 +1,41 @@
+/* DoseRow — one scheduled dose (docs/wireframes' `.doserow` anatomy, re-expressed in tokens only).
+   Read-only: the row itself carries no affordance beyond the single optional open control. */
+
+.jr-dose-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: 100%;
+  background: var(--surface-card);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  font-family: var(--font-sans);
+  text-align: start;
+  text-decoration: none;
+  min-block-size: var(--hit-area);
+}
+a.jr-dose-row,
+button.jr-dose-row {
+  cursor: pointer;
+}
+a.jr-dose-row:hover,
+button.jr-dose-row:hover {
+  border-color: var(--navy-soft);
+}
+
+.jr-dose-row__body {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.jr-dose-row__name { color: var(--navy); display: block; }
+.jr-dose-row__brand { color: var(--ink-muted); font-weight: var(--type-body-weight); }
+.jr-dose-row__amount { color: var(--ink-muted); display: block; }
+.jr-dose-row__time { color: var(--ink-muted); }
+.jr-dose-row__go { color: var(--navy); flex: none; }
