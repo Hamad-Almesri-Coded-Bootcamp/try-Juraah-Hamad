@@ -138,13 +138,13 @@ describe('سارة — the tracked patient\'s seven recorded rows (docs/Seed Dat
 
   it('no dose anywhere in the seed has source "ui", and no untracked dose has a status other than upcoming', () => {
     const store = getStore();
-    expect(store.doses.every((d) => d.source !== 'ui')).toBe(true);
+    expect(store.doses.every((d) => (d.source as string | undefined) !== 'ui')).toBe(true);
     expect(store.doses.filter((d) => d.tracked === false).every((d) => d.status === 'upcoming')).toBe(true);
   });
 });
 
 describe('G1 — no test anywhere writes a Dose.status', () => {
   it('the seed store never contains a dose with source "ui"', () => {
-    expect(getStore().doses.some((d) => d.source === 'ui')).toBe(false);
+    expect(getStore().doses.some((d) => (d.source as string | undefined) === 'ui')).toBe(false);
   });
 });

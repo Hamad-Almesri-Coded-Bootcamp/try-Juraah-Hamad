@@ -149,6 +149,9 @@ export interface ReviewQueueItem {
   severity: InteractionAlert['severity'];
   drugNames: string[];
   createdAt: string;
+  /** CR-036 (lead, wave-2 gate): waiting time precomputed by the data layer from `createdAt`
+   * against the reference clock — G1s renders it, never derives it. */
+  waitedMinutes: number;
 }
 
 export interface FieldQueueItem {
@@ -158,7 +161,15 @@ export interface FieldQueueItem {
   genericName: string;
   uncertainFields: string[];
   hasSourceImage: boolean;
+  /** CR-037 (lead, wave-2 gate): the queue now carries returned rows too, marked by this field,
+   * so G3s's "returned history rows" have a data-layer source without a free patient lookup. */
+  fieldReviewStatus: 'pending' | 'returned';
 }
+
+/** CR-038 (lead, wave-2 gate): `getAuditLog`'s rows enrich the contract's `AuditEvent` with the
+ * patient's masked name, computed server-side by the same rule F1 uses (CR-010's owner answer:
+ * the patient reference on X1 is the masked name). Never a Civil ID, never a whole record. */
+export type AuditLogRow = AuditEvent & { patientMaskedName?: string };
 
 export interface PatientContext {
   activePrescriptions: Prescription[];

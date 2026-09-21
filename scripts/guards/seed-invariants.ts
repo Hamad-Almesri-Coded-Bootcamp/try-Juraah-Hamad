@@ -52,7 +52,7 @@ export function run(): GuardResult {
 
   // (c) no dose has source "ui"; no dose of an untracked patient has a status other than upcoming,
   // and all such doses carry tracked:false.
-  if (store.doses.some((d) => d.source === 'ui')) v.push({ file: F, line: 0, text: '', rule: 'a dose has source "ui"' });
+  if (store.doses.some((d) => (d.source as string | undefined) === 'ui')) v.push({ file: F, line: 0, text: '', rule: 'a dose has source "ui"' });
   for (const d of store.doses.filter((x) => x.tracked === false)) {
     if (d.status !== 'upcoming') v.push({ file: F, line: 0, text: d.id, rule: 'an untracked dose has a status other than upcoming' });
   }
@@ -122,7 +122,7 @@ export function run(): GuardResult {
   // (i) each of the 23 seed-supported event types present; the two unsupported ones absent; every
   // Caregiver row referenced by a caregiver_invited event; every invite-lifecycle event points at
   // an existing row.
-  const typesPresent = new Set(store.auditEvents.map((e) => e.type));
+  const typesPresent = new Set<string>(store.auditEvents.map((e) => e.type));
   for (const t of ABSENT_TYPES) {
     if (typesPresent.has(t)) v.push({ file: F, line: 0, text: t, rule: 'an audit type that must be absent by design is present in the seed' });
   }

@@ -17,6 +17,7 @@ import type {
 } from '@/types/contracts';
 import type {
   AlertReviewView,
+  AuditLogRow,
   CaregiverLinkView,
   CaregiverView,
   DoseWithPrescription,
@@ -102,7 +103,7 @@ export interface DataApi {
   getFlaggedPrescription(prescriptionId: string): Promise<Prescription | null>;
   confirmPrescriptionFields(prescriptionId: string, values: Partial<Prescription>, note?: string): Promise<Prescription>;
   returnPrescriptionToClinic(prescriptionId: string, reason: string): Promise<Prescription>;
-  getAuditLog(filters: { actorRole?: string; type?: string; from?: string; to?: string }): Promise<AuditEvent[]>;
+  getAuditLog(filters: { actorRole?: string; type?: string; from?: string; to?: string }): Promise<AuditLogRow[]>; // CR-038: AuditEvent + patientMaskedName
 
   // Resilience
   readLastKnownSnapshot(key: string): Promise<{ data: unknown; asOf: string } | null>;

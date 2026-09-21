@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { LOCALES, directionFor, isLocale, copy } from '@/i18n';
+import { LOCALES, directionFor, isLocale, copy, t } from '@/i18n';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import '../globals.css';
 
@@ -45,6 +45,12 @@ export default async function LocaleLayout({
         <link rel="stylesheet" href={FONTS_HREF} />
       </head>
       <body>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-50 focus:block focus:rounded-sm focus:bg-navy focus:p-3 focus:text-on-fill"
+        >
+          {t(copy.shell.skipToContent, locale)}
+        </a>
         {children}
         <RegisterServiceWorker />
       </body>

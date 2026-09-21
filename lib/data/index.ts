@@ -14,6 +14,7 @@ import { getStore } from './mock/store';
 import { canReadPatient } from './mock/access';
 import { append } from './mock/audit';
 import { civilIdForSession, maskedNameFor } from './mock/accounts';
+import { maskName } from '@/lib/format/maskedName';
 import {
   acceptInvitation as mockAccept,
   cancelInvitation as mockCancel,
@@ -186,6 +187,9 @@ export const submitPrescriptionImage: DataApi['submitPrescriptionImage'] = async
   const prescription: Partial<Prescription> = {
     drug: { genericName: 'Ibuprofen', brandName: 'Brufen', strengthMg: 400 }, dosePerAdministration: 1,
     frequencyPerDay: 3, durationDays: 7, dosingPattern: 'daily', doseTimes: ['08:00', '14:00', '20:00'],
+    // CR-002 invariant (1): a confident (needsReview:false) extraction carries the four clinical
+    // fields — a freshly scanned prescription starts on the day of scanning (CR-035, lead fix).
+    startDate: REFERENCE_DATE,
     needsReview: false, status: 'active',
   };
   store.drafts.push({ draftId, patientId, prescription, confident: true });
@@ -566,6 +570,8 @@ export const getReviewQueue: DataApi['getReviewQueue'] = async () => {
       alertId: a.id, patientId: a.patientId, patientFirstName: patientFirstName(store, a.patientId),
       severity: a.severity, drugNames: a.involvedPrescriptionIds.map((id) => store.prescriptions.find((p) => p.id === id)?.drug.genericName ?? '').filter(Boolean),
       createdAt: a.createdAt,
+      // CR-036: waiting time is the data layer's derivation, against the reference clock only.
+      waitedMinutes: Math.max(0, Math.floor((Date.parse(REFERENCE_NOW) - Date.parse(a.createdAt)) / 60_000)),
     }));
 };
 
@@ -574,12 +580,15 @@ export const getFieldConfirmationQueue: DataApi['getFieldConfirmationQueue'] = a
   const s = await session();
   if (!s || s.role !== 'reviewer') return [];
   return store.prescriptions
-    .filter((p) => p.needsReview && p.fieldReviewStatus === 'pending')
+    // CR-037: returned prescriptions stay in the queue view as history rows, marked by
+    // `fieldReviewStatus`, so G3s lists them without a free patient lookup.
+    .filter((p) => (p.needsReview && p.fieldReviewStatus === 'pending') || p.fieldReviewStatus === 'returned')
     .map((p): FieldQueueItem => ({
       prescriptionId: p.id, patientId: p.patientId, patientFirstName: patientFirstName(store, p.patientId),
       genericName: p.drug.genericName,
       uncertainFields: (['strengthMg', 'frequencyPerDay', 'startDate', 'doseTimes', 'brandName'] as const).filter((k) => (p as unknown as Record<string, unknown>)[k] === undefined && !(k === 'brandName')),
       hasSourceImage: true,
+      fieldReviewStatus: p.fieldReviewStatus === 'returned' ? 'returned' : 'pending',
     }));
 };
 
@@ -669,7 +678,13 @@ export const getAuditLog: DataApi['getAuditLog'] = async (filters) => {
   if (!s || s.role !== 'admin') return [];
   return store.auditEvents
     .filter((e) => (!filters.actorRole || e.actor.role === filters.actorRole) && (!filters.type || e.type === filters.type) && (!filters.from || e.createdAt >= filters.from) && (!filters.to || e.createdAt <= filters.to))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    // CR-038: the patient reference on X1 is the masked name (CR-010, owner answer), computed
+    // here — the admin session still reads no clinical record and no Civil ID.
+    .map((e) => {
+      const name = e.patientId ? store.patients.find((p) => p.id === e.patientId)?.name : undefined;
+      return name ? { ...e, patientMaskedName: maskName(name) } : { ...e };
+    });
 };
 
 // -------------------------------------------------------------------------------------------

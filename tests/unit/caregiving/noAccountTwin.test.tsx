@@ -1,0 +1,55 @@
+/**
+ * Named invariant — no-account twin identical (WP4h ACCEPTANCE): the "invitation created" outcome
+ * must be byte-identical whether the Civil ID has a Jur'ah account (masked name confirmed with
+ * "yes") or not (the flow skips confirmation and proceeds identically — G9). Drives `InviteSheet`
+ * through both real paths against the mock store and diffs the rendered "created" panel's markup.
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { InviteSheet } from '@/features/caregiving/InviteSheet';
+import { reset } from '@/lib/data/mock/store';
+import { setScriptSession } from '@/lib/session/cookie';
+
+afterEach(() => {
+  cleanup();
+  setScriptSession(null);
+});
+
+beforeEach(() => {
+  reset();
+  setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+});
+
+async function driveToCreated(civilId: string, name: string, relationship: string): Promise<string> {
+  const { container } = render(<InviteSheet patientId="pt-01" locale="ar" onDone={() => {}} />);
+
+  fireEvent.change(screen.getByLabelText('الرقم المدني'), { target: { value: civilId } });
+  fireEvent.change(screen.getByLabelText('الاسم اللي تعرفه فيه'), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText('صلة القرابة'), { target: { value: relationship } });
+  fireEvent.click(screen.getByRole('button', { name: 'متابعة' }));
+
+  // Has-account path pauses on the masked-name confirmation; no-account skips straight to 'created'.
+  await waitFor(() => {
+    expect(
+      screen.queryByTestId('invite-created-panel') ?? screen.queryByText('هذا هو الشخص؟'),
+    ).not.toBeNull();
+  });
+
+  const confirmYes = screen.queryByRole('button', { name: 'نعم، هذا هو' });
+  if (confirmYes) fireEvent.click(confirmYes);
+
+  await waitFor(() => expect(screen.getByTestId('invite-created-panel')).toBeInTheDocument());
+
+  return container.querySelector('[data-testid="invite-created-panel"]')!.innerHTML;
+}
+
+describe('InviteSheet — the created outcome is identical whichever path led to it', () => {
+  it('a Civil ID with an account (confirmed "yes") and one with none render byte-identical "created" markup', async () => {
+    const withAccountHtml = await driveToCreated('285061400412', 'اسم اختبار ١', 'قريب');
+    cleanup();
+    reset();
+    const noAccountHtml = await driveToCreated('277091900873', 'اسم اختبار ٢', 'صديق');
+
+    expect(withAccountHtml).toBe(noAccountHtml);
+  });
+});

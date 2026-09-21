@@ -5,11 +5,32 @@
 import type { Locale } from './locale';
 import { shell, type CopyEntry } from './copy/shell';
 import { vocabulary } from './copy/vocabulary';
+import { landing } from './copy/landing';
+import { identity } from './copy/identity';
+import { day } from './copy/day';
+import { caregiving } from './copy/caregiving';
+import { prescription } from './copy/prescription';
+import { safety } from './copy/safety';
+import { clinic } from './copy/clinic';
+import { supply } from './copy/supply';
+import { ambient } from './copy/ambient';
 
 export * from './locale';
 export type { CopyEntry };
 
-export const copy = { shell, vocabulary } as const;
+export const copy = {
+  shell,
+  vocabulary,
+  landing,
+  identity,
+  day,
+  caregiving,
+  prescription,
+  safety,
+  clinic,
+  supply,
+  ambient,
+} as const;
 
 /** Resolve one catalogue entry for a locale. */
 export function t(entry: CopyEntry, locale: Locale): string {

@@ -2098,6 +2098,7 @@
         "14:00",
         "20:00"
       ],
+      "startDate": "2026-09-21",
       "needsReview": false,
       "status": "active"
     }
@@ -2118,6 +2119,7 @@
     "frequencyPerDay": 3,
     "durationDays": 7,
     "dosingPattern": "daily",
+    "startDate": "2026-09-21",
     "doseTimes": [
       "08:00",
       "14:00",
@@ -2772,7 +2774,8 @@
         "Warfarin",
         "Ibuprofen"
       ],
-      "createdAt": "2026-09-19T11:04:00+03:00"
+      "createdAt": "2026-09-19T11:04:00+03:00",
+      "waitedMinutes": 2771
     }
   ],
   "getFieldConfirmationQueue (as د. خالد)": [
@@ -2787,7 +2790,20 @@
         "startDate",
         "doseTimes"
       ],
-      "hasSourceImage": true
+      "hasSourceImage": true,
+      "fieldReviewStatus": "pending"
+    },
+    {
+      "prescriptionId": "rx-007",
+      "patientId": "pt-02",
+      "patientFirstName": "فاطمة",
+      "genericName": "Ciprofloxacin",
+      "uncertainFields": [
+        "strengthMg",
+        "startDate"
+      ],
+      "hasSourceImage": true,
+      "fieldReviewStatus": "returned"
     }
   ],
   "getAlertForReview(ia-001, as د. خالد)": {
@@ -2969,6 +2985,7 @@
           "frequencyPerDay": 3,
           "durationDays": 7,
           "dosingPattern": "daily",
+          "startDate": "2026-09-21",
           "doseTimes": [
             "08:00",
             "14:00",
@@ -3681,8 +3698,36 @@
           "dosePerAdministration": 1
         },
         {
+          "id": "rx-draft-10-20260921-0800",
+          "prescriptionId": "rx-draft-10",
+          "scheduledAt": "2026-09-21T08:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
           "id": "rx-002-20260921-1400",
           "prescriptionId": "rx-002",
+          "scheduledAt": "2026-09-21T14:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-draft-10-20260921-1400",
+          "prescriptionId": "rx-draft-10",
           "scheduledAt": "2026-09-21T14:00:00+03:00",
           "status": "upcoming",
           "tracked": false,
@@ -3733,6 +3778,20 @@
             "genericName": "Metformin",
             "brandName": "Glucophage",
             "strengthMg": 500
+          },
+          "dosePerAdministration": 1
+        },
+        {
+          "id": "rx-draft-10-20260921-2000",
+          "prescriptionId": "rx-draft-10",
+          "scheduledAt": "2026-09-21T20:00:00+03:00",
+          "status": "upcoming",
+          "tracked": false,
+          "source": "seed",
+          "drug": {
+            "genericName": "Ibuprofen",
+            "brandName": "Brufen",
+            "strengthMg": 400
           },
           "dosePerAdministration": 1
         }
@@ -3820,7 +3879,8 @@
       "message": "دخول عن طريق هويّاتي",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "pt-01",
-      "id": "ae-live-0001"
+      "id": "ae-live-0001",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3833,7 +3893,8 @@
       "message": "خروج",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "pt-01",
-      "id": "ae-live-0002"
+      "id": "ae-live-0002",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3846,7 +3907,8 @@
       "message": "أُضيفت وصفة Ibuprofen",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "rx-draft-10",
-      "id": "ae-live-0003"
+      "id": "ae-live-0003",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3859,7 +3921,8 @@
       "message": "طلب تعبئة Ibuprofen",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "rf-03",
-      "id": "ae-live-0004"
+      "id": "ae-live-0004",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3872,7 +3935,8 @@
       "message": "تفعيل إشعارات المتصفح",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "ps-01",
-      "id": "ae-live-0005"
+      "id": "ae-live-0005",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3885,7 +3949,8 @@
       "message": "إيقاف إشعارات المتصفح",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "ps-01",
-      "id": "ae-live-0006"
+      "id": "ae-live-0006",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3897,7 +3962,8 @@
       "message": "أُوقفت متابعة الجرعات",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "pt-03",
-      "id": "ae-live-0007"
+      "id": "ae-live-0007",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -3910,7 +3976,8 @@
       "message": "تم فصل تيليقرام",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "ml-03",
-      "id": "ae-live-0008"
+      "id": "ae-live-0008",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -3923,7 +3990,8 @@
       "message": "دعوة مقدّم رعاية أُرسلت",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-09",
-      "id": "ae-live-0009"
+      "id": "ae-live-0009",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3935,7 +4003,8 @@
       "message": "أُلغيت دعوة اختبار",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-09",
-      "id": "ae-live-0010"
+      "id": "ae-live-0010",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3947,7 +4016,8 @@
       "message": "سُحبت صلاحية عبدالله",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-01",
-      "id": "ae-live-0011"
+      "id": "ae-live-0011",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3960,7 +4030,8 @@
       "message": "ناصر قبل الدعوة",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-03",
-      "id": "ae-live-0012"
+      "id": "ae-live-0012",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3973,7 +4044,8 @@
       "message": "سارة رفضت الدعوة",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-08",
-      "id": "ae-live-0013"
+      "id": "ae-live-0013",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -3986,7 +4058,8 @@
       "message": "ناصر ألغى ربط نفسه",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "cg-03",
-      "id": "ae-live-0014"
+      "id": "ae-live-0014",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -3999,7 +4072,8 @@
       "message": "مراجعة تنبيه — تأكيد",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "ia-001",
-      "id": "ae-live-0015"
+      "id": "ae-live-0015",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4012,7 +4086,8 @@
       "message": "تأكيد بيانات وصفة Paracetamol",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "rx-006",
-      "id": "ae-live-0016"
+      "id": "ae-live-0016",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4025,7 +4100,8 @@
       "message": "أُعيدت وصفة Ciprofloxacin للعيادة",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "rx-007",
-      "id": "ae-live-0017"
+      "id": "ae-live-0017",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4037,7 +4113,8 @@
       "message": "تسجيل حالة جرعة — في وقتها: Levothyroxine",
       "createdAt": "2026-09-21T07:12:00+03:00",
       "relatedId": "rx-008-20260921-0700",
-      "id": "ae-047"
+      "id": "ae-047",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4050,7 +4127,8 @@
       "message": "دخول عن طريق هويّاتي",
       "createdAt": "2026-09-21T06:02:00+03:00",
       "relatedId": "pt-03",
-      "id": "ae-046"
+      "id": "ae-046",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4062,7 +4140,8 @@
       "message": "تسجيل حالة جرعة — متأخرة: Calcium carbonate + D3",
       "createdAt": "2026-09-20T22:40:00+03:00",
       "relatedId": "rx-009-20260920-2100",
-      "id": "ae-045"
+      "id": "ae-045",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4075,7 +4154,8 @@
       "message": "خروج",
       "createdAt": "2026-09-20T21:30:00+03:00",
       "relatedId": "pt-01",
-      "id": "ae-044"
+      "id": "ae-044",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4088,7 +4168,8 @@
       "message": "طلب تعبئة Metformin — يُوجَّه لصيدلية حكومية",
       "createdAt": "2026-09-20T18:05:00+03:00",
       "relatedId": "rf-01",
-      "id": "ae-043"
+      "id": "ae-043",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4100,7 +4181,8 @@
       "message": "تسجيل حالة جرعة — في وقتها: Calcium carbonate + D3",
       "createdAt": "2026-09-20T13:20:00+03:00",
       "relatedId": "rx-009-20260920-1300",
-      "id": "ae-042"
+      "id": "ae-042",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4113,7 +4195,8 @@
       "message": "دعوة مقدّم رعاية إلى سارة ي*** العجمي",
       "createdAt": "2026-09-20T09:30:00+03:00",
       "relatedId": "cg-08",
-      "id": "ae-041"
+      "id": "ae-041",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4125,7 +4208,8 @@
       "message": "تسجيل حالة جرعة — في وقتها: Levothyroxine",
       "createdAt": "2026-09-20T07:05:00+03:00",
       "relatedId": "rx-008-20260920-0700",
-      "id": "ae-040"
+      "id": "ae-040",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4137,7 +4221,8 @@
       "message": "تنبيه تعارض خطير: Warfarin و Ibuprofen",
       "createdAt": "2026-09-19T11:04:00+03:00",
       "relatedId": "ia-001",
-      "id": "ae-039"
+      "id": "ae-039",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4150,7 +4235,8 @@
       "message": "أُضيفت وصفة Ibuprofen",
       "createdAt": "2026-09-19T09:00:00+03:00",
       "relatedId": "rx-002",
-      "id": "ae-038"
+      "id": "ae-038",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4162,7 +4248,8 @@
       "message": "إعادة حساب جدول Levothyroxine بعد جرعة فائتة",
       "createdAt": "2026-09-19T07:56:00+03:00",
       "relatedId": "rx-008",
-      "id": "ae-037"
+      "id": "ae-037",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4174,7 +4261,8 @@
       "message": "تسجيل حالة جرعة — فائتة: Levothyroxine",
       "createdAt": "2026-09-19T07:55:00+03:00",
       "relatedId": "rx-008-20260919-0700",
-      "id": "ae-036"
+      "id": "ae-036",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4187,7 +4275,8 @@
       "message": "دعوة مقدّم رعاية إلى ناصر ح*** المطيري",
       "createdAt": "2026-09-18T20:10:00+03:00",
       "relatedId": "cg-03",
-      "id": "ae-035"
+      "id": "ae-035",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4200,7 +4289,8 @@
       "message": "أُضيفت وصفة غير مقروءة",
       "createdAt": "2026-09-17T09:00:00+03:00",
       "relatedId": "rx-006",
-      "id": "ae-034"
+      "id": "ae-034",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4213,7 +4303,8 @@
       "message": "أُعيدت وصفة Ciprofloxacin للعيادة",
       "createdAt": "2026-09-16T10:00:00+03:00",
       "relatedId": "rx-007",
-      "id": "ae-033"
+      "id": "ae-033",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4226,7 +4317,8 @@
       "message": "أُضيفت وصفة Ciprofloxacin",
       "createdAt": "2026-09-15T09:00:00+03:00",
       "relatedId": "rx-007",
-      "id": "ae-032"
+      "id": "ae-032",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4239,7 +4331,8 @@
       "message": "أُضيفت وصفة Prednisolone",
       "createdAt": "2026-09-14T09:00:00+03:00",
       "relatedId": "rx-005",
-      "id": "ae-031"
+      "id": "ae-031",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4252,7 +4345,8 @@
       "message": "منى خ*** المطيري رفضت الدعوة",
       "createdAt": "2026-09-10T14:22:00+03:00",
       "relatedId": "cg-04",
-      "id": "ae-030"
+      "id": "ae-030",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4265,7 +4359,8 @@
       "message": "دعوة مقدّم رعاية إلى منى خ*** المطيري",
       "createdAt": "2026-09-10T12:00:00+03:00",
       "relatedId": "cg-04",
-      "id": "ae-029"
+      "id": "ae-029",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4278,7 +4373,8 @@
       "message": "مراجعة تنبيه: Levothyroxine و Calcium — تأكيد",
       "createdAt": "2026-09-08T12:40:00+03:00",
       "relatedId": "ia-002",
-      "id": "ae-028"
+      "id": "ae-028",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4291,7 +4387,8 @@
       "message": "تأكيد بيانات وصفة Calcium carbonate + D3",
       "createdAt": "2026-09-06T10:00:00+03:00",
       "relatedId": "rx-009",
-      "id": "ae-027"
+      "id": "ae-027",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4304,7 +4401,8 @@
       "message": "أُضيفت وصفة Calcium carbonate + D3",
       "createdAt": "2026-09-05T09:00:00+03:00",
       "relatedId": "rx-009",
-      "id": "ae-026"
+      "id": "ae-026",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4317,7 +4415,8 @@
       "message": "تم ربط تيليقرام",
       "createdAt": "2026-09-03T18:25:00+03:00",
       "relatedId": "ml-04",
-      "id": "ae-025"
+      "id": "ae-025",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4330,7 +4429,8 @@
       "message": "عبدالله م*** ع*** المطيري قبل الدعوة",
       "createdAt": "2026-09-03T18:20:00+03:00",
       "relatedId": "cg-01",
-      "id": "ae-024"
+      "id": "ae-024",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4343,7 +4443,8 @@
       "message": "دعوة مقدّم رعاية إلى عبدالله م*** ع*** المطيري",
       "createdAt": "2026-09-02T12:00:00+03:00",
       "relatedId": "cg-01",
-      "id": "ae-023"
+      "id": "ae-023",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4356,7 +4457,8 @@
       "message": "أُضيفت وصفة Warfarin",
       "createdAt": "2026-09-01T09:00:00+03:00",
       "relatedId": "rx-001",
-      "id": "ae-022"
+      "id": "ae-022",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4369,7 +4471,8 @@
       "message": "سُحبت صلاحية طلال ع*** المطيري",
       "createdAt": "2026-08-28T12:00:00+03:00",
       "relatedId": "cg-06",
-      "id": "ae-021"
+      "id": "ae-021",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4381,7 +4484,8 @@
       "message": "تغيّرت حالة طلب تعبئة Warfarin إلى: تمت الموافقة",
       "createdAt": "2026-08-25T10:00:00+03:00",
       "relatedId": "rf-02",
-      "id": "ae-020"
+      "id": "ae-020",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4394,7 +4498,8 @@
       "message": "سارة ي*** العجمي قبلت الدعوة",
       "createdAt": "2026-08-20T12:05:00+03:00",
       "relatedId": "cg-02",
-      "id": "ae-019"
+      "id": "ae-019",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4407,7 +4512,8 @@
       "message": "دعوة مقدّم رعاية إلى سارة ي*** العجمي",
       "createdAt": "2026-08-20T12:00:00+03:00",
       "relatedId": "cg-02",
-      "id": "ae-018"
+      "id": "ae-018",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4419,7 +4525,8 @@
       "message": "انتهت صلاحية دعوة مقدّم رعاية",
       "createdAt": "2026-08-15T12:00:00+03:00",
       "relatedId": "cg-05",
-      "id": "ae-017"
+      "id": "ae-017",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4432,7 +4539,8 @@
       "message": "إيقاف إشعارات المتصفح",
       "createdAt": "2026-08-15T10:00:00+03:00",
       "relatedId": "ps-03",
-      "id": "ae-016"
+      "id": "ae-016",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4445,7 +4553,8 @@
       "message": "تفعيل إشعارات المتصفح",
       "createdAt": "2026-08-11T12:15:00+03:00",
       "relatedId": "ps-03",
-      "id": "ae-015"
+      "id": "ae-015",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4458,7 +4567,8 @@
       "message": "تفعيل متابعة الجرعات",
       "createdAt": "2026-08-11T12:10:00+03:00",
       "relatedId": "pt-03",
-      "id": "ae-014"
+      "id": "ae-014",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4471,7 +4581,8 @@
       "message": "تم ربط تيليقرام",
       "createdAt": "2026-08-11T12:00:00+03:00",
       "relatedId": "ml-03",
-      "id": "ae-013"
+      "id": "ae-013",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4484,7 +4595,8 @@
       "message": "أُضيفت وصفة Levothyroxine",
       "createdAt": "2026-08-10T09:00:00+03:00",
       "relatedId": "rx-008",
-      "id": "ae-012"
+      "id": "ae-012",
+      "patientMaskedName": "سارة ي*** العجمي"
     },
     {
       "scope": "patient",
@@ -4496,7 +4608,8 @@
       "message": "أُوقفت متابعة الجرعات — انتهت صلاحية رابط تيليقرام",
       "createdAt": "2026-08-05T12:00:00+03:00",
       "relatedId": "pt-02",
-      "id": "ae-011"
+      "id": "ae-011",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4509,7 +4622,8 @@
       "message": "دعوة مقدّم رعاية أُرسلت",
       "createdAt": "2026-08-01T12:00:00+03:00",
       "relatedId": "cg-05",
-      "id": "ae-010"
+      "id": "ae-010",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4522,7 +4636,8 @@
       "message": "طلال ع*** المطيري قبل الدعوة",
       "createdAt": "2026-07-11T12:00:00+03:00",
       "relatedId": "cg-06",
-      "id": "ae-009"
+      "id": "ae-009",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4535,7 +4650,8 @@
       "message": "دعوة مقدّم رعاية إلى طلال ع*** المطيري",
       "createdAt": "2026-07-10T12:00:00+03:00",
       "relatedId": "cg-06",
-      "id": "ae-008"
+      "id": "ae-008",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4548,7 +4664,8 @@
       "message": "تفعيل متابعة الجرعات",
       "createdAt": "2026-07-01T12:05:00+03:00",
       "relatedId": "pt-02",
-      "id": "ae-007"
+      "id": "ae-007",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4561,7 +4678,8 @@
       "message": "تم ربط تيليقرام",
       "createdAt": "2026-07-01T12:00:00+03:00",
       "relatedId": "ml-02",
-      "id": "ae-006"
+      "id": "ae-006",
+      "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
       "scope": "patient",
@@ -4574,7 +4692,8 @@
       "message": "أُضيفت وصفة Metformin",
       "createdAt": "2026-06-15T09:00:00+03:00",
       "relatedId": "rx-003",
-      "id": "ae-005"
+      "id": "ae-005",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4587,7 +4706,8 @@
       "message": "أُلغيت دعوة دلال ع*** المطيري",
       "createdAt": "2026-06-06T12:00:00+03:00",
       "relatedId": "cg-07",
-      "id": "ae-004"
+      "id": "ae-004",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4600,7 +4720,8 @@
       "message": "دعوة مقدّم رعاية إلى دلال ع*** المطيري",
       "createdAt": "2026-06-05T12:00:00+03:00",
       "relatedId": "cg-07",
-      "id": "ae-003"
+      "id": "ae-003",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4613,7 +4734,8 @@
       "message": "تم فصل تيليقرام",
       "createdAt": "2026-05-01T12:00:00+03:00",
       "relatedId": "ml-01",
-      "id": "ae-002"
+      "id": "ae-002",
+      "patientMaskedName": "حمد س*** المطيري"
     },
     {
       "scope": "patient",
@@ -4626,7 +4748,8 @@
       "message": "أُضيفت وصفة Atorvastatin",
       "createdAt": "2026-04-02T09:00:00+03:00",
       "relatedId": "rx-004",
-      "id": "ae-001"
+      "id": "ae-001",
+      "patientMaskedName": "حمد س*** المطيري"
     }
   ],
   "readLastKnownSnapshot(getPatient:pt-01)": {
