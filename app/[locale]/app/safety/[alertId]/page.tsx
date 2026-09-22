@@ -41,7 +41,7 @@ export default async function AlertDetailPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={backLabel} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="detail" label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -51,7 +51,7 @@ export default async function AlertDetailPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={backLabel} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={`${backHref}/${alertId}`} />
         </div>
       </div>
@@ -69,7 +69,7 @@ export default async function AlertDetailPage({
   );
 
   const content = (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <AlertDetail
         alert={alert}
         prescriptions={prescriptions}

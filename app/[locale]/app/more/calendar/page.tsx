@@ -39,7 +39,7 @@ export default async function CalendarPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={`/${locale}/app/more`} backLabel={t(copy.vocabulary.back, locale)} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="detail" label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -49,7 +49,7 @@ export default async function CalendarPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={`/${locale}/app/more`} backLabel={t(copy.vocabulary.back, locale)} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={baseHref} />
         </div>
       </div>
@@ -64,7 +64,7 @@ export default async function CalendarPage({
   const subscription = await getCalendarSubscription(patientId);
 
   const content = (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <CalendarSync patientId={patientId} subscription={subscription} locale={locale} />
     </div>
   );

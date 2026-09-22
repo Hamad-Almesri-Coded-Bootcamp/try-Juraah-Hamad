@@ -17,12 +17,16 @@ import { ClosingSection } from './ClosingSection';
  * them. No tab bar, no data-layer call — `cta` is the only session-derived value, computed once by
  * `app/[locale]/page.tsx` via `resolveLandingCta` and threaded to the three places the primary
  * action repeats (header, hero, closing).
+ *
+ * Width: `<main>` carries no reading cap — L1 has its own wider rhythm (navigation.md) and the
+ * 1440 board runs its card rows across the page with 48px gutters. Each section applies
+ * `SECTION_GUTTER` (features/landing/layout.ts); prose-only sections cap their text at `PROSE`.
  */
 export function LandingPage({ locale, cta }: { locale: Locale; cta: LandingCta }) {
   return (
     <div className="flex min-h-dvh flex-col bg-surface-app">
       <LandingHeader locale={locale} cta={cta} />
-      <main id="main-content" className="mx-auto flex w-full max-w-content flex-col">
+      <main id="main-content" className="@container flex w-full flex-col">
         <Hero locale={locale} cta={cta} />
         <ProblemSection locale={locale} />
         <SolutionSection locale={locale} />

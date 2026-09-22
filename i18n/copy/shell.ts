@@ -61,6 +61,9 @@ export const shell = {
 
   // The TabBar/side-rail landmark's accessible name, every shell (G8)
   mainNavigationLabel: { ar: 'التنقل الرئيسي', en: 'Main navigation', placeholder: true },
+  // The side rail's wordmark from 834px up (boards Today834 · MedicinesDesktop: «جرعة»; ReviewerDesktop ·
+  // AuditLog1440: «جرعة · العيادة»). The patient and caregiver rails use `appName` itself.
+  clinicWordmark: { ar: 'جرعة · العيادة', en: 'Jur’ah · Clinic', placeholder: true },
 
   // Sign-out (A3, F4, the clinic rail — CR-020)
   signOut: { ar: 'تسجيل الخروج', en: 'Sign out', placeholder: true },

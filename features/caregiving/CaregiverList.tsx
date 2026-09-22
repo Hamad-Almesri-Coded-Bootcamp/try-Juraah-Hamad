@@ -58,7 +58,7 @@ export function CaregiverList({ caregivers, patientId, locale }: { caregivers: C
   }
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <Button variant="primary" size="lg" fullWidth lang={locale} icon="plus" onClick={() => setInviting(true)}>
         {t(copy.caregiving.f1InviteButton, locale)}
       </Button>

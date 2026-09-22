@@ -94,7 +94,7 @@ export function InviteConsent({
 
   if (error) {
     return (
-      <div className="flex flex-col gap-3 p-3">
+      <div className="flex flex-col gap-3 p-3 tablet:p-5">
         <InlineNotice tone="warning" title={t(copy.shell.errorTitle, locale)}>
           {t(copy.shell.errorBody, locale)}
         </InlineNotice>
@@ -107,7 +107,7 @@ export function InviteConsent({
 
   if (state === 'accepted') {
     return (
-      <div className="flex flex-col items-center gap-3 p-3 text-center">
+      <div className="flex flex-col items-center gap-3 p-3 text-center tablet:p-5">
         <Icon name="check" className="type-h1" />
         <p className="type-body-strong">{t(copy.caregiving.f0AcceptedTitle, locale)}</p>
         <p className="type-body-small">{interpolate(t(copy.caregiving.f0AcceptedBodyTemplate, locale), { name })}</p>
@@ -121,7 +121,7 @@ export function InviteConsent({
 
   if (state === 'declined') {
     return (
-      <div className="flex flex-col gap-3 p-3">
+      <div className="flex flex-col gap-3 p-3 tablet:p-5">
         <p className="type-body-strong">{t(copy.caregiving.f0DeclinedTitle, locale)}</p>
         <p className="type-body">{t(copy.caregiving.f0DeclinedBody, locale)}</p>
         <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => router.push(homeHref)}>
@@ -134,7 +134,7 @@ export function InviteConsent({
 
   if (state === 'unavailable') {
     return (
-      <div className="flex flex-col gap-3 p-3">
+      <div className="flex flex-col gap-3 p-3 tablet:p-5">
         <InlineNotice tone="info" title={t(copy.caregiving.f0UnavailableTitle, locale)}>
           {t(copy.caregiving.f0UnavailableBody, locale)}
         </InlineNotice>
@@ -150,7 +150,7 @@ export function InviteConsent({
   // 'pending' — the consent question itself. Exactly the five fields getInvitationForConsent
   // returns and nothing else (F0 non-negotiable invariant).
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <span className="type-caption">{t(copy.caregiving.f0Kicker, locale)}</span>
       <h1 className="type-h1">{interpolate(t(copy.caregiving.f0PendingTitleTemplate, locale), { name })}</h1>
       <p className="type-body">{interpolate(t(copy.caregiving.f0RelationshipTemplate, locale), { relationship: invitation.relationship })}</p>

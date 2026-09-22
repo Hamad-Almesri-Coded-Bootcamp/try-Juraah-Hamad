@@ -40,7 +40,7 @@ export default async function SafetyPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="list" rows={3} label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -50,7 +50,7 @@ export default async function SafetyPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={baseHref} />
         </div>
       </div>
@@ -75,7 +75,7 @@ export default async function SafetyPage({
   }
 
   const content = (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <SafetyList
         alerts={alerts}
         drugNamesByAlertId={drugNamesByAlertId}

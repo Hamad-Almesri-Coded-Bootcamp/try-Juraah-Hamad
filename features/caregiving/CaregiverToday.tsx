@@ -22,7 +22,7 @@ export async function CaregiverToday({ caregiverId, locale, day }: { caregiverId
   const nextDay = addDays(isoDate, 1);
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <div className="flex items-center gap-2">
         <IconButton label={t(copy.caregiving.f2DayPrevLabel, locale)} icon="chevron" mirrorIcon href={`/${locale}/care?day=${prevDay}`} />
         <span className="type-body-strong" style={{ flexGrow: 1 }}>

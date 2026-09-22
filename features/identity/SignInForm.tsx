@@ -102,7 +102,7 @@ export function SignInForm({ locale }: { locale: Locale }) {
   }
 
   return (
-    <div className="mx-auto flex max-w-content flex-col gap-4 p-3">
+    <div className="mx-auto flex max-w-content flex-col gap-4 p-3 tablet:p-5">
       {phase === 'form' && (
         <>
           <div className="flex flex-col gap-2">

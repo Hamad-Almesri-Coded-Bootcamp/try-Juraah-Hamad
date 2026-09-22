@@ -3,6 +3,7 @@ import type { Locale } from '@/i18n/locale';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { SignInCta } from './SignInCta';
 import type { LandingCta } from './types';
+import { SECTION_GUTTER } from './layout';
 
 /**
  * Section (1) — the persistent header (G11 item 1): the wordmark, the language switch (G2 — "on
@@ -14,7 +15,7 @@ import type { LandingCta } from './types';
  */
 export function LandingHeader({ locale, cta }: { locale: Locale; cta: LandingCta }) {
   return (
-    <header className="flex items-center gap-3 border-b border-border bg-surface-card p-3">
+    <header className={`flex items-center gap-3 border-b border-border bg-surface-card ${SECTION_GUTTER} tablet:py-3 desktop:py-3`}>
       <span className="flex-1 text-body-strong text-navy">{t(copy.shell.appName, locale)}</span>
       <LanguageSwitch locale={locale} />
       <SignInCta {...cta} locale={locale} />

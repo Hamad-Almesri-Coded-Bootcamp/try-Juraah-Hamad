@@ -41,7 +41,7 @@ export function ReviewerQueueShell({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={t(copy.clinic.reviewerQueuesTitle, locale)} />
-      <div className="flex flex-col gap-4 p-3">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
         <ChoiceGroup
           variant="segmented"
           name="reviewer-queue-switch"

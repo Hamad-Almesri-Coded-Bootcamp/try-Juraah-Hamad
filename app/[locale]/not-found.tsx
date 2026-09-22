@@ -17,7 +17,7 @@ export default async function NotFound() {
   const label = !session?.role ? t(copy.shell.backHome, locale) : isClinic ? t(copy.shell.backToQueue, locale) : t(copy.shell.backToToday, locale);
 
   return (
-    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
       <EmptyState
         icon="search"
         title={t(copy.shell.notFoundTitle, locale)}

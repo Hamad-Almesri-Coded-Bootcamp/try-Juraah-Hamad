@@ -64,6 +64,11 @@ function drugLine(rx: Prescription | undefined, locale: Locale): string | null {
  * most prominent element on the screen — never colour alone, never more than one at `danger`), the
  * active prescriptions as cards, and a de-emphasised past group with no refill action. Presentational
  * and props-driven — no fetch, no mock import (cross-bundle contract, docs/briefs/WP4c.md).
+ *
+ * Width: the root is a container; the card groups are one column until the content column is wide
+ * enough for two (`@[720px]` — MedicinesDesktop.dc.html draws two across inside the 880px cap), and
+ * the alert above them always spans the full width (navigation.md: prominence outranks layout
+ * symmetry). The caregiver's F2 reuses this component and inherits the same shape.
  */
 export function MedicinesList({
   prescriptions,
@@ -83,7 +88,7 @@ export function MedicinesList({
   const rxById = new Map(prescriptions.map((p) => [p.id, p]));
 
   return (
-    <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
+    <div className={['@container flex flex-col gap-4', className].filter(Boolean).join(' ')}>
       {leadAlert && (
         <InteractionAlert
           severity={leadAlert.severity}
@@ -120,6 +125,7 @@ export function MedicinesList({
           {active.length > 0 && (
             <section className="flex flex-col gap-3" aria-label={t(copy.day.activeMedicinesTitle, locale)}>
               <h2 className="type-h2">{t(copy.day.activeMedicinesTitle, locale)}</h2>
+              <div className="grid grid-cols-1 gap-3 @[720px]:grid-cols-2">
               {active.map((rx) => {
                 const info = tracked ? nextDoseByPrescriptionId[rx.id] : undefined;
                 const href = hrefBuilder ? hrefBuilder(rx) : undefined;
@@ -145,12 +151,14 @@ export function MedicinesList({
                   />
                 );
               })}
+              </div>
             </section>
           )}
 
           {past.length > 0 && (
             <section className="flex flex-col gap-3" aria-label={t(copy.day.pastMedicinesTitle, locale)}>
               <h2 className="type-h2">{t(copy.day.pastMedicinesTitle, locale)}</h2>
+              <div className="grid grid-cols-1 gap-3 @[720px]:grid-cols-2">
               {past.map((rx) => {
                 const href = hrefBuilder ? hrefBuilder(rx) : undefined;
                 const primaryName = rx.drug.brandName ?? rx.drug.genericName;
@@ -181,6 +189,7 @@ export function MedicinesList({
                   </Card>
                 );
               })}
+              </div>
               <span className="type-label">{t(copy.day.pastMedicinesNote, locale)}</span>
             </section>
           )}

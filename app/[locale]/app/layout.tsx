@@ -9,10 +9,15 @@ import { patientTabs } from '@/features/shell/tabs';
 
 /**
  * The patient shell (`/[locale]/app/**`): `requireRole` re-checks the session server-side (point 2
- * of ROLES.md's three-place enforcement) and renders nothing for the wrong role. The TabBar shows on
- * the four tab roots and every More sub-page (the boards keep it there — Profile, Settings,
- * Caregivers, … all carry it with `more` current) and hides on the deeper pushed screens (setup,
- * prescription/alert detail, add/scan, drug check — none of those boards carry a TabBar).
+ * of ROLES.md's three-place enforcement) and renders nothing for the wrong role.
+ *
+ * Navigation chrome by screen (D-010): the four tab roots and every More sub-page carry the TabBar
+ * at every width (the boards keep it there — Profile, Settings, Caregivers, … all with `more`
+ * current). The deeper pushed screens (prescription/alert detail, add/scan, drug check) carry no
+ * bottom bar below 834px — none of their 390 boards draws one — but keep the side rail from 834px
+ * up, where navigation.md's side navigation is persistent and the rail marks the tab the screen
+ * was pushed from. First-run setup (A2) is the one screen with no chrome at any width: it runs once,
+ * step by step, before the shell has anything to navigate.
  */
 export default async function PatientShellLayout({ children, params }: { children: ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -20,9 +25,8 @@ export default async function PatientShellLayout({ children, params }: { childre
   await requireRole(locale, ['patient']);
 
   const path = await currentPath();
-  const showTabs = path === '/app' || path === '/app/medicines' || path === '/app/safety' || path.startsWith('/app/more');
 
-  if (!showTabs) {
+  if (path.startsWith('/app/setup')) {
     return (
       <div className="relative min-h-dvh" id="main-content">
         {children}
@@ -30,10 +34,23 @@ export default async function PatientShellLayout({ children, params }: { childre
     );
   }
 
-  const value = path.startsWith('/app/more') ? 'more' : path === '/app/medicines' ? 'medicines' : path === '/app/safety' ? 'safety' : 'today';
+  const isTabRoot = path === '/app' || path === '/app/medicines' || path === '/app/safety' || path.startsWith('/app/more');
+  const value = path.startsWith('/app/more')
+    ? 'more'
+    : path.startsWith('/app/medicines')
+      ? 'medicines'
+      : path.startsWith('/app/safety')
+        ? 'safety'
+        : 'today';
 
   return (
-    <AppShell items={patientTabs(locale)} value={value} label={t(copy.shell.mainNavigationLabel, locale)}>
+    <AppShell
+      items={patientTabs(locale)}
+      value={value}
+      label={t(copy.shell.mainNavigationLabel, locale)}
+      wordmark={t(copy.shell.appName, locale)}
+      railOnly={!isTabRoot}
+    >
       <div id="main-content">{children}</div>
     </AppShell>
   );

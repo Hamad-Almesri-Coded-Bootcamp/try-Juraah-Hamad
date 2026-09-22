@@ -94,7 +94,7 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
   }
 
   return (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="flex flex-col gap-4 p-3 tablet:p-5">
       {phase === 'capture' && (
         <>
           <PhotoInput value={photo} onChange={handlePhotoChange} label={t(copy.prescription.b4PhotoLabel, locale)} lang={locale} />

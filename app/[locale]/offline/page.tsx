@@ -28,7 +28,7 @@ export default async function OfflinePage({ params }: { params: Promise<{ locale
 
   if (!snapshot) {
     return (
-      <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3">
+      <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3 tablet:p-5">
         <EmptyState icon="refresh" title={t(copy.shell.lastKnownEmptyTitle, locale)} description={t(copy.shell.lastKnownEmptyBody, locale)} />
         <RefreshButton locale={locale} label={t(copy.shell.refresh, locale)} />
       </main>
@@ -38,7 +38,7 @@ export default async function OfflinePage({ params }: { params: Promise<{ locale
   const name = isNamedRecord(snapshot.data) && typeof snapshot.data.name === 'string' ? snapshot.data.name : undefined;
 
   return (
-    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
       <LastKnown asOf={snapshot.asOf} locale={locale}>
         <DetailRow label={t(copy.shell.moreProfile, locale)} value={name} />
       </LastKnown>

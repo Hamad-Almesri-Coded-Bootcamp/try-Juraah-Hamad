@@ -90,7 +90,7 @@ export function FlaggedPrescriptionDetail({ prescription, locale, backHref }: { 
 
   if (alreadyReturned) {
     return (
-      <div className="flex flex-col gap-4 p-3">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
         <Card className="flex flex-col gap-2">
           <span className="type-body-strong">{prescription.drug.genericName}</span>
           <span className="type-body-small">{prescription.source.facilityName}</span>
@@ -104,7 +104,7 @@ export function FlaggedPrescriptionDetail({ prescription, locale, backHref }: { 
   }
 
   return (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
       <section className="flex flex-col gap-2" aria-label={t(copy.clinic.g3sSourceImageHeading, locale)}>
         <h2 className="type-h2">{t(copy.clinic.g3sSourceImageHeading, locale)}</h2>
         <div role="img" aria-label={t(copy.clinic.g3sSourceImageAlt, locale)} className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-md border border-border">

@@ -29,6 +29,14 @@
   --spacing-hit: var(--hit-area);
   --spacing-hit-lg: var(--hit-area-primary);
   --spacing-content: var(--content-max);
+  /* The side rail's minimum inline size from 834px up (boards Today834 · AuditLog1440 draw it at ~220px):
+     four large steps plus one medium, all token arithmetic, no free value. */
+  --spacing-rail: calc(var(--space-6) * 4 + var(--space-4));
+  /* The reviewer's queue pane beside a decision (ReviewerDesktop.dc.html: ~340px): seven large steps. */
+  --spacing-rail-wide: calc(var(--space-6) * 7);
+  /* The clinic shell's wider cap (navigation.md: the audit log and the reviewer queues may use the
+     extra width for their columns) — one and a half times the reading cap. */
+  --spacing-content-wide: calc(var(--content-max) * 1.5);
 
   --radius-*: initial;
   --radius-sm: var(--radius-sm);

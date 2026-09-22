@@ -157,10 +157,16 @@ for (const [locale, dir] of LOCALES) {
       await expect(page.getByText(/لا يزال مراجع طبي يتحقق|medical reviewer is still checking/)).toBeVisible();
     });
 
-    test('back returns to the safety list, with no tab bar on the pushed detail', async ({ page, context, baseURL }) => {
+    test('back returns to the safety list; no bottom bar on the pushed detail at phone width, the rail from 834 (D-010)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/safety/ia-001`);
-      await expect(page.getByRole('navigation', { name: /التنقل الرئيسي|Main navigation/ })).toHaveCount(0);
+      const nav = page.getByRole('navigation', { name: /التنقل الرئيسي|Main navigation/ });
+      if ((page.viewportSize()?.width ?? 390) < 834) {
+        await expect(nav).toHaveCount(0);
+      } else {
+        await expect(nav).toBeVisible();
+        await expect(nav.locator('[aria-current="page"]')).toHaveText(/السلامة|Safety/);
+      }
       await page.getByRole('link', { name: /رجوع للسلامة|Back to Safety/ }).click();
       await expect(page).toHaveURL(new RegExp(`/${locale}/app/safety$`));
     });

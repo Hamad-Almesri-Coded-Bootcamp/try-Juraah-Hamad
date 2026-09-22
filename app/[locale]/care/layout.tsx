@@ -23,7 +23,7 @@ export default async function CaregiverShellLayout({ children, params }: { child
   const value = path.startsWith('/care/more') ? 'more' : path === '/care' ? 'today' : 'medicines';
 
   return (
-    <AppShell items={caregiverTabs(locale)} value={value} label={t(copy.shell.mainNavigationLabel, locale)}>
+    <AppShell items={caregiverTabs(locale)} value={value} label={t(copy.shell.mainNavigationLabel, locale)} wordmark={t(copy.shell.appName, locale)}>
       <div className="sticky top-0 z-10">
         <CaregiverBanner caregiverId={session.subjectId} locale={locale} />
       </div>

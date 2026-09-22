@@ -46,7 +46,7 @@ function SetupFlowSkeleton({ locale }: { locale: Locale }) {
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={t(screenTitles.A2, locale)} />
-      <div className="mx-auto w-full max-w-content p-3">
+      <div className="mx-auto w-full max-w-content p-3 tablet:p-5">
         <LoadingState variant="detail" label={t(copy.vocabulary.loading, locale)} />
       </div>
     </div>
@@ -124,7 +124,7 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
         backLabel={t(copy.vocabulary.back, locale)}
         action={<LanguageSwitch locale={locale} role="patient" subjectId={patientId} />}
       />
-      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
         <StepIndicator steps={steps} current={step} label={t(copy.identity.setupProgressLabel, locale)} lang={locale} />
 
         {step === 0 && (

@@ -41,7 +41,7 @@ export async function PrescriptionDetail({
     // different patient (getPrescription's own session check already returned null either way — it
     // never distinguishes the two to this screen, and this screen does not either).
     return (
-      <div className="p-3">
+      <div className="p-3 tablet:p-5">
         <EmptyState
           title={t(copy.prescription.b3EmptyTitle, locale)}
           description={t(copy.prescription.b3EmptyDescription, locale)}
@@ -62,7 +62,7 @@ export async function PrescriptionDetail({
   const strength = formatStrength(rx.drug, locale);
 
   return (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="flex flex-col gap-4 p-3 tablet:p-5">
       <div className="flex flex-col gap-1">
         <h2 className="type-h2">
           {rx.drug.genericName}

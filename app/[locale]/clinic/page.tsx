@@ -27,14 +27,14 @@ export default async function ClinicEntryPage({
 
   if (view === 'loading') {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
         <LoadingState variant="lines" rows={4} />
       </main>
     );
   }
   if (view === 'error') {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
         <ClinicErrorState locale={locale} backHref={`/${locale}/clinic`} />
       </main>
     );

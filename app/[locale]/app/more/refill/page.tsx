@@ -40,7 +40,7 @@ export default async function RefillPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={backLabel} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="list" rows={2} label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -50,7 +50,7 @@ export default async function RefillPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={backLabel} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={`${backHref}/refill`} />
         </div>
       </div>
@@ -65,7 +65,7 @@ export default async function RefillPage({
   const [overview, requests] = await Promise.all([getRefillOverview(patientId), getRefillRequests(patientId)]);
 
   const content = (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <RefillList overview={overview} requests={requests} patientId={patientId} locale={locale} highlightPrescriptionId={rx} />
     </div>
   );

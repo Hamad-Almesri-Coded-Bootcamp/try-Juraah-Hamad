@@ -61,7 +61,7 @@ export async function ProfileScreen({ locale }: { locale: Locale }) {
         backLabel={t(copy.vocabulary.back, locale)}
         action={<LanguageSwitch locale={locale} role="patient" subjectId={patientId} />}
       />
-      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
         <Card className="flex items-center gap-3">
           <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-navy-tint type-body-strong">
             {initialsOf(patient.name)}

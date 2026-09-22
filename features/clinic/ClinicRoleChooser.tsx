@@ -35,7 +35,7 @@ export function ClinicRoleChooser({ options, locale }: { options: RoleOption[]; 
   }
 
   return (
-    <div className="mx-auto flex max-w-content flex-col gap-4 p-3">
+    <div className="mx-auto flex max-w-content flex-col gap-4 p-3 tablet:p-5">
       <div className="flex flex-col gap-2">
         <h1 className="type-h1">{t(copy.clinic.x0ChooserTitle, locale)}</h1>
         <p className="type-body">{t(copy.clinic.x0ChooserBody, locale)}</p>

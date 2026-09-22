@@ -102,7 +102,7 @@ export function CaregiverProfile({
   }
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <Card>
         <span className="type-body-strong">{t(copy.caregiving.f4IdentityVerifiedLine, locale)}</span>
         <span className="type-body-small">

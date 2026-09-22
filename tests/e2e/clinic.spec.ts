@@ -157,6 +157,31 @@ test.describe('G3s — reviewer queue, field confirmation', () => {
 });
 
 // ---------------------------------------------------------------------------------------------
+// G2s — the wide layout (ReviewerDesktop.dc.html, 1280; D-009). Runs BEFORE the commit round-trip
+// below, which empties the queue for the rest of the run; sets its own viewport (no fourth project —
+// see shells.spec.ts).
+// ---------------------------------------------------------------------------------------------
+test('G2s at 1280 — decision beside the read-only patient context, with the queue pane', async ({ page, context, baseURL }) => {
+  await addSession(context, baseURL, 'khalid_reviewer');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/ar/clinic/review');
+  const stillPending = await page.getByText('Warfarin + Ibuprofen').first().isVisible().catch(() => false);
+  test.skip(!stillPending, 'ia-001 already committed by an earlier run against this dev server');
+  await page.goto('/ar/clinic/review/ia-001');
+  const decision = page.getByRole('heading', { name: 'القرار' });
+  const patientContext = page.getByRole('heading', { name: /سياق المريض/ });
+  const [d, c] = await Promise.all([decision.boundingBox(), patientContext.boundingBox()]);
+  expect(d && c && Math.abs(d.x - c.x) > 100, 'decision and context in two columns').toBeTruthy();
+  const pane = page.getByRole('complementary', { name: 'قوائم المراجعة' });
+  await expect(pane).toBeVisible();
+  // The open item is marked, not linked; nothing in the pane writes anything.
+  await expect(pane.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(pane.getByRole('button')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(pane).toBeHidden();
+});
+
+// ---------------------------------------------------------------------------------------------
 // G2s — reviewer decision: the commit round-trip (idempotent — see file header)
 // ---------------------------------------------------------------------------------------------
 test('G2s — confirm ia-001 → back to G1s, item gone → audit log gains alert_reviewed', async ({ page, context, baseURL }) => {
@@ -168,6 +193,11 @@ test('G2s — confirm ia-001 → back to G1s, item gone → audit log gains aler
     await page.getByText('Warfarin + Ibuprofen').click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review\/ia-001$/);
     await expect(page.getByText('ما توفر مصدر طبي مؤكد', { exact: false })).toBeVisible(); // sourceCitation TO_BE_SUPPLIED → the honest line, never invented
+    // The decision buttons open a client-side Sheet: a click that lands before the new document has
+    // hydrated is dropped and no dialog ever appears (the same race as day.spec.ts's "return to
+    // today" — see docs/VERIFICATION.md, "Responsive pass — results"). Let the client chunks settle
+    // first so the click reaches a live handler.
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'تأكيد الخطر' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'تأكيد' }).click();

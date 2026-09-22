@@ -50,7 +50,7 @@ export async function CaregiverAlertDetail({ alertId, locale }: { alertId: strin
   const citationIsUnverified = !alert.sourceCitation || alert.sourceCitation === TO_BE_SUPPLIED;
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <InteractionAlert
         severity={alert.severity}
         reviewStatus={alert.reviewStatus}

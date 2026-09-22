@@ -1,5 +1,6 @@
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
+import { SECTION_GUTTER } from './layout';
 import { Card } from '@/components/ui/Card';
 
 /**
@@ -16,7 +17,7 @@ export function SafetySection({ locale }: { locale: Locale }) {
     [copy.landing.safety3Title, copy.landing.safety3Body],
   ] as const;
   return (
-    <section className="flex flex-col gap-3 p-3 tablet:p-5">
+    <section className={`flex flex-col gap-3 ${SECTION_GUTTER}`}>
       <h2 className="text-h2 text-navy">{t(copy.landing.safetyHeading, locale)}</h2>
       <div className="flex flex-col gap-4 tablet:flex-row">
         {items.map(([title, body], i) => (

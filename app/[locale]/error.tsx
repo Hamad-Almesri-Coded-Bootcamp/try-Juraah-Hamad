@@ -38,7 +38,7 @@ export default function ErrorPage({ error, retry }: { error: Error & { digest?: 
   const label = !role ? t(copy.shell.backHome, locale) : isClinic ? t(copy.shell.backToQueue, locale) : t(copy.shell.backToToday, locale);
 
   return (
-    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3">
+    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3 tablet:p-5">
       <ErrorState title={t(copy.shell.errorTitle, locale)} description={t(copy.shell.errorBody, locale)} onRetry={retry} retryLabel={t(copy.shell.retry, locale)} />
       <NavigateButton href={home} variant="secondary" size="lg" fullWidth lang={locale}>
         {label}

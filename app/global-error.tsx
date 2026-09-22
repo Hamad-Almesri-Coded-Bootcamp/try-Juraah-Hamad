@@ -21,7 +21,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
   return (
     <html lang={locale} dir={directionFor(locale)}>
       <body>
-        <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3">
+        <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center gap-3 p-3 tablet:p-5">
           <ErrorState title={t(copy.shell.errorTitle, locale)} description={t(copy.shell.errorBody, locale)} onRetry={retry} retryLabel={t(copy.shell.retry, locale)} />
         </main>
       </body>

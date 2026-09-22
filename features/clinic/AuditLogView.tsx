@@ -21,6 +21,12 @@
  * name, never a full name, never a Civil ID). A row's `patientMaskedName` is absent exactly when it
  * carries no `patientId` at all (a system-scoped event) — that case still falls back to the honest
  * "not recorded" marker rather than a blank cell.
+ *
+ * Width (AuditLog1440.dc.html): the three filters sit in one row from tablet width; the log is the
+ * `ActivityRow` list until the content column is wide enough for the table (`@[900px]` on this
+ * component's own container — so a 1280 laptop gets the table too, not only 1440), whose
+ * `table-layout: fixed` and column widths keep a timestamp or an enum-shaped word from forcing a
+ * column wider than its track (ActivityRow.css).
  */
 import { useRouter } from 'next/navigation';
 import { Select, type SelectOption } from '@/components/ui/Select';
@@ -118,8 +124,8 @@ export function AuditLogView({
   }
 
   return (
-    <div className="flex flex-col gap-4 p-3">
-      <div className="flex flex-wrap items-end gap-3">
+    <div className="@container flex flex-col gap-4 p-3 tablet:p-5">
+      <div className="grid grid-cols-1 gap-3 tablet:grid-cols-3">
         <Select label={t(copy.clinic.x1FilterTypeLabel, locale)} value={filters.type ?? ''} options={typeOptions} lang={locale} onChange={(e) => navigate({ ...filters, type: e.target.value || undefined })} />
         <Select label={t(copy.clinic.x1FilterActorLabel, locale)} value={filters.actor ?? ''} options={actorOptions} lang={locale} onChange={(e) => navigate({ ...filters, actor: e.target.value || undefined })} />
         <Select
@@ -144,7 +150,7 @@ export function AuditLogView({
         <EmptyState icon="inbox" title={t(copy.clinic.x1EmptyTitle, locale)} description={t(copy.clinic.x1EmptyBody, locale)} />
       ) : (
         <>
-          <div className="flex flex-col gap-2 desktop:hidden">
+          <div className="flex flex-col gap-2 @[900px]:hidden">
             {events.map((e) => (
               <ActivityRow
                 key={e.id}
@@ -157,8 +163,15 @@ export function AuditLogView({
               />
             ))}
           </div>
-          <div className="hidden desktop:block">
-            <table className="w-full border-collapse">
+          <div className="hidden @[900px]:block">
+            <table className="w-full table-fixed border-collapse">
+              <colgroup>
+                <col className="w-[17%]" />
+                <col className="w-[16%]" />
+                <col className="w-[21%]" />
+                <col className="w-[15%]" />
+                <col className="w-[31%]" />
+              </colgroup>
               <ActivityRow.Table
                 columns={{
                   time: t(copy.clinic.x1ColumnTime, locale),

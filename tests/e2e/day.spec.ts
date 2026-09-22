@@ -90,6 +90,13 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app`);
       await page.getByRole('link', { name: /اليوم التالي|Next day/ }).click();
       await expect(page).toHaveURL(/day=2026-09-22/, { timeout: 15000 });
+      // "Return to today" is a client-side `router.push` button: a click that lands before the new
+      // document has hydrated is dropped (React replays nothing outside a Suspense boundary), and
+      // `toHaveURL` above resolves the moment the URL changes — long before hydration. Wait for the
+      // network to settle (client chunks loaded) so the click reaches a live handler. This raced
+      // before the responsive pass too: it failed identically against the untouched HEAD tree on a
+      // freshly started dev server (docs/VERIFICATION.md, "Responsive pass — results").
+      await page.waitForLoadState('networkidle');
       await page.getByRole('button', { name: /ارجع لليوم|Return to today/ }).click();
       await expect(page).toHaveURL(new RegExp(`/${locale}/app$`), { timeout: 15000 });
       await page.getByRole('link', { name: /اليوم السابق|Previous day/ }).click();

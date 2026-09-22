@@ -4,7 +4,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
  * has its own inner Suspense fallback (`SetupFlow`'s, for `useSearchParams`, D-008) once mounted. */
 export default function SetupLoading() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+    <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
       <LoadingState variant="detail" />
     </main>
   );

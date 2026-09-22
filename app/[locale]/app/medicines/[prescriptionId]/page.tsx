@@ -36,7 +36,7 @@ export default async function PrescriptionDetailPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={t(copy.vocabulary.back, locale)} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="detail" label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -46,7 +46,7 @@ export default async function PrescriptionDetailPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} backHref={backHref} backLabel={t(copy.vocabulary.back, locale)} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <PrescriptionErrorState locale={locale} backHref={backHref} />
         </div>
       </div>

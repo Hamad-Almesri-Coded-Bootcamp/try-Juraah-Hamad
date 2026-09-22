@@ -55,14 +55,14 @@ export async function CaregiverActivity({ caregiverId, locale }: { caregiverId: 
 
   if (events.length === 0) {
     return (
-      <div className="p-3">
+      <div className="p-3 tablet:p-5">
         <EmptyState icon="clock" title={t(copy.caregiving.f3ActivityEmptyTitle, locale)} description={t(copy.caregiving.f3ActivityEmptyBody, locale)} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col p-3">
+    <div className="flex flex-col p-3 tablet:p-5">
       {events.map((event) => (
         <ActivityRow
           key={event.id}

@@ -73,6 +73,23 @@ for (const [locale, dir] of LOCALES) {
     await expect(img).toHaveAttribute('height', '844');
   });
 
+  test(`L1 (${locale}) — the hero is a row beside the 390px mockup when the page is wide, stacked at phone width (Landing1440 / Landing boards)`, async ({ page }) => {
+    await page.goto(`/${locale}`);
+    const h1 = page.getByRole('heading', { level: 1 });
+    const img = page.locator('img[src="/landing/today-preview.png"]');
+    const [h, i] = await Promise.all([h1.boundingBox(), img.boundingBox()]);
+    expect(h && i).toBeTruthy();
+    if ((page.viewportSize()?.width ?? 390) >= 1000) {
+      // Side by side: the image's vertical extent overlaps the headline's, and it is the intrinsic 390 (minus the card's padding).
+      expect(i!.y < h!.y + h!.height && h!.y < i!.y + i!.height, 'hero text and mockup share a row').toBeTruthy();
+      expect(i!.width).toBeLessThanOrEqual(390);
+      expect(i!.width).toBeGreaterThan(300);
+    } else {
+      expect(i!.y, 'mockup below the headline at phone/tablet width').toBeGreaterThan(h!.y + h!.height);
+    }
+    await noHorizontalOverflow(page);
+  });
+
   test(`L1 (${locale}) — images unavailable: the image still carries alt text and the layout still holds`, async ({ page, context }) => {
     await context.route('**/landing/today-preview.png', (route) => route.abort());
     await page.goto(`/${locale}`);

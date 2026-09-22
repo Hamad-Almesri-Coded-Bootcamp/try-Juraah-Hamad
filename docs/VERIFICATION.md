@@ -29,14 +29,14 @@ Every spec named below parametrises `['ar', 'en']` internally and runs under the
 
 | Code | Screen | Spec file | Required states demonstrated | axe |
 |---|---|---|---|---|
-| L1 | Landing | `landing.spec.ts` | content · ten sections in order · images-unavailable · signed-in ×5 session kinds · clinic never linked/named · no data-layer call | ✓ |
+| L1 | Landing | `landing.spec.ts` | content · ten sections in order · images-unavailable · signed-in ×5 session kinds · clinic never linked/named · no data-layer call · **hero row beside the 390px mockup from ~1000px, stacked below (Landing1440 / Landing boards)** | ✓ |
 | A0 | Session gate | `identity.spec.ts` | all 7 routing outcomes · skeleton never blank | ✓ (via destination screens) |
 | A1 | Sign-in | `identity.spec.ts` | empty · invalid-kept · `no_claims` byte-identical · pending-only→F0 · countdown · lapsed+retry (unit, fake timers) · approved single/multi | ✓ |
 | A1b | Role chooser | `identity.spec.ts` | two-active-roles only · equal cards · remembered choice | ✓ |
 | A2 | First-run setup | `identity.spec.ts` | 4 steps · abandon-resume (`?step=`) · decline-all→B1 no warning · runs once (redirect test in `roles.spec.ts`) · InviteSheet mounted (unit) | ✓ |
 | A3 | Profile | `identity.spec.ts` | content · **no Civil ID (DOM scan)** · neutral notification lines→E5 · phone edit · sign out, no way back | ✓ |
 | B1 | Today | `day.spec.ts` + `g1-today-tracking-off.spec.ts` | tracking-off (**0 interactive elements in the list — the G1 proof**) · tracked mixed/missed (سارة) · empty day (فاطمة) · no-prescriptions (بدر) · duration boundary (rx-002) · day nav + return · invitation notice · row→B3 · loading/error/offline | ✓ |
-| B2 | My Medicines | `day.spec.ts` | danger alert on top, full width at 834 · untracked cards no pill · past group with reason/date, no refill · empty→add · loading/error | ✓ |
+| B2 | My Medicines | `day.spec.ts` + `shells.spec.ts` | danger alert on top, full width at 834 · untracked cards no pill · past group with reason/date, no refill · empty→add · loading/error · **two cards per row at 1280 (MedicinesDesktop board), one at 390** | ✓ |
 | B3 | Prescription detail | `prescription.spec.ts` | every field · rx-006 no-"undefined" · no dispensing→no estimate · rx-008 "50 mcg" unconverted (locale numerals) · discontinued · timeline ± pills keyed on `tracked` · refill link `?rx=` · loading/error | ✓ |
 | B4 | Add/scan | `prescription.spec.ts` | idle · analysing · confident→save→listed · needs_review marked · unreadable, no record created · back | ✓ |
 | C1 | Safety list | `safety.spec.ts` | ordered (severity, recency) · history quieter · empty reassuring · entry→C3 · loading/error/offline | ✓ |
@@ -55,11 +55,11 @@ Every spec named below parametrises `['ar', 'en']` internally and runs under the
 | F4 | Caregiver profile | `caregiving.spec.ts` | identity line (no Civil ID) · linked-since · own push/chat (alerts only) · unlink Sheet · sign out · no Settings row | ✓ |
 | F5 | Caregiver help | `caregiving.spec.ts` | static topics | ✓ |
 | G1s | Review queue | `clinic.spec.ts` | severity order · waiting time (data-layer `waitedMinutes`) · empty · in-place segment switch | ✓ |
-| G2s | Reviewer decision | `clinic.spec.ts` | citation verbatim/to-be-supplied · read-only context panel (± statuses by `trackingOn`) · confirm/clear via Sheet · round trip: queue shrinks, audit gains `alert_reviewed` · nothing else editable | ✓ |
+| G2s | Reviewer decision | `clinic.spec.ts` | citation verbatim/to-be-supplied · read-only context panel (± statuses by `trackingOn`) · confirm/clear via Sheet · round trip: queue shrinks, audit gains `alert_reviewed` · nothing else editable · **at 1280: decision beside the context panel, the queue pane with the open item marked and no control (ReviewerDesktop board); pane hidden at 390** | ✓ |
 | G3s | Field confirmation | `clinic.spec.ts` | pending marked-fields + image alt · confirm clears `needsReview`, schedule starts · return with reason · **returned history rows** | ✓ |
 | X0 | Clinic entry | `clinic.spec.ts` | same simulation as A1 · `no_claims` refusal wording equal to A1's · dual-role chooser (د. خالد) · single-role never (م. دانة) · CR-039's redirect behaviour asserted as-is | ✓ |
-| X1 | Audit log | `clinic.spec.ts` + `auditProofMoment.test.ts` | newest-first · 3 filters in place · **the proof moment: filtered to dose-status writes → exactly سارة's 5 rows, all agent/system** · actor label + bounded literal (CR-010) · patient masked name (CR-038) · metadata only · empty | ✓ |
-| H1 | Not found | `shells.spec.ts` + WP3 units | one sentence, one way back per session | ✓ |
+| X1 | Audit log | `clinic.spec.ts` + `auditProofMoment.test.ts` + `shells.spec.ts` | newest-first · 3 filters in place · **the proof moment: filtered to dose-status writes → exactly سارة's 5 rows, all agent/system** · actor label + bounded literal (CR-010) · patient masked name (CR-038) · metadata only · empty · **table layout and one-row filters from 1280 (AuditLog1440 board), list at 390/834** | ✓ |
+| H1 | Not found | `shells.spec.ts` + WP3 units | one sentence, one way back per session · **reached for a URL that matches no route at all (D-013), never Next's default page** | ✓ |
 | H2 | Error | unit + `?view=error` paths in day/prescription/safety/supply/ambient/clinic specs | plain sentence · retry · no code, no blame | ✓ |
 | H3 | Offline / failed refresh | `shells.spec.ts` + `?view=offline` paths | last-known + "as of" line · refresh · never empty | ✓ |
 
@@ -78,7 +78,7 @@ Every spec named below parametrises `['ar', 'en']` internally and runs under the
 | The invitation gate | the named F0 tests (module graph, call scope, equal buttons, decline, answer-without-signing-out) | **PASS** |
 | G11 on L1, clinic never linked/named | bundle a's item-by-item checklist + e2e `href`/content scan | **PASS** |
 | G3 | guard 6 + `REFERENCE_NOW` seam; suites pass on 2026-09-22 wall-clock, asserting 2026-09-21 content | **PASS** |
-| G8 | `shells.spec.ts` (4/3/2 destinations, breakpoints); `roles.spec.ts` route-depth ≤ 2 taps; L1 and F0 carry no tab bar | **PASS** |
+| G8 | `shells.spec.ts` (4/3/2 destinations, breakpoints at 390/834/1280/1440; one rail column with the clinic sign-out inside it; pushed patient screens keep the rail from 834 and no bar below — D-010/D-012); `roles.spec.ts` route-depth ≤ 2 taps; L1 and F0 carry no tab bar | **PASS** |
 | Role resolution | identity tests: single-role skips A1b; د. خالد reaches both clinic roles without signing out; unrecognised → invitation-path message | **PASS** |
 | Caregiver shell: no writes, never more | the named caregiving tests | **PASS** |
 | Reviewer edits only through G3s; admin opens nothing clinical | clinic module-graph + metadata-only tests | **PASS** |
@@ -98,3 +98,69 @@ Every spec named below parametrises `['ar', 'en']` internally and runs under the
 **Owed by the owner** (from the Master Prompt's own list, updated). The real `sourceCitation` — for **all three** seed alerts (`ia-001/002/003` each hold `TO_BE_SUPPLIED`; the screens render the honest unverified line) · the bilingual copy deck · the real bot handle · the demo script · the CR-006 caregiver row's name/relationship/dates (`[TO BE SUPPLIED]`, counted by guard P: 5 markers).
 
 **Open in DECISIONS.md, awaiting the owner.** CR-026 (spec text for A3/F4) · CR-030 (one-destination TabBar) · CR-031 (caregiver's own name on F4) · CR-032 (`PrescriptionCard` `href`) · CR-033 (status-free next-dose line on B2's cards) · CR-034 (snapshot recording for list reads) · CR-039 (X0 refusal vs. session routing) · CR-040 (refill eligibility of flagged prescriptions). Each carries a stated default the build currently follows.
+
+---
+
+## Responsive pass — 2026-09-22, after WPfinal (DECISIONS D-009 … D-013)
+
+**Why.** The owner reviewed the build against the wireframe canvas and found no desktop layouts where the boards have them. A screenshot sweep of every route at 390 / 834 / 1280 / 1440 confirmed it: the five wide boards (`Landing1440`, `Today834`, `MedicinesDesktop`, `ReviewerDesktop`, `AuditLog1440`) were not built; every wide rule was keyed to the 1440 token so a 1280 window got an uncapped phone column; pushed patient screens (B3, B4, C2, C3) lost both the rail and the width cap; the clinic rail rendered as two columns; the audit filters stacked; and an unknown URL fell through to Next's own English 404.
+
+**What changed** (all layout — no data contract, seed value, role rule or invariant touched):
+
+| Area | Before | After | Board / rule |
+|---|---|---|---|
+| Shell (`features/shell/AppShell.tsx`, `ClinicNav.tsx`, patient layout) | cap only ≥1440; rail dropped on pushed screens; clinic rail in two columns; no wordmark | cap from 834 (D-009); rail persists ≥834 on pushed screens, bottom bar hidden <834 (D-010); one rail column, wordmark at top, clinic switch/sign-out at the bottom (D-012); clinic column 1.5× the cap (D-011) | `Today834`, `MedicinesDesktop`, `ReviewerDesktop`, `AuditLog1440`; navigation.md "Across breakpoints" |
+| L1 (`features/landing/*`) | one 880px column at every width; mockup stretched to 880px | own rhythm: 16/32/48px gutters, hero row beside the 390px mockup from ~1000px, six-up features from ~1200px, prose capped at the reading width | `Landing`, `Landing1440` |
+| B2 (`features/day/MedicinesList.tsx`) | one column | two cards per row once the content column ≥720px | `MedicinesDesktop` |
+| G2s (`features/clinic/ReviewerDecision.tsx`, its page) | two columns only ≥1440 | decision beside context ≥720px; queue pane ≥1000px (`getReviewQueue`, read-only rows, open item marked) | `ReviewerDesktop` |
+| X1 (`features/clinic/AuditLogView.tsx`) | filters stacked; table only ≥1440 | filters in one row from 834; table ≥900px of content, `table-layout: fixed` with column widths | `AuditLog1440` |
+| H1 (`app/[locale]/[...rest]/page.tsx`) | Next's default 404 | `notFound()` → the H1 screen in the locale layout | D-013 |
+| Gutters (47 screen wrappers) | `space-3` at every width | `space-3` at phone, `space-5` from 834 | Design System Foundations "Mobile-first" |
+
+**Mechanism.** The tokens are untouched (`tokens.json` → `tokens.css` regenerated identically). Two hand-written spacing values were added to `styles/theme.css` as token arithmetic (`--spacing-rail`, `--spacing-rail-wide`, `--spacing-content-wide`). Width-dependent shapes use Tailwind container queries (`@container` on a wrapper, `@[…]` on the children — never on the same element, which queries nothing), so they follow the content column, not the viewport, and the 1280 boards render at 1280 and 1440 alike. Guards 2, 5 and 7 are green: no raw hex/px font/px radius, no physical left/right, the one new string (`shell.clinicWordmark`) is in the catalogue with `placeholder: true`.
+
+**Tests added.** `shells.spec.ts`: 1280 rail + cap per shell · B2 two-up at 1280 / stacked at 390 · X1 table + one-row filters at 1280 · B3 rail at 834/1440 and no bar at 390 · clinic sign-out inside the rail at 834/1440 · unknown URL → H1. `clinic.spec.ts`: G2s wide layout (before the store-mutating commit). `landing.spec.ts`: hero row/stack by width. `safety.spec.ts`: the pushed-detail chrome assertion is now width-aware. No fourth Playwright project (identity.spec keys Civil IDs by project name); these tests set their own viewport.
+
+**Runs.** See "Responsive pass — results" below.
+
+### Responsive pass — results
+
+Run by the lead on 2026-09-22 against the working tree described above. The e2e suites were run the way the gate ran them — one `next dev` process per invocation, started fresh and warmed in a browser first (a fresh Turbopack server compiles each route's client chunks on the first browser visit, which is slow enough to time out a click-then-assert test), with the store-mutating clinic suite in its own invocation because its commit test reviews `ia-001`, which the safety suite expects to still be pending. A first attempt that ran all seven suites in one invocation showed exactly that contamination (safety's C2 tests found the alert already reviewed) and nothing else.
+
+```
+$ npm run verify
+> npm run typecheck && npm run lint && npm run check:tokens && npm run guards && npm run test && npm run seed:diff && npm run notes:check && next build
+✖ 1 problem (0 errors, 1 warning)            ← the pre-existing Hero.tsx <img> warning, item 1 above
+All guards passed.                            ← guards 2 · 3 · 4 · 5 · 6 · 7 · U · P (5 owed markers, 781 placeholder entries) · S
+ Test Files  78 passed (78)
+      Tests  473 passed | 1 skipped (474)
+✓ Compiled successfully in 4.8s
+✓ Generating static pages using 11 workers (67/67)
+├ ƒ /[locale]/[...rest]                       ← D-013's catch-all, beside /[locale]/dev-gallery (not shadowed)
+EXIT 0
+
+$ npx playwright test tests/e2e/shells.spec.ts tests/e2e/day.spec.ts tests/e2e/safety.spec.ts tests/e2e/landing.spec.ts tests/e2e/roles.spec.ts tests/e2e/smoke.spec.ts --workers=1
+  4 skipped                                   ← the one-shot store mutations, gated by design
+  389 passed (16.7m)
+EXIT 0
+
+$ npx playwright test tests/e2e/clinic.spec.ts --workers=1
+  2 skipped                                   ← "G2s at 1280" on the tablet-834 and desktop-1440 passes: the phone-390 pass's round-trip had already committed ia-001, so the pane has no queue to show and the test skips rather than asserting it; it ran and passed on the phone-390 pass (viewport set to 1280 inside the test)
+  82 passed
+EXIT 0
+```
+
+**Two pre-existing test races, fixed in the tests, disclosed here.** `day.spec.ts` "day navigation both ways" clicks the client-side "Return to today" button the instant the URL changes after a full-document navigation, i.e. before the new document has hydrated; the click is dropped and the assertion times out. It fails identically against the **untouched HEAD tree** on a freshly started dev server (the lead stashed the working tree and ran it: 2 failed, both at `toHaveURL(/\/ar\/app$/)`), so it is not a regression of this pass — it passed at the gate on a long-running, fully warmed server. `clinic.spec.ts` "G2s — confirm ia-001" has the same shape (the decision button opens a client-side Sheet). Both now `waitForLoadState('networkidle')` before that first client-side click. No product code changed for either.
+
+**The remaining seven suites**, run last on 2026-09-22, also one fresh warmed `next dev` per invocation. Three of them cover screens whose *shape* this pass changed, not only their gutter: `prescription` (B3, B4) and `supply` (C3) are pushed patient screens that now carry the side rail from 834px and the ~880px cap at 1440 (D-009, D-010), and `g1-today-tracking-off` is the runtime proof of rule 1 that item 4 of the matrix cites. They needed two invocations, for the same reason the clinic suite did: the two B4 "confirm" tests in `prescription.spec.ts` add a prescription to حمد on **every** project and locale (they carry no single-project `test.skip` guard, unlike the other one-shot mutations in `ambient`, `identity` and `supply`), so a first attempt that ran all seven together showed `g1` (six rows expected, 12 then 18 found), caregiving F2 (same six rows) and supply D1 (two refill buttons expected, four, six, eight found) counting the extra "Brufen 400 mg" prescriptions — store contamination between suites, not a layout fault; every other test in that attempt passed (438 passed, 11 failed, 13 skipped, all eleven failures those three count assertions). The spec files themselves were not edited.
+
+```
+$ npx playwright test tests/e2e/g1-today-tracking-off.spec.ts tests/e2e/caregiving.spec.ts tests/e2e/supply.spec.ts tests/e2e/ambient.spec.ts tests/e2e/identity.spec.ts tests/e2e/gallery.spec.ts --workers=1
+  13 skipped                                  ← the single-project one-shot mutations in ambient (3×2), identity (2) and supply (5), gated by design
+  353 passed (20.2m)
+EXIT 0
+
+$ npx playwright test tests/e2e/prescription.spec.ts --workers=1
+  96 passed (5.6m)
+EXIT 0
+```

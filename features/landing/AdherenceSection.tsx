@@ -1,5 +1,6 @@
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
+import { PROSE, SECTION_GUTTER } from './layout';
 
 /**
  * Section (6) — adherence follow-up, marked optional, stating everything above works without it
@@ -9,12 +10,12 @@ import type { Locale } from '@/i18n/locale';
  */
 export function AdherenceSection({ locale }: { locale: Locale }) {
   return (
-    <section className="flex flex-col gap-2 p-3 tablet:p-5">
+    <section className={`flex flex-col gap-2 ${SECTION_GUTTER}`}>
       <span className="inline-flex w-fit items-center rounded-full border border-border bg-surface-card px-2 py-1 text-caption text-ink-muted">
         {t(copy.landing.adherenceBadge, locale)}
       </span>
       <h2 className="text-h2 text-navy">{t(copy.landing.adherenceHeading, locale)}</h2>
-      <p className="text-body text-ink-muted">{t(copy.landing.adherenceBody, locale)}</p>
+      <p className={`text-body text-ink-muted ${PROSE}`}>{t(copy.landing.adherenceBody, locale)}</p>
     </section>
   );
 }

@@ -54,7 +54,7 @@ export default async function TodayPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="list" rows={4} label={t(copy.vocabulary.loading, locale)} />
         </div>
       </div>
@@ -64,7 +64,7 @@ export default async function TodayPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={baseHref} />
         </div>
       </div>
@@ -95,7 +95,7 @@ export default async function TodayPage({
   });
 
   const content = (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="flex flex-col gap-4 p-3 tablet:p-5">
       <div className="flex items-center gap-2">
         <IconButton label={t(copy.day.previousDay, locale)} icon="chevron" mirrorIcon href={prevHref} />
         <div className="flex flex-1 flex-col">

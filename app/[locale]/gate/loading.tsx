@@ -4,7 +4,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
  * so a decision in progress is never a blank screen (SCREENS.md: "always a skeleton, never blank"). */
 export default function GateLoading() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3">
+    <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
       <LoadingState variant="lines" rows={4} />
     </main>
   );

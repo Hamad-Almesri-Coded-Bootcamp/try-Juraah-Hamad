@@ -43,7 +43,7 @@ export default async function MedicinesPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="alert" label={t(copy.vocabulary.loading, locale)} />
           <LoadingState variant="list" rows={3} label={t(copy.vocabulary.loading, locale)} />
         </div>
@@ -54,7 +54,7 @@ export default async function MedicinesPage({
     return (
       <div className="relative flex min-h-full flex-col">
         <AppBar title={title} action={<LanguageSwitch locale={locale} />} />
-        <div className="flex flex-col gap-4 p-3">
+        <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={baseHref} />
         </div>
       </div>
@@ -82,7 +82,7 @@ export default async function MedicinesPage({
   }
 
   const content = (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <MedicinesList
         prescriptions={prescriptions}
         alerts={alerts}

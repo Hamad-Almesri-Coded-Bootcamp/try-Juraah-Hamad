@@ -25,7 +25,7 @@ export async function CaregiverPrescriptionDetail({ prescriptionId, locale }: { 
   const depletion = rx.dispensing ? computeDepletion(rx) : null;
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <DetailRow label={t(copy.caregiving.f3RxGenericLabel, locale)} value={rx.drug.genericName} lang={locale} />
       <DetailRow label={t(copy.caregiving.f3RxBrandLabel, locale)} value={rx.drug.brandName} lang={locale} />
       <DetailRow label={t(copy.caregiving.f3RxStrengthLabel, locale)} value={formatStrength(rx.drug, locale)} lang={locale} />

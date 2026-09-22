@@ -27,7 +27,7 @@ export async function CaregiverMedicines({ caregiverId, locale }: { caregiverId:
   }
 
   return (
-    <div className="p-3">
+    <div className="p-3 tablet:p-5">
       <MedicinesList
         prescriptions={prescriptions}
         alerts={alerts}

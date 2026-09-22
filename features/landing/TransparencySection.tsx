@@ -1,5 +1,6 @@
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
+import { PROSE, SECTION_GUTTER } from './layout';
 
 /**
  * Section (9) — academic transparency: capstone prototype, simulated identity flow, synthetic
@@ -10,9 +11,9 @@ import type { Locale } from '@/i18n/locale';
  */
 export function TransparencySection({ locale }: { locale: Locale }) {
   return (
-    <section className="flex flex-col gap-2 border-y border-border bg-navy-tint p-3 tablet:p-5">
+    <section className={`flex flex-col gap-2 border-y border-border bg-navy-tint ${SECTION_GUTTER}`}>
       <h2 className="text-h2 text-navy">{t(copy.landing.transparencyHeading, locale)}</h2>
-      <p className="text-body text-navy">{t(copy.landing.transparencyBody, locale)}</p>
+      <p className={`text-body text-navy ${PROSE}`}>{t(copy.landing.transparencyBody, locale)}</p>
     </section>
   );
 }

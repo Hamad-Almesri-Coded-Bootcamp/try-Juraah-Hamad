@@ -9,7 +9,7 @@ import type { Locale } from '@/i18n/locale';
 
 export function CaregiverHelp({ locale }: { locale: Locale }) {
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex flex-col gap-3 p-3 tablet:p-5">
       <Card>
         <span className="type-body-strong">{t(copy.caregiving.f5CanSeeTitle, locale)}</span>
         <span className="type-body-small">{t(copy.caregiving.f5CanSeeBody, locale)}</span>
