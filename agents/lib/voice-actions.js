@@ -88,7 +88,8 @@ function quickFreeTalk(text) {
   const t = String(text || '').toLowerCase().replace(/[?.!,،؟]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!t || /\b(took|taken|missed|miss|forgot|forget|skipped|mark|record|log|didn't|did not|not)\b/.test(t)) return null;
   const hits = [];
-  if (/\bnext (dose|medicine|medication|pill)\b|\bwhen (do|should|will|can|must) i\b.*\btake\b|\bwhen is my\b|\bwhat time\b/.test(t)) hits.push('NextDoseIntent');
+  // Alexa keeps the carrier word ("when ...") out of the slot: "should I have my eltroxin" is the same question.
+  if (/\bnext (dose|medicine|medication|pill)\b|\bwhen (do|should|will|can|must) i\b.*\b(take|have)\b|^(do|should|can|must|will) i (need to |have to )?(take|have)\b|\bwhen is my\b|\bwhat time\b/.test(t)) hits.push('NextDoseIntent');
   if (/\bhow (much|many)\b|\bwhat (is|s) the dose\b|\bdose amount\b/.test(t)) hits.push('DoseAmountIntent');
   if (/\btoday\b|\bschedule\b|\bmy (medicines|medications|meds|doses)\b|\bthe list\b/.test(t)) hits.push('TodayDosesIntent');
   return hits.length === 1 ? hits[0] : null;

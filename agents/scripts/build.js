@@ -584,7 +584,8 @@ return [{ json: {
 } }];`;
 
 const AX_PROMPT_TEXT = `You read ONE sentence a patient said to the Jur'ah voice assistant (usually English, sometimes Arabic).
-The sentence may be missing its first word (Alexa keeps it as a carrier), e.g. "is my next dose" means "what is my next dose".
+The sentence may be missing its first word (Alexa keeps it as a carrier), e.g. "is my next dose" means "what is my next dose",
+and "should I have my Eltroxin" / "do I need to take my calcium" mean "WHEN should I ..." - that is next_dose.
 
 Return ONE intent:
 - next_dose - when/what is the next dose.
@@ -646,8 +647,9 @@ const alexa = {
     telegramText(AX(12), 'Telegram: header', [1520, 0]),
     ifNode(AX(15), 'needs the model?', "={{ $json.ok && $json.kind === 'FreeTalkIntent' && !!$json.utterance && !$json.quick }}", [-460, 200]),
     // Alexa waits at most 8 seconds: one try, no retry waits; a failure is 'unclear', never a guess.
-    { ...gemini(AX(17), 'Gemini (chat model)', GEMINI_MODEL, [-400, 420]), retryOnFail: false, maxTries: 1 },
-    { ...gemini(AX(18), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [-400, 560]), retryOnFail: false, maxTries: 1 },
+    // gemini-3-flash-preview took 11 s on a live voice turn; gemini-3.6-flash answered in 4.8 s - so for voice it goes first.
+    { ...gemini(AX(17), 'Gemini (chat model)', GEMINI_FALLBACK_MODEL, [-400, 420]), retryOnFail: false, maxTries: 1 },
+    { ...gemini(AX(18), 'Gemini (fallback model)', GEMINI_MODEL, [-400, 560]), retryOnFail: false, maxTries: 1 },
     { parameters: { schemaType: 'manual', inputSchema: AX_SCHEMA }, id: AX(19), name: 'Structured output',
       type: '@n8n/n8n-nodes-langchain.outputParserStructured', typeVersion: 1.2, position: [-220, 420] },
     { parameters: { promptType: 'define', text: "={{ $('alexa request (deterministic)').first().json.utterance || '-' }}", hasOutputParser: true, needsFallback: true,

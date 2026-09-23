@@ -102,6 +102,8 @@ test('after the writes: says what was recorded and, honestly, what was not', () 
 
 test('quickFreeTalk: a plain question skips the model (Alexa waits at most 8 s); anything about what the patient DID goes to the model', () => {
   assert.equal(A.quickFreeTalk('when do i need to take my eltroxin'), 'NextDoseIntent');
+  assert.equal(A.quickFreeTalk('should I have my eltroxin'), 'NextDoseIntent'); // Alexa dropped the carrier "when"
+  assert.equal(A.quickFreeTalk('do I need to take my calcium'), 'NextDoseIntent');
   assert.equal(A.quickFreeTalk('my medicines for today'), 'TodayDosesIntent');
   assert.equal(A.quickFreeTalk('how many pills'), 'DoseAmountIntent');
   for (const t of ['the first two taken and the third missed', 'i took my eltroxin', 'i forgot the evening one', 'did not take it today', 'hello there', 'how many do i take today']) {
