@@ -43,6 +43,8 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 /** Strip the CommonJS wrapper: an n8n Code node has no `module`. */
 function inline(file) {
   const src = read(file)
+    // A Windows checkout (core.autocrlf=true) hands us CRLF; the committed workflows are LF.
+    .replace(/\r\n/g, '\n')
     .replace(/^'use strict';\s*/m, '')
     .replace(/module\.exports\s*=\s*\{[\s\S]*?\};\s*$/m, '')
     .trimEnd();
