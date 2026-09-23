@@ -13,8 +13,7 @@
  */
 import { test, expect, type BrowserContext } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
-import { SESSION_COOKIE } from '../../lib/config';
+import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
 
 const LOCALES = ['ar', 'en'] as const;
 
@@ -23,17 +22,8 @@ async function addSession(context: BrowserContext, baseURL: string | undefined, 
 }
 
 async function addPendingInvitationOnly(context: BrowserContext, baseURL: string | undefined, subjectId: string) {
-  const base = new URL(baseURL ?? 'http://localhost:3100');
-  await context.addCookies([
-    {
-      name: SESSION_COOKIE,
-      value: encodeURIComponent(JSON.stringify({ subjectId, pendingInvitationOnly: true })),
-      domain: base.hostname,
-      path: '/',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ]);
+  // D-018 / E-25 (lead, Gate 2): the cookie is signed — a hand-built unsigned value is exactly the forgery proxy.ts refuses.
+  await context.addCookies([pendingInvitationCookieFor(subjectId, new URL(baseURL ?? 'http://localhost:3100'))]);
 }
 
 // ---------------------------------------------------------------------------------------------

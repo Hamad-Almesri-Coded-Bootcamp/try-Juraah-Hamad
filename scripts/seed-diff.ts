@@ -30,7 +30,7 @@ async function main() {
   const { runSeedDiff } = (await import(impl)) as { runSeedDiff: (counts: typeof SEED_COUNTS) => Promise<{ ok: boolean; table: string }> };
   const { ok, table } = await runSeedDiff(SEED_COUNTS);
   console.log(table);
-  if (!ok) { console.error('✗ seed diff — the mock does not match docs/Seed Dataset.md'); process.exit(1); }
+  if (!ok) { console.error('✗ seed diff — the selected backend does not match docs/Seed Dataset.md (or, for --backend=postgres, JURAH_DATABASE_URL is not set — NOT A PASS)'); process.exit(1); }
   console.log('✓ seed diff — every record present at the stated values, no extra record');
 }
 main();

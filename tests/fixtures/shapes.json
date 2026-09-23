@@ -3824,7 +3824,9 @@
       "sector": "private"
     },
     "drug": {
-      "genericName": "Paracetamol"
+      "genericName": "(unreadable)",
+      "brandName": "Panadol",
+      "strengthMg": 500
     },
     "dosePerAdministration": 1,
     "durationDays": 30,
@@ -3841,31 +3843,25 @@
     "fieldReviewedAt": "2026-09-21T09:15:00+03:00",
     "fieldReviewNote": "تم التأكيد"
   },
-  "returnPrescriptionToClinic(rx-007, as د. خالد)": {
-    "id": "rx-007",
+  "returnPrescriptionToClinic(new flagged prescription, as د. خالد)": {
+    "id": "rx-draft-11",
     "patientId": "pt-02",
     "source": {
-      "facilityName": "عيادة الياسمين",
-      "sector": "private"
+      "facilityName": "",
+      "sector": "public"
     },
     "drug": {
-      "genericName": "Ciprofloxacin",
-      "strengthMg": 500
+      "genericName": "(unreadable)"
     },
     "dosePerAdministration": 1,
-    "frequencyPerDay": 2,
-    "durationDays": 7,
+    "durationDays": 30,
     "dosingPattern": "daily",
-    "doseTimes": [
-      "09:00",
-      "21:00"
-    ],
     "needsReview": true,
     "fieldReviewStatus": "returned",
+    "status": "active",
     "fieldReviewNote": "الجرعة غير واضحة",
     "fieldReviewedBy": "acc-10",
-    "fieldReviewedAt": "2026-09-21T09:15:00+03:00",
-    "status": "active"
+    "fieldReviewedAt": "2026-09-21T09:15:00+03:00"
   },
   "getAuditLog (as م. دانة)": [
     {
@@ -4083,10 +4079,24 @@
         "id": "acc-10"
       },
       "type": "prescription_field_confirmed",
-      "message": "تأكيد بيانات وصفة Paracetamol",
+      "message": "تأكيد بيانات وصفة (unreadable)",
       "createdAt": "2026-09-21T09:15:00+03:00",
       "relatedId": "rx-006",
       "id": "ae-live-0016",
+      "patientMaskedName": "فاطمة س*** العجمي"
+    },
+    {
+      "scope": "patient",
+      "patientId": "pt-02",
+      "actor": {
+        "role": "patient",
+        "id": "pt-02"
+      },
+      "type": "prescription_added",
+      "message": "أُضيفت وصفة (unreadable)",
+      "createdAt": "2026-09-21T09:15:00+03:00",
+      "relatedId": "rx-draft-11",
+      "id": "ae-live-0017",
       "patientMaskedName": "فاطمة س*** العجمي"
     },
     {
@@ -4097,10 +4107,10 @@
         "id": "acc-10"
       },
       "type": "prescription_returned_to_clinic",
-      "message": "أُعيدت وصفة Ciprofloxacin للعيادة",
+      "message": "أُعيدت وصفة (unreadable) للعيادة",
       "createdAt": "2026-09-21T09:15:00+03:00",
-      "relatedId": "rx-007",
-      "id": "ae-live-0017",
+      "relatedId": "rx-draft-11",
+      "id": "ae-live-0018",
       "patientMaskedName": "فاطمة س*** العجمي"
     },
     {

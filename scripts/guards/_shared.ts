@@ -53,3 +53,11 @@ export function report(r: GuardResult): boolean {
 
 export const UI_DIRS = ['app', 'components', 'features'];
 export const CODE_EXTS = ['.ts', '.tsx', '.css', '.mjs', '.js'];
+
+/** SQL text with `--` line comments blanked (line numbers kept), for the SQL guard rules. */
+export function sqlWithoutComments(text: string): string[] {
+  return text.split('\n').map((l) => {
+    const i = l.indexOf('--');
+    return i >= 0 ? l.slice(0, i) : l;
+  });
+}

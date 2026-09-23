@@ -152,7 +152,7 @@ EXIT 0
 
 **Two pre-existing test races, fixed in the tests, disclosed here.** `day.spec.ts` "day navigation both ways" clicks the client-side "Return to today" button the instant the URL changes after a full-document navigation, i.e. before the new document has hydrated; the click is dropped and the assertion times out. It fails identically against the **untouched HEAD tree** on a freshly started dev server (the lead stashed the working tree and ran it: 2 failed, both at `toHaveURL(/\/ar\/app$/)`), so it is not a regression of this pass — it passed at the gate on a long-running, fully warmed server. `clinic.spec.ts` "G2s — confirm ia-001" has the same shape (the decision button opens a client-side Sheet). Both now `waitForLoadState('networkidle')` before that first client-side click. No product code changed for either.
 
-**The remaining seven suites**, run last on 2026-09-22, also one fresh warmed `next dev` per invocation. Three of them cover screens whose *shape* this pass changed, not only their gutter: `prescription` (B3, B4) and `supply` (C3) are pushed patient screens that now carry the side rail from 834px and the ~880px cap at 1440 (D-009, D-010), and `g1-today-tracking-off` is the runtime proof of rule 1 that item 4 of the matrix cites. They needed two invocations, for the same reason the clinic suite did: the two B4 "confirm" tests in `prescription.spec.ts` add a prescription to حمد on **every** project and locale (they carry no single-project `test.skip` guard, unlike the other one-shot mutations in `ambient`, `identity` and `supply`), so a first attempt that ran all seven together showed `g1` (six rows expected, 12 then 18 found), caregiving F2 (same six rows) and supply D1 (two refill buttons expected, four, six, eight found) counting the extra "Brufen 400 mg" prescriptions — store contamination between suites, not a layout fault; every other test in that attempt passed (438 passed, 11 failed, 13 skipped, all eleven failures those three count assertions). The spec files themselves were not edited.
+**The remaining seven suites**, run last on 2026-09-22, also one fresh warmed `next dev` per invocation. Three of them cover screens whose *shape* this pass changed, not only their gutter: `prescription` (B3, B4) and `supply` (C3) are pushed patient screens that now carry the side rail from 834px and the ~880px cap at 1440 (D-009, D-010), and `g1-today-tracking-off` is the runtime proof of rule 1 that item 4 of the matrix cites. They needed two invocations, for the same reason the clinic suite did: the B4 "confident outcome" test in `prescription.spec.ts` adds a prescription to حمد on **every** project and locale (the "needs_review" test only asserts the confirm button; neither carries a single-project `test.skip` guard, unlike the other one-shot mutations in `ambient`, `identity` and `supply`), so a first attempt that ran all seven together showed `g1` (six rows expected, 12 then 18 found), caregiving F2 (same six rows) and supply D1 (two refill buttons expected, four, six, eight found) counting the extra "Brufen 400 mg" prescriptions — store contamination between suites, not a layout fault; every other test in that attempt passed (438 passed, 11 failed, 13 skipped, all eleven failures those three count assertions). The spec files themselves were not edited.
 
 ```
 $ npx playwright test tests/e2e/g1-today-tracking-off.spec.ts tests/e2e/caregiving.spec.ts tests/e2e/supply.spec.ts tests/e2e/ambient.spec.ts tests/e2e/identity.spec.ts tests/e2e/gallery.spec.ts --workers=1
@@ -164,3 +164,610 @@ $ npx playwright test tests/e2e/prescription.spec.ts --workers=1
   96 passed (5.6m)
 EXIT 0
 ```
+
+## Handoff-notes accuracy audit — 2026-09-22
+
+Asked by the owner: "is everything in the backend handoff accurate?" The lead checked `docs/Phase 2 — Backend Handoff.md`'s own factual claims by hand and delegated a read-only, evidence-cited audit of each of `docs/BACKEND-NOTES.md`'s seven sections against the shipped code (six parallel auditors, every finding required to cite a file and line; the lead re-ran spot checks on every substantive finding before editing).
+
+**The handoff document itself** (owner-binding, not edited): its checkable claims hold — the seven artefacts exist; `lib/config.ts` holds exactly the five values it names; `Session` carries subject id, role, linked patient id and the pending-invitation flag; the screen tally in `docs/SCREENS.md` sums to 30 + 3; the landing route reads only the session module; the spec's PHASE 2 section exists. One illustrative name in §2, `getPatientContext(alertId)`, matches no real function (the real one is `getAlertForReview`, which returns a `patientContext`) — pre-build wording, flagged here, not changed.
+
+**`docs/BACKEND-NOTES.md`** — findings and what was done, per section:
+
+| § | Checked | Found | Done |
+|---|---|---|---|
+| 1 | 55 rows | Screens column copied from the Phase 0 plan: 19 rows stale; `getAuditLog` return type stale (CR-038); `getRecentDoses` claimed used internally — it has **no caller anywhere** | Column re-derived from the call graph (chrome calls marked "+ chrome"); return type fixed; note rewritten and the unused function flagged for the owner |
+| 2 | 32 entries | 3 stale (session-cookie timing; A2 invite placeholder since wired; confident `startDate` since fixed, CR-035); 5 cheats unrecorded (anonymous masked-name lookup, counter link token, length-derived ids, fabricated `source` on scanned prescriptions, `*_IS_SIMULATED` flags nothing reads) + 2 from the §5 run (snapshot aliasing, five mutations that append no audit row) | Rows corrected or marked superseded; 7 rows added |
+| 3 | 34 rows | **4 rows claimed a mock refusal that does not exist:** `getAlertForReview` does not gate on queue membership (returns سارة's context for `ia-002`); `savePrescriptionDraft` never calls `session()`; `readLastKnownSnapshot` has no session check; `requestRefill` never checks prescription ownership. Also: `InviteSheet` skips the confirm click for a no-account id; `getAuditLog` field list stale; "five fields" named four; 3 of the handoff's minimum items had no row (client `chatId`, client-authored `AuditEvent`, non-permitted `Settings` key) | Rows corrected to say what the mock does today; 4 rows added; the four enforcement gaps logged as **D-014** for the owner (mock code not changed) |
+| 4 | 52 rows | 26 rows named a screen that never reads the field; 19 omitted a real reader (F3 above all); 8 unconditionally rendered fields had no row (`source.facilityName`, `InteractionAlert.createdAt`/`description`, `dosePerAdministration`, E2's audit fields, `RefillRequest`, `PushSubscription`, `CalendarSubscription.icsUrl`); 3 prose bullets wrong (F0 `expiresAt`, F1 `invitedAt`/`revokedAt`, B2 `sourceCitation`) | All tables re-derived from grep of the readers; new table for the missing contracts; corrections appended to the three bullets |
+| 5 | 57 entries | **0 discrepancies** — `scripts/print-shapes.ts` re-run from the scratchpad: stdout byte-identical to §5 and to `tests/fixtures/shapes.json`; 8 entries are correct only in the generator's call order (documented in the auditor's report, not a defect) | Nothing to change. Weakness noted: `notes:check` matches function *names* only and would not catch a stale §5 |
+| 6 | 6 entries | The section promised file **and line** and gave none; hero-mockup entry superseded (`.png`, not `.svg`, and `Hero.tsx` did change); 4 of the handoff's required items had no row (ICS, role authentication, masked-name rate limit, the Civil ID test-list gate) | Table rewritten with `file:line` for every placeholder, 7 rows |
+| 7 | 152 claims | 9 wrong: 3 items superseded without a marker (CR-035, F3 parity, A2 invite); `cg-03` never accepted by e2e (two blocks); the lead's own note said "two" B4 confirm tests (one); `loading.tsx` claims off by one file and one variant; a `wp1.md` that was never filed; a dangling "REPORT BACK" pointer; `ClinicNav` `position: relative` attribution | Supersession markers and corrections appended in place; nothing deleted |
+
+```
+$ npm run -s notes:check
+✓ ## 1. The data-access surface
+✓ ## 2. Where the mock cheated
+✓ ## 3. Rules that are currently absences, and must become refusals
+✓ ## 4. Fields a screen depends on
+✓ ## 5. The shapes, verbatim
+✓ ## 6. Deferred to Phase 2 by design
+✓ ## 7. Things Phase 1 found out the hard way
+§1 rows for lib/data/api.ts: 50/50
+§5 shapes for lib/data/api.ts: 50/50
+§1 rows for lib/session/api.ts: 5/5
+§5 shapes for lib/session/api.ts: 5/5
+EXIT 0
+```
+
+---
+
+# Phase 2 — WPfinal verification (lead, 2026-09-23)
+
+Run by the Phase 2 lead after every work package passed its gate (`docs/BACKEND-PLAN.md` §3). Convention as in Phase 1: every item is a pasted command and output, or an honest **OWED** with the reason. Two classes of proof appear below: **repository proofs** (run on this machine) and **connector proofs** (the exact SQL run through the Supabase MCP `execute_sql` as the application role under a forged session GUC, rolled back when it mutates — because `JURAH_DATABASE_URL`, the one value only the owner can supply, is still empty). Nothing has run *through the application* against the database yet: every integration suite fails loudly by design (`!! integration skipped — JURAH_DATABASE_URL not set — NOT A PASS`), and that is reported as not passed, never as passed.
+
+## 1. Typecheck, lint, build — zero errors, frontend included
+
+```
+$ npm run verify
+✖ 1 problem (0 errors, 1 warning)            ← the pre-existing Hero.tsx <img> warning (frozen file)
+✓ guard 2 · 3 · 4 · 5 · 6 · 7 · 8 (new: SQL only through lib/db) · 9 (new: no secret in repo or bundle) · U · P (5 owed markers, 781 placeholder entries) · S
+All guards passed.
+ Test Files  97 passed (97)
+      Tests  821 passed | 1 skipped (822)     ← the skip is Phase 1's type-only IconButton case
+✓ seed diff — every record present at the stated values, no extra record
+§1 rows for lib/data/api.ts: 50/50 · §5 shapes 50/50 · lib/session/api.ts 5/5 · 5/5
+✓ Compiled successfully
+VERIFY EXIT=0
+```
+Unit tests grew from 473 to 821: schedule (114), engine (95), agent (47), session/verify (28), channels (33), projections and refusals (the per-package `tests/unit/data/*-projection.test.ts`, `refusals.test.ts`).
+
+## 2. The round trip — `tests/fixtures/shapes.json` against the real backend
+
+**→ Delivered through the app on 2026-09-23: see "Phase 2 — through the application, against the real database" at the end.** 44 identical · 1 by design (D-5) · 0 threw.
+
+~~**OWED through the app**~~ (`npx tsx scripts/print-shapes.ts --backend=postgres` prints `NOTHING CALLED, NOT A PASS` and exits 1 without the URL). **Proven by connector, function by function**, by each read package: the exact query text run as `jurah_app` under the seeded session, the rows mapped through the same `lib/data/shapes/*` literal, the string compared to the fixture:
+
+| Package | Result |
+|---|---|
+| WP3a | `getPrescriptions` (md5-equal, 4 rows) · `getPrescription(rx-001)` EQUAL 434 B · `getDosesForDay(pt-01, 2026-09-21)` EQUAL 1501 B · `getDoseHistory(rx-008)` EQUAL 26985 B (180 rows) · `getRecentDoses(pt-03, 7)` EQUAL 6436 B · `savePrescriptionDraft` EQUAL apart from the opaque id (CR-041) · `submitPrescriptionImage` EQUAL (unit) |
+| WP3b | `getAlerts` · `getAlert` · `checkDrugPhoto` · `getReviewQueue` (`waitedMinutes` 2771) · `getFieldConfirmationQueue` · `getFlaggedPrescription` IDENTICAL; `getAlertForReview(ia-001)` IDENTICAL once the fixture's created row `rx-draft-10` is excluded (CR-041 applies to nested ids) |
+| WP3c | 44 of 44 probes IDENTICAL (`getRefillOverview`, `getRefillRequests`, `getCalendarSubscription`), including the two rows the fixture's mutations create, inserted and rolled back |
+| WP3d | 13 IDENTICAL (`getPatient`, `getSettings` ×2 incl. the no-row default with `patientId` last, `getCaregivers`, `getPendingInvitationsForSubject`, `getInvitationForConsent` as سارة (D-024), `getPushCapability`, `getPushState`, `getMessagingLink`, `getCaregiverLink`, `getActivity` 24 seed rows + 4 live rows, snapshot); `getAuditLog` proven by md5 chain over 8 filter sets; the one DIFFERS is the fixture's own aliasing bug (D-5) |
+| WP2 | the 5 session shapes equal the fixture in mock; the twelve seed IDs resolve identically (12/12) by connector |
+| WP5 | every write in `print-shapes` order produced the fixture's rows by connector; the fixture itself was re-recorded for two calls the mock accepted and the database refuses (CR-060) — 3 keys changed, all others byte-identical |
+
+A twelve-digit scan over every projected shape: 0 matches (E-15).
+
+## 3. The refusal matrix — every row of `docs/ENFORCEMENT.md`
+
+50 rows. **Every row has a test titled by its id** in `tests/integration/enforcement/*.test.ts` (E-01 → E-49) or `tests/unit/landing/seam.test.ts` (E-50); the integration files (29 in `tests/integration/`) fail loudly without the URL — ~~**OWED through the app**~~. **→ Delivered through the app on 2026-09-23: see "Phase 2 — through the application, against the real database" at the end.** 29/29 files, 316/316 tests. **Every row was executed by connector or curl** with the result pasted in the owning fragment (`docs/backend-notes/p2-wp*.md`); the ones the owner will look for:
+
+| Row | Result (connector unless stated) |
+|---|---|
+| E-01 / E-05 | `update doses set status …` as `jurah_app` under حمد, عبدالله, د. خالد, م. دانة, سارة (own tracked dose) and the system actor → `42501 permission denied for table doses`; curl to the six agent routes with each user's signed cookie → 403, no bearer → 401 |
+| E-02 | as `jurah_agent`, `rx-002-20260921-0800` (untracked) → `dose_untracked_has_no_status`; route maps to 409 |
+| E-03 | expiry job + three recomputes with the clock advanced: `doses` md5-identical before/after; `rx-003-20260921-0800` still `upcoming, tracked:false`; grep: zero `missed` write paths (guard 4 over `supabase/**`, `app/api/**`, `lib/**`); `functions_writing_missed = 0` in `pg_proc` |
+| E-04 | agent write on `rx-009-20260921-1300` → one `dose_status_recorded` row, actor `agent`, message `تسجيل حالة جرعة — في وقتها: …`; `audit_dose_status_actor` refuses a patient actor |
+| E-09 / E-11 / E-12 | `adherence=true` as حمد → stays `false`, no audit row (control سارة flips); unknown key → column does not exist / `patient_id` → permission denied; `settings` columns = exactly the eight |
+| E-13 | bodies byte-identical apart from `maskedName`; timings (200 samples each, in-database): account median 105.0 µs / p95 147.2 vs no-account 102.0 / 135.1 — distributions overlap |
+| E-14 | no session → null, no row · #1–#10 masked · #11 null · 11 `lookup_audit` rows · rows aged 61 s no longer count (wall-clock window, D-037) · `select accounts` as `jurah_app` → 42501 |
+| E-16 → E-19 | invitation grants nothing (forged caregiver reads 0); `acceptInvitation(cg-03)` as حمد / م. دانة / عبدالله / owner-as-system → `caregiver_transitions: only the invited civil id may accept` or 0 rows, row stays `pending`; `signIn(ناصر)` leaves `cg-03` pending; cg-04…cg-07 → `<state> → active is not an allowed transition`; **grep of all ten migrations for a SECURITY DEFINER function writing `caregivers.status`: none** (`secdef_writing_caregivers = 0` in `pg_proc`) |
+| E-20 | read at 2026-10-03 shows `expired` while the row is still `pending`; the job then flips it with one `caregiver_invite_expired` row and one `job_runs` row |
+| E-21 / E-22 | forged sessions for cg-03 (pending), cg-04 (declined), cg-05 (expired), cg-06, cg-07 (revoked) and ناصر's real pending-only session → 0 rows on all 24 patient-scoped reads (a 6 × 13 table in `p2-wp2.md`); controls حمد / عبدالله read 4 prescriptions, 559 doses, 24 audit rows |
+| E-23 / E-24 | `getInvitationForConsent(cg-08)` as سارة → exactly five keys; as حمد or ناصر → 0 rows and the `expired` placeholder |
+| E-25 (curl) | unsigned `{"subjectId":"pt-01","role":"admin"}` → `/ar/clinic/audit` 307 → `/ar/clinic`; tampered payload with a valid signature → 307; control (م. دانة signed) → 200; `signIn('000000000000')` → `not_in_test_list`, no `sessions` row |
+| E-26 | sign out revokes the row (`revoked_rows=1`), replay → `live_on_replay=0`, doses visible with no session 0 |
+| E-27 | `signIn(منى)` vs `signIn(277091900873)`: identical bodies; medians 85.0 vs 81.0 µs, each inside the other's p5–p95 |
+| E-28 → E-32 | patient / caregiver / admin get the mock's empties from every clinic read; `getAlertForReview(ia-002)` → the empty view (D-014); `getAlert('ia-001')` byte-identical for حمد and عبدالله |
+| E-33 / E-34 | confirm with foreign keys → only the five whitelisted values change; confirm missing a clinical value → `rx_cr002_invariant_1`; second confirm → `prescription_clinical_fields_locked`; second return → "a field review is decided once"; second alert decision → 0 rows / `alert_review_once`; سارة's recorded doses survive regeneration |
+| E-35 / E-36 | م. دانة: 0 rows on every clinical read, 47 audit rows through the view, every write 0 rows or 42501, table fingerprint unchanged; reviewer → 0 audit rows; admin → 0 review rows; `chooseRole` refuses an option the caller does not hold |
+| E-38 / E-43 / E-44 | `chat_id` set by a user session → `link_chat_id_server_only`; a used token → 0 rows; an expired token → 0 rows; a pending caregiver's link → `link_caregiver_must_be_active` |
+| E-39 | raw `insert into audit_events` outside `append()` → RLS 42501; `update`/`delete` as `jurah_app` → 42501; as owner → `audit_events is append-only`; `audit_events` has 1 non-internal trigger (the immutability trigger) |
+| E-41 / E-42 | حمد saving فاطمة's draft → 0 drafts, nothing written; `requestRefill('pt-01','rx-008')` → `refill_routing: prescription not found for this patient`; `rx-004` → `not active`; client-supplied `routedTo` overwritten to the sector's value |
+| E-45 | guard 9 green after `next build`: 743 files scanned incl. `.next/static/**`, three secret values checked, none found |
+| E-46 / E-47 (curl + connector) | `PUT`/`POST`/`PATCH`/`DELETE /api/calendar/<token>.ics` → 405 `Allow: GET`; `disconnectMessaging` leaves `doses` md5-identical |
+| E-48 / E-49 | two reads of `ia-001` byte-identical, audit count unchanged; `getPrescription('rx-006')` as حمد and `'rx-999'` both 0 rows |
+| E-50 | `tests/unit/landing/seam.test.ts` (19 tests): no `lib/data` import anywhere in L1's module graph; L1's file is in the frozen set (item 10) |
+
+## 4. Schedule and depletion unit tests against the seed at the frozen clock
+
+```
+$ npx vitest run tests/unit/schedule tests/unit/engine
+ Test Files  10 passed (10) · Tests  209 passed (209)
+```
+Named cases (all green, and each turned red under a deliberate mutant, then green): حمد six rows on 2026-09-21 and three on 2026-09-26 (no Ibuprofen); فاطمة's `rx-005` on 14/16/18/20/22/24 September and **none on the 21st**; `rx-006`/`rx-007` zero doses; `rx-004` nothing after 2026-06-28; سارة's seven rows with exact statuses and `recordedAt` (and CR-051's two unlisted rows still `upcoming`); recompute after the 2026-09-19 reported miss → `changed:false`, identical times; discontinuation of `rx-003` on the 21st cancels 162 later doses and keeps that day's (D-023). By connector: the full regeneration of rx-001…007 (589 rows) matches the database by md5.
+
+## 5. The masking function
+
+`lib/format/maskedName.tsx` (Phase 1, unchanged) and the SQL `mask_name()` (CR-047) both tested against the seed's eight examples — none, one and several middle names, `عبدالعزيز` (nine letters) and `حمد` (three) both → `***`, honorifics stripped — and cross-checked equal on the same inputs (`tests/integration/schema/*` by connector: `عبدالله م*** ع*** المطيري | ناصر ح*** المطيري | … | حمد المطيري`).
+
+## 6. The masked-name lookup — two responses diffed, rate limit demonstrated
+
+Item 3's E-13/E-14 rows: byte-identical apart from the name; 11th call in 60 s refused with the same `{maskedName:null}` shape; window decays on the wall clock; every call audited without a Civil ID column existing. ~~**OWED through the app:** the 200-sample end-to-end timing in `identity.test.ts`.~~ **→ Delivered through the app on 2026-09-23: see "Phase 2 — through the application, against the real database" at the end.**
+
+## 7. No secret committed or bundled
+
+```
+$ npm run guards   → ✓ guard 9 · no secret in the repository or the client bundle
+   scanned 743 text files (including .next/static/**) · .env.local present: 3 secret value(s) checked
+$ git check-ignore .env.local → .env.local   (gitignored; .env.example carries empty placeholders only)
+```
+Red-then-green shown at Gate 1 (a planted `postgresql://…:…@` URI failed the guard, removed → green). The client chunk contains the env *names* `JURAH_BOT_TOKEN`/`JURAH_VAPID_PRIVATE_KEY`, never values (CR-057 b).
+
+## 8. No code path writes `Dose.status` outside the two permitted writers; no "overdue → missed" job
+
+```
+$ npm run guards   → ✓ guard 4 · G1: no Dose.status write path, no notification action   (scans lib/**, app/api/**, supabase/**)
+connector: has_column_privilege('jurah_app','doses','status','UPDATE') = false · ('jurah_agent', …) = true
+           functions in pg_proc that mention 'missed' and update doses = 0
+           doses_status_write trigger: refuses every non-agent/system writer (E-01/E-05); dose_untracked_has_no_status (E-02)
+$ grep -rn "missed" app/api lib/engine lib/data/pg supabase/migrations | grep -iE "update|set " → (no output)
+```
+
+## 9. The ICS feed in a real calendar client, and a write-back refused
+
+Write-back refused: `PUT`/`POST`/`PATCH`/`DELETE` → 405 with `Allow: GET` (curl, 3 runs each; D-034). Feed validity: built from the seed and parsed with `ical.js` — سارة 360 `VEVENT`s with status text only because her doses are tracked; حمد 559 `VEVENT`s and **zero status properties** (rule 3); longest line 50 octets, CRLF, no bare LF. **OWED:** opening the live `webcal://` URL in Calendar.app — the feed answers 503 on the mock backend and the implementer refused to load 360 seed events into a personal calendar without the real backend; run `open "webcal://localhost:3000/api/calendar/mock-token-cal-pt-03.ics"` once the URL exists.
+
+## 10. The frontend walked unchanged against the real backend
+
+**Unchanged — proven:**
+```
+$ git diff --stat 8cd7794 -- 'app/[locale]' components features i18n types styles public
+(no output)
+```
+Repeated at every gate by every package and by the lead; empty every time. `types/contracts.ts` and `types/views.ts` are inside that set.
+
+~~**Walked against the real backend — OWED** (needs `JURAH_DATABASE_URL`).~~ **→ Delivered 2026-09-23 (phone-390, all 14 suites, plus the gated tests on their own projects): 302 passed, 3 latency-bound, D-12/D-15 by design. See "Item 10 — the frontend against the real backend" at the end.** Walked against the **mock backend with the new signed session** (the auth-affected suites, serially, after the machine went quiet): see "e2e run" below.
+
+## 11. The audit log filtered to dose-status writes — in the database
+
+```
+connector: select actor_role, count(*) from audit_events where type='dose_status_recorded' group by 1
+           → [{"actor_role":"agent","count":5}]
+           (inside WP7's rolled-back proof: agent 5 → agent writes one status through the route's SQL → agent 6; never a user role)
+constraint audit_dose_status_actor: check (type <> 'dose_status_recorded' or actor_role in ('agent','system'))
+```
+This is true in the database, not only on the screen: a user actor cannot be inserted for that type at all.
+
+## 12. The spec's Phase 2 criteria, item by item
+
+| Criterion (`docs/Acceptance Criteria and Test Plan.md` → PHASE 2) | Evidence |
+|---|---|
+| Database schema — one table per contract entity, FKs, `doseTimes.length === frequencyPerDay` at write time, `AuditEvent` append-only at the DB level | migrations 0001–0006 (`SCHEMA.md`, as-built note); `rx_dose_times_match_frequency` refused by connector; `audit_events_immutable` raises even for the owner (E-39) |
+| Write-then-read round trip returns Phase 1's shapes | item 2 — by connector per function; through the app OWED |
+| Civil ID mock auth and role resolution server-side; pending-only session reaches F0 and nothing else; role never from the client | WP2: `civil_id_test_list`, one claims query, `sessions` + signed cookie (D-018); E-22, E-25, E-36; twelve IDs 12/12 |
+| Masked-name lookup: only for an account, indistinguishable otherwise, rate-limited per session, audited, unit-tested masking | items 5 and 6; migrations 0009/0010 |
+| Creating an invitation grants nothing; acceptance only by the invited Civil ID's own session; no endpoint/job/migration/admin activates; expiry at read time and by job; every transition audited without a Civil ID | E-16 → E-20; `caregiver_transitions` trigger; SECURITY DEFINER scan empty; `audit_message_no_civil_id` check |
+| Messaging link: single-use expiring token, `chatId` only from the bot, disconnect clears and switches tracking off touching no `Dose`, caregiver link only when `active`, bot token server-side, no feature requires a link | WP6: E-38, E-43, E-44, E-47; E-10 (بدر reads everything with no link row); `BOT_TOKEN` env-only |
+| Web push: VAPID, public key to the client only, no payload action, safety content never only in a payload, denied/revoked blocks nothing, nothing to a non-active caregiver | WP6: E-06, E-07, E-08; `lib/push/send.ts` strips `actions`; **real delivery OWED** (keypair and a client-side subscribe call, D-13) |
+| Deterministic schedule and depletion, skips unconfirmed flagged prescriptions, recompute without collapsing alternate-day, discontinuation, depletion only with `dispensing` | item 4; `lib/schedule` (Phase 1, unedited) + `recompute`/`discontinue`/`expiry` + `lib/engine` |
+| Dose status write path: only the engine and the agent path; no job marks `missed`; `tracked:false` never given a status; every write audited with its actor | items 8 and 11; E-01 → E-05 |
+| Field confirmation: reviewer sets `confirmed`/`returned` and corrects uncertain values only in that operation; no other path modifies clinical fields | E-33/E-34; `prescription_clinical_fields_locked` |
+| Refill routing matches the sector | E-42; `refill_routing` trigger overwrites a client value |
+| Calendar feed per patient, regenerated when doses change, no write-back | item 9 (regenerated on every read; 405 on writes) |
+| Audit events written by the backend, never a client, append-only, scoped; admin reads metadata only | E-39, E-35; `audit_log_admin` view (CR-047) |
+| Settings: only the seven keys; `adherenceCheckInEnabled:true` refused without a connected link; nothing disables the dashboard, screening or the engine | E-09 → E-12 |
+| Caregiver access: only `active` reads; every write on the patient's behalf refused; caregiver writes only its own rows | E-21, E-29, E-30, E-31 |
+| Reviewer/admin enforcement | E-32 → E-36 |
+| Security hygiene: no secret in repo or bundle; every mutating endpoint needs a session bound to its subject; the agent path has its own credential | item 7; every seam write under `withSession`; `AGENT_TOKEN` bearer, user cookies → 403 |
+| Integration point for the agents: one documented write path; `Dose.status` with `recordedAt`/`source`; alerts with `sourceCitation`; extraction with `needsReview`/`startDate`/`doseTimes`; check-in eligibility; alert recipients (`active` only); backend writes the audit rows as `agent` | WP7: `docs/API-SURFACE.md` §B; check-in eligibility → exactly سارة; recipients → cg-01, cg-02 only |
+| The landing page needs no backend | E-50 |
+| The six AI agents are not built | nothing under `lib/agent/**` calls a model; the extraction/drug-check providers are the deterministic byte-size stubs (CR-049) |
+
+## e2e run — the auth-affected suites, serially, mock backend, signed session (WP2 + D-038)
+
+```
+$ JURAH_DATA_BACKEND=mock npx playwright test tests/e2e/roles.spec.ts tests/e2e/identity.spec.ts tests/e2e/shells.spec.ts --workers=1
+  173 passed · 2 skipped (the one-shot mutations, gated by design) · 2 failed (9.4m)
+  ✘ [phone-390] roles.spec.ts:63 patient (حمد): every patient route loads …      Test timeout of 30000ms exceeded
+  ✘ [phone-390] roles.spec.ts:87 caregiver (عبدالله): every caregiver route loads …  Test timeout of 30000ms exceeded
+```
+The six deterministic failures WP2 reported (the hand-built unsigned pending cookie, D-038) are gone: `identity.spec.ts:86` and `roles.spec.ts:117` pass on all three projects. The two remaining failures are the two ~32-route walks, which visit every shell route and every wrong-shell redirect in one test. Diagnosis, in order: the server side is healthy (a signed-cookie `curl` walk: `/ar/app` 200 · `/ar/app/medicines` 200 · `/ar/care` 307 → `/ar/gate` 200 · `/ar/clinic/audit` 307 → `/ar/gate`; per-page render 0.2–1.2 s); warming the server did not change the result; with a 90 s budget they still fail; with a 240 s budget **both pass** — `patient walk ✓ (2.2m)`, `caregiver walk ✓ (1.9m)` — and one 240 s attempt failed on a `toHaveURL` whose 5 s auto-retry lapsed during a client-side gate redirect. The machine's load average was 22–49 during those runs (the Claude desktop application's renderer and GPU processes at 60–85 % CPU). **Control, run after the load fell (D-019 baseline `8cd7794` in a worktree with the same `node_modules`, the same two walks, back to back, load 5–14):**
+
+```
+HEAD  (Phase 2)  patient walk 17.6s · caregiver walk 25.2s        load 5.4 / 14.4 / 29.9
+BASE  (8cd7794)  patient walk 32.5s (cold) · 25.7s (cold)          load 6.5 / 13.0 / 28.2
+                 patient walk 16.6s (warm) · 19.0s (warm)
+HEAD dev server: application-code 100–137 ms per render (curl, signed cookie) · BASE: mean 117 ms over 217 renders
+```
+
+Phase 2 renders and walks in the same time as Phase 1 under the same load; the two-minute walks and the 30 s timeouts occurred only at load 22–49, where Phase 1's own gates recorded the same class of failure. **Proven by control: an environment finding, not a Phase 2 regression.** The full nine-suite e2e matrix on a quiet machine, and the same matrix against the Postgres backend (item 10), remain OWED. No spec file's assertions were changed; `tests/e2e/identity.spec.ts` and `roles.spec.ts` changed only in how they mint the pending cookie (D-038).
+
+---
+
+## ON COMPLETION (the master prompt's closing list)
+
+**Complete.** Eleven migrations (`supabase/migrations/0001`–`0011`; 0011 from the first integration run, D-039) applied to project `jurah` and recorded; the seed loaded from the same transcription the mock uses, byte-identical on a second run, matching `docs/Seed Dataset.md` record by record (`seed:diff` 72/72 in mock; the same digests by connector); the 55 seam functions implemented over Postgres behind unchanged signatures (`lib/data/pg/*`, `lib/session/pg/*`) with the mock kept as a selectable backend (D-020); the signed-cookie session with a `sessions` table and edge verification; the deterministic engine (`lib/schedule` unchanged + `recompute`/`discontinue`/`expiry` + `lib/engine`); the ten route handlers (`app/api/**`: six agent routes, webhook, ICS feed, push subscription, expiry job); nine guards (two new); 821 unit tests; 29 integration files with 295 tests, one per `ENFORCEMENT.md` row and more; 96 recorded divergences (`docs/BACKEND-DIVERGENCES.md`); eleven package fragments under `docs/backend-notes/p2-*.md`. About 6,600 lines of new backend code and SQL. **The frozen frontend is untouched** (empty diff against `8cd7794`, checked at every gate).
+
+**Still a placeholder, and why.**
+- `JURAH_BOT_TOKEN` — no bot exists; the webhook answers 404 on every path and every messaging link stays `pending` in the demo (D-12). The handle `@jurah_bot` remains `[TO BE SUPPLIED]`.
+- `JURAH_VAPID_PRIVATE_KEY` / `NEXT_PUBLIC_PUSH_PUBLIC_KEY` — no keypair; and the frozen frontend never calls `POST /api/push/subscription`, so no device can receive a real push until a later frontend change request (D-13, CR-C).
+- `sourceCitation` on all three seeded alerts — `[TO BE SUPPLIED]`, rendered honestly as "unverified" (Phase 1 CR-014).
+- The extraction and drug-check providers behind `submitPrescriptionImage` / `checkDrugPhoto` — the deterministic byte-size stubs, labelled simulated (CR-049); the real result arrives through `POST /api/agent/prescriptions`.
+- `savePrescriptionDraft`'s fabricated `source` (`facilityName: ''`, `sector: 'public'`) — kept as the mock, not yet refused (CR-042).
+- A saved prescription keeps no source image (CR-053); `hasSourceImage` is true only for the two seed rows (D-027).
+
+**What the owner owes.**
+1. **`JURAH_DATABASE_URL`** (the `jurah` project's transaction-pooler URI with the database password) in `.env.local` — unblocks: `npm run test:integration` (295 tests — **supplied 2026-09-23; 316/316 pass, see the end of this file**), `scripts/print-shapes.ts --backend=postgres` (verification 2 through the app), `seed-diff --backend=postgres`, the e2e matrix on the Postgres backend (verification 10), the ICS feed in Calendar.app (verification 9), the end-to-end timing samples (E-13, E-27).
+2. The Telegram bot token, the VAPID keypair, `JURAH_APP_ORIGIN` for the deployed host; the copy-deck items in CR-057 and CR-059; the real `sourceCitation`s; the seed corrections in CR-051, CR-056 and CR-058.
+3. **The Gate 5 line-by-line review** of `docs/backend-notes/p2-wp5.md` (the write paths and the refusal proofs).
+4. Answers to the open items below, or acceptance of their defaults.
+
+**Every open item in `docs/DECISIONS.md`.** Phase 1's still-open: CR-026, CR-030, CR-031, CR-032, CR-033, CR-034, CR-039, CR-040, D-014. Phase 2's `OPEN`: CR-051 (سارة's two unlisted doses), CR-052 (mock `uncertainFields` bug), CR-053 (source image lost on save), CR-054 (mock `pending` on a confident save), CR-056 (ml-04 audit scope), CR-057 and CR-059 (copy deck / hygiene), CR-058 (rx-009 name), CR-060 (two mock permissiveness bugs), CR-061 (audit insert actor policy). Phase 2's `DEFAULT` awaiting a word: CR-041 → CR-050, D-023, D-027, D-029, D-032, D-035, CR-055.
+
+**Every place the real backend behaves differently from the mock, with the reason:** `docs/BACKEND-DIVERGENCES.md`, 96 rows (D-1 → D-96), each with the mock's behaviour, the backend's, the reason, and whether a screen could notice. The ones that a demo audience can notice: **D-12** (a chat link stays `pending` until a real bot confirms), **D-13** (no real push arrives), **D-15** (the calendar URL is a server token on the app's own host), **D-17** (a dual-role sign-in pre-selects the last chosen role). Everything else is invisible from a screen by construction: the same bytes, or a refusal the interface never offers a way to trigger.
+
+---
+
+# Phase 2 — through the application, against the real database (lead, 2026-09-23)
+
+`JURAH_DATABASE_URL` arrived on 2026-09-23. The lead rewrote the line to the transaction-pooler form: the supplied direct host is IPv6-only, and its password was not percent-encoded (D-039). **Every item below ran through the application code, not the connector.** The first run was red; it is pasted first, as the red.
+
+## Integration run 1 — the red (`npm run test:integration`, 09:28, 1 125 s)
+
+```
+$ npm run test:integration
+ ❯ tests/integration/enforcement/agent.test.ts (8 tests | 6 failed) 2397ms
+ ❯ tests/integration/enforcement/dose.test.ts (5 tests | 3 failed) 6372ms
+ ❯ tests/integration/enforcement/role.test.ts (6 tests | 3 failed) 51887ms
+ ❯ tests/integration/roundtrip/writes.test.ts (17 tests | 3 failed) 24242ms
+ ❯ tests/integration/engine/expiry.test.ts (4 tests | 3 failed) 6562ms
+ ❯ tests/integration/enforcement/invitation.test.ts (10 tests | 1 failed) 46195ms
+ ❯ tests/integration/roundtrip/rx.test.ts (8 tests | 1 failed) 11001ms
+ ❯ tests/integration/enforcement/identity.test.ts (3 tests | 2 failed) 40610ms
+ ❯ tests/integration/engine/recompute.test.ts (2 tests | 1 failed) 4428ms
+ ❯ tests/integration/engine/discontinuation.test.ts (3 tests | 2 failed) 6959ms
+ ❯ tests/integration/engine/generation.test.ts (8 tests | 6 failed) 9570ms
+ ❯ tests/integration/roundtrip/ambient.test.ts (15 tests | 1 failed) 32410ms
+ ❯ tests/integration/enforcement/auth.test.ts (19 tests | 3 failed) 392377ms
+ ❯ tests/integration/enforcement/read-ambient.test.ts (16 tests | 1 failed) 67130ms
+ ❯ tests/integration/enforcement/read-rx.test.ts (7 tests | 2 failed | 3 skipped) 93522ms
+ ❯ tests/integration/schema/caregivers.test.ts (19 tests | 1 failed) 12868ms
+ ❯ tests/integration/schema/prescriptions.test.ts (14 tests | 1 failed) 11462ms
+ Test Files  17 failed | 12 passed (29)
+      Tests  40 failed | 272 passed | 3 skipped (315)
+```
+
+The 40 had six causes (full text in `docs/DECISIONS.md` D-039):
+
+| # | Cause | Tests | Fix |
+|---|---|---|---|
+| 1 | **Two trigger holes.** `prescription_clinical_fields_locked`'s `confirming`/`deciding` and `caregiver_transitions`'s `owner_patient` were NULL, not false, on a NULL operand, so `if … and not x then raise` fell through. A reviewer could edit an unflagged prescription's clinical fields. The owner with no session could cancel an invitation (connector probe: `PROBE: no-session pending->revoked ACCEPTED, rows=1`). | schema/prescriptions, E-34 | migration **0011** (`coalesce(…, false)`), applied, md5 = file `e3b18354e05914b0e6c9baef4a742ea6`; the same probe now: `refused: caregiver_transitions: only the inviting patient may cancel an invitation`; regression test added |
+| 2 | **Double-encoded jsonb.** `JSON.stringify(x)` bound to `$n::jsonb` is encoded again by the driver. Probe: `jsonb_typeof` of the stringified form → `string`, of the value → `array`. | engine ×13, agent/alert/rx writes, draft save, confirm, snapshot, E-41 | pass the value (10 call sites in `lib/data/pg`, `lib/engine`); SQL text unchanged |
+| 3 | **Harness env loaded too late.** `lib/config` captured an empty `AGENT_TOKEN` before `setup.ts` loaded `.env.local`, so every agent call got 401. | agent ×6, E-02, E-04 | `vitest.integration.config.ts` loads `.env.local` first |
+| 4 | **Latency.** A seam call is ~6 round trips, ~370 ms from Kuwait to ap-south-1. The 30 s ceiling, plus uncancelled SQL, knocked on to E-14 and E-49. | E-13, E-14, E-21, E-27, E-49, ROLES walk | integration `testTimeout` 600 s, E-27 1 800 s; **no sample count changed** |
+| 5 | **Test named the wrong layer, or a stale fact** (the invariant held in every case) | E-04, E-16, E-17, E-30, E-40 | each assertion now names its true layer (D-039 §5) |
+| 6 | `generation.test.ts` and the engine unit fakes carried cause 2 themselves | — | fixed |
+
+Runs 2–5 narrowed it: 138/149 (after 2 and 3) → 166/170 (after 0011 and 5) → read-rx and identity 10/10 with the ceiling lifted → auth 19/19.
+
+## Integration — the green (full suite, clean start)
+
+```
+$ npm run test:integration
+ Test Files  29 passed (29)
+      Tests  316 passed (316)
+   Duration  1538.25s (tests 100%)
+```
+
+**29 / 29 files · 316 / 316 tests · 0 skipped.** That is 315 plus the 0011 regression test. The 3 run-1 skips were E-41's file failing at setup. Every `ENFORCEMENT.md` row's test ran against the real database: **item 3, delivered.**
+
+E-13, the masked-name lookup, 200 timed samples each through the real seam function (run 4):
+```
+E-13 latency (ms) — with account: median 755.05 p95 854.14 [623.90, 1047.79] · no account: median 750.51 p95 889.69 [634.31, 1303.55]
+```
+E-27, the two no-claims Civil IDs, 200 full `signIn` round trips each (auth run):
+```
+┌─────────────────────────┬──────────────────┬──────────┬───────────────┬───────┬────────────────────┬─────────────────┬──────────┬──────────────┬────────────────────────┬─────────────────┬────────────────────┬─────────────────────┬──────────────┬───────────────────┐
+│ (index)                 │ can_read_patient │ patients │ prescriptions │ doses │ interaction_alerts │ refill_requests │ settings │ audit_events │ calendar_subscriptions │ messaging_links │ push_subscriptions │ prescription_drafts │ caregiverIds │ caregivers_others │
+├─────────────────────────┼──────────────────┼──────────┼───────────────┼───────┼────────────────────┼─────────────────┼──────────┼──────────────┼────────────────────────┼─────────────────┼────────────────────┼─────────────────────┼──────────────┼───────────────────┤
+│ cg-03                   │ 0                │ 0        │ 0             │ 0     │ 0                  │ 0               │ 0        │ 0            │ 0                      │ 0               │ 0                  │ 0                   │ 0            │ 0                 │
+│ cg-04                   │ 0                │ 0        │ 0             │ 0     │ 0                  │ 0               │ 0        │ 0            │ 0                      │ 0               │ 0                  │ 0                   │ 0            │ 0                 │
+│ cg-05                   │ 0                │ 0        │ 0             │ 0     │ 0                  │ 0               │ 0        │ 0            │ 0                      │ 0               │ 0                  │ 0                   │ 0            │ 0                 │
+│ cg-06                   │ 0                │ 0        │ 0             │ 0     │ 0                  │ 0               │ 0        │ 0            │ 0                      │ 0               │ 0                  │ 0                   │ 0            │ 0                 │
+│ cg-07                   │ 0                │ 0        │ 0             │ 0     │ 0                  │ 0               │ 0        │ 0            │ 0                      │ 0               │ 0                  │ 0                   │ 0            │ 0                 │
+│ cg-01 (active, control) │ 1                │ 1        │ 4             │ 559   │ 1                  │ 2               │ 1        │ 26           │ 0                      │ 0               │ 0                  │ 0                   │ 7            │ 0                 │
+└─────────────────────────┴──────────────────┴──────────┴───────────────┴───────┴────────────────────┴─────────────────┴──────────┴──────────────┴────────────────────────┴─────────────────┴────────────────────┴─────────────────────┴──────────────┴───────────────────┘
+```
+Both pairs overlap, so neither response time distinguishes an account from no account: **item 6's owed timing, delivered.**
+
+## Item 2 — the round trip through the app
+
+```
+$ npx tsx scripts/print-shapes.ts --backend=postgres      # re-seeds first; never rewrites the fixture
+IDENTICAL  signIn(حمد)
+IDENTICAL  getSession (as حمد)
+IDENTICAL  getRoleOptions (as سارة)
+IDENTICAL  chooseRole (as سارة → patient)
+IDENTICAL  getPatient(pt-01)
+IDENTICAL  getSettings(pt-04, no row)
+IDENTICAL  getSettings(pt-01)
+IDENTICAL  updateSettings(pt-01)
+IDENTICAL  getPrescriptions(pt-01)
+IDENTICAL  getPrescription(rx-001)
+IDENTICAL  getDosesForDay(pt-01, 2026-09-21)
+IDENTICAL  getDoseHistory(rx-008)
+IDENTICAL  getRecentDoses(pt-03, 7)
+IDENTICAL  submitPrescriptionImage(pt-01) (CR-041: 1 opaque id)
+IDENTICAL  savePrescriptionDraft(pt-01) (CR-041: 1 opaque id)
+IDENTICAL  getAlerts(pt-01)
+IDENTICAL  getAlert(ia-001)
+IDENTICAL  checkDrugPhoto(pt-01)
+IDENTICAL  getRefillOverview(pt-01) (CR-041: 1 opaque id)
+IDENTICAL  requestRefill(pt-01, rx-002) (CR-041: 1 opaque id)
+IDENTICAL  getRefillRequests(pt-01) (CR-041: 1 opaque id)
+IDENTICAL  getCalendarSubscription(pt-03)
+IDENTICAL  enableCalendarSync(pt-01) (CR-041: 0 opaque ids, 2 minted token/URL)
+IDENTICAL  getActivity(pt-01) (CR-041: 6 opaque ids)
+IDENTICAL  getPushCapability()
+IDENTICAL  getPushState(patient:pt-03)
+IDENTICAL  requestPushPermission(patient:pt-01)
+IDENTICAL  getMessagingLink(patient:pt-02)
+IDENTICAL  startMessagingLink(caregiver:cg-01) (CR-041: 1 opaque id, 1 minted token/URL)
+IDENTICAL  getCaregivers(pt-01)
+IDENTICAL  lookupMaskedName(عبدالله, has an account)
+IDENTICAL  lookupMaskedName(no account)
+IDENTICAL  inviteCaregiver(pt-01) (CR-041: 1 opaque id)
+IDENTICAL  getPendingInvitationsForSubject (as سارة)
+IDENTICAL  getInvitationForConsent(cg-08)
+IDENTICAL  acceptInvitation(cg-03, as ناصر)
+IDENTICAL  getCaregiverLink(cg-03)
+IDENTICAL  getReviewQueue (as د. خالد)
+IDENTICAL  getFieldConfirmationQueue (as د. خالد)
+IDENTICAL  getAlertForReview(ia-001, as د. خالد) (CR-041: 7 opaque ids)
+IDENTICAL  getFlaggedPrescription(rx-006, as د. خالد)
+IDENTICAL  confirmPrescriptionFields(rx-006, as د. خالد)
+IDENTICAL  returnPrescriptionToClinic(new flagged prescription, as د. خالد) (CR-041: 1 opaque id)
+IDENTICAL  getAuditLog (as م. دانة) (CR-041: 24 opaque ids)
+DIFFERS    readLastKnownSnapshot(getPatient:pt-01) — first difference at char 162: got …-05","cg-06","cg-07"]},"asOf":"2026-09-21T09:15:00+03:00"}… · recorded …-05","cg-06","cg-07","cg-09"]},"asOf":"2026-09-21T09:15:00+03:00"}…
+
+44 identical · 0 threw · 1 differ — of 45 recorded shapes
+```
+
+**44 byte-identical, 1 different by design, 0 threw.** The `readLastKnownSnapshot` line is **D-5**. The mock caches a live object reference, so `inviteCaregiver(pt-01)` later in the script leaks `cg-09` into its "snapshot". Postgres stores a serialised copy taken at read time. `tests/integration/roundtrip/ambient.test.ts` asserts that difference on purpose. `tests/fixtures/shapes.json` was unchanged (`cmp` against a pre-run copy). **Item 2, delivered through the app.**
+
+## Seed diff against the database
+
+```
+$ npm run db:seed && npx tsx scripts/seed-diff.ts --backend=postgres
+Seed diff [postgres] — PASS (72/72 lines green)
+✓  count accounts: expected 11, got 11
+✓  count patients: expected 4, got 4
+✓  count caregivers: expected 8, got 8
+✓  count prescriptions: expected 9, got 9
+✓  count alerts: expected 3, got 3
+✓  count settings: expected 3, got 3
+✓  count messagingLinks: expected 5, got 5
+✓  count pushSubscriptions: expected 4, got 4
+✓  count refillRequests: expected 2, got 2
+✓  count calendarSubscriptions: expected 1, got 1
+✓  present:y  values:y  Account حمد سالم المطيري (255031200187)
+✓  present:y  values:y  Account فاطمة سالم العجمي (258071100342)
+✓  present:y  values:y  Account سارة يوسف العجمي (290022500654)
+✓  present:y  values:y  Account بدر فهد العنزي (268110500413)
+✓  present:y  values:y  Account عبدالله محمد عبدالعزيز المطيري (285061400412)
+✓  present:y  values:y  Account ناصر حمد المطيري (288110300229)
+✓  present:y  values:y  Account منى خالد المطيري (292043000517)
+✓  present:y  values:y  Account طلال عبدالله المطيري (298052000731)
+✓  present:y  values:y  Account دلال عبدالرحمن المطيري (285092200664)
+✓  present:y  values:y  Account د. خالد عبدالرحمن الرشيد (280012000961)
+✓  present:y  values:y  Account م. دانة فهد السالم (293080700148)
+✓  present:y  values:y  Patient حمد سالم المطيري
+✓  present:y  values:y  Patient فاطمة سالم العجمي
+✓  present:y  values:y  Patient سارة يوسف العجمي
+✓  present:y  values:y  Patient بدر فهد العنزي
+✓  present:y  values:y  Prescription rx-001
+✓  present:y  values:y  Prescription rx-002
+✓  present:y  values:y  Prescription rx-003
+✓  present:y  values:y  Prescription rx-004
+✓  present:y  values:y  Prescription rx-005
+✓  present:y  values:y  Prescription rx-006
+✓  present:y  values:y  Prescription rx-007
+✓  present:y  values:y  Prescription rx-008
+✓  present:y  values:y  Prescription rx-009
+✓  present:y  values:y  InteractionAlert ia-001
+✓  present:y  values:y  InteractionAlert ia-002
+✓  present:y  values:y  InteractionAlert ia-003
+✓  present:y  values:y  Settings for 255031200187
+✓  present:y  values:y  Settings for 258071100342
+✓  present:y  values:y  Settings for 290022500654
+✓  present:y  values:y  MessagingLink 255031200187 → not_connected
+✓  present:y  values:y  MessagingLink 258071100342 → expired
+✓  present:y  values:y  MessagingLink 290022500654 → connected
+✓  present:y  values:y  MessagingLink 285061400412 → connected
+✓  present:y  values:y  MessagingLink 258071100342 → pending
+✓  present:y  values:y  PushSubscription 255031200187 → default
+✓  present:y  values:y  PushSubscription 258071100342 → denied
+✓  present:y  values:y  PushSubscription 290022500654 → granted
+✓  present:y  values:y  PushSubscription 285061400412 → unsupported
+✓  present:y  values:y  RefillRequest rx-003 (requested)
+✓  present:y  values:y  RefillRequest rx-001 (approved)
+✓  present:y  values:y  CalendarSubscription for 290022500654
+✓  present:y  values:y  Caregiver 285061400412 → patient 255031200187 (active)
+✓  present:y  values:y  Caregiver 290022500654 → patient 255031200187 (active)
+✓  present:y  values:y  Caregiver 288110300229 → patient 255031200187 (pending)
+✓  present:y  values:y  Caregiver 292043000517 → patient 255031200187 (declined)
+✓  present:y  values:y  Caregiver 277091900873 → patient 255031200187 (expired)
+✓  present:y  values:y  Caregiver 298052000731 → patient 255031200187 (revoked)
+✓  present:y  values:y  Caregiver 285092200664 → patient 255031200187 (revoked)
+✓  present:y  values:y  Caregiver 290022500654 → patient 258071100342 (pending)
+✓  AuditEvent type "caregiver_invited": expected ×8, got ×8
+✓  AuditEvent type "caregiver_invite_accepted": expected ×3, got ×3
+✓  AuditEvent type "caregiver_invite_declined": expected ×1, got ×1
+✓  AuditEvent type "caregiver_invite_expired": expected ×1, got ×1
+✓  AuditEvent type "caregiver_revoked": expected ×1, got ×1
+✓  AuditEvent type "caregiver_invite_cancelled": expected ×1, got ×1
+✓  AuditEvent type "prescription_added": expected ×9, got ×9
+✓  AuditEvent type "messaging_connected": expected ×3, got ×3
+✓  AuditEvent type "dose_status_recorded": expected ×5, got ×5
+✓  distinct AuditEvent.type values present: expected 23, got 23
+✓  "prescription_discontinued" absent by design: confirmed absent
+✓  "caregiver_self_unlinked" absent by design: confirmed absent
+✓  count doses: mock 949, postgres 949
+✓  count audit_events: mock 47, postgres 47
+Row-by-row digest of every table against lib/data/mock/seed.ts:
+✓  civil_id_test_list               rows   12 /   12  md5 615156681887670f99bb7ee89e5705af = 615156681887670f99bb7ee89e5705af
+✓  accounts                         rows   11 /   11  md5 a94f31df124f5498ed6f44a478693cf9 = a94f31df124f5498ed6f44a478693cf9
+✓  account_roles (derived)          rows   11 /   11  md5 7d386ff7b705118132b0af7b620872c0 = 7d386ff7b705118132b0af7b620872c0
+✓  patients                         rows    4 /    4  md5 6df62bebaeadd977f31faea5aeb92d98 = 6df62bebaeadd977f31faea5aeb92d98
+✓  patients.caregiverIds (derived)  rows    4 /    4  md5 20ad871de0b5bd3a1cc3a4922d737e4a = 20ad871de0b5bd3a1cc3a4922d737e4a
+✓  caregivers                       rows    8 /    8  md5 18cc26751fbf24a2dcba17139bef5daa = 18cc26751fbf24a2dcba17139bef5daa
+✓  prescriptions                    rows    9 /    9  md5 8b3925acd01ea978218c36b4f21a15ec = 8b3925acd01ea978218c36b4f21a15ec
+✓  doses                            rows  949 /  949  md5 7f59efbad58e1f70a11779e9fe92b36d = 7f59efbad58e1f70a11779e9fe92b36d
+✓  interaction_alerts               rows    3 /    3  md5 7a96146b5fc652bc6b49e9b4c2ff0fa5 = 7a96146b5fc652bc6b49e9b4c2ff0fa5
+✓  messaging_links                  rows    5 /    5  md5 ba197ec46e9e304693a3b4267743fecc = ba197ec46e9e304693a3b4267743fecc
+✓  settings                         rows    3 /    3  md5 4b35a3e3c5b5bbb6b951d00409f626df = 4b35a3e3c5b5bbb6b951d00409f626df
+✓  push_subscriptions               rows    4 /    4  md5 1bb166d8a8de23677afefdcf2bde9a29 = 1bb166d8a8de23677afefdcf2bde9a29
+✓  refill_requests                  rows    2 /    2  md5 2a606c23dd0299e684766bb7e71b5ff7 = 2a606c23dd0299e684766bb7e71b5ff7
+✓  calendar_subscriptions           rows    1 /    1  md5 84e309e7c4d69fce8f2b4ee7c6d1d285 = 84e309e7c4d69fce8f2b4ee7c6d1d285
+✓  audit_events                     rows   47 /   47  md5 c1e3b5b3cb78b225951a0c1d5264757b = c1e3b5b3cb78b225951a0c1d5264757b
+✓  sessions                         rows    0 /    0  md5 d41d8cd98f00b204e9800998ecf8427e = d41d8cd98f00b204e9800998ecf8427e
+✓  prescription_drafts              rows    0 /    0  md5 d41d8cd98f00b204e9800998ecf8427e = d41d8cd98f00b204e9800998ecf8427e
+✓  lookup_audit                     rows    0 /    0  md5 d41d8cd98f00b204e9800998ecf8427e = d41d8cd98f00b204e9800998ecf8427e
+✓  snapshots                        rows    0 /    0  md5 d41d8cd98f00b204e9800998ecf8427e = d41d8cd98f00b204e9800998ecf8427e
+✓  job_runs                         rows    0 /    0  md5 d41d8cd98f00b204e9800998ecf8427e = d41d8cd98f00b204e9800998ecf8427e
+✓ seed diff — every record present at the stated values, no extra record
+```
+
+## Nothing regressed on the mock side, and the frozen set is untouched
+
+```
+$ JURAH_DATA_BACKEND=mock npm run verify
+✖ 1 problem (0 errors, 1 warning)
+All guards passed.
+ Test Files  97 passed (97)
+      Tests  821 passed | 1 skipped (822)
+✓ seed diff — every record present at the stated values, no extra record
+✓ Compiled successfully in 6.7s
+exit 0
+# (the one lint warning is features/landing/Hero.tsx `<img>`, frozen, pre-existing)
+
+$ git diff --stat 8cd7794 -- 'app/[locale]' components features i18n types styles public
+(no output)
+```
+
+## Found for the demo
+
+Each seam call pays ~370 ms from Kuwait to the ap-south-1 pooler (six round trips per `withSession`). The median masked-name lookup takes 755 ms and a full `signIn` 600 ms. A page that makes several seam calls will visibly lag when run from here. Hosting the app in the same region as the database (e.g. Vercel `bom1`) removes most of that. Folding the Civil ID resolution into the `set_config` statement would save one round trip per call; that is a `lib/db` change, not made (D-039).
+
+## Item 9 — the ICS feed, live from Postgres
+
+The token is the seeded one (`calendar_subscriptions` for pt-03, read by connector). The server is Playwright's `next dev -p 3100`, pinned to `JURAH_DATA_BACKEND=postgres`.
+
+```
+$ curl -sS -D - http://localhost:3100/api/calendar/mock-token-cal-pt-03.ics
+status 200 · 79131 bytes · 3.777370s
+cache-control: private, no-cache
+content-type: text/calendar; charset=utf-8
+PUT    → HTTP/1.1 405 Method Not Allowed Allow: GET
+POST   → HTTP/1.1 405 Method Not Allowed Allow: GET
+PATCH  → HTTP/1.1 405 Method Not Allowed Allow: GET
+DELETE → HTTP/1.1 405 Method Not Allowed Allow: GET
+wrong token → 404
+
+$ node (ical.js over the body)
+{ "parsed": "vcalendar", "prodid": "-//Jurah//Dose calendar 1.0//EN", "vevents": 360, "uniqueUids": 360,
+  "eventsWithSTATUSproperty": 0, "longestLineOctets": 50, "bareLF": false,
+  "twelveDigitNumber": false, "technicalIdWords": false,
+  "first": ["2026-08-10T07:00:00", "Levothyroxine (Eltroxin) 50 mcg × 1"],
+  "last":  ["2027-02-05T07:00:00", "Levothyroxine (Eltroxin) 50 mcg × 1"] }
+every DTSTART carries TZID=Asia/Kuwait, with one VTIMEZONE block
+```
+
+The feed is spec-valid, the same 360 events the Phase 1 build produced from the seed, and read-only. **Owner-executed, not run by the lead:** opening the feed in Calendar.app subscribes a personal calendar to 360 events, so it is the owner's choice (2026-09-23). The command, with the dev server running:
+
+```bash
+open "webcal://localhost:3100/api/calendar/mock-token-cal-pt-03.ics"
+```
+
+## Item 10 — the frontend against the real backend (e2e on Postgres)
+
+### Run 1 — stopped, and why (the red)
+
+```
+$ npm run db:seed && npx playwright test --workers=3        # all 14 specs × 3 projects, 939 tests; 11:07
+  … stopped by the lead at 57 tests: 48 passed · 9 failed
+  ✘ ambient.spec.ts:128   E3 — حمد, tracking off: flipping it goes to E5          (ar, en)   toHaveURL /notifications — still /settings at 5 s
+  ✘ caregiving.spec.ts:43 F0 — pending (ناصر, cg-03)                              (ar, en)   getByText('حمد') not found — the page is the SIGN-IN screen
+  ✘ caregiving.spec.ts:57 F0 — accepted (عبدالله, cg-01) opens the caregiver shell (ar, en)   toHaveURL /care — still /invitation at 5 s
+  ✘ caregiving.spec.ts:88 F0 — accept/decline at the identical size                         30 s test timeout
+  ✘ caregiving.spec.ts:142, :157 F1 — invite with / without an account                      ~22 s, expect timeouts
+```
+
+Two classes:
+
+- **A test bug, not a Postgres finding.** `caregiving.spec.ts` hand-built ناصر's pending cookie as unsigned JSON, the forgery E-25 refuses on either backend, so F0-pending landed on sign-in. D-038 had fixed two specs and missed this third. It now uses the signed helper (D-038, amended).
+- **Latency.** Signed-cookie render times from this machine, measured during the run:
+  ```
+  /ar/app/more/notifications     200 4.03 s
+  /ar/app/more/notifications     200 6.80 s
+  /ar/app/more/settings          200 7.44 s
+  /ar/app                        200 4.73 s
+  ```
+  (Phase 1's mock: 0.10–0.14 s.) The error snapshots show navigations *in flight*, not refusals. E3 rendered its no-chat notice, so the switch took the `router.push` branch. F0's "افتح ملف حمد" button was in its loading state.
+
+The run was also the wrong shape: 3 workers against a 3-connection pool, and one seed for 939 tests where BACKEND-PLAN §6 requires a re-seed between invocations. It was stopped. `playwright.config.ts` now raises the ceilings for the postgres backend only (`expect` 30 s, test 180 s; D-039 §7), and the run is repeated per suite with `--workers=1`, re-seeded before each.
+
+### Run 2 — per suite, `--workers=1`, re-seeded before each (the green), 11:15–12:10
+
+```
+$ for spec in tests/e2e/*.spec.ts; do npm run db:seed && npx playwright test $spec --project=phone-390 --workers=1; done
+ambient exit=0 341s  3 skipped, 34 passed (5.7m),
+caregiving exit=0 238s  23 passed (3.9m),
+clinic exit=1 272s  1 failed, 27 passed (4.5m),
+day exit=0 374s  2 skipped, 36 passed (6.2m),
+g1-today-tracking-off exit=0 26s  1 passed (24.7s),
+gallery exit=0 36s  8 passed (34.5s),
+identity exit=1 337s  2 failed, 1 skipped, 22 passed (5.6m),
+landing exit=0 106s  19 passed (1.8m),
+prescription exit=0 333s  32 passed (5.5m),
+roles exit=0 448s  9 passed (7.5m),
+safety exit=0 360s  38 passed (6.0m),
+shells exit=0 215s  25 passed (3.6m),
+smoke exit=0 10s  2 passed (8.9s),
+supply exit=0 223s  2 skipped, 26 passed (3.7m),
+```
+
+**phone-390, all 14 suites: 302 passed · 3 failed · 8 skipped (313 tests).**
+
+**The 3 failures are one case, and it is latency.** `identity.spec.ts:104`, `:112` and `clinic.spec.ts:58` each expect sign-in to reach `/ar/app` inside the spec's own explicit `{ timeout: 10_000 }`, which was left untouched. At the deadline the URL is `/ar/gate`. Control: the same path, no deadline, a throwaway spec (deleted after the run):
+
+```
+CONTROL A1 /ar/signin round 1: reached /ar/app at 16.0 s · 4.0s /ar/signin → 5.9s /ar/gate → 16.0s /ar/app
+CONTROL A1 /ar/signin round 2: reached /ar/app at 12.7 s · 2.7s /ar/signin → 4.0s /ar/gate → 12.7s /ar/app
+CONTROL X0 /ar/clinic round 1: reached /ar/app at 11.4 s · 2.7s /ar/clinic → 2.8s /ar/gate → 11.4s /ar/app
+CONTROL X0 /ar/clinic round 2: reached /ar/app at 11.4 s · 2.7s /ar/clinic → 2.8s /ar/gate → 11.4s /ar/app
+```
+
+Every round lands on the right destination, حمد's own patient shell (for X0, the documented CR-039 behaviour), and never anywhere else. It arrives after 11.4–16.0 s: the `/gate` → `/app` hop alone costs ~8–10 s over the Mumbai pooler. **An environment finding, not a Phase 2 regression**, the same class as WP2's load-bound walk timeouts. `roles.spec.ts`'s two ~32-route walks, which timed out under load in WP2, **pass** here (9/9).
+
+**The 8 skips are gated by design** to other projects: one-shot mutations run on desktop-1440 only, and the 834 layouts on tablet-834 only. They were run there, re-seeded before each:
+
+```
+### desktop-1440 · ambient one-shots
+  ✘  1 [desktop-1440] › tests/e2e/ambient.spec.ts:235:3 › E1 — subscribing (one-shot) › حمد subscribes: the exact link the data layer returns, never one buil
+  ✓  2 [desktop-1440] › tests/e2e/ambient.spec.ts:247:3 › E3 — turning tracking off (one-shot) › سارة confirms in a Sheet naming all three consequences, and
+  ✘  3 [desktop-1440] › tests/e2e/ambient.spec.ts:270:3 › E5 — chat round trip (one-shot) › حمد: connect → pending → connected → send test → disconne
+      - Expect "toHaveValue" locator('input[dir="ltr"][readonly]') with timeout 30000ms
+      - waiting for locator('input[dir="ltr"][readonly]')
+           - unexpected value "webcal://localhost:3000/api/calendar/_YCNshVoLa0iLAtxzoflGDiYxyY2hBCf0Np2yfEAh7w.ics"
+      - Expect "toBeVisible" getByTestId('chat-connected') with timeout 15000ms
+      - waiting for getByTestId('chat-connected')
+### desktop-1440 · identity A2 first-run
+  ✓  1 [desktop-1440] › tests/e2e/identity.spec.ts:197:3 › A2 — first-run setup (بدر) › abandoning returns to the same step — a bookmarked step URL resumes
+  ✓  2 [desktop-1440] › tests/e2e/identity.spec.ts:203:3 › A2 — first-run setup (بدر) › setup never runs twice: a completed patient visiting /app/setup is se
+  ✓  3 [desktop-1440] › tests/e2e/identity.spec.ts:209:3 › A2 — first-run setup (بدر) › four steps end to end; declining everything lands on Today with no wa
+### desktop-1440 · supply D1 refill request (en)
+  -  1 [desktop-1440] › tests/e2e/supply.spec.ts:179:5 › D1 — Refill request (ar) › requesting a refill: the line switches to "requested" + destination, and My re
+  ✓  2 [desktop-1440] › tests/e2e/supply.spec.ts:179:5 › D1 — Refill request (en) › requesting a refill: the line switches to "requested" + destination, and My 
+### tablet-834 · day 834 layouts
+  ✓  1 [tablet-834] › tests/e2e/day.spec.ts:201:3 › B1 at 834 (two-pane-capable layout, per Today834.dc.html) › day heading and rows still render correctly, no ov
+  ✓  2 [tablet-834] › tests/e2e/day.spec.ts:212:3 › B2 at 834 (two-pane), the alert stays full width › the InteractionAlert spans the same width as the cards belo
+```
+
+6 pass. The Arabic pass of the D1 refill test is skipped by the spec's own `locale !== 'en'` gate. The **2 failures are the two recorded divergences a demo audience can see**:
+
+- **E1 subscribe: D-15.** The test hard-codes the mock's URL `webcal://jurah.app/calendar/pt-01.ics`. The backend mints `webcal://<APP_ORIGIN>/api/calendar/<random>.ics` (received: `webcal://localhost:3000/api/calendar/_YCNsh….ics`), and the screen renders exactly what the data layer returned. **Finding:** `JURAH_APP_ORIGIN` is empty, so it defaults to `http://localhost:3000`, while this dev server runs on :3100, and the link shown points at the wrong port. Set `JURAH_APP_ORIGIN` to the real origin for the demo.
+- **E5 chat round trip: D-12.** With no bot (`JURAH_BOT_TOKEN` empty, handle `[TO BE SUPPLIED]`), a link stays `pending` until a webhook confirms it, so `chat-connected` never appears. Correct behaviour until the bot exists.
+
+**Item 10 on Postgres: delivered, narrowed to phone-390.** The data layer is what changed, and the viewport is the frozen set's concern by construction. The gated tests ran on their own projects. **The full 3-project matrix on Postgres (626 more runs of the same tests at 834 and 1440) was not run**; it is ~2 h serially over this link. No spec assertion was changed. Spec edits: `caregiving.spec.ts`'s cookie helper (D-038 amended). Harness edits: the postgres-only ceilings in `playwright.config.ts` (D-039 §7).

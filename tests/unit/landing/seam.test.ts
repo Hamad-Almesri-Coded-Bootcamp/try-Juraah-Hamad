@@ -29,7 +29,7 @@ function collectFiles(dir: string, out: string[] = []): string[] {
 
 const LIB_DATA_IMPORT = /from\s+['"](@\/)?lib\/data(\/|['"])/;
 
-describe('L1 seam: no lib/data import anywhere in its module graph', () => {
+describe('E-50 · L1 seam: no lib/data import anywhere in its module graph', () => {
   const files = [...collectFiles('features/landing'), 'app/[locale]/page.tsx'];
 
   it('scanned at least the expected files (guards the guard: a typo here must not silently pass)', () => {

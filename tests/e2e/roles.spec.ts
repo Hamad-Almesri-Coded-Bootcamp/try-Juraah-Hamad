@@ -9,8 +9,7 @@
  * his pending-only cookie is minted here directly, in the exact D-005 shape the helper itself uses.
  */
 import { test, expect, type BrowserContext } from '@playwright/test';
-import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
-import { SESSION_COOKIE } from '../../lib/config';
+import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
 
 const PATIENT_ROUTES = [
   '/app',
@@ -56,17 +55,8 @@ async function addSession(context: BrowserContext, baseURL: string | undefined, 
 }
 
 async function addPendingInvitationOnly(context: BrowserContext, baseURL: string | undefined, subjectId: string) {
-  const base = new URL(baseURL ?? 'http://localhost:3100');
-  await context.addCookies([
-    {
-      name: SESSION_COOKIE,
-      value: encodeURIComponent(JSON.stringify({ subjectId, pendingInvitationOnly: true })),
-      domain: base.hostname,
-      path: '/',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ]);
+  // D-018 / E-25 (lead, Gate 2): the cookie is signed — a hand-built unsigned value is exactly the forgery proxy.ts refuses.
+  await context.addCookies([pendingInvitationCookieFor(subjectId, new URL(baseURL ?? 'http://localhost:3100'))]);
 }
 
 test.describe('roles — every route reachable in its own shell, redirected from the others', () => {

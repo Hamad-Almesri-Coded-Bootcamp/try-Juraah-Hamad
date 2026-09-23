@@ -1,31 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/locale';
 import { SESSION_COOKIE } from '@/lib/config';
+import { verifySession } from '@/lib/session/verify';
+import type { Session } from '@/types/views';
 
 type Role = 'patient' | 'caregiver' | 'reviewer' | 'admin';
-interface MockSession {
-  subjectId: string;
-  role?: Role;
-  linkedPatientId?: string;
-  pendingInvitationOnly?: true;
-}
 
-function isMockSession(value: unknown): value is MockSession {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.subjectId === 'string' && (v.role === undefined || typeof v.role === 'string');
-}
-
-/** Reads the mock session cookie exactly as D-005 defines it — never anything else in the request. */
-function readSession(request: NextRequest): MockSession | null {
-  const raw = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(decodeURIComponent(raw));
-    return isMockSession(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+/**
+ * The session proxy.ts acts on: the SIGNED cookie (D-018), verified by the one shared verifier
+ * `lib/session/verify.ts` (Web Crypto only). A missing, unsigned, tampered, expired or
+ * wrongly-signed cookie is NO session (E-25) — never an error. proxy.ts has no database, so a
+ * signed-but-revoked cookie still passes here; the shell layouts' `requireRole` → `getSession()`
+ * (which also requires the live `sessions` row) is the second gate (E-26), exactly as Phase 1's
+ * two-place pattern. It never reads anything else in the request.
+ *
+ * The ONE exception to "no process.env outside lib/config.ts" (P2-WP2 brief): the secret is read
+ * here directly, because proxy.ts runs in front of the app and must not depend on the server
+ * config module's secrets. Unset → nothing verifies → every gated route behaves as signed out.
+ */
+async function readSession(request: NextRequest): Promise<Session | null> {
+  const secret = (process.env.JURAH_SESSION_SECRET ?? '').trim();
+  const payload = await verifySession(request.cookies.get(SESSION_COOKIE)?.value, secret);
+  return payload?.session ?? null;
 }
 
 /**
@@ -35,7 +31,7 @@ function readSession(request: NextRequest): MockSession | null {
  * `headers()` — the one place a layout needs to know its own pathname without a client component
  * (used by the clinic shell, which renders differently for X0's entry than for its two destinations).
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const first = pathname.split('/')[1];
 
@@ -47,7 +43,7 @@ export function proxy(request: NextRequest) {
 
   const locale: Locale = first;
   const rest = pathname.slice(`/${locale}`.length) || '/';
-  const session = readSession(request);
+  const session = await readSession(request);
 
   const redirectTo = (path: string) => NextResponse.redirect(new URL(`/${locale}${path}`, request.url));
   const next = () => {

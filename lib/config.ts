@@ -34,15 +34,49 @@ export const AUTH_TOKEN: string | null = null;
 export const BOT_HANDLE: string = process.env.NEXT_PUBLIC_BOT_HANDLE ?? '@jurah_bot';
 /** The real handle is owed by the project owner. Until it lands, the chat is labelled simulated. */
 export const REAL_BOT_HANDLE: string = TO_BE_SUPPLIED;
-export const BOT_IS_SIMULATED = REAL_BOT_HANDLE === TO_BE_SUPPLIED;
+/**
+ * P2-WP6 (BACKEND-NOTES §2: "wire the flags to the real channel state"): the chat is simulated
+ * exactly while no bot token is configured server-side. Nothing is ever sent through the Bot API
+ * while this is true, and the webhook answers 404 on every path (an empty token would make its
+ * path secret a public constant).
+ */
+export const BOT_IS_SIMULATED: boolean = !process.env.JURAH_BOT_TOKEN;
 
 /** Web push public key. Phase 1 subscribes to nothing; the service worker exists, the key does not. */
 export const PUSH_PUBLIC_KEY: string =
   process.env.NEXT_PUBLIC_PUSH_PUBLIC_KEY ?? 'phase-2-vapid-public-key-placeholder';
-export const PUSH_IS_SIMULATED = true;
+/** P2-WP6: push is simulated exactly while no VAPID private key is configured server-side. */
+export const PUSH_IS_SIMULATED: boolean = !process.env.JURAH_VAPID_PRIVATE_KEY;
+
+// ---- Server-only values (P2-WP6). Never NEXT_PUBLIC_: Next inlines only NEXT_PUBLIC_* into a
+// client bundle, so in a browser each of these reads as ''. Never logged, never rendered, never in
+// a payload. Empty means "not configured" — every consumer refuses rather than falling open. ----
+/** Telegram Bot API token (owed; empty until a bot exists). */
+export const BOT_TOKEN: string = process.env.JURAH_BOT_TOKEN ?? '';
+/** VAPID private key; its public half is PUSH_PUBLIC_KEY above. */
+export const VAPID_PRIVATE_KEY: string = process.env.JURAH_VAPID_PRIVATE_KEY ?? '';
+/** Bearer credential for app/api/agent/** (WP7). */
+export const AGENT_TOKEN: string = process.env.JURAH_AGENT_TOKEN ?? '';
+/** Bearer credential for app/api/jobs/** (the expiry job). */
+export const JOB_TOKEN: string = process.env.JURAH_JOB_TOKEN ?? '';
+/** The deployment's own origin: builds the calendar feed's webcal:// URL and the VAPID subject. */
+export const APP_ORIGIN: string = process.env.JURAH_APP_ORIGIN || 'http://localhost:3000';
 
 /** Hawiati approval countdown, in seconds (the simulated identity step on A1 and X0). */
 export const HAWIATI_COUNTDOWN_SECONDS = 25;
 
 /** Name of the mock session cookie. Read by proxy.ts and the session module only. */
 export const SESSION_COOKIE = 'jurah.session' as const;
+
+// ---- Server-only session values (P2-WP2, D-018) — same pattern as WP6's block above. ----
+/**
+ * The HMAC key of the signed session cookie (JURAH_SESSION_SECRET). A FUNCTION, read at call time,
+ * because the tsx scripts and the integration harness load .env.local after this module's first
+ * import. Empty = not configured: nothing is signed and nothing verifies (fail closed). proxy.ts
+ * reads the same variable itself (it must not depend on this module's server values at the edge).
+ */
+export function sessionSecret(): string {
+  return (process.env.JURAH_SESSION_SECRET ?? '').trim();
+}
+/** The session cookie carries `Secure` in production builds (D-018). */
+export const SESSION_COOKIE_SECURE: boolean = process.env.NODE_ENV === 'production';

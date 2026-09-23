@@ -1,5 +1,5 @@
 /**
- * Verification 13 — the mock diffed against `tests/fixtures/seed-expected.json` (WP1's hand
+ * Verification 13 — the mock (and, with --backend=postgres, the database: P2-WP1) diffed against `tests/fixtures/seed-expected.json` (WP1's hand
  * transcription of docs/Seed Dataset.md's own tables, keyed by Civil ID and the seed's own record
  * ids ("rx-" / "ia-" prefixes), never by our internal "pt-" / "cg-" / "acc-" ids). `scripts/seed-diff.ts`
  * imports `runSeedDiff` and compares the result against `SEED_COUNTS` (the seed's own counts).
@@ -19,8 +19,84 @@ function caregiverIdFor(store: StoreState, civilId: string, patientCivilId: stri
 }
 
 export async function runSeedDiff(counts: Record<string, number>): Promise<{ ok: boolean; table: string }> {
+  if (process.argv.includes('--backend=postgres')) return runPostgresSeedDiff(counts);
   reset();
-  const store = getStore();
+  return compareStore(getStore(), counts, 'mock');
+}
+
+/**
+ * P2-WP1 — `--backend=postgres`: the SAME record-by-record comparison, against the database, read
+ * through scripts/db/dump.ts (every column rendered to text by one rule set) and rebuilt into the
+ * store's shape; plus the full row-by-row digest of every table against the transcription. Without
+ * JURAH_DATABASE_URL it FAILS loudly — never a pass by absence.
+ */
+async function runPostgresSeedDiff(counts: Record<string, number>): Promise<{ ok: boolean; table: string }> {
+  const { compareDigests, dumpAndDigestOverUrl } = await import('./db/dump');
+  const got = await dumpAndDigestOverUrl();
+  if (!got) {
+    return { ok: false, table: '!! seed diff (postgres) — JURAH_DATABASE_URL not set — NOTHING COMPARED, NOT A PASS' };
+  }
+  const { dump } = got;
+  const result = compareStore(storeFromDump(dump), counts, 'postgres');
+  const { ok: digestOk, lines } = compareDigests(got.digests);
+  reset();
+  const mock = getStore();
+  const doseCount = dump.doses?.length ?? 0;
+  const auditCount = dump.audit_events?.length ?? 0;
+  const extra = [
+    `${doseCount === mock.doses.length ? '✓' : '✗'}  count doses: mock ${mock.doses.length}, postgres ${doseCount}`,
+    `${auditCount === mock.auditEvents.length ? '✓' : '✗'}  count audit_events: mock ${mock.auditEvents.length}, postgres ${auditCount}`,
+    'Row-by-row digest of every table against lib/data/mock/seed.ts:',
+    ...lines,
+  ];
+  const ok = result.ok && digestOk && doseCount === mock.doses.length && auditCount === mock.auditEvents.length;
+  return { ok, table: `${result.table}\n${extra.join('\n')}` };
+}
+
+type Cells = Record<string, string>;
+const NULL = '∅';
+const txt = (v: string | undefined) => (v === undefined || v === NULL ? undefined : v);
+const numOf = (v: string | undefined) => (txt(v) === undefined ? undefined : Number(v));
+const arrOf = (v: string | undefined) => (txt(v) === undefined ? undefined : (v as string).slice(1, -1).split(',').filter((x) => x !== ''));
+
+/** The dump rebuilt into exactly the fields compareStore() reads. */
+function storeFromDump(d: Record<string, Cells[]>): StoreState {
+  const rows = (t: string) => d[t] ?? [];
+  const roles = new Map(rows('account_roles (derived)').map((r) => [r.id, arrOf(r.roles) ?? []]));
+  return {
+    accounts: rows('accounts').map((r) => ({ id: r.id, civilId: r.civil_id, name: r.name, roles: roles.get(r.id) ?? [] })),
+    patients: rows('patients').map((r) => ({ id: r.id, civilId: r.civil_id, name: r.name, onboardingCompleted: r.onboarding_completed === 'true' })),
+    caregivers: [...rows('caregivers')].sort((a, b) => Number(a.seq) - Number(b.seq)).map((r) => ({
+      id: r.id, civilId: r.civil_id, linkedPatientId: r.linked_patient_id, status: r.status, relationship: r.relationship,
+      invitedAt: r.invited_at, expiresAt: txt(r.expires_at), acceptedAt: txt(r.accepted_at), declinedAt: txt(r.declined_at), revokedAt: txt(r.revoked_at),
+    })),
+    prescriptions: [...rows('prescriptions')].sort((a, b) => Number(a.seq) - Number(b.seq)).map((r) => ({
+      id: r.id, patientId: r.patient_id,
+      drug: { genericName: r.generic_name, brandName: txt(r.brand_name), strengthMg: numOf(r.strength_mg), strengthUnit: txt(r.strength_unit) },
+      dosingPattern: r.dosing_pattern, doseTimes: arrOf(r.dose_times), startDate: txt(r.start_date), durationDays: numOf(r.duration_days),
+      status: r.status, discontinuedAt: txt(r.discontinued_at), needsReview: r.needs_review === 'true', fieldReviewStatus: txt(r.field_review_status),
+      dispensing: txt(r.dispensing_units_per_package) === undefined ? undefined : { totalQuantityDispensed: numOf(r.dispensing_total_quantity_dispensed) },
+    })),
+    alerts: rows('interaction_alerts').map((r) => ({
+      id: r.id, patientId: r.patient_id, severity: r.severity, reviewStatus: r.review_status, reviewerDecision: txt(r.reviewer_decision),
+      createdAt: r.created_at, involvedPrescriptionIds: arrOf(r.involved_prescription_ids) ?? [],
+    })),
+    settings: rows('settings').map((r) => ({
+      patientId: r.patient_id, adherenceCheckInEnabled: r.adherence_check_in_enabled === 'true', adherenceCheckInFrequency: r.adherence_check_in_frequency,
+      refillAlertsEnabled: r.refill_alerts_enabled === 'true', calendarSyncEnabled: r.calendar_sync_enabled === 'true',
+      webPushEnabled: r.web_push_enabled === 'true', notificationChannel: r.notification_channel, language: r.language,
+    })),
+    messagingLinks: [...rows('messaging_links')].sort((a, b) => Number(a.seq) - Number(b.seq)).map((r) => ({ id: r.id, subjectType: r.subject_type, subjectId: r.subject_id, status: r.status })),
+    pushSubscriptions: rows('push_subscriptions').map((r) => ({ id: r.id, subjectType: r.subject_type, subjectId: r.subject_id, permission: r.permission })),
+    refillRequests: rows('refill_requests').map((r) => ({ id: r.id, prescriptionId: r.prescription_id, status: r.status, routedTo: r.routed_to, requestedAt: r.requested_at })),
+    calendarSubscriptions: rows('calendar_subscriptions').map((r) => ({ patientId: r.patient_id })),
+    auditEvents: rows('audit_events').map((r) => ({ id: r.id, type: r.type })),
+    doses: [],
+    drafts: [],
+  } as unknown as StoreState;
+}
+
+function compareStore(store: StoreState, counts: Record<string, number>, backend: 'mock' | 'postgres'): { ok: boolean; table: string } {
   const expected = JSON.parse(readFileSync('tests/fixtures/seed-expected.json', 'utf8')) as Json;
   const rows: string[] = [];
   let ok = true;
@@ -206,6 +282,6 @@ export async function runSeedDiff(counts: Record<string, number>): Promise<{ ok:
     rows.push(`${!present ? '✓' : '✗'}  "${t}" absent by design: ${!present ? 'confirmed absent' : 'UNEXPECTEDLY PRESENT'}`);
   }
 
-  const header = `Seed diff — ${ok ? 'PASS' : 'FAIL'} (${rows.filter((r) => r.startsWith('✓')).length}/${rows.length} lines green)`;
+  const header = `Seed diff${backend === 'postgres' ? ' [postgres]' : ''} — ${ok ? 'PASS' : 'FAIL'} (${rows.filter((r) => r.startsWith('✓')).length}/${rows.length} lines green)`;
   return { ok, table: [header, ...rows].join('\n') };
 }

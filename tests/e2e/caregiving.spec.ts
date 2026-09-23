@@ -11,25 +11,16 @@
  * worker) observes the post-condition instead of double-clicking a resolved decision.
  */
 import { test, expect } from '@playwright/test';
-import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
-import { SESSION_COOKIE } from '../../lib/config';
+import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
 
 async function addSession(context: import('@playwright/test').BrowserContext, baseURL: string | undefined, who: keyof typeof TEST_SESSIONS) {
   await context.addCookies([sessionCookieFor(who, new URL(baseURL ?? 'http://localhost:3100'))]);
 }
 
 async function addPendingInvitationOnly(context: import('@playwright/test').BrowserContext, baseURL: string | undefined, subjectId: string) {
-  const base = new URL(baseURL ?? 'http://localhost:3100');
-  await context.addCookies([
-    {
-      name: SESSION_COOKIE,
-      value: encodeURIComponent(JSON.stringify({ subjectId, pendingInvitationOnly: true })),
-      domain: base.hostname,
-      path: '/',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ]);
+  // D-038 (third spec, found at WPfinal): the signed helper, never a hand-built unsigned cookie —
+  // the unsigned form is the forgery E-25 refuses, on either backend.
+  await context.addCookies([pendingInvitationCookieFor(subjectId, new URL(baseURL ?? 'http://localhost:3100'))]);
 }
 
 const LOCALES = ['ar', 'en'] as const;
