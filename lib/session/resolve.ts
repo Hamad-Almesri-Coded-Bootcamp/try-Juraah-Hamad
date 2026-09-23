@@ -5,6 +5,7 @@
  */
 import type { StoreState } from '@/lib/data/mock/types';
 import { ALL_TEST_CIVIL_IDS } from '@/lib/data/mock/seed';
+import { DEMO_TEST_CIVIL_IDS } from '@/lib/data/mock/demo-patients';
 import { findAccountByCivilId } from '@/lib/data/mock/accounts';
 import { activeCaregiversFor, pendingInvitationsFor, patientFirstName } from '@/lib/data/mock/caregivers';
 import type { Role, RoleOption, SignInOutcome, Session } from '@/types/views';
@@ -47,8 +48,10 @@ export function sessionForOption(option: RoleOption): Session {
 export function resolveCivilId(civilId: string, store: StoreState, nowIso: string): SignInOutcome {
   // Steps 1–2: shape and test-list. A malformed value never matches one of the twelve test IDs,
   // so both checks collapse into one membership test (ROLES.md step 2 is the only rejection A1
-  // makes, and it reveals nothing about accounts).
-  if (!(ALL_TEST_CIVIL_IDS as readonly string[]).includes(civilId)) return { kind: 'not_in_test_list' };
+  // makes, and it reveals nothing about accounts). The list is the seed's twelve plus the two demo
+  // patients the owner added outside the seed (D-041).
+  const listed = (ALL_TEST_CIVIL_IDS as readonly string[]).includes(civilId) || DEMO_TEST_CIVIL_IDS.includes(civilId);
+  if (!listed) return { kind: 'not_in_test_list' };
 
   // Step 3: collect claims.
   const options = roleOptionsFor(store, civilId);

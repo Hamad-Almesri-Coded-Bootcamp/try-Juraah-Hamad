@@ -8,6 +8,7 @@ import { walk, rel, type GuardResult, type Violation } from './_shared';
 import { reset, getStore } from '../../lib/data/mock/store';
 import { generateDoses } from '../../lib/schedule/generate';
 import { deriveRoles } from '../../lib/data/mock/accounts';
+import { DEMO_TEST_CIVIL_IDS } from '../../lib/data/mock/demo-patients';
 
 const EXPECTED_ROLES: Record<string, string[]> = {
   '255031200187': ['patient'],
@@ -106,6 +107,7 @@ export function run(): GuardResult {
     '255031200187', '258071100342', '290022500654', '268110500413', '285061400412',
     '288110300229', '292043000517', '277091900873', '280012000961', '293080700148',
     '298052000731', '285092200664',
+    ...DEMO_TEST_CIVIL_IDS, // D-041: the two demo patients' Civil IDs must never leak either
   ];
   const civilIdRe = new RegExp(CIVIL_IDS.join('|'));
   for (const e of store.auditEvents) {

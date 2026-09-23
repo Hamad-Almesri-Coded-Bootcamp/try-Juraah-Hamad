@@ -977,3 +977,6 @@ readLastKnownSnapshot(getPatient:pt-01) → {"data":{"id":"pt-01","name":"حمد
    `reset()` (D-002) and deliberately never as an HTTP endpoint.
 
 <!-- responsive pass, 2026-09-22 -->
+
+<!-- D-041, 2026-09-23 -->
+- **Production holds two patients the seed does not (D-041).** `pt-05` هيثم حمد العجمي and `pt-06` حمد المسري (`lib/data/mock/demo-patients.ts`) exist only in the production database, not in the seed or the mock store. `lib/session/resolve.ts` accepts their Civil IDs alongside the seed's twelve. So `seed:diff --backend=postgres` counts 6 patients, 13 accounts and 14 test-list rows against the seed's 4 / 11 / 12. That check was already red on production, whose live activity has drifted from the seed. `npm run db:seed` and `npm run test:integration` truncate them away: run `npx tsx scripts/db/add-demo-patients.ts` (or pass its `--print` output to `execute_sql`) afterwards. It only inserts and is idempotent.

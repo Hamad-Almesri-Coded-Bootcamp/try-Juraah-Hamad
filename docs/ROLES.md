@@ -55,6 +55,8 @@ The clinic entry (X0) runs the same function; a Civil ID that resolves to `patie
 
 With the Gate 0 decisions, every screen is reachable from a seeded sign-in: د. خالد exercises X0's chooser and بدر exercises A2. The test list is therefore **twelve** Civil IDs. Four accounts (ناصر, منى, طلال, دلال) sign in successfully and hold no role: `roles: []` is a passing state the product holds calmly, never an error. **The `revoked` distinction (acceptedAt set or unset) is never read by any access decision** — both rows resolve to `no_claims` by the same branch.
 
+**Two demo patients outside the seed (D-041).** Production also accepts `294061800352` (هيثم حمد العجمي, `pt-05`) and `297112300461` (حمد المسري, `pt-06`). Each resolves to `single_role` patient and starts like بدر: A2 first-run setup, then an empty day and an empty medicine list. They are not part of the seed's twelve and the mock store does not hold them. They are listed in `lib/data/mock/demo-patients.ts`, and `scripts/db/add-demo-patients.ts` adds their rows.
+
 ## Enforcement in Phase 1, and what it is not
 
 Phase 1 has no server. Every rule above is enforced in three places that Phase 2 will replace with real refusals:
