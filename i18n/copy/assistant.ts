@@ -58,6 +58,19 @@ export const assistant = {
   suggestTelegram: { ar: 'كيف أربط تيليقرام؟', en: 'How do I link Telegram?', placeholder: true },
   suggestRefill: { ar: 'كيف أطلب إعادة صرف؟', en: 'How do I request a refill?', placeholder: true },
 
+  // CR-069 — the screen follows the voice (a turn the patient had with Alexa on the Echo).
+  // suggestForgot is worded exactly as the Alexa model's sample, so it can be said as well as tapped.
+  suggestForgot: { ar: 'نسيت دواي', en: 'I forgot my medicine', placeholder: true },
+  voiceAskedLaunch: { ar: 'افتح مساعد جرعة', en: 'Open Jur’ah assistant', placeholder: true },
+  voiceSaid: { ar: '🎙️ قلتها لأليكسا', en: '🎙️ You said it to Alexa', placeholder: true },
+  voiceAnswered: { ar: '🎙️ رد أليكسا', en: '🎙️ Alexa’s answer', placeholder: true },
+  clarifyVoiceAsk: {
+    ar: 'أليكسا ما فهمت عليك. قول لها وحدة من هذي، أو اضغطها هنا:',
+    en: 'Alexa didn’t catch that. Say one of these to her, or tap it here:',
+    placeholder: true,
+  },
+  voiceEnded: { ar: 'انتهت المحادثة مع أليكسا.', en: 'The conversation with Alexa has ended.', placeholder: true },
+
   // Visitors who are not a signed-in patient (landing, sign-in, caregiver, clinic): app help only.
   guestIntro: {
     ar: 'هلا! أقدر أعرّفك على جرعة وكيف تستخدمه. للإجابات عن جرعاتك، سجّل دخولك كمريض.',

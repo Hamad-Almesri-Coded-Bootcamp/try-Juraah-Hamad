@@ -351,10 +351,35 @@ async function alexaScenarios() {
     assert.match(s.spoken.alexa.response.outputSpeech.text, /ما قدرت أوصل لجدولك/);
     assert.deepEqual(s.prompts, []);
   });
-  await check('the voice workflow holds no write: its only HTTP calls are GETs to the two read routes, no Code node calls out', async () => {
+  await check('CR-069: a linked turn tells the patient\'s screen its topic and the words just spoken; refused / unlinked / a closed session tell it nothing', async () => {
+    const linked = configure(SKILL, { [USER]: 'pt-03' });
+    let s = await walk(linked, body('IntentRequest', 'TodayDosesIntent'));
+    assert.match(s.parsed.voiceTurnUrl, /\/api\/agent\/patients\/pt-03\/voice-turns$/);
+    assert.deepEqual(Object.keys(s.spoken.screen).sort(), ['language', 'reply', 'topic']);
+    assert.equal(s.spoken.screen.topic, 'today');
+    assert.equal(s.spoken.screen.reply, s.spoken.alexa.response.outputSpeech.text);
+    s = await walk(linked, body('IntentRequest', 'AMAZON.FallbackIntent', 'en-US'));
+    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.language], ['unclear', 'en']);
+    s = await walk(linked, body('SessionEndedRequest'));
+    assert.equal(s.spoken.screen, null);
+    s = await walk(configure(SKILL, {}), body('IntentRequest', 'TodayDosesIntent'));
+    assert.equal(s.spoken.screen, null);
+    assert.equal(s.parsed.voiceTurnUrl, null);
+    s = await walk(wf, body('IntentRequest', 'TodayDosesIntent'));
+    assert.equal(s.spoken.screen, null);
+    // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path.
+    assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
+  });
+  await check('the voice workflow writes no clinical data: two GETs to the read routes, one POST of the screen turn, no Code node calls out', async () => {
     const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
-    assert.equal(httpNodes.length, 2);
+    assert.equal(httpNodes.length, 3);
     for (const n of httpNodes) {
+      if (n.parameters.method === 'POST') {
+        assert.equal(n.name, 'backend: voice turn for the screen');
+        assert.equal(n.parameters.url, "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}");
+        assert.equal(n.parameters.jsonBody, "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}");
+        continue;
+      }
       assert.equal(n.parameters.method, 'GET', n.name);
       assert.ok(n.parameters.url === '={{ $json.dosesUrl }}' || /\/api\/agent\/check-in-eligibility$/.test(n.parameters.url), n.name + ' -> ' + n.parameters.url);
     }

@@ -9,13 +9,13 @@
  */
 import {
   activePrescriptions, checkInEligibility, insertAlert, insertExtractedPrescription, recipientsFor, recomputeSchedule,
-  recordDoseStatus, trackedDosesForDay,
+  insertVoiceTurn, recordDoseStatus, trackedDosesForDay,
 } from '@/lib/data/pg/agent';
 import { refuseUnlessAgent } from './auth';
 import { invalid, json, readJson, refusedBy, unavailableUnderMock } from './http';
 import { deliverAlert } from './notify';
 import {
-  parseAlertBody, parseDateQuery, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody, parseRecomputeBody,
+  parseAlertBody, parseDateQuery, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody, parseRecomputeBody, parseVoiceTurnBody,
 } from './validate';
 
 /** POST /api/agent/doses/{doseId}/status — 200 · 401 · 403 · 404 · 409 untracked · 422. */
@@ -136,4 +136,17 @@ export async function getPatientPrescriptions(request: Request, patientId: strin
   const prescriptions = await activePrescriptions(patientId);
   if (!prescriptions) return json(404, { error: 'patient_not_found' });
   return json(200, { patientId, prescriptions });
+}
+
+/** POST /api/agent/patients/{patientId}/voice-turns — CR-069, one Alexa turn for the patient's screen. 201 `{ id }`. */
+export async function postVoiceTurn(request: Request, patientId: string): Promise<Response> {
+  const refused = await refuseUnlessAgent(request);
+  if (refused) return refused;
+  const body = parseVoiceTurnBody(await readJson(request));
+  if (!body.ok) return invalid(body);
+  const mock = unavailableUnderMock();
+  if (mock) return mock;
+  const id = await insertVoiceTurn(patientId, body.value);
+  if (!id) return json(404, { error: 'patient_not_found' });
+  return json(201, { id });
 }

@@ -32,7 +32,7 @@ import { DOSE_COLUMNS, PRESCRIPTION_COLUMNS } from '@/lib/engine/sql';
 import {
   alertRaisedMessage, prescriptionAddedMessage, prescriptionDiscontinuedMessage, scheduleRecomputedMessage,
 } from '@/lib/agent/messages';
-import type { AlertInput, DoseStatusInput, PrescriptionInput, RecomputeInput } from '@/lib/agent/validate';
+import type { AlertInput, DoseStatusInput, PrescriptionInput, RecomputeInput, VoiceTurnInput } from '@/lib/agent/validate';
 import type { Dose, InteractionAlert, Prescription } from '@/types/contracts';
 
 /** Parameterised ($n). Exported so a gate proof runs the very same text through the MCP connector. */
@@ -421,5 +421,20 @@ export async function activePrescriptions(patientId: string): Promise<Prescripti
     if (!p) return null;
     const rows = await sql.unsafe(PG_QUERIES_AGENT.activePrescriptions, [patientId]);
     return rows.map((r) => prescriptionFromRow(r));
+  });
+}
+
+/**
+ * CR-069 — one Alexa turn for the patient's open web app. null ⇔ no such patient. jurah_agent holds
+ * INSERT on five columns of voice_turns and nothing else there (0012); `created_at` is jurah_now().
+ */
+export async function insertVoiceTurn(patientId: string, turn: VoiceTurnInput): Promise<string | null> {
+  return withAgent(async (sql) => {
+    const [p] = await sql.unsafe(PG_QUERIES_AGENT.patientExists, [patientId]);
+    if (!p) return null;
+    const id = newId('vt');
+    await sql`insert into voice_turns (id, patient_id, topic, language, reply)
+              values (${id}, ${patientId}, ${turn.topic}, ${turn.language}, ${turn.reply})`;
+    return id;
   });
 }

@@ -168,4 +168,19 @@ function alexaResponse({ speech, endSession, language }) {
   return r;
 }
 
-module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, VOICE_INTENTS };
+/**
+ * CR-069 - the screen follows the voice. Which topic a voice turn is about, for the patient's open
+ * web app (POST /api/agent/patients/{id}/voice-turns after Alexa has answered): the app maps the
+ * topic to a screen and shows the turn in its assistant panel. null = nothing to show (a closed
+ * session). Deterministic, from Alexa's own intent; the words are the reply Alexa already spoke.
+ */
+const SCREEN_TOPIC = {
+  launch: 'launch', NextDoseIntent: 'next_dose', DoseAmountIntent: 'dose_amount', TodayDosesIntent: 'today',
+  ForgotDoseIntent: 'forgot', 'AMAZON.HelpIntent': 'unclear', 'AMAZON.FallbackIntent': 'unclear', unknown: 'unclear',
+  'AMAZON.StopIntent': 'bye', 'AMAZON.CancelIntent': 'bye', 'AMAZON.NoIntent': 'bye', 'AMAZON.NavigateHomeIntent': 'bye',
+};
+function screenTopic(kind) {
+  return Object.prototype.hasOwnProperty.call(SCREEN_TOPIC, kind) ? SCREEN_TOPIC[kind] : kind === 'ended' ? null : 'unclear';
+}
+
+module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, screenTopic, VOICE_INTENTS };

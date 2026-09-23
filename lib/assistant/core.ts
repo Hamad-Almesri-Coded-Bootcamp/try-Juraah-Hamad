@@ -104,3 +104,23 @@ export function readReply(status: number, body: unknown): AssistantResult {
   const intent: WebchatIntent = (WEBCHAT_INTENTS as readonly unknown[]).includes(b.intent) ? (b.intent as WebchatIntent) : 'unclear';
   return { ok: true, reply: b.reply.slice(0, 2000), telegramPrompted: b.telegramPrompted === true, intent, page: pageForIntent(intent) };
 }
+
+/**
+ * CR-069 — the screen follows the voice. A turn the patient had with Alexa (agent-alexa → voice_turns),
+ * as the panel receives it. The topic list is agents/lib/voice.js screenTopic's; anything else is
+ * dropped, never guessed.
+ */
+export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'unclear', 'bye'] as const;
+export type VoiceTopic = (typeof VOICE_TOPICS)[number];
+export interface VoiceTurn { seq: number; topic: VoiceTopic; language: 'ar' | 'en'; reply: string; page: AssistantPage | null }
+
+const PAGE_FOR_VOICE: Record<VoiceTopic, AssistantPage | null> = {
+  launch: null, next_dose: 'today', dose_amount: 'today', today: 'today', forgot: 'activity', unclear: null, bye: null,
+};
+
+/** A row → a turn, or null for anything outside the list (the panel shows nothing for it). */
+export function readVoiceTurn(row: { seq: number; topic: string; language: string; reply: string }): VoiceTurn | null {
+  if (!(VOICE_TOPICS as readonly string[]).includes(row.topic) || !Number.isFinite(row.seq) || !row.reply) return null;
+  const topic = row.topic as VoiceTopic;
+  return { seq: row.seq, topic, language: row.language === 'en' ? 'en' : 'ar', reply: row.reply.slice(0, 2000), page: PAGE_FOR_VOICE[topic] };
+}

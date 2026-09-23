@@ -158,7 +158,7 @@ describe('functions and privileges', () => {
     const [row] = await getSql()`select count(*)::int as tables, count(*) filter (where relrowsecurity)::int as rls,
       count(*) filter (where relforcerowsecurity)::int as forced
       from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r'`;
-    expect(row).toEqual({ tables: 18, rls: 18, forced: 0 });
+    expect(row).toEqual({ tables: 19, rls: 19, forced: 0 }); // 0012 adds voice_turns (CR-069)
     const roles = await getSql()`select rolname, rolbypassrls, rolcanlogin from pg_roles where rolname like 'jurah%' order by rolname`;
     expect(roles.map((r) => ({ ...r }))).toEqual([
       { rolname: 'jurah_agent', rolbypassrls: false, rolcanlogin: false },

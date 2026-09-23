@@ -484,7 +484,8 @@ const nowIso = new Date().toISOString();
 const p = parseAlexaRequest({ body, nowIso, skillId: ALEXA_SKILL_ID, links: ALEXA_LINKS });
 const date = kuwaitDate(nowIso);
 return [{ json: { ...p, nowIso, date,
-  dosesUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date : null } }];`;
+  dosesUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date : null,
+  voiceTurnUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/voice-turns' : null } }];`;
 
 const AX_SPEAK = VOICE + `
 
@@ -513,6 +514,8 @@ return [{ json: {
   alexa: alexaResponse({ speech: reply.speech, endSession: reply.endSession, language: p.language }),
   refused: !p.ok && p.kind === 'refused',
   prompts: reply.promptDoses.map((d) => d.id), promptDoses: reply.promptDoses, chatId, language: p.language, patientId: p.patientId || null,
+  // CR-069: what the patient's open web app should follow — a LINKED patient's turn only; the words are the ones just spoken.
+  screen: p.ok && screenTopic(p.kind) && reply.speech ? { topic: screenTopic(p.kind), language: p.language, reply: reply.speech } : null,
   // Visible in the execution log, so the device can be linked: never spoken, never stored elsewhere.
   log: { kind: p.kind, userId: p.userId, reason: p.reason || null },
 } }];`;
@@ -544,6 +547,9 @@ const alexa = {
     ifNode(AX(10), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [1300, -80]),
     telegramButtons(AX(11), 'Telegram: dose buttons', [1520, -160]),
     telegramText(AX(12), 'Telegram: header', [1520, 0]),
+    ifNode(AX(13), 'follow on screen?', "={{ $('speak (deterministic)').first().json.screen !== null }}", [860, 200]),
+    api(AX(14), 'backend: voice turn for the screen', 'POST', "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}", [1080, 200],
+      "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}"),
   ],
   connections: {
     'Alexa skill request': main('alexa request (deterministic)'),
@@ -552,7 +558,8 @@ const alexa = {
     'backend: doses of the day': main('backend: who is eligible'),
     'backend: who is eligible': main('speak (deterministic)'),
     'speak (deterministic)': main('Answer Alexa'),
-    'Answer Alexa': main('prompt Telegram?'),
+    'Answer Alexa': main(['prompt Telegram?', 'follow on screen?']),
+    'follow on screen?': main('backend: voice turn for the screen'),
     'prompt Telegram?': main('telegram prompt (deterministic)'),
     'telegram prompt (deterministic)': main('with buttons?'),
     'with buttons?': main('Telegram: dose buttons', 'Telegram: header'),

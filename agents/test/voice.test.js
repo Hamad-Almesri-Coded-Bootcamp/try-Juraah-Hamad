@@ -128,3 +128,14 @@ test('alexaResponse: PlainText speech, a reprompt only while the session stays o
   assert.deepEqual(V.alexaResponse({ speech: 'x', endSession: true, language: 'ar' }), { version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'x' }, shouldEndSession: true } });
   assert.ok(V.alexaResponse({ speech: 'x', endSession: false, language: 'ar' }).response.reprompt);
 });
+
+test('CR-069 screenTopic: each voice turn names the topic the screen should follow; a closed session names none', () => {
+  assert.equal(V.screenTopic('launch'), 'launch');
+  assert.equal(V.screenTopic('NextDoseIntent'), 'next_dose');
+  assert.equal(V.screenTopic('DoseAmountIntent'), 'dose_amount');
+  assert.equal(V.screenTopic('TodayDosesIntent'), 'today');
+  assert.equal(V.screenTopic('ForgotDoseIntent'), 'forgot');
+  for (const k of ['AMAZON.HelpIntent', 'AMAZON.FallbackIntent', 'unknown', 'SomethingNew']) assert.equal(V.screenTopic(k), 'unclear', k);
+  for (const k of ['AMAZON.StopIntent', 'AMAZON.CancelIntent', 'AMAZON.NoIntent', 'AMAZON.NavigateHomeIntent']) assert.equal(V.screenTopic(k), 'bye', k);
+  assert.equal(V.screenTopic('ended'), null);
+});

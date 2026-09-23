@@ -41,7 +41,7 @@ import type { Sql } from '../../lib/db/client';
 export const ALL_TABLES = [
   'accounts', 'patients', 'caregivers', 'prescriptions', 'doses', 'interaction_alerts', 'refill_requests',
   'calendar_subscriptions', 'messaging_links', 'push_subscriptions', 'audit_events', 'settings',
-  'sessions', 'prescription_drafts', 'lookup_audit', 'snapshots', 'civil_id_test_list', 'job_runs',
+  'sessions', 'prescription_drafts', 'lookup_audit', 'snapshots', 'civil_id_test_list', 'job_runs', 'voice_turns',
 ] as const;
 
 // ---------------------------------------------------------------------------------------------
