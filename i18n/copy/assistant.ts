@@ -61,7 +61,7 @@ export const assistant = {
   // CR-069 — the screen follows the voice (a turn the patient had with Alexa on the Echo).
   // suggestForgot is worded exactly as the Alexa model's sample, so it can be said as well as tapped.
   suggestForgot: { ar: 'نسيت دواي', en: 'I forgot my medicine', placeholder: true },
-  voiceAskedLaunch: { ar: 'افتح مساعد جرعة', en: 'Open Jur’ah assistant', placeholder: true },
+  voiceAskedLaunch: { ar: 'افتح مساعد جرعة', en: 'Open medicine helper', placeholder: true },
   voiceSaid: { ar: '🎙️ قلتها لأليكسا', en: '🎙️ You said it to Alexa', placeholder: true },
   voiceAnswered: { ar: '🎙️ رد أليكسا', en: '🎙️ Alexa’s answer', placeholder: true },
   clarifyVoiceAsk: {

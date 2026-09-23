@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "jurah assistant",
+      "invocationName": "medicine helper",
       "intents": [
         {
           "name": "NextDoseIntent",
