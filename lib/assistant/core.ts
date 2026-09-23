@@ -14,9 +14,9 @@ import type { Session } from '@/types/views';
 export const MAX_MESSAGE_LENGTH = 500;
 
 export type AssistantResult =
-  | { ok: true; reply: string; telegramPrompted: boolean }
+  | { ok: true; reply: string; telegramPrompted: boolean; intent: WebchatIntent; page: AssistantPage | null }
   /** App help for a visitor who is not a signed-in patient — a copy-catalogue key, resolved by the component. */
-  | { ok: true; guestTopic: GuestTopic }
+  | { ok: true; guestTopic: GuestTopic; page: AssistantPage | null }
   | { ok: false; reason: 'invalid' | 'unavailable' };
 
 export type AssistantAudience = 'patient' | 'guest';
@@ -64,10 +64,43 @@ export function guestTopic(text: string): GuestTopic {
   return 'guestGeneral';
 }
 
+/**
+ * The intents agent-webchat can answer with (agents/lib/webchat.js WEBCHAT_INTENTS). Anything else
+ * n8n sends back is read as 'unclear' — the panel then asks back instead of moving anywhere.
+ */
+export const WEBCHAT_INTENTS = [
+  'next_dose', 'dose_amount', 'today', 'forgot', 'took_it', 'safety', 'help_telegram', 'help_refill', 'help_general', 'unclear',
+] as const;
+export type WebchatIntent = (typeof WEBCHAT_INTENTS)[number];
+
+/**
+ * The screen an answer is about — the panel opens it behind the conversation. Doses → Today; a dose
+ * the patient reports (recorded from Telegram) → Activity, where the recorded row appears; 'unclear'
+ * → nowhere (the panel asks back first).
+ */
+export type AssistantPage = 'today' | 'activity' | 'safety' | 'notifications' | 'refill' | 'help' | 'signin';
+const PAGE_FOR_INTENT: Record<WebchatIntent, AssistantPage | null> = {
+  next_dose: 'today', dose_amount: 'today', today: 'today', forgot: 'activity', took_it: 'activity',
+  safety: 'safety', help_telegram: 'notifications', help_refill: 'refill', help_general: 'help', unclear: null,
+};
+export function pageForIntent(intent: WebchatIntent): AssistantPage | null {
+  return PAGE_FOR_INTENT[intent];
+}
+/** A visitor with NO session is moved to Sign in for the topics that need one; a signed-in caregiver or reviewer stays put. */
+export function pageForGuest(topic: GuestTopic, signedIn: boolean): AssistantPage | null {
+  return !signedIn && topic !== 'guestGeneral' ? 'signin' : null;
+}
+/** The path under /{locale} for each page — all in the patient shell except Sign in. */
+export const PAGE_PATH: Record<AssistantPage, string> = {
+  today: '/app', activity: '/app/more/activity', safety: '/app/safety', notifications: '/app/more/notifications',
+  refill: '/app/more/refill', help: '/app/more/help', signin: '/signin',
+};
+
 /** n8n's answer → a result; anything unexpected is "unavailable", never a made-up reply. */
 export function readReply(status: number, body: unknown): AssistantResult {
   if (status < 200 || status >= 300 || !body || typeof body !== 'object') return { ok: false, reason: 'unavailable' };
-  const b = body as { reply?: unknown; telegramPrompted?: unknown };
+  const b = body as { reply?: unknown; telegramPrompted?: unknown; intent?: unknown };
   if (typeof b.reply !== 'string' || b.reply.trim().length === 0) return { ok: false, reason: 'unavailable' };
-  return { ok: true, reply: b.reply.slice(0, 2000), telegramPrompted: b.telegramPrompted === true };
+  const intent: WebchatIntent = (WEBCHAT_INTENTS as readonly unknown[]).includes(b.intent) ? (b.intent as WebchatIntent) : 'unclear';
+  return { ok: true, reply: b.reply.slice(0, 2000), telegramPrompted: b.telegramPrompted === true, intent, page: pageForIntent(intent) };
 }

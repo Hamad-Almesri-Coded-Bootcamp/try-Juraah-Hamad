@@ -38,6 +38,26 @@ export const assistant = {
   invalid: { ar: 'اكتب سؤالك بـ٥٠٠ حرف أو أقل.', en: 'Write your question in 500 characters or fewer.', placeholder: true },
   thinking: { ar: 'المساعد يكتب…', en: 'The assistant is typing…', placeholder: true },
 
+  // Moving to the screen an answer is about, then checking it was the right one (CR-067).
+  movedToday: { ar: 'فتحت لك «اليوم». هذا اللي تبيه؟', en: 'I opened Today. Is this what you were looking for?', placeholder: true },
+  movedActivity: { ar: 'فتحت لك «سجل الأحداث». هذا اللي تبيه؟', en: 'I opened Activity. Is this what you were looking for?', placeholder: true },
+  movedSafety: { ar: 'فتحت لك «السلامة». هذا اللي تبيه؟', en: 'I opened Safety. Is this what you were looking for?', placeholder: true },
+  movedNotifications: { ar: 'فتحت لك «الإشعارات والمراسلة». هذا اللي تبيه؟', en: 'I opened Notifications & messaging. Is this what you were looking for?', placeholder: true },
+  movedRefill: { ar: 'فتحت لك «تجديد الوصفات». هذا اللي تبيه؟', en: 'I opened Refill. Is this what you were looking for?', placeholder: true },
+  movedHelp: { ar: 'فتحت لك «المساعدة». هذا اللي تبيه؟', en: 'I opened Help. Is this what you were looking for?', placeholder: true },
+  movedSignin: { ar: 'فتحت لك صفحة «الدخول». هذا اللي تبيه؟', en: 'I opened Sign in. Is this what you were looking for?', placeholder: true },
+  confirmLabel: { ar: 'هل هذا اللي تبيه؟', en: 'Is this what you were looking for?', placeholder: true },
+  confirmYes: { ar: 'إي نعم', en: 'Yes', placeholder: true },
+  confirmNo: { ar: 'لا، مو هذا', en: 'No, not this', placeholder: true },
+  confirmThanks: { ar: 'تمام 👍 اسألني أي شي ثاني.', en: 'Great 👍 Ask me anything else.', placeholder: true },
+  confirmOther: { ar: 'آسف! شنو تقصد بالضبط؟', en: 'Sorry! Which one did you mean?', placeholder: true },
+
+  // Asking back when the assistant is not sure, instead of guessing.
+  clarifyAsk: { ar: 'ما تأكدت شنو تقصد 🙏 تقصد وحدة من هذي؟', en: 'I’m not sure what you mean 🙏 Did you mean one of these?', placeholder: true },
+  clarifyLabel: { ar: 'اختر اللي تقصده', en: 'Pick what you mean', placeholder: true },
+  suggestTelegram: { ar: 'كيف أربط تيليقرام؟', en: 'How do I link Telegram?', placeholder: true },
+  suggestRefill: { ar: 'كيف أطلب إعادة صرف؟', en: 'How do I request a refill?', placeholder: true },
+
   // Visitors who are not a signed-in patient (landing, sign-in, caregiver, clinic): app help only.
   guestIntro: {
     ar: 'هلا! أقدر أعرّفك على جرعة وكيف تستخدمه. للإجابات عن جرعاتك، سجّل دخولك كمريض.',

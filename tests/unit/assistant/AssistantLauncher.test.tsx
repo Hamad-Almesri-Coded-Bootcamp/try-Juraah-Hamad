@@ -13,11 +13,13 @@ const h = vi.hoisted(() => ({
   ask: vi.fn(async (text: string, locale: string): Promise<unknown> => { void text; void locale; return { ok: true, reply: 'جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', telegramPrompted: false }; }),
 }));
 vi.mock('@/lib/assistant', () => ({ askAssistant: h.ask, assistantAudience: h.audience }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: '/ar' }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: nav.push }), usePathname: () => nav.pathname }));
 
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import { copy, t } from '@/i18n';
 
-beforeEach(() => { h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); });
+beforeEach(() => { h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar'; });
 afterEach(() => cleanup());
 
 const open = async (locale: 'ar' | 'en' = 'ar') => {
@@ -103,6 +105,68 @@ describe('AssistantLauncher', () => {
       expect(document.activeElement).toBe(input);
     }
     expect(input.value).toBe('شنو جرعتي');
+  });
+
+  it('an answer about a screen opens it behind the panel, then asks "is this what you were looking for?"', async () => {
+    h.ask.mockResolvedValueOnce({ ok: true, reply: 'تنبيهات ملفك…', telegramPrompted: false, intent: 'safety', page: 'safety' });
+    render(<AssistantLauncher locale="ar" />);
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestSafety, 'ar') }));
+    await waitFor(() => expect(screen.getByText(t(copy.assistant.movedSafety, 'ar'))).toBeTruthy());
+    expect(nav.push).toHaveBeenCalledWith('/ar/app/safety');
+    expect(screen.getByTestId('assistant-layer')).toBeTruthy(); // the conversation stays open
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.confirmYes, 'ar') }));
+    expect(screen.getByText(t(copy.assistant.confirmThanks, 'ar'))).toBeTruthy();
+    expect(screen.queryByTestId('assistant-confirm')).toBeNull();
+    expect(h.ask).toHaveBeenCalledTimes(1); // Yes is answered in the panel, nothing is sent
+  });
+
+  it('"No, not this" asks back with the topics; a topic is sent as a question', async () => {
+    h.ask.mockResolvedValueOnce({ ok: true, reply: 'جرعتك الجاية…', telegramPrompted: false, intent: 'next_dose', page: 'today' });
+    render(<AssistantLauncher locale="en" />);
+    await open('en');
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'en') }));
+    await waitFor(() => expect(screen.getByText(t(copy.assistant.movedToday, 'en'))).toBeTruthy());
+    expect(nav.push).toHaveBeenCalledWith('/en/app');
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.confirmNo, 'en') }));
+    expect(screen.getByText(t(copy.assistant.confirmOther, 'en'))).toBeTruthy();
+    const group = screen.getByTestId('assistant-clarify');
+    expect(group.querySelectorAll('button')).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestRefill, 'en') }));
+    expect(h.ask).toHaveBeenLastCalledWith(t(copy.assistant.suggestRefill, 'en'), 'en');
+  });
+
+  it('not sure ("unclear"): asks back with choices instead of guessing, and moves nowhere', async () => {
+    h.ask.mockResolvedValueOnce({ ok: true, reply: 'ما فهمت عليك', telegramPrompted: false, intent: 'unclear', page: null });
+    render(<AssistantLauncher locale="ar" />);
+    await open();
+    fireEvent.change(screen.getByLabelText(t(copy.assistant.inputLabel, 'ar')), { target: { value: 'أبي أعرف عن الموضوع' } });
+    fireEvent.submit(screen.getByTestId('assistant-form'));
+    await waitFor(() => expect(screen.getByText(t(copy.assistant.clarifyAsk, 'ar'))).toBeTruthy());
+    expect(screen.getByTestId('assistant-clarify')).toBeTruthy();
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it('already on that screen: no move and no "is this it?"', async () => {
+    nav.pathname = '/ar/app/more/activity';
+    h.ask.mockResolvedValueOnce({ ok: true, reply: 'نسيت جرعة…', telegramPrompted: true, intent: 'forgot', page: 'activity' });
+    render(<AssistantLauncher locale="ar" />);
+    await open();
+    fireEvent.change(screen.getByLabelText(t(copy.assistant.inputLabel, 'ar')), { target: { value: 'نسيت' } });
+    fireEvent.submit(screen.getByTestId('assistant-form'));
+    await waitFor(() => expect(screen.getByText('نسيت جرعة…')).toBeTruthy());
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('assistant-confirm')).toBeNull();
+  });
+
+  it('a signed-out guest asking how to sign in is taken to Sign in', async () => {
+    h.audience.mockResolvedValue('guest');
+    h.ask.mockResolvedValueOnce({ ok: true, guestTopic: 'guestSignIn', page: 'signin' });
+    render(<AssistantLauncher locale="ar" />);
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.guestSuggestSignIn, 'ar') }));
+    await waitFor(() => expect(screen.getByText(t(copy.assistant.movedSignin, 'ar'))).toBeTruthy());
+    expect(nav.push).toHaveBeenCalledWith('/ar/signin');
   });
 
   it('rule 1: the panel has no control that records a dose — only the suggestions, send and close', async () => {

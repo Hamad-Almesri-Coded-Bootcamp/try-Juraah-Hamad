@@ -15,7 +15,7 @@ import { getSession } from '@/lib/session';
 import { getAlerts } from '@/lib/data';
 import type { Locale } from '@/i18n/locale';
 import {
-  chatConfigured, chatPayload, cleanMessage, guestTopic, patientOf, readReply, type AssistantAudience, type AssistantResult,
+  chatConfigured, chatPayload, cleanMessage, guestTopic, pageForGuest, patientOf, readReply, type AssistantAudience, type AssistantResult,
 } from './core';
 
 /** Who the panel is talking to — decides its intro and suggestions. Never throws: unknown is a guest. */
@@ -31,12 +31,18 @@ export async function askAssistant(text: string, locale: Locale): Promise<Assist
   const message = cleanMessage(text);
   if (!message) return { ok: false, reason: 'invalid' };
   let patientId: string | null = null;
+  let signedIn = false;
   try {
-    patientId = patientOf(await getSession());
+    const session = await getSession();
+    signedIn = !!session;
+    patientId = patientOf(session);
   } catch {
     patientId = null;
   }
-  if (!patientId) return { ok: true, guestTopic: guestTopic(message) };
+  if (!patientId) {
+    const topic = guestTopic(message);
+    return { ok: true, guestTopic: topic, page: pageForGuest(topic, signedIn) };
+  }
   if (!chatConfigured(AGENT_CHAT_URL, AGENT_INBOUND_SECRET)) return { ok: false, reason: 'unavailable' };
   const language: Locale = locale === 'en' ? 'en' : 'ar';
   try {

@@ -7,7 +7,7 @@
  * carries only what the Safety screen already shows, and anything unexpected is "unavailable".
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chatConfigured, chatPayload, cleanMessage, guestTopic, patientOf, readReply } from '@/lib/assistant/core';
+import { chatConfigured, chatPayload, cleanMessage, guestTopic, PAGE_PATH, pageForGuest, pageForIntent, patientOf, readReply, WEBCHAT_INTENTS } from '@/lib/assistant/core';
 import type { InteractionAlert } from '@/types/contracts';
 
 const h = vi.hoisted(() => ({ fetch: vi.fn(async (url: string, init?: RequestInit): Promise<Response> => { void url; void init; return Response.json({ reply: 'جرعتك الجاية Calcium…', intent: 'next_dose', telegramPrompted: false }); }) }));
@@ -45,10 +45,32 @@ describe('core', () => {
     for (const q of ['شنو جرعتي الجاية؟', 'What is Jur’ah?', 'hello']) expect(guestTopic(q)).toBe('guestGeneral');
   });
   it('readReply: only a 2xx with a non-empty reply is an answer', () => {
-    expect(readReply(200, { reply: 'جرعتك الجاية…', telegramPrompted: true })).toEqual({ ok: true, reply: 'جرعتك الجاية…', telegramPrompted: true });
+    expect(readReply(200, { reply: 'جرعتك الجاية…', intent: 'next_dose', telegramPrompted: true })).toEqual({ ok: true, reply: 'جرعتك الجاية…', telegramPrompted: true, intent: 'next_dose', page: 'today' });
     for (const [s, b] of [[500, { reply: 'x' }], [200, { reply: '' }], [200, null], [403, null], [200, { answer: 'x' }]] as const) {
       expect(readReply(s, b)).toEqual({ ok: false, reason: 'unavailable' });
     }
+  });
+  it('readReply: an intent outside the list (or none) is "unclear" and opens no page', () => {
+    for (const intent of [undefined, 'delete_everything', 7, 'NEXT_DOSE']) {
+      expect(readReply(200, { reply: 'x', intent })).toMatchObject({ ok: true, intent: 'unclear', page: null });
+    }
+  });
+  it('pageForIntent: doses → Today, a reported dose → Activity, each help → its screen, unclear → nowhere', () => {
+    expect(Object.fromEntries(WEBCHAT_INTENTS.map((i) => [i, pageForIntent(i)]))).toEqual({
+      next_dose: 'today', dose_amount: 'today', today: 'today', forgot: 'activity', took_it: 'activity',
+      safety: 'safety', help_telegram: 'notifications', help_refill: 'refill', help_general: 'help', unclear: null,
+    });
+    expect(PAGE_PATH).toEqual({
+      today: '/app', activity: '/app/more/activity', safety: '/app/safety', notifications: '/app/more/notifications',
+      refill: '/app/more/refill', help: '/app/more/help', signin: '/signin',
+    });
+  });
+  it('pageForGuest: only a visitor with NO session is moved, to Sign in, and never for "what is Jur’ah"', () => {
+    for (const topic of ['guestTelegram', 'guestRefill', 'guestSignIn'] as const) {
+      expect(pageForGuest(topic, false)).toBe('signin');
+      expect(pageForGuest(topic, true)).toBeNull();
+    }
+    expect(pageForGuest('guestGeneral', false)).toBeNull();
   });
 });
 
@@ -74,7 +96,7 @@ describe('askAssistant (mock backend, seed store)', () => {
 
   it('a patient gets n8n’s reply; the id is the SESSION’s, the secret header is sent, alerts are the patient’s own', async () => {
     const ask = await as({ subjectId: 'pt-03', role: 'patient' });
-    expect(await ask('شنو جرعتي الجاية؟', 'ar')).toEqual({ ok: true, reply: 'جرعتك الجاية Calcium…', telegramPrompted: false });
+    expect(await ask('شنو جرعتي الجاية؟', 'ar')).toEqual({ ok: true, reply: 'جرعتك الجاية Calcium…', telegramPrompted: false, intent: 'next_dose', page: 'today' });
     const [url, init] = h.fetch.mock.calls[0]!;
     expect(url).toBe(URL_OK);
     expect((init!.headers as Record<string, string>)['x-jurah-secret']).toBe(SECRET);
@@ -87,8 +109,9 @@ describe('askAssistant (mock backend, seed store)', () => {
   it('a caregiver, a reviewer, a pending-only session or no session gets APP HELP only: nothing read, nothing sent', async () => {
     for (const s of [{ subjectId: 'cg-01', role: 'caregiver' as const, linkedPatientId: 'pt-01' }, { subjectId: 'acc-10', role: 'reviewer' as const }, { subjectId: 'cg-03', pendingInvitationOnly: true as const }, null]) {
       const ask = await as(s);
-      expect(await ask('شنو جرعتي الجاية؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestGeneral' });
-      expect(await ask('كيف أربط تيليقرام؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestTelegram' });
+      expect(await ask('شنو جرعتي الجاية؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestGeneral', page: null });
+      // Signed in (caregiver, reviewer, pending-only) stays put; only no session is sent to Sign in.
+      expect(await ask('كيف أربط تيليقرام؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestTelegram', page: s ? null : 'signin' });
     }
     expect(h.fetch).not.toHaveBeenCalled();
   });

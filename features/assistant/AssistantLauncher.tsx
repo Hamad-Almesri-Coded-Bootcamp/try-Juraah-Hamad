@@ -14,21 +14,41 @@
  * Telegram chat — the tap there records it. No design-system component draws a chat, so the
  * conversation is plain text rows in the design system's own surfaces; the launcher uses the
  * existing `inbox` glyph (no chat glyph among the 26). Every string is from i18n/copy/assistant.ts.
+ *
+ * An answer about a screen OPENS that screen behind the conversation (the server picks it from the
+ * agent's intent: lib/assistant/core.ts pageForIntent), then asks "is this what you were looking
+ * for?" — No offers the other topics. When the agent is not sure ('unclear'), the panel moves
+ * nowhere and asks back with the same tappable topics instead of guessing. Every chip only SENDS a
+ * question; none records anything.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { askAssistant, assistantAudience } from '@/lib/assistant';
-import type { AssistantAudience } from '@/lib/assistant/core';
+import { PAGE_PATH, type AssistantAudience, type AssistantPage } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 
-type Line = { from: 'you' | 'assistant'; text: string; note?: string };
+type CopyKey = keyof typeof copy.assistant;
+/** `ask`: the chips under this line — only the LAST line's are live. */
+type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' };
 
 const SUGGESTIONS: Record<AssistantAudience, readonly (keyof typeof copy.assistant)[]> = {
   patient: ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestSafety'],
   guest: ['guestSuggestWhat', 'guestSuggestSignIn', 'guestSuggestTelegram'],
+};
+
+/** The topics offered when the panel asks back (unsure, or "No, not this"). */
+const CLARIFY: Record<AssistantAudience, readonly CopyKey[]> = {
+  patient: ['suggestNext', 'suggestToday', 'suggestSafety', 'suggestTelegram', 'suggestRefill'],
+  guest: ['guestSuggestWhat', 'guestSuggestSignIn', 'guestSuggestTelegram'],
+};
+
+const MOVED: Record<AssistantPage, CopyKey> = {
+  today: 'movedToday', activity: 'movedActivity', safety: 'movedSafety', notifications: 'movedNotifications',
+  refill: 'movedRefill', help: 'movedHelp', signin: 'movedSignin',
 };
 
 export function AssistantLauncher({ locale }: { locale: Locale }) {
@@ -39,6 +59,8 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
   // Explicit, not a transition: it must stay true for the whole round trip (typing bubble, Send spinner).
   const [pending, setPending] = useState(false);
   const endRef = useRef<HTMLLIElement>(null);
+  const router = useRouter();
+  const pathname = usePathname();
   const c = copy.assistant;
   // STABLE on purpose: Sheet re-runs its focus trap whenever onClose changes identity, and it moves
   // focus to its first control (the close button). A new arrow per render sent every keystroke there.
@@ -64,17 +86,34 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     void (async () => {
       try {
         const r = await askAssistant(message, locale).catch(() => ({ ok: false as const, reason: 'unavailable' as const }));
-        const line: Line = !r.ok
-          ? { from: 'assistant', text: t(r.reason === 'invalid' ? c.invalid : c.unavailable, locale) }
-          : 'guestTopic' in r
-            ? { from: 'assistant', text: t(c[r.guestTopic], locale) }
-            : { from: 'assistant', text: r.reply, ...(r.telegramPrompted ? { note: t(c.telegramPrompted, locale) } : {}) };
-        setLines((prev) => [...prev, line]);
+        const next: Line[] = [];
+        if (!r.ok) next.push({ from: 'assistant', text: t(r.reason === 'invalid' ? c.invalid : c.unavailable, locale) });
+        else if ('guestTopic' in r) next.push({ from: 'assistant', text: t(c[r.guestTopic], locale) });
+        // Not sure: ask back with choices, move nowhere.
+        else if (r.intent === 'unclear') next.push({ from: 'assistant', text: t(c.clarifyAsk, locale), ask: 'clarify' });
+        else next.push({ from: 'assistant', text: r.reply, ...(r.telegramPrompted ? { note: t(c.telegramPrompted, locale) } : {}) });
+        const page = r.ok ? r.page : null;
+        const target = page ? `/${locale}${PAGE_PATH[page]}` : null;
+        if (page && target && pathname !== target) {
+          router.push(target);
+          next.push({ from: 'assistant', text: t(c[MOVED[page]], locale), ask: 'confirm' });
+        }
+        setLines((prev) => [...prev, ...next]);
       } finally {
         setPending(false);
         scrollToEnd();
       }
     })();
+  }
+
+  /** Yes / No under "is this what you were looking for?" — answered here, nothing is sent. */
+  function answerConfirm(yes: boolean) {
+    setLines((prev) => [
+      ...prev,
+      { from: 'you', text: t(yes ? c.confirmYes : c.confirmNo, locale) },
+      yes ? { from: 'assistant', text: t(c.confirmThanks, locale) } : { from: 'assistant', text: t(c.confirmOther, locale), ask: 'clarify' },
+    ]);
+    scrollToEnd();
   }
 
   function onSubmit(e: FormEvent) {
@@ -83,6 +122,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
   }
 
   const who: AssistantAudience = audience ?? 'guest';
+  const lastAsk = !pending ? lines[lines.length - 1]?.ask : undefined;
 
   return (
     <>
@@ -137,6 +177,21 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
                 )}
                 <li ref={endRef} aria-hidden="true" />
               </ul>
+              {lastAsk === 'confirm' && (
+                <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.confirmLabel, locale)} data-testid="assistant-confirm">
+                  <Button variant="secondary" onClick={() => answerConfirm(true)} lang={locale}>{t(c.confirmYes, locale)}</Button>
+                  <Button variant="secondary" onClick={() => answerConfirm(false)} lang={locale}>{t(c.confirmNo, locale)}</Button>
+                </div>
+              )}
+              {lastAsk === 'clarify' && (
+                <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.clarifyLabel, locale)} data-testid="assistant-clarify">
+                  {CLARIFY[who].map((key) => (
+                    <Button key={key} variant="secondary" onClick={() => send(t(c[key], locale))} lang={locale}>
+                      {t(c[key], locale)}
+                    </Button>
+                  ))}
+                </div>
+              )}
               {lines.length === 0 && audience && (
                 <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.suggestionsLabel, locale)}>
                   {SUGGESTIONS[audience].map((key) => (
