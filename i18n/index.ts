@@ -14,6 +14,7 @@ import { safety } from './copy/safety';
 import { clinic } from './copy/clinic';
 import { supply } from './copy/supply';
 import { ambient } from './copy/ambient';
+import { assistant } from './copy/assistant';
 
 export * from './locale';
 export type { CopyEntry };
@@ -30,6 +31,7 @@ export const copy = {
   clinic,
   supply,
   ambient,
+  assistant,
 } as const;
 
 /** Resolve one catalogue entry for a locale. */

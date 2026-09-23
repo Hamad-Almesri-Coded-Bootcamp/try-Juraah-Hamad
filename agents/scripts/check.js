@@ -17,7 +17,7 @@ const assert = require('node:assert/strict');
 
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
-const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa'];
+const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa', 'agent-webchat'];
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 let failures = 0;
@@ -366,10 +366,73 @@ async function alexaScenarios() {
   });
 }
 
+/** agent-webchat (CR-067), walked as its connections run. */
+async function webchatScenarios() {
+  console.log('\n######## agent-webchat (web-app assistant, read-only)');
+  const wf = WF('agent-webchat');
+  const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const doseAt = (id, rx, hhmm, brand) => ({ ...dose(id, rx, hhmm, OPEN, brand), scheduledAt: today + 'T' + hhmm + ':00+03:00' });
+  const DAYDOSES = [doseAt('rx-008-x-0005', 'rx-008', '00:05', 'Eltroxin'), doseAt('rx-009-x-2355', 'rx-009', '23:55')];
+  const req = (body) => [{ json: { body: { patientId: 'pt-03', language: 'ar', alerts: [], ...body } } }];
+  const walk = async (input, model, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]) } = {}) => {
+    const r = runner(wf);
+    await r.code('chat request (deterministic)', input);
+    const [i] = await r.code('intent (deterministic)', [{ json: { output: model } }]);
+    if (i.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
+    const [a] = await r.code('answer (deterministic)', [{ json: {} }]);
+    const prompts = a.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
+    return { intent: i.json, answer: a.json, prompts: prompts.map((x) => x.json) };
+  };
+
+  await check('«شنو جرعتي الجاية» -> the next OPEN dose from the backend, in Arabic', async () => {
+    const s = await walk(req({ text: 'شنو جرعتي الجاية' }), { intent: 'next_dose', confidence: 0.95 });
+    assert.match(s.intent.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
+    assert.match(s.answer.reply, /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
+    assert.deepEqual(s.prompts, []);
+    console.log('        -> ' + s.answer.reply);
+  });
+  await check('«أخذته» -> nothing recorded; the open dose’s buttons go to the patient’s OWN Telegram', async () => {
+    const s = await walk(req({ text: 'أخذته' }), { intent: 'took_it', confidence: 0.97 });
+    assert.match(s.answer.reply, /ما أقدر أسجّل الجرعة من هنا/);
+    assert.equal(s.prompts[0].chatId, '5550001');
+    assert.deepEqual(s.prompts[1].buttons.map((b) => b.data)[0], 'd:rx-008-x-0005:taken_on_time');
+    console.log('        -> ' + s.answer.reply);
+  });
+  await check('«فيه تعارض بين أدويتي؟» -> only the alerts the app passed in, never a new judgement; no schedule read', async () => {
+    const alerts = [{ severity: 'warning', description: 'الكالسيوم قد يقلل امتصاص اللِفوثيروكسين إذا أُخذا معًا.', reviewStatus: 'reviewed' }];
+    const s = await walk(req({ text: 'فيه تعارض بين أدويتي؟', alerts }), { intent: 'safety', confidence: 0.9 });
+    assert.equal(s.intent.needsDoses, false);
+    assert.match(s.answer.reply, /الكالسيوم قد يقلل امتصاص/);
+    assert.match(s.answer.reply, /اسأل الصيدلاني/);
+  });
+  await check('the model failed or is unsure -> unclear with examples, nothing read, nothing sent', async () => {
+    for (const model of [{ error: '429' }, { intent: 'next_dose', confidence: 0.5 }, { intent: 'record_dose', confidence: 1 }]) {
+      const s = await walk(req({ text: 'ايه' }), model);
+      assert.equal(s.intent.intent, 'unclear');
+      assert.match(s.answer.reply, /ما فهمت عليك/);
+      assert.deepEqual(s.prompts, []);
+    }
+  });
+  await check('a request with no patient or no text is answered, never processed', async () => {
+    for (const body of [{ patientId: '' , text: 'x' }, { text: '   ' }, { patientId: "pt-03' or 1=1", text: 'x' }]) {
+      const s = await walk(req(body), { intent: 'next_dose', confidence: 0.99 });
+      assert.equal(s.intent.needsDoses, false);
+      assert.deepEqual(s.prompts, []);
+    }
+  });
+  await check('the webchat workflow holds no write: two GETs to the read routes, no Code node calls out', async () => {
+    const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
+    assert.equal(httpNodes.length, 2);
+    for (const n of httpNodes) assert.equal(n.parameters.method, 'GET', n.name);
+    for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) assert.ok(!/helpers\.httpRequest|\bfetch\s*\(/.test(n.parameters.jsCode), n.name);
+  });
+}
+
 (async () => {
   await staticChecks();
   await scenarios();
   await alexaScenarios();
+  await webchatScenarios();
   console.log('\n' + (failures === 0 ? 'all checks passed' : failures + ' check(s) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 })();

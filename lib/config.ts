@@ -68,6 +68,12 @@ export const JOB_TOKEN: string = (process.env.JURAH_JOB_TOKEN ?? '').trim();
  * webhook, a `/webhook/` URL — never `/webhook-test/`), and the header secret it sends with it.
  * Either empty → nothing is forwarded (fail closed; the chat stays optional, G10).
  */
+/**
+ * CR-067: the n8n workflow that answers the web-app assistant (agent-webchat), a `/webhook/` URL.
+ * Authenticated with the same header secret as the relay. Empty → the assistant says it is
+ * unavailable; nothing else changes.
+ */
+export const AGENT_CHAT_URL: string = (process.env.JURAH_AGENT_CHAT_URL ?? '').trim();
 // Trimmed: a trailing newline in the secret would make fetch() refuse the header outright.
 export const AGENT_INBOUND_URL: string = (process.env.JURAH_AGENT_INBOUND_URL ?? '').trim();
 export const AGENT_INBOUND_SECRET: string = (process.env.JURAH_AGENT_INBOUND_SECRET ?? '').trim();
