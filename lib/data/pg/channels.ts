@@ -11,7 +11,7 @@
  * `active`), G1 (not one statement in this file names the doses table except the read-only
  * calendar feed; disconnectMessaging and the expiry job touch no dose — E-47, E-03).
  *
- * Two reads use the agent role, deliberately: `jurah_app` has NO column grant on
+ * Three reads use the agent role, deliberately (the third is CR-063's `subjectForChat`): `jurah_app` has NO column grant on
  * `push_subscriptions.endpoint/p256dh/auth` or `messaging_links.chat_id` (0005 — never projected,
  * rule 7), so after the caller's own session has proved the row is theirs and live (withSession,
  * RLS), the delivery target is read by id under withAgent (`jurah_agent` holds SELECT on both
@@ -102,6 +102,22 @@ export const PG_QUERIES_CHANNELS = {
        and (l.subject_type = 'patient'
             or exists (select 1 from caregivers c where c.id = l.subject_id and c.status = 'active'))
     returning l.id, l.subject_type::text as subject_type, l.subject_id`,
+  // withAgent, read-only (CR-063): jurah_app holds no grant on chat_id (0005); jurah_agent does, and
+  // reads no caregiver name (0008). Who a chat belongs to: the CONNECTED link with that chat id that is also its
+  // subject's LATEST link (the same "latest" rule as eligibility), and — for a caregiver — only while
+  // the invitation is `active`. A disconnected, superseded, unknown or non-active chat is no row.
+  subjectForChat: `
+    select l.subject_type::text as subject_type, l.subject_id,
+           case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end as patient_id,
+           (select s.language::text from settings s
+             where s.patient_id = case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end) as language
+      from messaging_links l
+      left join caregivers c on l.subject_type = 'caregiver' and c.id = l.subject_id
+     where l.chat_id = $1 and l.status = 'connected'
+       and l.seq = (select max(m.seq) from messaging_links m where m.subject_type = l.subject_type and m.subject_id = l.subject_id)
+       and (l.subject_type = 'patient' or c.status = 'active')
+     order by l.seq desc
+     limit 1`,
   calendarByToken: `select patient_id from calendar_subscriptions where token = $1`,
   // Read-only. Every dose of the patient — upcoming and recorded — regenerated on every read.
   calendarDoses: `
@@ -397,5 +413,28 @@ export async function activeCaregiverRecipients(patientId: string): Promise<stri
   return withAgent(async (sql) => {
     const rows = await sql.unsafe(PG_QUERIES_CHANNELS.activeCaregivers, [patientId]);
     return rows.map((r) => String(r.id));
+  });
+}
+
+/** Who a chat belongs to, for the webhook's forward to the agents track (CR-063). */
+export interface ChatSubject {
+  subjectType: 'patient' | 'caregiver';
+  subjectId: string;
+  /** The patient itself, or the patient an ACTIVE caregiver is linked to. */
+  patientId: string;
+  language: 'ar' | 'en';
+}
+
+/** null ⇔ no connected, latest link has this chat id — or it is a caregiver's whose invitation is not active. */
+export async function subjectForChat(chatId: string): Promise<ChatSubject | null> {
+  return withAgent(async (sql) => {
+    const [row] = await sql.unsafe(PG_QUERIES_CHANNELS.subjectForChat, [chatId]);
+    if (!row || row.patient_id === null || row.patient_id === undefined) return null;
+    return {
+      subjectType: String(row.subject_type) === 'caregiver' ? 'caregiver' : 'patient',
+      subjectId: String(row.subject_id),
+      patientId: String(row.patient_id),
+      language: String(row.language) === 'en' ? 'en' : 'ar',
+    };
   });
 }

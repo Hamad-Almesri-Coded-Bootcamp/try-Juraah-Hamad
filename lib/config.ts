@@ -59,6 +59,13 @@ export const VAPID_PRIVATE_KEY: string = process.env.JURAH_VAPID_PRIVATE_KEY ?? 
 export const AGENT_TOKEN: string = process.env.JURAH_AGENT_TOKEN ?? '';
 /** Bearer credential for app/api/jobs/** (the expiry job). */
 export const JOB_TOKEN: string = process.env.JURAH_JOB_TOKEN ?? '';
+/**
+ * CR-063: where the Telegram webhook forwards a chat reply to the agents track (the n8n inbound
+ * webhook, a `/webhook/` URL — never `/webhook-test/`), and the header secret it sends with it.
+ * Either empty → nothing is forwarded (fail closed; the chat stays optional, G10).
+ */
+export const AGENT_INBOUND_URL: string = process.env.JURAH_AGENT_INBOUND_URL ?? '';
+export const AGENT_INBOUND_SECRET: string = process.env.JURAH_AGENT_INBOUND_SECRET ?? '';
 /** The deployment's own origin: builds the calendar feed's webcal:// URL and the VAPID subject. */
 export const APP_ORIGIN: string = process.env.JURAH_APP_ORIGIN || 'http://localhost:3000';
 
