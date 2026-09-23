@@ -36,3 +36,4 @@ playwright-report/
 # Next.js
 next-env.d.ts
 *.tsbuildinfo
+.gstack/

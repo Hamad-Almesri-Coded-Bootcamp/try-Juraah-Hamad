@@ -590,3 +590,26 @@ With `JURAH_DATABASE_URL` working for the first time (2026-09-23), `npm run test
 **Found on the way, for the demo.** Page renders from Kuwait against ap-south-1 pay about 370 ms per seam call (BACKEND-NOTES §6, "two round trips per read"). A deployment in the same region as the database (e.g. Vercel `bom1`) removes most of it. Folding the Civil ID resolution into the `set_config` statement would save one round trip per call. That is a `lib/db` change, not made.
 
 **Also:** the owner's `JURAH_DATABASE_URL` was first the direct host `db.<ref>.supabase.co:5432`, which is IPv6-only and unresolvable from this machine, and its password was not percent-encoded. The lead rewrote that one line of `.env.local` to the transaction-pooler form (D-015), with the same password percent-encoded. No other line was touched. One value was exposed: the driver's first `Invalid URL` error echoed the unencoded URI, password included, into the lead's tool output (nowhere else). The owner has been told and may rotate the password.
+
+### D-040 (lead, deployment check 2026-09-23) · Production on Vercel runs without its server environment; the hardening that goes with it — `OPEN` until the owner sets the secrets
+**Found, read-only, on `tryjuraaah.vercel.app` (deployment `dpl_7fAsZfgHB6zB283rw1rhhVp3r5y8`, commit `d9ee399` on `main`):**
+- **Every sign-in fails.** Each `POST /ar/signin` answers 500. Runtime log: `Error: JURAH_SESSION_SECRET is not set — refusing to issue an unsigned session (D-018)`. It fails closed as designed (D-94), but nobody gets past the landing page.
+- **The project defines only three variables** (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_BOT_HANDLE`, `NEXT_PUBLIC_PUSH_PUBLIC_KEY`; `hiddenProductionEnvCount: 0`). No `JURAH_DATABASE_URL`, `JURAH_SESSION_SECRET`, `JURAH_AGENT_TOKEN`, `JURAH_JOB_TOKEN` or `JURAH_APP_ORIGIN`. So production runs on the **mock** backend: the calendar feed answers 503, which it does only on the mock.
+- **Functions run in `iad1`** (`x-vercel-id: bom1::iad1::…`) while the database is in ap-south-1. Once connected, every query would cross from Virginia to Mumbai.
+- **Photos over 1 MB are refused.** Runtime error on `/[locale]/app/safety/check`: `Body exceeded 1 MB limit` (413). That is Next's Server Action default.
+- **No security headers** beyond Vercel's HSTS.
+- The auth gates held: `/ar/app` → 307 sign-in; `/api/agent/*` without a bearer → 401; `/api/jobs/expire-invitations` GET → 405. No secret is in the repository (guard 9; only `.env.example` is tracked).
+- Supabase advisors: security has one INFO (`civil_id_test_list` has RLS with no policy — deny-all by design; only `signin_claims` reads it). Performance has 11 INFO unindexed foreign keys, immaterial at seed size, not acted on.
+
+**Changed in the repository (not the frozen set):**
+- `vercel.json` pins functions to `bom1`, beside the database.
+- `next.config.ts` sets `experimental.serverActions.bodySizeLimit: '4mb'` (under Vercel's 4.5 MB request cap).
+- `next.config.ts` adds five headers on every route: `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` + `frame-ancestors 'none'`, and `Permissions-Policy` (camera to self only; PhotoInput's capture input keeps working).
+- Verified on a local `next start`: all five headers are present, the ICS route keeps `405 / Allow: GET`, and sign-in renders with no console error. `npm run verify` passes.
+
+**Owed by the owner, not settable by the lead (secrets never go through the lead):** in Vercel → Settings → Environment Variables, **Production** scope:
+- `JURAH_DATABASE_URL` — the pooler URI, **after rotating the database password** (the old one was exposed in a tool output).
+- A **fresh** `JURAH_SESSION_SECRET` (32 random bytes, base64), `JURAH_AGENT_TOKEN` and `JURAH_JOB_TOKEN` — not the local ones.
+- `JURAH_APP_ORIGIN=https://tryjuraaah.vercel.app` and `JURAH_DATA_BACKEND=postgres` (not secrets).
+
+Then redeploy. Scoping the secrets to Production only keeps the `ai-agents` branch's preview deployments off the production database. Previews then fail closed at sign-in, which is the safe default; the agents track can ask for its own.
