@@ -27,6 +27,14 @@ n8n agent-interaction-screening  (x-jurah-secret)  { patientId, newPrescriptionI
          → POST /api/agent/alerts, always pending_medical_review
 ```
 
+## Drug-knowledge agents (agents/knowledge/)
+
+Interaction Screening on DDInter, Travel Check and app-side Extraction live in `agents/knowledge/`
+(its own `npm run verify`, README and workflows). Its `agent-interaction-screening-ddinter` answers the
+same `jurah/screen-prescription` path, body and auth as `workflows/agent-interaction-screening.json`
+here, so `agent-telegram-inbound` is unchanged: deactivate this folder's screening workflow before
+activating that one (docs/DECISIONS.md CR-065).
+
 ## Commands
 
 ```bash
