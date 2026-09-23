@@ -1,0 +1,84 @@
+{
+  "purpose": "The ingredients of every prescription in docs/Seed Dataset.md, as DDInter names them. Add these to your data/build/drug-scope.json, rebuild the index with your own DDInter scripts (build-interaction-index.js, then build-demo-index.js), and copy the resulting demo index over data/interaction-index.json. `npm run coverage` then reports which seed drugs the index covers. Nothing in this file is interaction data.",
+  "seedIngredients": [
+    {
+      "name": "Warfarin",
+      "seedPrescriptions": [
+        "rx-001"
+      ]
+    },
+    {
+      "name": "Ibuprofen",
+      "seedPrescriptions": [
+        "rx-002"
+      ]
+    },
+    {
+      "name": "Metformin",
+      "seedPrescriptions": [
+        "rx-003"
+      ]
+    },
+    {
+      "name": "Atorvastatin",
+      "seedPrescriptions": [
+        "rx-004 (discontinued - not screened, listed for completeness)"
+      ]
+    },
+    {
+      "name": "Prednisolone",
+      "seedPrescriptions": [
+        "rx-005"
+      ]
+    },
+    {
+      "name": "Ciprofloxacin",
+      "seedPrescriptions": [
+        "rx-007 (returned to clinic - excluded until confirmed)"
+      ]
+    },
+    {
+      "name": "Levothyroxine",
+      "seedPrescriptions": [
+        "rx-008"
+      ]
+    },
+    {
+      "name": "Calcium carbonate",
+      "seedPrescriptions": [
+        "rx-009"
+      ]
+    },
+    {
+      "name": "Cholecalciferol",
+      "seedPrescriptions": [
+        "rx-009 (stored as 'vitamin D3')"
+      ]
+    }
+  ],
+  "brandCandidates": {
+    "note": "Seed brand names that are NOT in your SFDA brand map (MAREVAN is already in its pendingVerification). Suggestions only - nothing here is loaded. To add one, filter the SFDA drugs list by its scientific name, copy the trade name verbatim into brand-map.json and set verified:true.",
+    "brands": [
+      {
+        "brand": "BRUFEN",
+        "ingredient": "Ibuprofen",
+        "seed": "rx-002"
+      },
+      {
+        "brand": "GLUCOPHAGE",
+        "ingredient": "Metformin",
+        "seed": "rx-003"
+      },
+      {
+        "brand": "LIPITOR",
+        "ingredient": "Atorvastatin",
+        "seed": "rx-004"
+      },
+      {
+        "brand": "MAREVAN",
+        "ingredient": "Warfarin",
+        "seed": "rx-001 (already listed in brand-map.json pendingVerification)"
+      }
+    ]
+  }
+}
