@@ -6,7 +6,7 @@
  *   cookie value = base64url(JSON{ session, sid, exp }) + "." + base64url(HMAC-SHA256(secret, <first part>))
  *
  * `session` is the unchanged `Session` shape; `sid` names the `sessions` row the data layer checks
- * for revocation (E-26); `exp` is epoch milliseconds on the FROZEN clock (D-021: REFERENCE_NOW,
+ * for revocation (E-26); `exp` is epoch milliseconds on the app clock (CR-064: kuwaitNow(),
  * never the wall clock) — the same instant as `sessions.expires_at`. The secret is the UTF-8 bytes
  * of JURAH_SESSION_SECRET; the caller passes it in (this module reads no environment).
  *
@@ -14,7 +14,7 @@
  * the Web Crypto implementation), BEFORE the payload is parsed; then the payload's shape; then
  * `exp > now`. Anything else → `null` = no session. Never throws on bad input.
  */
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 import type { Role, Session } from '@/types/views';
 
 export interface SessionPayload {
@@ -23,11 +23,11 @@ export interface SessionPayload {
   exp: number;
 }
 
-/** Session lifetime. With the frozen clock (D-021) it is measured from REFERENCE_NOW. */
+/** Session lifetime, measured from the app clock (kuwaitNow(), CR-064). */
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 /** `exp` for a session issued "now" on the frozen clock. */
-export function sessionExpiry(nowIso: string = REFERENCE_NOW): number {
+export function sessionExpiry(nowIso: string = kuwaitNow()): number {
   return Date.parse(nowIso) + SESSION_TTL_MS;
 }
 
@@ -95,7 +95,7 @@ export async function signSession(payload: SessionPayload, secret: string): Prom
  * The cookie value → its payload, or `null` for anything not signed by `secret`, malformed,
  * or expired at `nowMs` (default: the frozen clock). A missing secret verifies nothing.
  */
-export async function verifySession(cookieValue: string | undefined | null, secret: string, nowMs: number = Date.parse(REFERENCE_NOW)): Promise<SessionPayload | null> {
+export async function verifySession(cookieValue: string | undefined | null, secret: string, nowMs: number = Date.parse(kuwaitNow())): Promise<SessionPayload | null> {
   if (!cookieValue || !secret) return null;
   const parts = cookieValue.split('.');
   if (parts.length !== 2) return null;

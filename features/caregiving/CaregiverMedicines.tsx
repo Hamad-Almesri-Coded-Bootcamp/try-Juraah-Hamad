@@ -7,7 +7,7 @@
 import { MedicinesList, type NextDoseInfo } from '@/features/day/MedicinesList';
 import { formatTodayDoseTimeLabel, pickNextOrMostRecent } from '@/features/day/format';
 import { getAlerts, getCaregiverLink, getDosesForDay, getPrescriptions, getSettings } from '@/lib/data';
-import { REFERENCE_DATE } from '@/lib/schedule/dates';
+import { kuwaitToday } from '@/lib/schedule/dates';
 import type { Locale } from '@/i18n/locale';
 
 export async function CaregiverMedicines({ caregiverId, locale }: { caregiverId: string; locale: Locale }) {
@@ -15,14 +15,14 @@ export async function CaregiverMedicines({ caregiverId, locale }: { caregiverId:
   const [prescriptions, alerts, todayDoses, settings] = await Promise.all([
     getPrescriptions(link.patientId),
     getAlerts(link.patientId),
-    getDosesForDay(link.patientId, REFERENCE_DATE),
+    getDosesForDay(link.patientId, kuwaitToday()),
     getSettings(link.patientId),
   ]);
 
   const nextDoseByPrescriptionId: Record<string, NextDoseInfo | undefined> = {};
   for (const rx of prescriptions) {
     const dosesForRx = todayDoses.filter((d) => d.prescriptionId === rx.id);
-    const pick = pickNextOrMostRecent(dosesForRx, `${REFERENCE_DATE}T23:59:59+03:00`);
+    const pick = pickNextOrMostRecent(dosesForRx, `${kuwaitToday()}T23:59:59+03:00`);
     if (pick) nextDoseByPrescriptionId[rx.id] = { status: pick.status, timeLabel: formatTodayDoseTimeLabel(pick.scheduledAt, locale) };
   }
 

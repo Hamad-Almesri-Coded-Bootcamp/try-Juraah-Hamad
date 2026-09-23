@@ -5,7 +5,7 @@
  * through `lib/config`, never `Date.now()`.
  */
 import type { Prescription } from '@/types/contracts';
-import { REFERENCE_DATE, daysBetween } from './dates';
+import { kuwaitToday, daysBetween } from './dates';
 
 export interface Depletion {
   remaining: number | null;
@@ -21,7 +21,7 @@ export function computeDepletion(prescription: Prescription): Depletion {
   const dailyConsumption = dosesPerDay * dosePerAdministration;
 
   // Full calendar days elapsed between the dispense date and today (today itself not yet fully consumed).
-  const daysElapsed = Math.max(0, daysBetween(dispensing.dispenseDate, REFERENCE_DATE));
+  const daysElapsed = Math.max(0, daysBetween(dispensing.dispenseDate, kuwaitToday()));
   const consumed = daysElapsed * dailyConsumption;
   const remaining = Math.max(0, dispensing.totalQuantityDispensed - consumed);
   const daysRemaining = dailyConsumption > 0 ? Math.floor(remaining / dailyConsumption) : null;

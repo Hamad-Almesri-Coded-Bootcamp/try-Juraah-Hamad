@@ -9,7 +9,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { AlertDetail } from '@/features/safety/AlertDetail';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * C2 — interaction alert detail (`/[locale]/app/safety/[alertId]`), pushed from C1 / B2 / C3. Read
@@ -82,7 +82,7 @@ export default async function AlertDetailPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={backHref} backLabel={backLabel} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

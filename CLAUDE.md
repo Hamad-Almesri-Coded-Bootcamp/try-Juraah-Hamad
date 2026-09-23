@@ -52,8 +52,9 @@ Criteria.md` (the other track) are context, not your work.
    string.
 8. **In the caregiver shell, write controls are absent, not disabled**, and a caregiver never sees
    more than the patient sees.
-9. **`REFERENCE_NOW` from `docs/Seed Dataset.md` drives every time comparison.** Never
-   `Date.now()` outside the config module.
+9. **`kuwaitNow()` / `kuwaitToday()` from the config module drive every time comparison.** Never
+   `Date.now()` outside the config module. In production they are the real Kuwait clock (CR-064);
+   in tests, local runs and previews they return `REFERENCE_NOW` from `docs/Seed Dataset.md`.
 
 ## Architecture constraints
 

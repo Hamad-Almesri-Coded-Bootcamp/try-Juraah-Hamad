@@ -20,7 +20,7 @@
  * `revokeSessionRow` (WP5's declineInvitation), `isSessionLive` (cookie.ts), `openSessionRows`
  * (the e2e helper's child process).
  */
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 import { append } from '@/lib/db/audit';
 import { withSession, type Tx } from '@/lib/db/withSession';
 import type { StoreState } from '@/lib/data/mock/types';
@@ -117,7 +117,7 @@ function patientIdForSession(session: Session): string | undefined {
  * person (same Civil ID) and the subject still holds that role — so run it under `session`
  * itself (signIn) or under the same person's current session (chooseRole, acceptInvitation).
  */
-export async function insertSessionRow(sql: Tx, session: Session, nowIso: string = REFERENCE_NOW): Promise<{ sid: string; exp: number }> {
+export async function insertSessionRow(sql: Tx, session: Session, nowIso: string = kuwaitNow()): Promise<{ sid: string; exp: number }> {
   const s = canonicalSession(session);
   const sid = newSessionId();
   const exp = sessionExpiry(nowIso);
@@ -169,7 +169,7 @@ export async function openSessionRows(sessions: Session[]): Promise<{ sid: strin
 // The five seam functions
 // ---------------------------------------------------------------------------------------------
 
-/** signIn at an explicit clock (D-021) — the seam passes REFERENCE_NOW; E-20's test a later one. */
+/** signIn at an explicit clock (D-021) — the seam passes kuwaitNow(); E-20's test a later one. */
 export async function signInAt(civilId: string, nowIso: string): Promise<SignInOutcome> {
   if (typeof civilId !== 'string') return { kind: 'not_in_test_list' };
   // ONE statement for every Civil ID — no branch before it, none inside it (E-27).
@@ -206,14 +206,14 @@ export async function signInAt(civilId: string, nowIso: string): Promise<SignInO
   return outcome;
 }
 
-export const signIn: SessionApi['signIn'] = async (civilId) => signInAt(civilId, REFERENCE_NOW);
+export const signIn: SessionApi['signIn'] = async (civilId) => signInAt(civilId, kuwaitNow());
 
 export const getSession: SessionApi['getSession'] = async () => readSessionCookie();
 
 async function roleOptionsForSession(session: Session | null): Promise<RoleOption[]> {
   // The mock: no role (none, or pending-only) → no Civil ID resolved → [].
   if (!session || !session.role) return [];
-  const claims = await withSession(session, (sql) => claimsForSelf(sql, REFERENCE_NOW));
+  const claims = await withSession(session, (sql) => claimsForSelf(sql, kuwaitNow()));
   if (!claims.inList) return [];
   return roleOptionsFor(claimsStore(claims, SELF), SELF);
 }
@@ -252,7 +252,7 @@ export const signOut: SessionApi['signOut'] = async () => {
       await append(sql, {
         scope: patientId ? 'patient' : 'system', patientId,
         actor: { role: s.role ?? 'system', id: s.subjectId },
-        type: 'signed_out', message: 'خروج', createdAt: REFERENCE_NOW, relatedId: s.subjectId,
+        type: 'signed_out', message: 'خروج', createdAt: kuwaitNow(), relatedId: s.subjectId,
       });
     });
   }

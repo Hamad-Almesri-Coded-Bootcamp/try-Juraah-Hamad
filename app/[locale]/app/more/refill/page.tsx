@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { RefillList } from '@/features/supply/RefillList';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * D1 — refill request (`/[locale]/app/more/refill`, a More sub-page — back to `/app/more`, per
@@ -73,7 +73,7 @@ export default async function RefillPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={backHref} backLabel={backLabel} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

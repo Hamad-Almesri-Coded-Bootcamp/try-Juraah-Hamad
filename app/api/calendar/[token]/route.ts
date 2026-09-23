@@ -13,7 +13,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 import { selectedBackend } from '@/lib/db/client';
 import { calendarFeedForToken } from '@/lib/data/pg/channels';
 import { buildIcs } from '@/lib/calendar/ics';
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const doses = await calendarFeedForToken(segment.slice(0, -'.ics'.length));
   if (!doses) return new Response(null, { status: 404 });
 
-  const body = buildIcs(doses, REFERENCE_NOW);
+  const body = buildIcs(doses, kuwaitNow());
   const etag = `"${createHash('sha256').update(body, 'utf8').digest('hex').slice(0, 32)}"`;
   const headers = {
     'content-type': 'text/calendar; charset=utf-8',

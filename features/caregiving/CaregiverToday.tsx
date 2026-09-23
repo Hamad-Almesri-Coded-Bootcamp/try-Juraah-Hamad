@@ -8,7 +8,7 @@
 import { DoseDayList } from '@/features/day/DoseDayList';
 import { IconButton } from '@/components/ui/IconButton';
 import { getCaregiverLink, getDosesForDay, getSettings } from '@/lib/data';
-import { addDays, REFERENCE_DATE } from '@/lib/schedule/dates';
+import { addDays, kuwaitToday } from '@/lib/schedule/dates';
 import { formatDayLabel } from '@/i18n/format';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
@@ -16,7 +16,8 @@ import type { DoseWithPrescription } from '@/types/views';
 
 export async function CaregiverToday({ caregiverId, locale, day }: { caregiverId: string; locale: Locale; day?: string }) {
   const link = await getCaregiverLink(caregiverId);
-  const isoDate = day ?? REFERENCE_DATE;
+  const today = kuwaitToday();
+  const isoDate = day ?? today;
   const [doses, settings] = await Promise.all([getDosesForDay(link.patientId, isoDate), getSettings(link.patientId)]);
   const prevDay = addDays(isoDate, -1);
   const nextDay = addDays(isoDate, 1);
@@ -28,7 +29,7 @@ export async function CaregiverToday({ caregiverId, locale, day }: { caregiverId
         <span className="type-body-strong" style={{ flexGrow: 1 }}>
           {formatDayLabel(isoDate, locale)}
         </span>
-        {isoDate !== REFERENCE_DATE && <IconButton label={t(copy.caregiving.f2DayTodayLabel, locale)} icon="calendar" href={`/${locale}/care`} />}
+        {isoDate !== today && <IconButton label={t(copy.caregiving.f2DayTodayLabel, locale)} icon="calendar" href={`/${locale}/care`} />}
         <IconButton label={t(copy.caregiving.f2DayNextLabel, locale)} icon="chevron" href={`/${locale}/care?day=${nextDay}`} />
       </div>
 

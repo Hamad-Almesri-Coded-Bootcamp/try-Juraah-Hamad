@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { NotificationsScreen } from '@/features/ambient/NotificationsScreen';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { BOT_HANDLE, REFERENCE_NOW } from '@/lib/config';
+import { BOT_HANDLE, kuwaitNow } from '@/lib/config';
 
 /**
  * E5 — notifications & messaging (`/[locale]/app/more/notifications`).
@@ -96,7 +96,7 @@ export default async function NotificationsPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={`/${locale}/app/more`} backLabel={t(copy.vocabulary.back, locale)} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

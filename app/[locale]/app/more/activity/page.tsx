@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { ActivityFeed } from '@/features/ambient/ActivityFeed';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * E2 — activity feed (`/[locale]/app/more/activity`). Read-only per G1 — this route calls only
@@ -71,7 +71,7 @@ export default async function ActivityPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={`/${locale}/app/more`} backLabel={t(copy.vocabulary.back, locale)} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

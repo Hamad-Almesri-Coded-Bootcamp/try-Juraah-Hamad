@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { SafetyList } from '@/features/safety/SafetyList';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * C1 — Safety alerts list (`/[locale]/app/safety`, the Safety tab): every `InteractionAlert` the
@@ -89,7 +89,7 @@ export default async function SafetyPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

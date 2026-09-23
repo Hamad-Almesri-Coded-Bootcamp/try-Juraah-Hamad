@@ -9,7 +9,7 @@ import { PrescriptionDetail } from '@/features/prescription/PrescriptionDetail';
 import { PrescriptionErrorState } from '@/features/prescription/PrescriptionErrorState';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * B3 — prescription detail. Pushed from B1/B2 (bundle c's cards link here — CR-032). `?view=` is the
@@ -63,7 +63,7 @@ export default async function PrescriptionDetailPage({
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={backHref} backLabel={t(copy.vocabulary.back, locale)} action={action} />
       {view === 'offline' ? (
-        <LastKnown asOf={REFERENCE_NOW} locale={locale}>
+        <LastKnown asOf={kuwaitNow()} locale={locale}>
           {content}
         </LastKnown>
       ) : (

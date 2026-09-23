@@ -4,10 +4,15 @@
  * machine's local timezone (Kuwait, UTC+3, no DST — G3, REFERENCE_NOW). `new Date(...)` below
  * always takes an argument, so guard 6 (no bare `new Date()`) does not apply.
  */
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow, REFERENCE_NOW } from '@/lib/config';
 
-/** The Kuwait calendar date REFERENCE_NOW falls on — read straight off the constant's own ISO text. */
+/** The Kuwait calendar date REFERENCE_NOW falls on — the SEED's day (fixtures and tests), not "today". */
 export const REFERENCE_DATE: string = REFERENCE_NOW.slice(0, 10);
+
+/** Today's Kuwait calendar date on the app's clock (CR-064: real in production, REFERENCE_DATE elsewhere). */
+export function kuwaitToday(): string {
+  return kuwaitNow().slice(0, 10);
+}
 
 export function addDays(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);

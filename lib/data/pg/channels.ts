@@ -20,7 +20,7 @@
  * role; that needs a migration this package does not own (requested in docs/backend-notes/p2-wp6.md).
  */
 import { randomBytes } from 'node:crypto';
-import { APP_ORIGIN, BOT_IS_SIMULATED, PUSH_IS_SIMULATED, REFERENCE_NOW } from '@/lib/config';
+import { APP_ORIGIN, BOT_IS_SIMULATED, PUSH_IS_SIMULATED, kuwaitNow } from '@/lib/config';
 import { withAgent, withSession, withSystem } from '@/lib/db/withSession';
 import { append } from '@/lib/db/audit';
 import { newId } from '@/lib/db/ids';
@@ -400,7 +400,7 @@ export async function revokePushEndpointForSession(session: Session): Promise<vo
  * dose — E-03), run here inside withSystem() because only the system actor may expire a row.
  * Returns the flipped ids, or null for a refused clock (never thrown — D-29).
  */
-export async function runInvitationExpiryJob(nowIso: string = REFERENCE_NOW): Promise<string[] | null> {
+export async function runInvitationExpiryJob(nowIso: string = kuwaitNow()): Promise<string[] | null> {
   return withSystem(async (sql) => {
     const result = await expireInvitations(sql, nowIso);
     return result.ok ? result.expiredIds : null;

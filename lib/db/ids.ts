@@ -7,7 +7,7 @@
  * every id shares one time prefix, so ids are unique (80 random bits) but not time-sortable —
  * nothing orders by id; ordering is `seq` / `created_at`. Seed rows keep their seed ids.
  */
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
@@ -30,7 +30,7 @@ function encodeRandom(): string {
 }
 
 export function ulid(): string {
-  return encodeTime(Date.parse(REFERENCE_NOW)) + encodeRandom();
+  return encodeTime(Date.parse(kuwaitNow())) + encodeRandom();
 }
 
 /** e.g. newId('rx') → 'rx_01K5…'. The prefix is the entity's short name, never a counter. */

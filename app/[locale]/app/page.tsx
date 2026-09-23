@@ -15,8 +15,8 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
 import { formatDayLabel, formatNumber } from '@/i18n/format';
-import { REFERENCE_NOW } from '@/lib/config';
-import { addDays, REFERENCE_DATE } from '@/lib/schedule/dates';
+import { kuwaitNow } from '@/lib/config';
+import { addDays, kuwaitToday } from '@/lib/schedule/dates';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -76,10 +76,11 @@ export default async function TodayPage({
   const patientId = session.subjectId;
   const action = <LanguageSwitch locale={locale} role="patient" subjectId={patientId} />;
 
-  const isoDate = day && ISO_DATE.test(day) ? day : REFERENCE_DATE;
+  const today = kuwaitToday();
+  const isoDate = day && ISO_DATE.test(day) ? day : today;
   const prevHref = `${baseHref}?day=${addDays(isoDate, -1)}`;
   const nextHref = `${baseHref}?day=${addDays(isoDate, 1)}`;
-  const isToday = isoDate === REFERENCE_DATE;
+  const isToday = isoDate === today;
 
   const [doses, settings, prescriptions, pendingInvitations] = await Promise.all([
     getDosesForDay(patientId, isoDate),
@@ -137,7 +138,7 @@ export default async function TodayPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

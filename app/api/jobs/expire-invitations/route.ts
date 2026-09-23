@@ -13,7 +13,7 @@
  *   401 no/bad token · 200 `{ expired: <count> }` · 503 under the mock backend (no job store).
  */
 import { timingSafeEqual } from 'node:crypto';
-import { JOB_TOKEN, REFERENCE_NOW } from '@/lib/config';
+import { JOB_TOKEN, kuwaitNow } from '@/lib/config';
 import { selectedBackend } from '@/lib/db/client';
 import { runInvitationExpiryJob } from '@/lib/data/pg/channels';
 
@@ -29,7 +29,7 @@ function bearerMatches(header: string | null, expected: string): boolean {
 export async function POST(request: Request): Promise<Response> {
   if (!bearerMatches(request.headers.get('authorization'), JOB_TOKEN)) return Response.json({ error: 'unauthorized' }, { status: 401 });
   if (selectedBackend() !== 'postgres') return Response.json({ error: 'unavailable' }, { status: 503 });
-  const expired = await runInvitationExpiryJob(REFERENCE_NOW);
+  const expired = await runInvitationExpiryJob(kuwaitNow());
   if (!expired) return Response.json({ error: 'invalid_clock' }, { status: 500 });
   return Response.json({ expired: expired.length });
 }

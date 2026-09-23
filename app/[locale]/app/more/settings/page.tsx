@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { SettingsScreen } from '@/features/ambient/SettingsScreen';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 /**
  * E3 — settings (`/[locale]/app/more/settings`). CR-011: **exactly** the permitted controls — no
@@ -82,7 +82,7 @@ export default async function SettingsPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} backHref={`/${locale}/app/more`} backLabel={t(copy.vocabulary.back, locale)} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }

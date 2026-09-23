@@ -8,9 +8,29 @@
 export const REFERENCE_NOW = '2026-09-21T09:15:00+03:00' as const;
 export const REFERENCE_TIME_ZONE = 'Asia/Kuwait' as const;
 
+/**
+ * CR-064 (b) — which clock "now" is. Production reads the real Kuwait clock, so the app and the
+ * agents (Telegram check-in, Alexa, web chat) agree on the date; tests, local runs and previews keep
+ * the frozen REFERENCE_NOW, so the seed's hand-computed tables still hold. JURAH_CLOCK=real|frozen
+ * overrides either way.
+ */
+export function clockIsReal(): boolean {
+  const c = (process.env.JURAH_CLOCK ?? '').trim();
+  if (c === 'real') return true;
+  if (c === 'frozen') return false;
+  return process.env.VERCEL_ENV === 'production';
+}
+
+/** "Now" as a Kuwait-offset ISO instant — the same shape as REFERENCE_NOW ("YYYY-MM-DDTHH:mm:ss+03:00"). */
+export function kuwaitNow(): string {
+  if (!clockIsReal()) return REFERENCE_NOW;
+  // Kuwait is UTC+3 all year (no DST): shift, then print the UTC fields with the +03:00 offset.
+  return new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 19) + '+03:00';
+}
+
 /** The only place a Date may be constructed from the clock. Components call this, never Date.now(). */
 export function referenceNow(): Date {
-  return new Date(REFERENCE_NOW);
+  return new Date(kuwaitNow());
 }
 
 /**

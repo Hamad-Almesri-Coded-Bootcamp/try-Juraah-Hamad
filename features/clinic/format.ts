@@ -3,7 +3,7 @@
  * `lib/schedule/dates` and `i18n/format` already expose (read-only imports; this file lives in
  * `features/clinic`, not `lib/**`), and no `Date.now()` / bare `new Date()` anywhere (guard 6).
  */
-import { addDays, REFERENCE_DATE } from '@/lib/schedule/dates';
+import { addDays, kuwaitToday } from '@/lib/schedule/dates';
 import { formatDate, formatNumber, formatTime } from '@/i18n/format';
 import { copy, t } from '@/i18n';
 import { interpolate } from '@/features/shell/interpolate';
@@ -77,8 +77,8 @@ export type AuditPeriod = 'all' | 'last7' | 'last30';
 /** The `from` bound `getAuditLog`'s filter accepts for a period choice — REFERENCE_DATE-derived,
  * never `Date.now()` (G3/rule 9). `'all'` passes no bound at all. */
 export function auditPeriodFrom(period: AuditPeriod): string | undefined {
-  if (period === 'last7') return addDays(REFERENCE_DATE, -7);
-  if (period === 'last30') return addDays(REFERENCE_DATE, -30);
+  if (period === 'last7') return addDays(kuwaitToday(), -7);
+  if (period === 'last30') return addDays(kuwaitToday(), -30);
   return undefined;
 }
 

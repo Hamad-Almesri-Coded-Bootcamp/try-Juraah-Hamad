@@ -11,7 +11,7 @@
  * Guard 4: the recorded dose words are an ARRAY here, never a `status:` object literal.
  */
 import type { InteractionAlert, Prescription } from '@/types/contracts';
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 
 export type Invalid = { ok: false; field: string; reason: string };
 export type Valid<T> = { ok: true; value: T };
@@ -98,7 +98,7 @@ export function parseRecomputeBody(body: unknown): Validation<RecomputeInput> {
     }
     // rx_discontinued_complete requires a reason on every discontinued row.
     if (!isNonEmpty(discontinuedReason)) return bad('discontinuedReason', 'required_for_discontinued');
-    const at = (discontinuedAt as string | undefined) ?? REFERENCE_NOW.slice(0, 10);
+    const at = (discontinuedAt as string | undefined) ?? kuwaitNow().slice(0, 10);
     return good({ prescriptionId, reason, discontinuedAt: at, discontinuedReason });
   }
   return bad('reason', 'must_be_reported_miss_or_discontinued');

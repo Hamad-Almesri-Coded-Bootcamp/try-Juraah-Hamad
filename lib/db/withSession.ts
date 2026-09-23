@@ -6,13 +6,13 @@
  *      EXECUTE is revoked from both application roles, so no seam query can resolve anyone's;
  *   2. `set local role jurah_app` (or `jurah_agent`) — bound by RLS, no BYPASSRLS;
  *   3. `set_config('jurah.session', {subjectId, role, linkedPatientId, pendingInvitationOnly,
- *      civilId}, true)` and `set_config('jurah.now', REFERENCE_NOW, true)` — both transaction-
+ *      civilId}, true)` and `set_config('jurah.now', kuwaitNow(), true)` (CR-064) — both transaction-
  *      local, so a pooled connection can never carry one caller's session into another's query;
  *   4. runs `fn`, then commits — or rolls back if `fn` throws (a guard trigger's raise included).
  * A null session sets an EMPTY `jurah.session`: `jurah_session()` is then NULL and every policy
  * returns zero rows.
  */
-import { REFERENCE_NOW } from '@/lib/config';
+import { kuwaitNow } from '@/lib/config';
 import type { Session } from '@/types/views';
 import { getSql, type Tx } from './client';
 
@@ -27,7 +27,7 @@ async function run<T>(role: AppRole, resolve: (tx: Tx) => Promise<Record<string,
     if (role === 'jurah_app') await tx`set local role jurah_app`;
     else await tx`set local role jurah_agent`;
     await tx`select set_config('jurah.session', ${payload ? JSON.stringify(payload) : ''}, true),
-                    set_config('jurah.now', ${REFERENCE_NOW}, true)`;
+                    set_config('jurah.now', ${kuwaitNow()}, true)`;
     return fn(tx);
   });
   return result as T;

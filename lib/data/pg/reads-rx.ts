@@ -17,7 +17,7 @@ import { append } from '@/lib/db/audit';
 import { newId } from '@/lib/db/ids';
 import type { JsonValue } from '@/lib/db/client';
 import { insertGeneratedDoses } from '@/lib/engine'; // P2-WP5 follow-up (CR-WP5-6): the one generation call site
-import { addDays, REFERENCE_DATE } from '@/lib/schedule/dates';
+import { addDays, kuwaitToday } from '@/lib/schedule/dates';
 import {
   doseHistoryRefusal,
   dosesWithPrescriptionRefusal,
@@ -218,7 +218,7 @@ export const submitPrescriptionImage: DataApi['submitPrescriptionImage'] = async
   if (extractionConfigured()) return submitToExtractionAgent(session, patientId, image);
   const draftId = newId('draft');
   const confident = image.size >= 100;
-  const prescription = confident ? confidentDraft(REFERENCE_DATE) : needsReviewDraft();
+  const prescription = confident ? confidentDraft(kuwaitToday()) : needsReviewDraft();
   const uncertainFields = confident ? null : [...NEEDS_REVIEW_UNCERTAIN_FIELDS];
   const bytes = Buffer.from(await image.arrayBuffer()).toString('base64');
   return withSession(session, async (sql) => {

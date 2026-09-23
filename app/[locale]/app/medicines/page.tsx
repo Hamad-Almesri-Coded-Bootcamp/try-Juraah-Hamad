@@ -11,8 +11,8 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { pickNextOrMostRecent, formatTodayDoseTimeLabel } from '@/features/day/format';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { REFERENCE_NOW } from '@/lib/config';
-import { REFERENCE_DATE } from '@/lib/schedule/dates';
+import { kuwaitNow } from '@/lib/config';
+import { kuwaitToday } from '@/lib/schedule/dates';
 
 /**
  * B2 — My Medicines (`/[locale]/app/medicines`): active prescriptions as cards, the danger-severity
@@ -70,14 +70,14 @@ export default async function MedicinesPage({
     getPrescriptions(patientId),
     getAlerts(patientId),
     getSettings(patientId),
-    getDosesForDay(patientId, REFERENCE_DATE),
+    getDosesForDay(patientId, kuwaitToday()),
   ]);
 
   const nextDoseByPrescriptionId: Record<string, NextDoseInfo | undefined> = {};
   for (const rx of prescriptions) {
     if (rx.status !== 'active') continue;
     const dosesForRx = todaysDoses.filter((d) => d.prescriptionId === rx.id);
-    const chosen = pickNextOrMostRecent(dosesForRx, REFERENCE_NOW);
+    const chosen = pickNextOrMostRecent(dosesForRx, kuwaitNow());
     if (chosen) nextDoseByPrescriptionId[rx.id] = { status: chosen.status, timeLabel: formatTodayDoseTimeLabel(chosen.scheduledAt, locale) };
   }
 
@@ -99,7 +99,7 @@ export default async function MedicinesPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} action={action} />
-      {view === 'offline' ? <LastKnown asOf={REFERENCE_NOW} locale={locale}>{content}</LastKnown> : content}
+      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );
 }
