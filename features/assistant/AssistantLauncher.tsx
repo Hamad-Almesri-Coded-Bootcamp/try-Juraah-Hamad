@@ -11,7 +11,7 @@
  * plain text rows in the design system's own surfaces; the launcher uses the existing `inbox` glyph
  * (no chat glyph exists in the 26). Every string is from i18n/copy/assistant.ts (guard 7).
  */
-import { useRef, useState, useTransition, type FormEvent } from 'react';
+import { useCallback, useRef, useState, useTransition, type FormEvent } from 'react';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -30,6 +30,9 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
   const [pending, startTransition] = useTransition();
   const endRef = useRef<HTMLLIElement>(null);
   const c = copy.assistant;
+  // STABLE on purpose: Sheet re-runs its focus trap whenever onClose changes identity, and it moves
+  // focus to its first control (the close button). A new arrow per render sent every keystroke there.
+  const close = useCallback(() => setOpen(false), []);
 
   function send(text: string) {
     const message = text.trim();
@@ -62,7 +65,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
       </div>
       <Sheet
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={close}
         closeLabel={t(c.closeLabel, locale)}
         title={t(c.title, locale)}
         footer={

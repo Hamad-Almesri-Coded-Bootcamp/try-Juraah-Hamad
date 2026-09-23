@@ -59,6 +59,20 @@ describe('AssistantLauncher', () => {
     await waitFor(() => expect(screen.getByText(t(copy.assistant.telegramPrompted, 'ar'))).toBeTruthy());
   });
 
+  it('typing keeps the focus in the message field, character after character (never jumps to close)', () => {
+    render(<AssistantLauncher locale="ar" />);
+    open();
+    const input = screen.getByLabelText(t(copy.assistant.inputLabel, 'ar')) as HTMLInputElement;
+    input.focus();
+    let typed = '';
+    for (const ch of 'شنو جرعتي') {
+      typed += ch;
+      fireEvent.change(input, { target: { value: typed } });
+      expect(document.activeElement).toBe(input);
+    }
+    expect(input.value).toBe('شنو جرعتي');
+  });
+
   it('rule 1: the panel has no control that records a dose — only the suggestions, send and close', () => {
     render(<AssistantLauncher locale="ar" />);
     open();
