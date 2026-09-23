@@ -36,7 +36,38 @@ export const assistant = {
     placeholder: true,
   },
   invalid: { ar: 'اكتب سؤالك بـ٥٠٠ حرف أو أقل.', en: 'Write your question in 500 characters or fewer.', placeholder: true },
-  notPatient: { ar: 'المساعد متاح للمريض فقط.', en: 'The assistant is for the patient only.', placeholder: true },
+  thinking: { ar: 'المساعد يكتب…', en: 'The assistant is typing…', placeholder: true },
+
+  // Visitors who are not a signed-in patient (landing, sign-in, caregiver, clinic): app help only.
+  guestIntro: {
+    ar: 'هلا! أقدر أعرّفك على جرعة وكيف تستخدمه. للإجابات عن جرعاتك، سجّل دخولك كمريض.',
+    en: 'Hi! I can tell you what Jur’ah is and how to use it. For answers about your own doses, sign in as a patient.',
+    placeholder: true,
+  },
+  guestSuggestWhat: { ar: 'شنو هو جرعة؟', en: 'What is Jur’ah?', placeholder: true },
+  guestSuggestSignIn: { ar: 'كيف أسجّل دخول؟', en: 'How do I sign in?', placeholder: true },
+  guestSuggestTelegram: { ar: 'كيف أربط تيليقرام؟', en: 'How do I link Telegram?', placeholder: true },
+  guestGeneral: {
+    ar: 'جرعة يجمع كل وصفاتك من أي مستشفى أو عيادة في ملف واحد، ويفحص التعارضات بينها، ويذكّرك بجرعاتك. للإجابات عن جرعاتك سجّل دخولك كمريض.',
+    en: 'Jur’ah brings all your prescriptions, from any hospital or clinic, into one file, checks them against each other, and reminds you of your doses. For answers about your own doses, sign in as a patient.',
+    placeholder: true,
+  },
+  guestSignIn: {
+    ar: 'اضغط «دخول» وأدخل رقمك المدني، ثم وافق على الطلب في تطبيق هويّاتي.',
+    en: 'Press Sign in and enter your Civil ID, then approve the request in the Hawiati app.',
+    placeholder: true,
+  },
+  guestTelegram: {
+    ar: 'بعد تسجيل الدخول: «المزيد ← الإشعارات والمراسلة ← افتح تيليقرام»، ثم اضغط Start في البوت. توصلك رسالة كل صباح بجرعاتك.',
+    en: 'After signing in: More → Notifications & messaging → Open Telegram, then press Start in the bot. You get your doses every morning.',
+    placeholder: true,
+  },
+  guestRefill: {
+    ar: 'بعد تسجيل الدخول: «المزيد ← تجديد الوصفات»، واختر الدواء. الطلب يروح للجهة اللي صرفت الوصفة.',
+    en: 'After signing in: More → Refills, then pick the medicine. The request goes to the place that dispensed it.',
+    placeholder: true,
+  },
+
   safetyLine: {
     ar: 'نموذج طلابي. جميع البيانات هنا بيانات تجريبية. «جرعة» لا تقدّم استشارة طبية — اتبع دائماً تعليمات طبيبك والصيدلاني.',
     en: 'Student prototype. All data here is sample data. Jur’ah does not give medical advice — always follow your doctor and your pharmacist.',

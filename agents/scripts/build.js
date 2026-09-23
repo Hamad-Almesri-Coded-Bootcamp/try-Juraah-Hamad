@@ -563,7 +563,11 @@ const alexa = {
 // =============================================================== 5. agent-webchat (CR-067, READ-ONLY)
 const WC = (n) => uuid('b5000000-0000-4000-8000-', n);
 
-const WC_PARSE = CONFIG + '\n' + ADHERENCE + `
+// webchat.js without webchatReply: the classifier helpers only (webchatReply needs voice.js).
+const WEBCHAT_HELPERS = WEBCHAT.replace(/\/\*\*\n \* The whole answer\.[\s\S]*$/, '');
+if (!/function quickIntent/.test(WEBCHAT_HELPERS) || /function webchatReply/.test(WEBCHAT_HELPERS)) throw new Error('could not split webchat.js');
+
+const WC_PARSE = CONFIG + '\n' + ADHERENCE + '\n' + WEBCHAT_HELPERS + `
 
 // The app's server (lib/assistant) has already verified the PATIENT session and sends only that
 // patient's id, the text, the locale and the alerts it read under that session. Fail closed anyway.
@@ -573,16 +577,18 @@ const text = typeof b.text === 'string' ? b.text.trim().slice(0, 500) : '';
 if (!id.test(String(b.patientId || '')) || !text) return [{ json: { ok: false, language: b.language === 'en' ? 'en' : 'ar' } }];
 const nowIso = new Date().toISOString();
 const date = kuwaitDate(nowIso);
-return [{ json: { ok: true, patientId: b.patientId, text, language: b.language === 'en' ? 'en' : 'ar', nowIso, date,
+// The fast path: a suggestion button or a one-meaning phrase needs no model call (null = ask Gemini).
+return [{ json: { ok: true, patientId: b.patientId, text, language: b.language === 'en' ? 'en' : 'ar', nowIso, date, quick: quickIntent(text),
   alerts: Array.isArray(b.alerts) ? b.alerts.slice(0, 20).map((a) => ({ severity: String(a.severity || ''), description: String(a.description || '').slice(0, 300), reviewStatus: String(a.reviewStatus || '') })) : [],
   dosesUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/doses?date=' + date } }];`;
 
-const WC_INTENT = WEBCHAT.replace(/function webchatReply[\s\S]*$/, '') + `
-// Trust the model only inside the list and above the floor (G11); decide whether the schedule is needed.
+const WC_INTENT = WEBCHAT_HELPERS + `
+// The fast path's intent, else the model's - trusted only inside the list and above the floor (G11).
+// Then: does the answer need the schedule, and does it need the patient's Telegram chat?
 const p = $('chat request (deterministic)').first().json;
 const c = $input.first().json.output || $input.first().json;
-const intent = p.ok ? trustWebchatIntent(c) : 'unclear';
-return [{ json: { ...p, intent, needsDoses: p.ok && needsDoses(intent) } }];`;
+const intent = !p.ok ? 'unclear' : (p.quick || trustWebchatIntent(c));
+return [{ json: { ...p, intent, viaModel: p.ok && !p.quick, needsDoses: p.ok && needsDoses(intent), needsChat: p.ok && needsChat(intent) } }];`;
 
 const WC_ANSWER = VOICE + '\n' + WEBCHAT + `
 
@@ -656,8 +662,10 @@ const webchat = {
                     messages: { messageValues: [{ message: WC_PROMPT_TEXT }] } },
       id: WC(6), name: 'Gemini: classify the question', type: '@n8n/n8n-nodes-langchain.chainLlm', typeVersion: 1.5, position: [-460, 0],
       onError: 'continueRegularOutput' },
+    ifNode(WC(18), 'needs the model?', '={{ $json.ok && !$json.quick }}', [-560, 0]),
     code(WC(7), 'intent (deterministic)', WC_INTENT, [-240, 0]),
     ifNode(WC(8), 'needs the schedule?', '={{ $json.needsDoses }}', [-20, 0]),
+    ifNode(WC(19), 'needs the chat?', "={{ $('intent (deterministic)').first().json.needsChat }}", [310, -120]),
     api(WC(9), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [200, -120]),
     api(WC(10), 'backend: who is eligible', 'GET', API_BASE + '/check-in-eligibility', [420, -120]),
     code(WC(11), 'answer (deterministic)', WC_ANSWER, [640, 0]),
@@ -671,14 +679,16 @@ const webchat = {
   ],
   connections: {
     'App assistant request': main('chat request (deterministic)'),
-    'chat request (deterministic)': main('Gemini: classify the question'),
+    'chat request (deterministic)': main('needs the model?'),
+    'needs the model?': main('Gemini: classify the question', 'intent (deterministic)'),
     'Gemini (chat model)': { ai_languageModel: [[{ node: 'Gemini: classify the question', type: 'ai_languageModel', index: 0 }]] },
     'Gemini (fallback model)': { ai_languageModel: [[{ node: 'Gemini: classify the question', type: 'ai_languageModel', index: 1 }]] },
     'Structured output': { ai_outputParser: [[{ node: 'Gemini: classify the question', type: 'ai_outputParser', index: 0 }]] },
     'Gemini: classify the question': main('intent (deterministic)'),
     'intent (deterministic)': main('needs the schedule?'),
     'needs the schedule?': main('backend: doses of the day', 'answer (deterministic)'),
-    'backend: doses of the day': main('backend: who is eligible'),
+    'backend: doses of the day': main('needs the chat?'),
+    'needs the chat?': main('backend: who is eligible', 'answer (deterministic)'),
     'backend: who is eligible': main('answer (deterministic)'),
     'answer (deterministic)': main('Answer the app'),
     'Answer the app': main('prompt Telegram?'),

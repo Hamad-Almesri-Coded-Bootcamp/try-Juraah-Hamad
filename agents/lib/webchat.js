@@ -81,6 +81,44 @@ function needsDoses(intent) {
   return Object.prototype.hasOwnProperty.call(VOICE_FOR, intent) || intent === 'took_it';
 }
 
+/** Only these two answers can send Telegram buttons, so only they need the patient's chat. */
+function needsChat(intent) {
+  return intent === 'forgot' || intent === 'took_it';
+}
+
+/**
+ * The fast path (no model call): the app's own suggestion buttons, and a few phrasings that can
+ * only mean one thing. Returns an intent, or null to let Gemini decide. Conservative on purpose:
+ * a message that matches MORE than one topic is null, and so is anything negated or vague - a
+ * wrong fast answer is worse than a slow right one. Every answer is still read-only.
+ */
+const QUICK_RULES = [
+  ['next_dose', /جرعتي الجاي|الجرعة الجاي|الدوا الجاي|الدواء الجاي|الجرعة القادمة|\bnext dose\b|\bnext medicine\b/],
+  ['dose_amount', /^كم (آخذ|اخذ|حبة|حبه|الجرعة)|^شكثر آخذ|^شقد آخذ|\bhow much (do|should) i take\b|\bhow many (pills|tablets|doses)\b/],
+  ['today', /أدويتي اليوم|ادويتي اليوم|جرعاتي اليوم|جدولي اليوم|جدول أدويتي|\bmedicines today\b|\bdoses today\b|\bmy schedule\b/],
+  ['safety', /تعارض|تداخل|تنبيهات السلامة|\binteract(ion|ions)?\b|\bsafety alerts?\b/],
+  ['help_telegram', /تيليقرام|تليقرام|تيليجرام|تلغرام|\btelegram\b/],
+  ['help_refill', /إعادة صرف|اعادة صرف|تجديد الوصف|\brefill\b/],
+  ['forgot', /^(نسيت|نسيت دواي|نسيت الدوا|نسيت الدواء|نسيت الجرعة|فاتتني الجرعة)$|^i (forgot|missed) my (medicine|dose|pill)s?$/],
+  ['took_it', /^(أخذته|اخذته|خذيته|أخذتها|اخذتها|خذيتها|أخذت الدوا|اخذت الدوا)$|^i took (it|my (medicine|dose|pill))$/],
+];
+
+function quickIntent(text) {
+  const t = String(text || '')
+    .toLowerCase()
+    .replace(/[ً-ْـ]/g, '')        // Arabic diacritics and tatweel
+    .replace(/[؟?!.،,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t || /(^|\s)(ما|مو|لا|not|didn't|don't|never)(\s|$)/.test(t)) return null;
+  const hits = QUICK_RULES.filter(([, re]) => re.test(t)).map(([intent]) => intent);
+  if (hits.length !== 1) return null;
+  // A dose-report word inside some other question ("I forgot to ask about...") is the model's call.
+  const reportWord = /نسيت|فاتت|فاتني|أخذت|اخذت|خذيت|\bforgot\b|\bmissed\b|\btook\b/.test(t);
+  if (reportWord && hits[0] !== 'forgot' && hits[0] !== 'took_it') return null;
+  return hits[0];
+}
+
 /**
  * The whole answer. `doses` = today's tracked doses (null = the backend failed); `alerts` = the
  * patient's alerts as the app read them ({severity, description, reviewStatus}); `hasChat` = the
@@ -118,4 +156,4 @@ function webchatReply({ intent, language, doses, alerts, nowIso, hasChat }) {
   return out(reply, v.promptDoses || []);
 }
 
-module.exports = { webchatReply, trustWebchatIntent, needsDoses, WEBCHAT_INTENTS, WEBCHAT_MIN_CONFIDENCE };
+module.exports = { webchatReply, trustWebchatIntent, needsDoses, needsChat, quickIntent, WEBCHAT_INTENTS, WEBCHAT_MIN_CONFIDENCE };

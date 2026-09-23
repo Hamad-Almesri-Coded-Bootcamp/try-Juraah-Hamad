@@ -7,7 +7,7 @@
  * carries only what the Safety screen already shows, and anything unexpected is "unavailable".
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chatConfigured, chatPayload, cleanMessage, patientOf, readReply } from '@/lib/assistant/core';
+import { chatConfigured, chatPayload, cleanMessage, guestTopic, patientOf, readReply } from '@/lib/assistant/core';
 import type { InteractionAlert } from '@/types/contracts';
 
 const h = vi.hoisted(() => ({ fetch: vi.fn(async (url: string, init?: RequestInit): Promise<Response> => { void url; void init; return Response.json({ reply: 'جرعتك الجاية Calcium…', intent: 'next_dose', telegramPrompted: false }); }) }));
@@ -37,6 +37,12 @@ describe('core', () => {
   it('chatPayload carries only severity, description and review state of each alert', () => {
     const a = { id: 'ia-002', patientId: 'pt-03', involvedPrescriptionIds: ['rx-008'], severity: 'warning', description: 'd', sourceCitation: 'c', createdAt: 'x', reviewStatus: 'reviewed', reviewerNote: 'secret note' } as InteractionAlert;
     expect(chatPayload('pt-03', 'q', 'ar', [a])).toEqual({ patientId: 'pt-03', text: 'q', language: 'ar', alerts: [{ severity: 'warning', description: 'd', reviewStatus: 'reviewed' }] });
+  });
+  it('guestTopic: app help picked from the words, never personal', () => {
+    expect(guestTopic('كيف أربط تيليقرام؟')).toBe('guestTelegram');
+    expect(guestTopic('How do I sign in?')).toBe('guestSignIn');
+    expect(guestTopic('ابي إعادة صرف')).toBe('guestRefill');
+    for (const q of ['شنو جرعتي الجاية؟', 'What is Jur’ah?', 'hello']) expect(guestTopic(q)).toBe('guestGeneral');
   });
   it('readReply: only a 2xx with a non-empty reply is an answer', () => {
     expect(readReply(200, { reply: 'جرعتك الجاية…', telegramPrompted: true })).toEqual({ ok: true, reply: 'جرعتك الجاية…', telegramPrompted: true });
@@ -78,12 +84,22 @@ describe('askAssistant (mock backend, seed store)', () => {
     expect(body.alerts.length).toBeGreaterThan(0);
     for (const a of body.alerts) expect(Object.keys(a).sort()).toEqual(['description', 'reviewStatus', 'severity']);
   });
-  it('a caregiver, a reviewer, a pending-only session or no session is refused before anything is read or sent', async () => {
+  it('a caregiver, a reviewer, a pending-only session or no session gets APP HELP only: nothing read, nothing sent', async () => {
     for (const s of [{ subjectId: 'cg-01', role: 'caregiver' as const, linkedPatientId: 'pt-01' }, { subjectId: 'acc-10', role: 'reviewer' as const }, { subjectId: 'cg-03', pendingInvitationOnly: true as const }, null]) {
       const ask = await as(s);
-      expect(await ask('hi', 'en')).toEqual({ ok: false, reason: 'not_a_patient' });
+      expect(await ask('شنو جرعتي الجاية؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestGeneral' });
+      expect(await ask('كيف أربط تيليقرام؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestTelegram' });
     }
     expect(h.fetch).not.toHaveBeenCalled();
+  });
+  it('assistantAudience: patient for a patient session, guest for everyone else', async () => {
+    const audienceAs = async (session: Parameters<typeof import('@/lib/session/cookie')['setScriptSession']>[0]) => {
+      (await import('@/lib/session/cookie')).setScriptSession(session);
+      return (await import('@/lib/assistant')).assistantAudience();
+    };
+    expect(await audienceAs({ subjectId: 'pt-03', role: 'patient' })).toBe('patient');
+    expect(await audienceAs({ subjectId: 'cg-01', role: 'caregiver', linkedPatientId: 'pt-01' })).toBe('guest');
+    expect(await audienceAs(null)).toBe('guest');
   });
   it('an empty or over-long message is refused; nothing sent', async () => {
     const ask = await as({ subjectId: 'pt-03', role: 'patient' });

@@ -15,7 +15,11 @@ export const MAX_MESSAGE_LENGTH = 500;
 
 export type AssistantResult =
   | { ok: true; reply: string; telegramPrompted: boolean }
-  | { ok: false; reason: 'not_a_patient' | 'invalid' | 'unavailable' };
+  /** App help for a visitor who is not a signed-in patient — a copy-catalogue key, resolved by the component. */
+  | { ok: true; guestTopic: GuestTopic }
+  | { ok: false; reason: 'invalid' | 'unavailable' };
+
+export type AssistantAudience = 'patient' | 'guest';
 
 /** The trimmed message, or null when it is empty, too long or not text. */
 export function cleanMessage(text: unknown): string | null {
@@ -43,6 +47,21 @@ export function chatPayload(patientId: string, text: string, locale: Locale, ale
     language: locale,
     alerts: alerts.slice(0, 20).map((a) => ({ severity: a.severity, description: a.description, reviewStatus: a.reviewStatus })),
   };
+}
+
+/**
+ * Anyone who is not a signed-in patient (landing, sign-in, caregiver, clinic) gets APP HELP only,
+ * answered here from the copy catalogue: no n8n, no model, no database, so no one's medical data
+ * is ever in reach and an anonymous visitor cannot spend the agents' quota. Keyed by the entries of
+ * i18n/copy/assistant.ts; the component resolves the key to the reader's language.
+ */
+export type GuestTopic = 'guestTelegram' | 'guestRefill' | 'guestSignIn' | 'guestGeneral';
+export function guestTopic(text: string): GuestTopic {
+  const t = text.toLowerCase();
+  if (/تيليقرام|تليقرام|تيليجرام|تلغرام|telegram/.test(t)) return 'guestTelegram';
+  if (/إعادة صرف|اعادة صرف|تجديد|refill/.test(t)) return 'guestRefill';
+  if (/دخول|أدخل|ادخل|تسجيل|هويتي|هوياتي|sign ?in|log ?in|login/.test(t)) return 'guestSignIn';
+  return 'guestGeneral';
 }
 
 /** n8n's answer → a result; anything unexpected is "unavailable", never a made-up reply. */
