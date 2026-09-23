@@ -22,7 +22,7 @@
  * question; none records anything.
  *
  * CR-069 — the screen follows the voice. For a signed-in patient the panel polls `voiceTurns` every
- * few seconds while the tab is visible; each turn the patient has with Alexa opens the panel, shows
+ * few seconds, also in a background tab; each turn the patient has with Alexa opens the panel, shows
  * what was asked and what Alexa said, and opens the screen it is about. When Alexa did not
  * understand, the panel shows the four voice topics — tap one, or say it to the Echo.
  */
@@ -112,14 +112,14 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
       if (target && pathRef.current !== target) router.push(target);
       requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
     };
+    // Also in a background tab (the browser slows its timers there): the page has already moved
+    // when the patient looks at it — they talk to the Echo, not to this window.
     const tick = async () => {
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        const r = await voiceTurns(lastSeq.current).catch(() => null);
-        if (live && r) {
-          const first = lastSeq.current === null;
-          lastSeq.current = r.latest;
-          if (!first && r.turns.length > 0) follow(r.turns);
-        }
+      const r = await voiceTurns(lastSeq.current).catch(() => null);
+      if (live && r) {
+        const first = lastSeq.current === null;
+        lastSeq.current = r.latest;
+        if (!first && r.turns.length > 0) follow(r.turns);
       }
       if (live) timer = setTimeout(() => void tick(), VOICE_POLL_MS);
     };

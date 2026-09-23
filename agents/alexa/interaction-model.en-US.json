@@ -13,7 +13,11 @@
             "when do I take my medicine",
             "when is my next medicine",
             "what medicine is next",
-            "next dose"
+            "next dose",
+            "what is the next dose",
+            "when is the next dose",
+            "my next dose",
+            "what dose is next"
           ]
         },
         {
@@ -25,7 +29,9 @@
             "how many pills do I take",
             "what is the dose",
             "how much should I take",
-            "what is my dose amount"
+            "what is my dose amount",
+            "how many pills",
+            "how much medicine do I take"
           ]
         },
         {
@@ -37,7 +43,10 @@
             "what do I take today",
             "read my schedule",
             "what is my schedule today",
-            "my medicines today"
+            "my medicines today",
+            "what are my medications today",
+            "what medicine do I have today",
+            "today's medicines"
           ]
         },
         {
@@ -50,15 +59,36 @@
             "I forgot to take my medicine",
             "I missed my dose",
             "I did not take my medicine",
-            "I missed my pill"
+            "I missed my pill",
+            "I forgot",
+            "I forgot to take it",
+            "I forgot my pill"
           ]
         },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.NoIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] },
-        { "name": "AMAZON.NavigateHomeIntent", "samples": [] }
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
       ],
       "types": []
     }
