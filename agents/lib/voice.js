@@ -128,7 +128,8 @@ function voiceReply({ kind, language, doses, nowIso, hasChat }) {
 
   if (kind === 'TodayDosesIntent') {
     const word = (d) => d.status === OPEN_V ? S.open : d.status === 'taken_on_time' ? S.taken : d.status === 'taken_late' ? S.late : S.missedRec;
-    const lines = all.map((d) => spokenTime(d.scheduledAt, language) + ' ' + medName(d) + '، ' + word(d));
+    const comma = language === 'en' ? ', ' : '، ';
+    const lines = all.map((d) => spokenTime(d.scheduledAt, language) + ' ' + medName(d) + comma + word(d));
     const head = language === 'en' ? 'Today you have ' + all.length + ' doses: ' : 'عندك اليوم ' + all.length + ' جرعات: ';
     return out(head + lines.join('. ') + '.' + S.askMore);
   }

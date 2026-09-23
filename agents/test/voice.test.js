@@ -69,6 +69,13 @@ test('today: every tracked dose in time order with its state', () => {
   assert.match(r.speech, /^عندك اليوم 3 جرعات: الساعة 7 الصبح Eltroxin، أخذتها\. الساعة 1 الظهر .*باقية\. الساعة 9 بالليل .*باقية\./);
 });
 
+test('today in English: an English comma, never the Arabic one', () => {
+  const doses = DAY(); doses[0] = dose('rx-008-20260924-0700', 'rx-008', '07:00', TAKEN);
+  const r = V.voiceReply({ kind: 'TodayDosesIntent', language: 'en', doses, nowIso: at('09:00'), hasChat: true });
+  assert.match(r.speech, /^Today you have 3 doses: 7 in the morning Eltroxin, taken\. /);
+  assert.doesNotMatch(r.speech, /،/);
+});
+
 test('I forgot: names the passed dose and the next one, records NOTHING, prompts the patient’s own chat', () => {
   const r = V.voiceReply({ kind: 'ForgotDoseIntent', language: 'ar', doses: DAY(), nowIso: at('09:00'), hasChat: true });
   assert.match(r.speech, /الجرعة اللي فات وقتها Eltroxin الساعة 7 الصبح/);
