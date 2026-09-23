@@ -75,3 +75,29 @@ test('English follows the locale', () => {
 test('only dose intents need the schedule', () => {
   assert.deepEqual(W.WEBCHAT_INTENTS.filter(W.needsDoses), ['next_dose', 'dose_amount', 'today', 'forgot', 'took_it']);
 });
+
+test('fast path: the app’s four suggestion buttons (ar and en) resolve without the model', () => {
+  const cases = {
+    'شنو جرعتي الجاية؟': 'next_dose', 'كم آخذ؟': 'dose_amount', 'شنو أدويتي اليوم؟': 'today', 'فيه تعارض بين أدويتي؟': 'safety',
+    'What is my next dose?': 'next_dose', 'How much do I take?': 'dose_amount', 'What are my medicines today?': 'today', 'Do my medicines interact?': 'safety',
+  };
+  for (const [text, intent] of Object.entries(cases)) assert.equal(W.quickIntent(text), intent, text);
+});
+
+test('fast path: a few one-meaning phrasings; diacritics and punctuation do not matter', () => {
+  assert.equal(W.quickIntent('نسيت دواي'), 'forgot');
+  assert.equal(W.quickIntent('أخذتُه!'), 'took_it');
+  assert.equal(W.quickIntent('كيف أربط تيليقرام'), 'help_telegram');
+  assert.equal(W.quickIntent('ابي إعادة صرف'), 'help_refill');
+  assert.equal(W.quickIntent('I forgot my medicine'), 'forgot');
+});
+
+test('fast path is conservative: negated, two-topic, vague or unknown text goes to the model (null)', () => {
+  for (const text of ['ما أخذته', 'مو متأكد متى الدوا الجاي', 'نسيت أسأل عن التعارض', 'نسيت متى الجرعة الجاية', 'I did not take it', 'ايه', 'هلا', '', '   ', 'شنو رايك بالدوا']) {
+    assert.equal(W.quickIntent(text), null, JSON.stringify(text));
+  }
+});
+
+test('only "I forgot" / "I took it" need the patient’s Telegram chat', () => {
+  assert.deepEqual(W.WEBCHAT_INTENTS.filter(W.needsChat), ['forgot', 'took_it']);
+});

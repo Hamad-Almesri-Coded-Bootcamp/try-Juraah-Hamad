@@ -376,9 +376,12 @@ async function webchatScenarios() {
   const req = (body) => [{ json: { body: { patientId: 'pt-03', language: 'ar', alerts: [], ...body } } }];
   const walk = async (input, model, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]) } = {}) => {
     const r = runner(wf);
-    await r.code('chat request (deterministic)', input);
-    const [i] = await r.code('intent (deterministic)', [{ json: { output: model } }]);
-    if (i.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
+    const [parsed] = await r.code('chat request (deterministic)', input);
+    // Mirror IF 'needs the model?': the fast path skips Gemini and hands the parse output straight on.
+    const [i] = await r.code('intent (deterministic)', parsed.json.ok && !parsed.json.quick ? [{ json: { output: model } }] : [parsed]);
+    // Mirror IF 'needs the schedule?' and IF 'needs the chat?'.
+    if (i.json.needsDoses) r.set('backend: doses of the day', doses);
+    if (i.json.needsDoses && i.json.needsChat) r.set('backend: who is eligible', elig);
     const [a] = await r.code('answer (deterministic)', [{ json: {} }]);
     const prompts = a.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
     return { intent: i.json, answer: a.json, prompts: prompts.map((x) => x.json) };
@@ -389,11 +392,20 @@ async function webchatScenarios() {
     assert.match(s.intent.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
     assert.match(s.answer.reply, /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
     assert.deepEqual(s.prompts, []);
+    assert.equal(s.intent.viaModel, false, 'a suggestion must not wait for Gemini');
+    assert.equal(s.intent.needsChat, false, 'a next-dose answer must not look up Telegram');
     console.log('        -> ' + s.answer.reply);
+  });
+  await check('free wording still goes to Gemini, and its intent is used', async () => {
+    const s = await walk(req({ text: 'بعد كم ساعة لازم آخذ الحبة الثانية' }), { intent: 'next_dose', confidence: 0.9 });
+    assert.equal(s.intent.viaModel, true);
+    assert.equal(s.intent.intent, 'next_dose');
+    assert.match(s.answer.reply, /^جرعتك الجاية/);
   });
   await check('«أخذته» -> nothing recorded; the open dose’s buttons go to the patient’s OWN Telegram', async () => {
     const s = await walk(req({ text: 'أخذته' }), { intent: 'took_it', confidence: 0.97 });
     assert.match(s.answer.reply, /ما أقدر أسجّل الجرعة من هنا/);
+    assert.equal(s.intent.needsChat, true, 'only forgot / took it look up Telegram');
     assert.equal(s.prompts[0].chatId, '5550001');
     assert.deepEqual(s.prompts[1].buttons.map((b) => b.data)[0], 'd:rx-008-x-0005:taken_on_time');
     console.log('        -> ' + s.answer.reply);

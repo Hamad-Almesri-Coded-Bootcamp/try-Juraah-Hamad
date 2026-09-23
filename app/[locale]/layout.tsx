@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { LOCALES, directionFor, isLocale, copy, t } from '@/i18n';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
+import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import '../globals.css';
 
 const FONTS_HREF =
@@ -52,6 +53,8 @@ export default async function LocaleLayout({
           {t(copy.shell.skipToContent, locale)}
         </a>
         {children}
+        {/* CR-067: the assistant on every page; the server decides patient answers vs app help. */}
+        <AssistantLauncher locale={locale} />
         <RegisterServiceWorker />
       </body>
     </html>
