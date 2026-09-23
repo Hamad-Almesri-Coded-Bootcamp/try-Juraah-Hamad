@@ -478,13 +478,15 @@ const AX = (n) => uuid('b4000000-0000-4000-8000-', n);
  */
 const ALEXA_CONFIG = "const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};";
 
-const AX_PARSE = CONFIG + '\n' + ALEXA_CONFIG + '\n' + ADHERENCE + '\n' + VOICE + `
+const AX_PARSE = CONFIG + '\n' + ALEXA_CONFIG + '\n' + ADHERENCE + '\n' + VOICE + '\n' + VOICE_ACTIONS + `
 
 const body = $input.first().json.body || {};
 const nowIso = new Date().toISOString();
 const p = parseAlexaRequest({ body, nowIso, skillId: ALEXA_SKILL_ID, links: ALEXA_LINKS });
 const date = kuwaitDate(nowIso);
-return [{ json: { ...p, nowIso, date,
+// CR-070: a plain free-talk question is answered without the model (Alexa waits at most 8 seconds).
+const quick = p.ok && p.kind === 'FreeTalkIntent' ? quickFreeTalk(p.utterance) : null;
+return [{ json: { ...p, nowIso, date, quick,
   dosesUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date : null,
   voiceTurnUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/voice-turns' : null } }];`;
 
@@ -497,7 +499,8 @@ const AX_INTENT = VOICE + '\n' + VOICE_ACTIONS + `
 const p = $('alexa request (deterministic)').first().json;
 let kind = p.kind;
 let items = [];
-if (p.ok && p.kind === 'FreeTalkIntent') {
+if (p.ok && p.kind === 'FreeTalkIntent' && p.quick) kind = p.quick;
+else if (p.ok && p.kind === 'FreeTalkIntent') {
   let c = null;
   try { c = $input.first().json.output || $input.first().json; } catch (e) { /* the model did not run */ }
   const t = p.utterance ? trustFreeTalk(c) : { kind: 'AMAZON.FallbackIntent', items: [] };
@@ -641,9 +644,10 @@ const alexa = {
     ifNode(AX(10), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [1300, -80]),
     telegramButtons(AX(11), 'Telegram: dose buttons', [1520, -160]),
     telegramText(AX(12), 'Telegram: header', [1520, 0]),
-    ifNode(AX(15), 'needs the model?', "={{ $json.ok && $json.kind === 'FreeTalkIntent' && !!$json.utterance }}", [-460, 200]),
-    gemini(AX(17), 'Gemini (chat model)', GEMINI_MODEL, [-400, 420]),
-    gemini(AX(18), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [-400, 560]),
+    ifNode(AX(15), 'needs the model?', "={{ $json.ok && $json.kind === 'FreeTalkIntent' && !!$json.utterance && !$json.quick }}", [-460, 200]),
+    // Alexa waits at most 8 seconds: one try, no retry waits; a failure is 'unclear', never a guess.
+    { ...gemini(AX(17), 'Gemini (chat model)', GEMINI_MODEL, [-400, 420]), retryOnFail: false, maxTries: 1 },
+    { ...gemini(AX(18), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [-400, 560]), retryOnFail: false, maxTries: 1 },
     { parameters: { schemaType: 'manual', inputSchema: AX_SCHEMA }, id: AX(19), name: 'Structured output',
       type: '@n8n/n8n-nodes-langchain.outputParserStructured', typeVersion: 1.2, position: [-220, 420] },
     { parameters: { promptType: 'define', text: "={{ $('alexa request (deterministic)').first().json.utterance || '-' }}", hasOutputParser: true, needsFallback: true,

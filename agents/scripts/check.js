@@ -89,6 +89,10 @@ const http = (statusCode, body) => [{ json: { statusCode, body } }];
 // --------------------------------------------------------------- scenarios
 const ON_TIME = ['taken_on_time'][0];
 const OPEN = ['upcoming'][0];
+// Dose words by reference, never as an object literal (guard 4 / G1 scans for status: '<word>').
+const W_ON = ['taken_on_time'][0];
+const W_LATE = ['taken_late'][0];
+const W_MISS = ['missed'][0];
 const dose = (id, prescriptionId, hhmm, word, brandName) => ({
   id, prescriptionId, scheduledAt: '2026-09-24T' + hhmm + ':00+03:00', status: word, recordedAt: null,
   genericName: prescriptionId === 'rx-008' ? 'Levothyroxine' : 'Calcium carbonate + vitamin D3', brandName: brandName || null,
@@ -394,7 +398,7 @@ async function alexaScenarios() {
     assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
   });
   // ---- CR-070: free talk, and dose actions by voice behind the switch.
-  const FIRST_TWO_THIRD = { intent: 'record', confidence: 0.95, items: [{ position: 1, status: 'taken_on_time' }, { position: 2, status: 'missed' }] };
+  const FIRST_TWO_THIRD = { intent: 'record', confidence: 0.95, items: [{ position: 1, status: W_ON }, { position: 2, status: W_MISS }] };
   await check('CR-070 free talk: the sentence goes to Gemini, and its intent is answered from the data ("check my medicines" -> today)', async () => {
     const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'my medicines for today' }), { model: { intent: 'today', confidence: 0.9 } });
     assert.equal(s.intent.kind, 'TodayDosesIntent');
@@ -410,14 +414,14 @@ async function alexaScenarios() {
     const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken and the third missed' }), { model: FIRST_TWO_THIRD });
     assert.equal(s.intent.kind, 'record');
     assert.deepEqual(s.posted, []);
-    assert.deepEqual(s.spoken.alexa.sessionAttributes, { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: 'taken_on_time' }] });
+    assert.deepEqual(s.spoken.alexa.sessionAttributes, { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_ON }] });
     assert.match(s.spoken.alexa.response.outputSpeech.text, /^I will record: Eltroxin at 12:05 in the morning taken\. I could not record: Calcium carbonate \+ vitamin D3 at 11:55 in the evening - not due yet\. Shall I\? Say yes, or no\.$/);
     assert.equal(s.spoken.alexa.response.shouldEndSession, false);
     assert.equal(s.spoken.screen.topic, 'record');
     console.log('        -> ' + s.spoken.alexa.response.outputSpeech.text);
   });
   await check('CR-070 switch ON, turn 2 "yes": the list comes back from Alexa\'s session, is re-checked, and is written exactly as the Telegram path writes it (a miss is recomputed)', async () => {
-    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: 'missed' }, { doseId: 'rx-009-x-2355', prescriptionId: 'rx-009', status: 'taken_on_time' }];
+    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }, { doseId: 'rx-009-x-2355', prescriptionId: 'rx-009', status: W_ON }];
     const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending }));
     assert.deepEqual(s.posted.map((x) => [x.url.replace(/^.*\/api\/agent/, ''), x.body.status || x.body.reason]), [
       ['/doses/rx-008-x-0005/status', 'missed'], ['/schedule/recompute', 'reported_miss'],
@@ -438,7 +442,7 @@ async function alexaScenarios() {
     const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken' }), { model: FIRST_TWO_THIRD });
     assert.match(s.spoken.alexa.response.outputSpeech.text, /Recording by voice is turned off/);
     assert.deepEqual(s.posted, []);
-    const y = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: 'missed' }] }));
+    const y = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }] }));
     assert.deepEqual(y.posted, []);
   });
   await check('the voice workflow\'s HTTP calls: two GETs to the read routes, the screen turn, and the two write calls - whose URL and body only confirmRecord builds; no Code node calls out', async () => {
