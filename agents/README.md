@@ -32,7 +32,7 @@ n8n agent-interaction-screening  (x-jurah-secret)  { patientId, newPrescriptionI
 ```bash
 cd agents
 npm run verify                                  # unit tests + build + generated-workflow checks
-JURAH_API_BASE=https://<deployed-app>/api/agent npm run build   # before importing into n8n
+JURAH_API_BASE=https://tryjuraaah.vercel.app/api/agent npm run build   # what the committed workflows are built with
 ```
 
 From the repo root, `npm run verify` also runs `tests/unit/agent/agents-contract.test.ts`, which

@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const API = \"https://backend-not-deployed-yet.invalid/api/agent\";\nconst N8N = \"https://mohammad-aljry.app.n8n.cloud/webhook\";\nconst b = $input.first().json.body || {};\nconst id = /^[A-Za-z0-9_-]{1,64}$/;\nif (!id.test(String(b.patientId || '')) || !id.test(String(b.newPrescriptionId || ''))) return [];\nreturn [{ json: { patientId: b.patientId, newPrescriptionId: b.newPrescriptionId, language: b.language === 'en' ? 'en' : 'ar',\n                  rxUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/prescriptions' } }];"
+        "jsCode": "const API = \"https://tryjuraaah.vercel.app/api/agent\";\nconst N8N = \"https://mohammad-aljry.app.n8n.cloud/webhook\";\nconst b = $input.first().json.body || {};\nconst id = /^[A-Za-z0-9_-]{1,64}$/;\nif (!id.test(String(b.patientId || '')) || !id.test(String(b.newPrescriptionId || ''))) return [];\nreturn [{ json: { patientId: b.patientId, newPrescriptionId: b.newPrescriptionId, language: b.language === 'en' ? 'en' : 'ar',\n                  rxUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/prescriptions' } }];"
       },
       "id": "b3000000-0000-4000-8000-000000000002",
       "name": "input (deterministic)",
@@ -76,7 +76,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://backend-not-deployed-yet.invalid/api/agent/alerts",
+        "url": "https://tryjuraaah.vercel.app/api/agent/alerts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
