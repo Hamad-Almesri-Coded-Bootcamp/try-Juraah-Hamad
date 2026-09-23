@@ -2,6 +2,11 @@
   "interactionModel": {
     "languageModel": {
       "invocationName": "medicine helper",
+      "modelConfiguration": {
+        "fallbackIntentSensitivity": {
+          "level": "LOW"
+        }
+      },
       "intents": [
         {
           "name": "NextDoseIntent",
@@ -13,7 +18,10 @@
             "when do I take my medicine",
             "when is my next medicine",
             "what medicine is next",
-            "next dose"
+            "next dose",
+            "when do I need to take my medicine",
+            "when should I take my medicine",
+            "when do I take my next pill"
           ]
         },
         {
