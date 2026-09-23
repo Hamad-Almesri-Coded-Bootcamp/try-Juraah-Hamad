@@ -1,0 +1,234 @@
+[
+  {
+    "id": "rx-001",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "مستشفى الفروانية",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Warfarin",
+      "brandName": "Marevan",
+      "strengthMg": 5
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 1,
+    "durationDays": 90,
+    "dosingPattern": "daily",
+    "startDate": "2026-09-01",
+    "doseTimes": [
+      "18:00"
+    ],
+    "dispensing": {
+      "unitsPerPackage": 90,
+      "totalQuantityDispensed": 90,
+      "dispenseDate": "2026-09-01"
+    },
+    "needsReview": false,
+    "status": "active"
+  },
+  {
+    "id": "rx-002",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "عيادة النخبة الطبية",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "Ibuprofen",
+      "brandName": "Brufen",
+      "strengthMg": 400
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 3,
+    "durationDays": 7,
+    "dosingPattern": "daily",
+    "startDate": "2026-09-19",
+    "doseTimes": [
+      "08:00",
+      "14:00",
+      "20:00"
+    ],
+    "dispensing": {
+      "unitsPerPackage": 21,
+      "totalQuantityDispensed": 21,
+      "dispenseDate": "2026-09-19"
+    },
+    "needsReview": false,
+    "status": "active"
+  },
+  {
+    "id": "rx-003",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "مستشفى الفروانية",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Metformin",
+      "brandName": "Glucophage",
+      "strengthMg": 500
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 2,
+    "durationDays": 180,
+    "dosingPattern": "daily",
+    "startDate": "2026-06-15",
+    "doseTimes": [
+      "08:00",
+      "20:00"
+    ],
+    "dispensing": {
+      "unitsPerPackage": 60,
+      "totalQuantityDispensed": 60,
+      "dispenseDate": "2026-09-01"
+    },
+    "needsReview": false,
+    "status": "active"
+  },
+  {
+    "id": "rx-004",
+    "patientId": "pt-01",
+    "source": {
+      "facilityName": "مستشفى الفروانية",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Atorvastatin",
+      "brandName": "Lipitor",
+      "strengthMg": 20
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 1,
+    "durationDays": 90,
+    "dosingPattern": "daily",
+    "startDate": "2026-04-02",
+    "doseTimes": [
+      "21:00"
+    ],
+    "needsReview": false,
+    "status": "discontinued",
+    "discontinuedReason": "الطبيب أوقف الدواء بسبب آلام العضلات",
+    "discontinuedAt": "2026-06-28"
+  },
+  {
+    "id": "rx-005",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "مركز الصباح للأمراض الروماتيزمية",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Prednisolone",
+      "strengthMg": 5
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 1,
+    "durationDays": 60,
+    "dosingPattern": "alternate_day",
+    "startDate": "2026-09-14",
+    "doseTimes": [
+      "09:00"
+    ],
+    "needsReview": false,
+    "status": "active"
+  },
+  {
+    "id": "rx-006",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "عيادة الياسمين",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "(unreadable)"
+    },
+    "dosePerAdministration": 1,
+    "durationDays": 30,
+    "dosingPattern": "daily",
+    "needsReview": true,
+    "fieldReviewStatus": "pending",
+    "status": "active"
+  },
+  {
+    "id": "rx-007",
+    "patientId": "pt-02",
+    "source": {
+      "facilityName": "عيادة الياسمين",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "Ciprofloxacin",
+      "strengthMg": 500
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 2,
+    "durationDays": 7,
+    "dosingPattern": "daily",
+    "doseTimes": [
+      "09:00",
+      "21:00"
+    ],
+    "needsReview": true,
+    "fieldReviewStatus": "returned",
+    "fieldReviewNote": "الجرعة المكتوبة تتعارض مع المدة، يرجى مراجعة العيادة",
+    "fieldReviewedBy": "acc-10",
+    "fieldReviewedAt": "2026-09-16T10:00:00+03:00",
+    "status": "active"
+  },
+  {
+    "id": "rx-008",
+    "patientId": "pt-03",
+    "source": {
+      "facilityName": "مستشفى العدان",
+      "sector": "public"
+    },
+    "drug": {
+      "genericName": "Levothyroxine",
+      "brandName": "Eltroxin",
+      "strengthMg": 50,
+      "strengthUnit": "mcg"
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 1,
+    "durationDays": 180,
+    "dosingPattern": "daily",
+    "startDate": "2026-08-10",
+    "doseTimes": [
+      "07:00"
+    ],
+    "dispensing": {
+      "unitsPerPackage": 180,
+      "totalQuantityDispensed": 180,
+      "dispenseDate": "2026-08-10"
+    },
+    "needsReview": false,
+    "status": "active"
+  },
+  {
+    "id": "rx-009",
+    "patientId": "pt-03",
+    "source": {
+      "facilityName": "عيادة النخبة الطبية",
+      "sector": "private"
+    },
+    "drug": {
+      "genericName": "Calcium carbonate + vitamin D3",
+      "strengthMg": 500
+    },
+    "dosePerAdministration": 1,
+    "frequencyPerDay": 2,
+    "durationDays": 90,
+    "dosingPattern": "daily",
+    "startDate": "2026-09-05",
+    "doseTimes": [
+      "13:00",
+      "21:00"
+    ],
+    "needsReview": false,
+    "fieldReviewStatus": "confirmed",
+    "fieldReviewedBy": "acc-10",
+    "fieldReviewedAt": "2026-09-06T10:00:00+03:00",
+    "status": "active"
+  }
+]

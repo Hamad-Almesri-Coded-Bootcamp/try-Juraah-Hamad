@@ -1,0 +1,221 @@
+{
+  "meta": {
+    "source": {
+      "name": "DDInter 2.0",
+      "url": "https://ddinter.scbdd.com/download/",
+      "citation": "Xiong G, et al. DDInter 2.0: an enhanced drug interaction resource. Nucleic Acids Research 2025;53(D1):D1356.",
+      "retrievedAt": "2026-09-20",
+      "licenceNote": "Open-access academic resource. Used here for a non-commercial student capstone. Re-check terms before any real-world deployment."
+    },
+    "builtAt": "2026-09-20",
+    "scope": "DEMO SLICE - only the drugs in the brand map and the demo fixtures. Rebuild with tools/build-demo-index.js. The full index is data/build/interaction-index.json.",
+    "drugsInScope": 11,
+    "pairsIndexed": 19,
+    "datasetUniquePairs": 160037,
+    "drugsNotFoundInSource": [
+      "Carbimazole",
+      "Domperidone",
+      "Gliclazide"
+    ]
+  },
+  "drugs": {
+    "simvastatin": {
+      "label": "Simvastatin",
+      "ddinterId": "DDInter1675"
+    },
+    "ezetimibe": {
+      "label": "Ezetimibe",
+      "ddinterId": "DDInter707"
+    },
+    "clarithromycin": {
+      "label": "Clarithromycin",
+      "ddinterId": "DDInter393"
+    },
+    "levothyroxine": {
+      "label": "Levothyroxine",
+      "ddinterId": "DDInter1064"
+    },
+    "acetaminophen": {
+      "label": "Acetaminophen",
+      "ddinterId": "DDInter14"
+    },
+    "caffeine": {
+      "label": "Caffeine",
+      "ddinterId": "DDInter263"
+    },
+    "pseudoephedrine": {
+      "label": "Pseudoephedrine",
+      "ddinterId": "DDInter1545"
+    },
+    "chlorpheniramine": {
+      "label": "Chlorpheniramine",
+      "ddinterId": "DDInter362"
+    },
+    "diphenhydramine": {
+      "label": "Diphenhydramine",
+      "ddinterId": "DDInter569"
+    },
+    "calcium carbonate": {
+      "label": "Calcium carbonate",
+      "ddinterId": "DDInter271"
+    },
+    "amlodipine": {
+      "label": "Amlodipine",
+      "ddinterId": "DDInter79"
+    }
+  },
+  "pairs": {
+    "amlodipine|calcium carbonate": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter79",
+        "DDInter271"
+      ],
+      "atcFile": "A"
+    },
+    "amlodipine|clarithromycin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter79",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "amlodipine|simvastatin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|simvastatin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter1675",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "calcium carbonate|levothyroxine": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter271"
+      ],
+      "atcFile": "A"
+    },
+    "levothyroxine|simvastatin": {
+      "level": "Minor",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "ezetimibe|simvastatin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1675",
+        "DDInter707"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|simvastatin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|clarithromycin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|ezetimibe": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter707",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "chlorpheniramine|diphenhydramine": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter569",
+        "DDInter362"
+      ],
+      "atcFile": "D"
+    },
+    "levothyroxine|pseudoephedrine": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter1545"
+      ],
+      "atcFile": "H"
+    },
+    "acetaminophen|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "amlodipine|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "ezetimibe|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter707"
+      ],
+      "atcFile": "H"
+    },
+    "chlorpheniramine|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter362"
+      ],
+      "atcFile": "H"
+    },
+    "acetaminophen|caffeine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter263",
+        "DDInter14"
+      ],
+      "atcFile": "R"
+    },
+    "acetaminophen|chlorpheniramine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter362"
+      ],
+      "atcFile": "R"
+    }
+  }
+}

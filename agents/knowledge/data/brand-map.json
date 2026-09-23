@@ -1,0 +1,235 @@
+{
+  "meta": {
+    "purpose": "Gulf trade name -> active ingredient(s). Used by Travel Check to turn a photographed box into something the interaction index can be keyed on.",
+    "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
+    "retrievedAt": "2026-09-20",
+    "retrievedBy": "filtered by Scientific Name in the SFDA public register; trade name, strength and dosage form copied verbatim from the returned row",
+    "whySaudiDataForAKuwaitiApp": "Kuwait and Saudi Arabia are both members of the GCC centralised drug registration framework (GCC-DR), under which a product registered centrally is marketed across member states under the same trade name. RxNorm and DrugBank are US-centric and do not carry Gulf trade names at all, so a US source cannot resolve a box bought in a Kuwaiti pharmacy. The SFDA register is free, public, requires no API key, and lists trade name alongside scientific name - which is exactly the mapping needed. It is a proxy, not an authority on the Kuwaiti market: a Kuwait-registered product absent from the Saudi register will not resolve, and under G2 that is a refusal, not a guess.",
+    "scope": "Deliberately small. Covers only the drugs used in the demo scenarios, as the project brief specifies. Widening it is a data task, not a code change.",
+    "multiIngredientNote": "A trade name may carry several active ingredients. Panadol Cold & Flu is paracetamol + pseudoephedrine + chlorpheniramine. Screening only the headline ingredient of a combination product would miss real interactions, so ingredients is always an array and Travel Check screens every member of it."
+  },
+  "brands": [
+    {
+      "brand": "ZOCOR",
+      "sfdaTradeName": "ZOCOR 20MG TAB",
+      "ingredients": [
+        "Simvastatin"
+      ],
+      "strength": "20",
+      "dosageForm": "Film-coated tablet",
+      "verified": true,
+      "aliases": [
+        "Zocor 10mg",
+        "Zocor 40mg"
+      ]
+    },
+    {
+      "brand": "VASTA",
+      "sfdaTradeName": "VASTA 20MG F.C TAB",
+      "ingredients": [
+        "Simvastatin"
+      ],
+      "strength": "20",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "SIMVAGEN",
+      "sfdaTradeName": "SIMVAGEN 20 mg film-coated tablet",
+      "ingredients": [
+        "Simvastatin"
+      ],
+      "strength": "20",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "SIMCOR",
+      "sfdaTradeName": "SIMCOR 20 MG F-C TABLETS",
+      "ingredients": [
+        "Simvastatin"
+      ],
+      "strength": "20",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "INEGY",
+      "sfdaTradeName": "INEGY",
+      "ingredients": [
+        "Simvastatin",
+        "Ezetimibe"
+      ],
+      "strength": "20,10",
+      "dosageForm": "Tablet",
+      "verified": true
+    },
+    {
+      "brand": "KLACID",
+      "sfdaTradeName": "KLACID 500MG COATED TAB",
+      "ingredients": [
+        "Clarithromycin"
+      ],
+      "strength": "500",
+      "dosageForm": "Coated tablet",
+      "verified": true,
+      "aliases": [
+        "Klacid XL",
+        "Klacid 250mg"
+      ]
+    },
+    {
+      "brand": "CLARITT",
+      "sfdaTradeName": "CLARITT 500 MG FILM COATED TAB",
+      "ingredients": [
+        "Clarithromycin"
+      ],
+      "strength": "500",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "KLARIMID",
+      "sfdaTradeName": "KLARIMID 500MG F.C. TABLETS",
+      "ingredients": [
+        "Clarithromycin"
+      ],
+      "strength": "500",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "CLARIXIN",
+      "sfdaTradeName": "CLARIXIN 500 MG TABLET",
+      "ingredients": [
+        "Clarithromycin"
+      ],
+      "strength": "500",
+      "dosageForm": "Film-coated tablet",
+      "verified": true
+    },
+    {
+      "brand": "ELTROXIN",
+      "sfdaTradeName": "ELTROXIN 0.1MG TAB",
+      "ingredients": [
+        "Levothyroxine"
+      ],
+      "strength": "0.1",
+      "dosageForm": "Tablet",
+      "verified": true,
+      "aliases": [
+        "Eltroxin 0.05mg"
+      ]
+    },
+    {
+      "brand": "EUTHYROX",
+      "sfdaTradeName": "EUTHYROX",
+      "ingredients": [
+        "Levothyroxine"
+      ],
+      "strength": "0.1",
+      "dosageForm": "Tablet",
+      "verified": true
+    },
+    {
+      "brand": "PANADOL",
+      "sfdaTradeName": "PANADOL 500 mg film-coated tablet",
+      "ingredients": [
+        "Acetaminophen"
+      ],
+      "strength": "500",
+      "dosageForm": "Film-coated tablet",
+      "verified": true,
+      "ingredientNote": "SFDA lists the scientific name as PARACETAMOL. DDInter indexes the same molecule as Acetaminophen. The mapping table is where that transatlantic naming split is resolved - which is precisely why a mapping layer has to exist rather than passing names straight through."
+    },
+    {
+      "brand": "PANADOL EXTRA",
+      "sfdaTradeName": "PANADOL EXTRA TAB",
+      "ingredients": [
+        "Acetaminophen",
+        "Caffeine"
+      ],
+      "strength": "500,65",
+      "dosageForm": "Tablet",
+      "verified": true
+    },
+    {
+      "brand": "PANADOL COLD & FLU",
+      "sfdaTradeName": "PANADOL COLD & FLU CAPLET",
+      "ingredients": [
+        "Acetaminophen",
+        "Pseudoephedrine",
+        "Chlorpheniramine"
+      ],
+      "strength": "500,30,2",
+      "dosageForm": "Tablet",
+      "verified": true,
+      "aliases": [
+        "Panadol Cold and Flu",
+        "Panadol Cold Flu"
+      ],
+      "ingredientNote": "THE TRAVEL CHECK DEMO. One familiar box, three active ingredients. A patient abroad reads the front of the pack and thinks 'paracetamol'."
+    },
+    {
+      "brand": "PANADOL NIGHT",
+      "sfdaTradeName": "PANADOL NIGHT CAPLET",
+      "ingredients": [
+        "Acetaminophen",
+        "Diphenhydramine"
+      ],
+      "strength": "500,25",
+      "dosageForm": "Tablet",
+      "verified": true
+    },
+    {
+      "brand": "PANADREX",
+      "sfdaTradeName": "PANADREX 500 MG TAB",
+      "ingredients": [
+        "Acetaminophen"
+      ],
+      "strength": "500",
+      "dosageForm": "Tablet",
+      "verified": true
+    }
+  ],
+  "pendingVerification": {
+    "note": "Candidate trade names NOT yet confirmed against the SFDA register. tools/build-brand-index.js refuses to ship these. To promote one: filter the SFDA drugs list by its scientific name, copy the trade name verbatim, set verified:true.",
+    "brands": [
+      {
+        "brand": "NORVASC",
+        "ingredients": [
+          "Amlodipine"
+        ],
+        "verified": false
+      },
+      {
+        "brand": "AMLOR",
+        "ingredients": [
+          "Amlodipine"
+        ],
+        "verified": false
+      },
+      {
+        "brand": "CALTRATE",
+        "ingredients": [
+          "Calcium carbonate"
+        ],
+        "verified": false
+      },
+      {
+        "brand": "MAREVAN",
+        "ingredients": [
+          "Warfarin"
+        ],
+        "verified": false
+      },
+      {
+        "brand": "AMOXIL",
+        "ingredients": [
+          "Amoxicillin"
+        ],
+        "verified": false
+      }
+    ]
+  }
+}
