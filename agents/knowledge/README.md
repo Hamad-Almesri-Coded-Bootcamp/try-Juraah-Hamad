@@ -94,6 +94,12 @@ Every value below is a secret. An assistant must never type any of them; the own
 
    That is a dry run, so nothing is written. It answers 200 at once. Open that execution's `summary (deterministic)` node: expect `screened: true` and two alerts, the Moderate Levothyroxine × Calcium carbonate warning and "cannot verify vitamin D3".
 7. In n8n settings, set an **error workflow** for these three (for example a message to the team). Every escalation fails the execution, and that is how it reaches a person.
+8. **Connect the website (CR-066).** In Vercel → Settings → Environment Variables, set (not secrets — they reuse `JURAH_AGENT_INBOUND_SECRET`):
+   - `JURAH_AGENT_TRAVEL_CHECK_URL` = `https://<n8n>/webhook/jurah/travel-check`
+   - `JURAH_AGENT_EXTRACTION_URL` = `https://<n8n>/webhook/jurah/extract-prescription`
+   - `JURAH_AGENT_SCREENING_URL` = `https://<n8n>/webhook/jurah/screen-prescription`
+
+   then redeploy. Safety → "Check a drug by photo" now asks the travel-check agent, Medicines → Add asks the extraction agent, and every saved, unflagged prescription is screened. Leave any one empty to keep that screen's stub.
 
 ## Honest limits: what is not done, and why
 
@@ -102,7 +108,7 @@ Every value below is a secret. An assistant must never type any of them; the own
 - **A prescription confirmed by the reviewer is not re-screened automatically.** Screening runs for a NEW prescription. A flagged one is skipped until confirmed, but nothing calls screening when the reviewer confirms it. The backend's field-confirmation path should call `jurah/screen-prescription` with that prescription's id (CR-065).
 - **One reading of TC-IX-02.** A clean result sends one `info` `auto_cleared` alert ("screened, nothing recorded — not a guarantee"), the shape of the seed's `ia-003`, instead of no alert at all. If the owner prefers silence, remove the `nothingFound` branch in `src/screening.js`.
 - **Repeats.** Each new prescription re-lists the old uncovered drugs in its cannot-verify alert, because those pairs really are unverifiable. Rebuilding the index removes most of it.
-- **The app does not call travel check or extraction yet.** The seam still uses the CR-049 stubs. `docs/DECISIONS.md` CR-066 proposes the one backend change needed. The webhooks already return the app's own shapes (`DrugCheckOutcome`, `ExtractionOutcome` minus `draftId`).
+- **The app calls these agents only once three URLs are set (CR-066, built).** `lib/agent-webhooks` calls travel check from the drug-photo screen, extraction (`save:false`) from the add-prescription screen, and screening after a prescription is saved. Each URL unset → that screen keeps its CR-049 stub. See step 8 of *Going live*.
 - **Not run end to end.** The backend's agent token isn't set yet and n8n hasn't imported these files. The logic is proven by unit tests, by executing every generated Code node on the seed scenarios, and by the backend's own validators. On import, check the HTTP-node, Gemini-credential and Stop and Error parameters; they follow n8n 1.x node shapes (the HTTP/IF/Webhook ones exactly as `agents/workflows/`).
 - **Extraction and Mohammad's Telegram extraction overlap.** Both write through the same backend route and are contract-tested the same way. His handles Telegram photos; this one handles app uploads. The team should decide whether to keep both.
 - **Accuracy targets need real samples.** ≥90% field accuracy (extraction) and ≥80% identification (travel) need the ground-truth photos the spec asks for. None exist, so neither target is claimed.
