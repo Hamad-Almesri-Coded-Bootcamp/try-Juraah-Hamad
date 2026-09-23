@@ -1,0 +1,17 @@
+{
+  "name": "jurah-agents",
+  "version": "0.2.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Jur'ah - the AI agents track: n8n workflows against the Phase 2 backend's /api/agent/** routes",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "build": "node scripts/build.js",
+    "check": "node scripts/check.js",
+    "verify": "npm run test && npm run build && npm run check"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED"
+}

@@ -15,6 +15,9 @@ export default defineConfig([
       'styles/tokens.css',
       'public/sw.js',
       'next-env.d.ts',
+      // The agents track's n8n package: plain CommonJS by design (it is inlined into n8n Code
+      // nodes, which cannot `import`), with its own gate — `npm run verify` inside agents/.
+      'agents/**',
     ],
   },
   ...nextVitals,
