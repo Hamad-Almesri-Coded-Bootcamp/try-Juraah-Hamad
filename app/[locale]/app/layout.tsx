@@ -6,6 +6,7 @@ import { requireRole } from '@/features/shell/gate';
 import { currentPath } from '@/features/shell/request';
 import { AppShell } from '@/features/shell/AppShell';
 import { patientTabs } from '@/features/shell/tabs';
+import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 
 /**
  * The patient shell (`/[locale]/app/**`): `requireRole` re-checks the session server-side (point 2
@@ -52,6 +53,8 @@ export default async function PatientShellLayout({ children, params }: { childre
       railOnly={!isTabRoot}
     >
       <div id="main-content">{children}</div>
+      {/* CR-067: the read-only assistant, patient shell only (this layout already required the patient role). */}
+      <AssistantLauncher locale={locale} />
     </AppShell>
   );
 }

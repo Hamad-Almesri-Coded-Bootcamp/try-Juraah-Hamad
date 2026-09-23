@@ -53,6 +53,7 @@ const ADHERENCE = inline('lib/adherence.js');
 const SCREENING = inline('lib/screening.js');
 const EXTRACTION = inline('lib/extraction.js');
 const VOICE = inline('lib/voice.js');
+const WEBCHAT = inline('lib/webchat.js');
 
 const uuid = (prefix, n) => prefix + String(n).padStart(12, '0');
 const code = (id, name, jsCode, position) => ({
@@ -557,5 +558,134 @@ const alexa = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-for (const wf of [inbound, checkin, screening, alexa]) write(wf);
+// =============================================================== 5. agent-webchat (CR-067, READ-ONLY)
+const WC = (n) => uuid('b5000000-0000-4000-8000-', n);
+
+const WC_PARSE = CONFIG + '\n' + ADHERENCE + `
+
+// The app's server (lib/assistant) has already verified the PATIENT session and sends only that
+// patient's id, the text, the locale and the alerts it read under that session. Fail closed anyway.
+const b = $input.first().json.body || {};
+const id = /^[A-Za-z0-9_-]{1,64}$/;
+const text = typeof b.text === 'string' ? b.text.trim().slice(0, 500) : '';
+if (!id.test(String(b.patientId || '')) || !text) return [{ json: { ok: false, language: b.language === 'en' ? 'en' : 'ar' } }];
+const nowIso = new Date().toISOString();
+const date = kuwaitDate(nowIso);
+return [{ json: { ok: true, patientId: b.patientId, text, language: b.language === 'en' ? 'en' : 'ar', nowIso, date,
+  alerts: Array.isArray(b.alerts) ? b.alerts.slice(0, 20).map((a) => ({ severity: String(a.severity || ''), description: String(a.description || '').slice(0, 300), reviewStatus: String(a.reviewStatus || '') })) : [],
+  dosesUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/doses?date=' + date } }];`;
+
+const WC_INTENT = WEBCHAT.replace(/function webchatReply[\s\S]*$/, '') + `
+// Trust the model only inside the list and above the floor (G11); decide whether the schedule is needed.
+const p = $('chat request (deterministic)').first().json;
+const c = $input.first().json.output || $input.first().json;
+const intent = p.ok ? trustWebchatIntent(c) : 'unclear';
+return [{ json: { ...p, intent, needsDoses: p.ok && needsDoses(intent) } }];`;
+
+const WC_ANSWER = VOICE + '\n' + WEBCHAT + `
+
+// THE DETERMINISTIC LAYER: Gemini picked the intent; every word below comes from data or fixed text.
+const q = $('intent (deterministic)').first().json;
+let doses = null;
+let chatId = null;
+try {
+  const d = $('backend: doses of the day').first().json;
+  if (d.statusCode === 200 && d.body && Array.isArray(d.body.doses)) doses = d.body.doses;
+} catch (e) { /* not fetched */ }
+try {
+  const e = $('backend: who is eligible').first().json;
+  const mine = e.statusCode === 200 && Array.isArray(e.body) ? e.body.find((x) => x.patientId === q.patientId) : null;
+  chatId = mine ? mine.chatId : null;
+} catch (e) { /* not fetched */ }
+const r = webchatReply({ intent: q.intent, language: q.language, doses, alerts: q.alerts, nowIso: q.nowIso, hasChat: !!chatId });
+return [{ json: { reply: r.reply, intent: q.intent, prompts: r.promptDoses.map((d) => d.id),
+  promptDoses: r.promptDoses, chatId, language: q.language, patientId: q.patientId } }];`;
+
+const WC_PROMPT = ADHERENCE + `
+
+// "I took it" / "I forgot" in the web chat -> that dose's buttons in the PATIENT'S OWN Telegram chat.
+const s = $('answer (deterministic)').first().json;
+if (!s.chatId || !s.promptDoses.length) return [];
+const c = buildCheckIn({ patientId: s.patientId, chatId: s.chatId, language: s.language, doses: s.promptDoses });
+const head = s.language === 'en' ? 'From the Jur\\'ah app: confirm your dose here 👇' : 'من تطبيق جرعة: أكّد جرعتك هنا 👇';
+return [{ json: { chatId: s.chatId, text: head, buttons: null } }]
+  .concat(c.messages.slice(1).map((m) => ({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } })));`;
+
+const WC_PROMPT_TEXT = `You classify ONE message a patient typed into the Jur'ah app's assistant.
+The patient writes Kuwaiti colloquial Arabic first, then Modern Standard Arabic, then English.
+
+Return ONE intent:
+- next_dose - when/what is the next dose. «شنو جرعتي الجاية» «متى الدوا الجاي» "what's my next dose"
+- dose_amount - how much / how many to take. «كم آخذ» «كم حبة» "how much do I take"
+- today - the list of today's medicines or doses. «شنو أدويتي اليوم» «جدولي اليوم»
+- forgot - they missed or forgot a dose. «نسيت دواي» «فاتتني الجرعة» "I forgot my medicine"
+- took_it - they say they took a dose. «أخذته» «خذيت الدوا» "I took it"
+- safety - interactions, safety alerts, whether medicines conflict. «فيه تعارض بين أدويتي؟» «تنبيهات السلامة»
+- help_telegram - how to connect or use Telegram or the daily messages. «كيف أربط تيليقرام»
+- help_refill - refills, running out, reordering. «كيف أطلب إعادة صرف» «خلص الدوا»
+- help_general - what the assistant can do, greetings, thanks. «هلا» «شنو تقدر تسوي»
+- unclear - anything else, a medical question, or you are not sure
+
+RULES
+1. If you are not confident, return unclear. Never guess.
+2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
+3. You classify language only. You never answer, never give medical advice, never decide doses or times.`;
+
+const WC_SCHEMA = JSON.stringify({
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'took_it', 'safety', 'help_telegram', 'help_refill', 'help_general', 'unclear'] },
+    confidence: { type: 'number' },
+  },
+  required: ['intent', 'confidence'],
+}, null, 2);
+
+const webchat = {
+  name: 'agent-webchat',
+  nodes: [
+    { parameters: { httpMethod: 'POST', path: 'jurah/webchat', authentication: 'headerAuth', responseMode: 'responseNode', options: {} },
+      id: WC(1), name: 'App assistant request', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [-900, 0], webhookId: WC(1) },
+    code(WC(2), 'chat request (deterministic)', WC_PARSE, [-680, 0]),
+    gemini(WC(3), 'Gemini (chat model)', GEMINI_MODEL, [-520, 220]),
+    gemini(WC(4), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [-520, 360]),
+    { parameters: { schemaType: 'manual', inputSchema: WC_SCHEMA }, id: WC(5), name: 'Structured output',
+      type: '@n8n/n8n-nodes-langchain.outputParserStructured', typeVersion: 1.2, position: [-340, 220] },
+    { parameters: { promptType: 'define', text: "={{ $('chat request (deterministic)').first().json.text || '-' }}", hasOutputParser: true, needsFallback: true,
+                    messages: { messageValues: [{ message: WC_PROMPT_TEXT }] } },
+      id: WC(6), name: 'Gemini: classify the question', type: '@n8n/n8n-nodes-langchain.chainLlm', typeVersion: 1.5, position: [-460, 0],
+      onError: 'continueRegularOutput' },
+    code(WC(7), 'intent (deterministic)', WC_INTENT, [-240, 0]),
+    ifNode(WC(8), 'needs the schedule?', '={{ $json.needsDoses }}', [-20, 0]),
+    api(WC(9), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [200, -120]),
+    api(WC(10), 'backend: who is eligible', 'GET', API_BASE + '/check-in-eligibility', [420, -120]),
+    code(WC(11), 'answer (deterministic)', WC_ANSWER, [640, 0]),
+    { parameters: { respondWith: 'json', responseBody: '={{ JSON.stringify({ reply: $json.reply, intent: $json.intent, telegramPrompted: $json.prompts.length > 0 }) }}', options: {} },
+      id: WC(12), name: 'Answer the app', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [860, 0] },
+    ifNode(WC(13), 'prompt Telegram?', "={{ $('answer (deterministic)').first().json.prompts.length > 0 }}", [1080, 0]),
+    code(WC(14), 'telegram prompt (deterministic)', WC_PROMPT, [1300, -80]),
+    ifNode(WC(15), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [1520, -80]),
+    telegramButtons(WC(16), 'Telegram: dose buttons', [1740, -160]),
+    telegramText(WC(17), 'Telegram: header', [1740, 0]),
+  ],
+  connections: {
+    'App assistant request': main('chat request (deterministic)'),
+    'chat request (deterministic)': main('Gemini: classify the question'),
+    'Gemini (chat model)': { ai_languageModel: [[{ node: 'Gemini: classify the question', type: 'ai_languageModel', index: 0 }]] },
+    'Gemini (fallback model)': { ai_languageModel: [[{ node: 'Gemini: classify the question', type: 'ai_languageModel', index: 1 }]] },
+    'Structured output': { ai_outputParser: [[{ node: 'Gemini: classify the question', type: 'ai_outputParser', index: 0 }]] },
+    'Gemini: classify the question': main('intent (deterministic)'),
+    'intent (deterministic)': main('needs the schedule?'),
+    'needs the schedule?': main('backend: doses of the day', 'answer (deterministic)'),
+    'backend: doses of the day': main('backend: who is eligible'),
+    'backend: who is eligible': main('answer (deterministic)'),
+    'answer (deterministic)': main('Answer the app'),
+    'Answer the app': main('prompt Telegram?'),
+    'prompt Telegram?': main('telegram prompt (deterministic)'),
+    'telegram prompt (deterministic)': main('with buttons?'),
+    'with buttons?': main('Telegram: dose buttons', 'Telegram: header'),
+  },
+  settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
+};
+
+for (const wf of [inbound, checkin, screening, alexa, webchat]) write(wf);
 console.log('JURAH_API_BASE = ' + API_BASE + (process.env.JURAH_API_BASE ? '' : '   <- placeholder: rebuild with the deployed URL before import'));
