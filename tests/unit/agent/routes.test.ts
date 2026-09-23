@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   rx: vi.fn(async (): Promise<unknown> => ({ kind: 'ok', prescription: { id: 'rx_X' }, doseCount: 21 })),
   elig: vi.fn(async (): Promise<unknown> => [{ patientId: 'pt-03', chatId: 'c', language: 'ar', frequency: 'daily' }]),
   recipients: vi.fn(async (): Promise<unknown> => null),
+  dosesForDay: vi.fn(async (): Promise<unknown> => []),
+  activeRx: vi.fn(async (): Promise<unknown> => []),
   push: vi.fn(async (target: unknown, payload: unknown) => { void target; void payload; return { sent: true, statusCode: 201 }; }),
 }));
 
@@ -37,6 +39,8 @@ vi.mock('@/lib/data/pg/agent', () => ({
   insertExtractedPrescription: h.rx,
   checkInEligibility: h.elig,
   recipientsFor: h.recipients,
+  trackedDosesForDay: h.dosesForDay,
+  activePrescriptions: h.activeRx,
 }));
 vi.mock('@/lib/push/send', async (orig) => ({ ...(await orig<typeof import('@/lib/push/send')>()), sendPush: h.push }));
 
@@ -71,6 +75,8 @@ async function callAll(headers: Record<string, string>): Promise<Record<string, 
   const rx = await import('@/app/api/agent/prescriptions/route');
   const elig = await import('@/app/api/agent/check-in-eligibility/route');
   const recips = await import('@/app/api/agent/alert-recipients/route');
+  const pdoses = await import('@/app/api/agent/patients/[patientId]/doses/route');
+  const prx = await import('@/app/api/agent/patients/[patientId]/prescriptions/route');
   return {
     'POST doses/{id}/status': (await dose.POST(post('/api/agent/doses/rx-003-20260921-0800/status', DOSE_BODY, headers), params({ doseId: 'rx-003-20260921-0800' }))).status,
     'POST schedule/recompute': (await recompute.POST(post('/api/agent/schedule/recompute', RECOMPUTE_BODY, headers))).status,
@@ -78,13 +84,16 @@ async function callAll(headers: Record<string, string>): Promise<Record<string, 
     'POST prescriptions': (await rx.POST(post('/api/agent/prescriptions', RX_BODY, headers))).status,
     'GET check-in-eligibility': (await elig.GET(req('/api/agent/check-in-eligibility', { headers }))).status,
     'GET alert-recipients': (await recips.GET(req('/api/agent/alert-recipients?patientId=pt-01', { headers }))).status,
+    'GET patients/{id}/doses': (await pdoses.GET(req('/api/agent/patients/pt-03/doses?date=2026-09-21', { headers }), params({ patientId: 'pt-03' }))).status,
+    'GET patients/{id}/prescriptions': (await prx.GET(req('/api/agent/patients/pt-01/prescriptions', { headers }), params({ patientId: 'pt-01' }))).status,
   };
 }
 const every = (status: number) => ({
   'POST doses/{id}/status': status, 'POST schedule/recompute': status, 'POST alerts': status, 'POST prescriptions': status,
   'GET check-in-eligibility': status, 'GET alert-recipients': status,
+  'GET patients/{id}/doses': status, 'GET patients/{id}/prescriptions': status,
 });
-const writes = () => [h.dose, h.recompute, h.alert, h.rx, h.elig, h.recipients];
+const writes = () => [h.dose, h.recompute, h.alert, h.rx, h.elig, h.recipients, h.dosesForDay, h.activeRx];
 
 beforeEach(() => {
   vi.resetModules();
@@ -100,7 +109,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe('the gate — every route × every user role', () => {
   for (const [who, session] of Object.entries(USERS)) {
-    it(`${who}: session cookie, no bearer → 403 on all six; nothing reaches the database`, async () => {
+    it(`${who}: session cookie, no bearer → 403 on every route; nothing reaches the database`, async () => {
       h.session = session;
       expect(await callAll({ 'content-type': 'application/json' })).toEqual(every(403));
       for (const f of writes()) expect(f).not.toHaveBeenCalled();
@@ -111,7 +120,7 @@ describe('the gate — every route × every user role', () => {
       for (const f of writes()) expect(f).not.toHaveBeenCalled();
     });
   }
-  it('no session and no bearer → 401 on all six', async () => {
+  it('no session and no bearer → 401 on every route', async () => {
     expect(await callAll({ 'content-type': 'application/json' })).toEqual(every(401));
     for (const f of writes()) expect(f).not.toHaveBeenCalled();
   });
@@ -309,16 +318,60 @@ describe('GET /api/agent/alert-recipients', () => {
   });
 });
 
+describe('GET /api/agent/patients/{patientId}/doses and /prescriptions (CR-062)', () => {
+  const loadDoses = () => import('@/app/api/agent/patients/[patientId]/doses/route');
+  const loadRx = () => import('@/app/api/agent/patients/[patientId]/prescriptions/route');
+  it('doses: 422 without or with a malformed date, before the database; never defaults to a clock', async () => {
+    const { GET } = await loadDoses();
+    for (const q of ['', '?date=', '?date=2026-9-21', '?date=2026-02-30', '?date=2026-09-21T08:00:00%2B03:00']) {
+      const r = await GET(req(`/api/agent/patients/pt-03/doses${q}`, { headers: auth() }), params({ patientId: 'pt-03' }));
+      expect(r.status).toBe(422);
+      expect(await r.json()).toEqual({ error: 'invalid_body', field: 'date', reason: 'not_an_iso_date' });
+    }
+    expect(h.dosesForDay).not.toHaveBeenCalled();
+  });
+  it('doses: 404 for an unknown patient; 200 passes the path id and the date through', async () => {
+    const { GET } = await loadDoses();
+    h.dosesForDay.mockResolvedValueOnce(null);
+    expect((await GET(req('/api/agent/patients/pt-99/doses?date=2026-09-21', { headers: auth() }), params({ patientId: 'pt-99' }))).status).toBe(404);
+    const dose = { id: 'rx-008-20260921-0700', prescriptionId: 'rx-008', scheduledAt: '2026-09-21T07:00:00+03:00', status: 'upcoming' };
+    h.dosesForDay.mockResolvedValueOnce([dose]);
+    const r = await GET(req('/api/agent/patients/pt-03/doses?date=2026-09-21', { headers: auth() }), params({ patientId: 'pt-03' }));
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ patientId: 'pt-03', date: '2026-09-21', doses: [dose] });
+    expect(h.dosesForDay).toHaveBeenLastCalledWith('pt-03', '2026-09-21');
+  });
+  it('prescriptions: 404 for an unknown patient; 200 returns the list as the database gave it', async () => {
+    const { GET } = await loadRx();
+    h.activeRx.mockResolvedValueOnce(null);
+    expect((await GET(req('/api/agent/patients/pt-99/prescriptions', { headers: auth() }), params({ patientId: 'pt-99' }))).status).toBe(404);
+    const list = [{ id: 'rx-001', needsReview: false }, { id: 'rx-006', needsReview: true }];
+    h.activeRx.mockResolvedValueOnce(list);
+    const r = await GET(req('/api/agent/patients/pt-01/prescriptions', { headers: auth() }), params({ patientId: 'pt-01' }));
+    expect(await r.json()).toEqual({ patientId: 'pt-01', prescriptions: list });
+  });
+  it('both are read-only: each module exports GET and no write verb', async () => {
+    for (const m of [await loadDoses(), await loadRx()]) {
+      expect(Object.keys(m).filter((k) => /^(GET|POST|PUT|PATCH|DELETE)$/.test(k))).toEqual(['GET']);
+    }
+  });
+});
+
 describe('the HTTP surface — asserted absent', () => {
   it('no route under app/api accepts a dose status except app/api/agent/doses/{id}/status; no /api/doses exists', async () => {
     const { readdirSync, statSync } = await import('node:fs');
     const walk = (d: string): string[] => readdirSync(d).flatMap((f) => (statSync(`${d}/${f}`).isDirectory() ? walk(`${d}/${f}`) : [`${d}/${f}`]));
     const routes = walk('app/api').filter((f) => /route\.ts$/.test(f));
     expect(routes.filter((f) => f.startsWith('app/api/doses'))).toEqual([]);
-    expect(routes.filter((f) => /dose/i.test(f))).toEqual(['app/api/agent/doses/[doseId]/status/route.ts']);
+    // CR-062 adds one READ path whose name says dose; it exports GET only (asserted above).
+    expect(routes.filter((f) => /dose/i.test(f)).sort()).toEqual([
+      'app/api/agent/doses/[doseId]/status/route.ts', 'app/api/agent/patients/[patientId]/doses/route.ts',
+    ]);
     expect(routes.filter((f) => f.startsWith('app/api/agent/')).sort()).toEqual([
       'app/api/agent/alert-recipients/route.ts', 'app/api/agent/alerts/route.ts', 'app/api/agent/check-in-eligibility/route.ts',
-      'app/api/agent/doses/[doseId]/status/route.ts', 'app/api/agent/prescriptions/route.ts', 'app/api/agent/schedule/recompute/route.ts',
+      'app/api/agent/doses/[doseId]/status/route.ts', 'app/api/agent/patients/[patientId]/doses/route.ts',
+      'app/api/agent/patients/[patientId]/prescriptions/route.ts', 'app/api/agent/prescriptions/route.ts',
+      'app/api/agent/schedule/recompute/route.ts',
     ]);
   });
 });

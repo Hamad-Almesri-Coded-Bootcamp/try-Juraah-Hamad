@@ -268,3 +268,11 @@ export function parsePrescriptionBody(body: unknown): Validation<PrescriptionInp
 export function parsePatientIdQuery(value: string | null): Validation<string> {
   return isNonEmpty(value) ? good(value) : bad('patientId', 'required');
 }
+
+// -------------------------------------------------------------------------------------------
+// GET /api/agent/patients/{patientId}/doses?date=   (CR-062)
+// -------------------------------------------------------------------------------------------
+/** The Kuwait calendar date the agent asks about. Required: the route never defaults to a clock. */
+export function parseDateQuery(value: string | null): Validation<string> {
+  return isIsoDate(value) ? good(value) : bad('date', 'not_an_iso_date');
+}

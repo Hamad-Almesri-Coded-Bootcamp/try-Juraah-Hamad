@@ -115,6 +115,27 @@ export const PG_QUERIES_AGENT = {
        and ps.status = 'active' and ps.permission = 'granted'
        and ps.endpoint is not null and ps.p256dh is not null and ps.auth is not null
      order by s.ord`,
+  // withAgent. CR-062: the agent's two reads. jurah_agent holds SELECT (id) on patients — enough for
+  // the 404 — and SELECT on prescriptions and doses (0005). Never civil_id, name or chat id.
+  patientExists: `select id from patients where id = $1`,
+  // TRACKED doses only, of one Kuwait calendar date: an untracked dose is never part of a check-in
+  // and never given a status (TC-AD-11), so the agent is not even shown one.
+  trackedDosesForDay: `
+    select d.id, d.prescription_id, iso_kw(d.scheduled_at) as scheduled_at, d.status::text as status,
+           iso_kw(d.recorded_at) as recorded_at,
+           p.generic_name, p.brand_name, p.strength_mg::float8 as strength_mg, p.strength_unit::text as strength_unit,
+           p.dose_per_administration::float8 as dose_per_administration, p.timing_relative_to_food
+      from doses d
+      join prescriptions p on p.id = d.prescription_id
+     where p.patient_id = $1 and d.tracked
+       and (d.scheduled_at at time zone 'Asia/Kuwait')::date = $2::date
+     order by d.scheduled_at, p.seq, d.seq`,
+  // ACTIVE prescriptions, flagged ones included WITH their flag, so screening can exclude them
+  // visibly (TC-IX-06) instead of never learning they exist.
+  activePrescriptions: `
+    select ${PRESCRIPTION_COLUMNS} from prescriptions
+     where patient_id = $1 and status = 'active'
+     order by seq`,
 } as const;
 
 // -------------------------------------------------------------------------------------------
@@ -348,4 +369,57 @@ export async function recipientsFor(patientId: string): Promise<Recipients | nul
       push: r.endpoint ? { endpoint: String(r.endpoint), p256dh: String(r.p256dh), auth: String(r.auth) } : null,
     })),
   };
+}
+
+// -------------------------------------------------------------------------------------------
+// GET /api/agent/patients/{patientId}/doses?date=  and  /prescriptions   (CR-062)
+// -------------------------------------------------------------------------------------------
+/** One tracked dose, with the few prescription fields a check-in message and a reply need. */
+export interface AgentDose {
+  id: string;
+  prescriptionId: string;
+  scheduledAt: string;
+  status: string;
+  recordedAt: string | null;
+  genericName: string;
+  brandName: string | null;
+  strengthMg: number | null;
+  strengthUnit: string | null;
+  dosePerAdministration: number;
+  timingRelativeToFood: string | null;
+}
+
+const strOrNull = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+/** null ⇔ no such patient. An existing patient with no tracked dose that day is `[]`. */
+export async function trackedDosesForDay(patientId: string, isoDate: string): Promise<AgentDose[] | null> {
+  return withAgent(async (sql) => {
+    const [p] = await sql.unsafe(PG_QUERIES_AGENT.patientExists, [patientId]);
+    if (!p) return null;
+    const rows = await sql.unsafe(PG_QUERIES_AGENT.trackedDosesForDay, [patientId, isoDate]);
+    return rows.map((r) => ({
+      id: String(r.id),
+      prescriptionId: String(r.prescription_id),
+      scheduledAt: String(r.scheduled_at),
+      status: String(r.status),
+      recordedAt: strOrNull(r.recorded_at),
+      genericName: String(r.generic_name),
+      brandName: strOrNull(r.brand_name),
+      strengthMg: numOrNull(r.strength_mg),
+      strengthUnit: strOrNull(r.strength_unit),
+      dosePerAdministration: Number(r.dose_per_administration),
+      timingRelativeToFood: strOrNull(r.timing_relative_to_food),
+    }));
+  });
+}
+
+/** null ⇔ no such patient. Active prescriptions only, each carrying its own `needsReview`. */
+export async function activePrescriptions(patientId: string): Promise<Prescription[] | null> {
+  return withAgent(async (sql) => {
+    const [p] = await sql.unsafe(PG_QUERIES_AGENT.patientExists, [patientId]);
+    if (!p) return null;
+    const rows = await sql.unsafe(PG_QUERIES_AGENT.activePrescriptions, [patientId]);
+    return rows.map((r) => prescriptionFromRow(r));
+  });
 }

@@ -4,15 +4,19 @@
  * (422) → backend (503 under the mock) → the database (lib/data/pg/agent.ts, the only SQL) → status.
  * No SQL here (guard 8), no copy here (guard 7 scans app/**; the audit messages are ./messages.ts).
  *
- * This is the one documented way the AI-agents track writes results. The six agents are NOT built.
+ * This is the one documented way the AI-agents track writes results — and, since CR-062, the two
+ * reads it needs to write them correctly (a patient's tracked doses of a day, its active prescriptions).
  */
 import {
-  checkInEligibility, insertAlert, insertExtractedPrescription, recipientsFor, recomputeSchedule, recordDoseStatus,
+  activePrescriptions, checkInEligibility, insertAlert, insertExtractedPrescription, recipientsFor, recomputeSchedule,
+  recordDoseStatus, trackedDosesForDay,
 } from '@/lib/data/pg/agent';
 import { refuseUnlessAgent } from './auth';
 import { invalid, json, readJson, refusedBy, unavailableUnderMock } from './http';
 import { deliverAlert } from './notify';
-import { parseAlertBody, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody, parseRecomputeBody } from './validate';
+import {
+  parseAlertBody, parseDateQuery, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody, parseRecomputeBody,
+} from './validate';
 
 /** POST /api/agent/doses/{doseId}/status — 200 · 401 · 403 · 404 · 409 untracked · 422. */
 export async function postDoseStatus(request: Request, doseId: string): Promise<Response> {
@@ -108,4 +112,28 @@ export async function getAlertRecipients(request: Request): Promise<Response> {
     patient: { chatId: self?.chatId ?? null, push: !!self?.push },
     caregivers: caregivers.map((c) => ({ caregiverId: c.subjectId, chatId: c.chatId, push: !!c.push })),
   });
+}
+
+/** GET /api/agent/patients/{patientId}/doses?date=YYYY-MM-DD — TRACKED doses of that Kuwait date (CR-062). */
+export async function getPatientDoses(request: Request, patientId: string): Promise<Response> {
+  const refused = await refuseUnlessAgent(request);
+  if (refused) return refused;
+  const q = parseDateQuery(new URL(request.url).searchParams.get('date'));
+  if (!q.ok) return invalid(q);
+  const mock = unavailableUnderMock();
+  if (mock) return mock;
+  const doses = await trackedDosesForDay(patientId, q.value);
+  if (!doses) return json(404, { error: 'patient_not_found' });
+  return json(200, { patientId, date: q.value, doses });
+}
+
+/** GET /api/agent/patients/{patientId}/prescriptions — ACTIVE prescriptions, `needsReview` on each (CR-062). */
+export async function getPatientPrescriptions(request: Request, patientId: string): Promise<Response> {
+  const refused = await refuseUnlessAgent(request);
+  if (refused) return refused;
+  const mock = unavailableUnderMock();
+  if (mock) return mock;
+  const prescriptions = await activePrescriptions(patientId);
+  if (!prescriptions) return json(404, { error: 'patient_not_found' });
+  return json(200, { patientId, prescriptions });
 }
