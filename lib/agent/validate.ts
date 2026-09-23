@@ -282,7 +282,7 @@ export function parseDateQuery(value: string | null): Validation<string> {
  * app. `topic` is from agents/lib/voice.js screenTopic (a fixed list), `reply` the sentence Alexa
  * just spoke. Not clinical data; nothing here names a dose status.
  */
-export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'unclear', 'bye'] as const;
+export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'record', 'unclear', 'bye'] as const;
 export type VoiceTopic = (typeof VOICE_TOPICS)[number];
 export interface VoiceTurnInput { topic: VoiceTopic; language: 'ar' | 'en'; reply: string }
 

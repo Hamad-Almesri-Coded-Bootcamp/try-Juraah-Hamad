@@ -110,12 +110,12 @@ export function readReply(status: number, body: unknown): AssistantResult {
  * as the panel receives it. The topic list is agents/lib/voice.js screenTopic's; anything else is
  * dropped, never guessed.
  */
-export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'unclear', 'bye'] as const;
+export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'record', 'unclear', 'bye'] as const;
 export type VoiceTopic = (typeof VOICE_TOPICS)[number];
 export interface VoiceTurn { seq: number; topic: VoiceTopic; language: 'ar' | 'en'; reply: string; page: AssistantPage | null }
 
 const PAGE_FOR_VOICE: Record<VoiceTopic, AssistantPage | null> = {
-  launch: null, next_dose: 'today', dose_amount: 'today', today: 'today', forgot: 'activity', unclear: null, bye: null,
+  launch: null, next_dose: 'today', dose_amount: 'today', today: 'today', forgot: 'activity', record: 'activity', unclear: null, bye: null,
 };
 
 /** A row → a turn, or null for anything outside the list (the panel shows nothing for it). */

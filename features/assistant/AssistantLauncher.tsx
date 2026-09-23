@@ -56,6 +56,7 @@ const CLARIFY_VOICE: readonly CopyKey[] = ['suggestNext', 'suggestAmount', 'sugg
 /** What the patient asked Alexa, in the screen's language (Alexa sends the topic, not the words). */
 const VOICE_ASKED: Partial<Record<VoiceTopic, CopyKey>> = {
   launch: 'voiceAskedLaunch', next_dose: 'suggestNext', dose_amount: 'suggestAmount', today: 'suggestToday', forgot: 'suggestForgot',
+  record: 'voiceAskedRecord',
 };
 const VOICE_POLL_MS = 2500;
 

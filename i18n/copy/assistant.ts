@@ -62,6 +62,7 @@ export const assistant = {
   // suggestForgot is worded exactly as the Alexa model's sample, so it can be said as well as tapped.
   suggestForgot: { ar: 'نسيت دواي', en: 'I forgot my medicine', placeholder: true },
   voiceAskedLaunch: { ar: 'افتح مساعد جرعة', en: 'Open medicine helper', placeholder: true },
+  voiceAskedRecord: { ar: 'سجّل جرعاتي', en: 'Record my doses', placeholder: true },
   voiceSaid: { ar: '🎙️ قلتها لأليكسا', en: '🎙️ You said it to Alexa', placeholder: true },
   voiceAnswered: { ar: '🎙️ رد أليكسا', en: '🎙️ Alexa’s answer', placeholder: true },
   clarifyVoiceAsk: {

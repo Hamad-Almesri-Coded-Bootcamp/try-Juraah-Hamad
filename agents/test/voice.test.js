@@ -28,7 +28,7 @@ const req = (type, intentName, over = {}) => ({
 
 test('parse: the right skill, a fresh timestamp and a linked user -> ok, with the patient', () => {
   const p = V.parseAlexaRequest({ body: req('IntentRequest', 'NextDoseIntent'), nowIso: '2026-09-24T09:00:30Z', skillId: SKILL, links: { [USER]: 'pt-03' } });
-  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', needsDoses: true });
+  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', utterance: '', pending: [], needsDoses: true });
 });
 
 test('parse fails closed: no skill id configured, another skill, a stale or replayed request', () => {

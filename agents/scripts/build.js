@@ -55,6 +55,7 @@ const ADHERENCE = inline('lib/adherence.js');
 const SCREENING = inline('lib/screening.js');
 const EXTRACTION = inline('lib/extraction.js');
 const VOICE = inline('lib/voice.js');
+const VOICE_ACTIONS = inline('lib/voice-actions.js');
 const WEBCHAT = inline('lib/webchat.js');
 
 const uuid = (prefix, n) => prefix + String(n).padStart(12, '0');
@@ -487,10 +488,29 @@ return [{ json: { ...p, nowIso, date,
   dosesUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date : null,
   voiceTurnUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/voice-turns' : null } }];`;
 
-const AX_SPEAK = VOICE + `
+/** CR-070: the recording switch. OFF in the repository (TC-AD-14/15, rule 1); the live demo node turns it on. */
+const VOICE_SWITCH = 'const VOICE_RECORDS = false;';
 
-// THE DETERMINISTIC LAYER for voice: Alexa picked the intent; this picks every word. No writes.
+// Free talk -> the voice kind (and, for "record", the doses the patient named). Everything after is code.
+const AX_INTENT = VOICE + '\n' + VOICE_ACTIONS + `
+
 const p = $('alexa request (deterministic)').first().json;
+let kind = p.kind;
+let items = [];
+if (p.ok && p.kind === 'FreeTalkIntent') {
+  let c = null;
+  try { c = $input.first().json.output || $input.first().json; } catch (e) { /* the model did not run */ }
+  const t = p.utterance ? trustFreeTalk(c) : { kind: 'AMAZON.FallbackIntent', items: [] };
+  kind = t.kind;
+  items = t.items;
+}
+const needsDoses = p.ok && (VOICE_INTENTS.includes(kind) || kind === 'record' || (kind === 'AMAZON.YesIntent' && p.pending.length > 0));
+return [{ json: { ...p, kind, items, needsDoses } }];`;
+
+// THE DETERMINISTIC LAYER for actions: which doses, whether they can be recorded, and the writes.
+const AX_PLAN = CONFIG + '\n' + VOICE_SWITCH + '\n' + VOICE + '\n' + VOICE_ACTIONS + `
+
+const p = $('voice intent (deterministic)').first().json;
 let doses = null;
 let chatId = null;
 try {
@@ -502,23 +522,97 @@ try {
   const mine = e.statusCode === 200 && Array.isArray(e.body) ? e.body.find((x) => x.patientId === p.patientId) : null;
   chatId = mine ? mine.chatId : null;
 } catch (e) { /* not fetched */ }
+let planSpeech = null;
+let pending = null;
+let writes = [];
+let skipped = [];
+if (p.ok && p.kind === 'record') {
+  if (!VOICE_RECORDS) planSpeech = ACT[p.language === 'en' ? 'en' : 'ar'].off;
+  else {
+    const r = planRecord({ items: p.items, doses, nowIso: p.nowIso, language: p.language, spokenTime });
+    planSpeech = r.speech;
+    pending = r.pending.length ? r.pending : null;
+  }
+}
+if (p.ok && p.kind === 'AMAZON.YesIntent' && p.pending.length > 0 && VOICE_RECORDS) {
+  const c = confirmRecord({ pending: p.pending, doses, nowIso: p.nowIso, api: API, recordedAtIso: new Date().toISOString() });
+  writes = c.writes;
+  skipped = c.skipped;
+}
+return [{ json: { doses, chatId, planSpeech, pending, writes, skipped } }];`;
 
+const AX_WRITE_ITEMS = `return $('plan (deterministic)').first().json.writes.map((w) => ({ json: w }));`;
+
+// A miss is recomputed exactly as the Telegram path does it - and only if its status was accepted.
+const AX_RECOMPUTES = `const writes = $('plan (deterministic)').first().json.writes;
+let codes = [];
+try { codes = $('backend: record the status').all().map((x) => x.json.statusCode); } catch (e) { /* none ran */ }
+return [{ json: { codes, recomputes: writes.filter((w, i) => w.recompute && codes[i] === 200).map((w) => w.recompute) } }];`;
+
+const AX_RECOMPUTE_ITEMS = `return $('recomputes (deterministic)').first().json.recomputes.map((r) => ({ json: r }));`;
+
+const AX_SPEAK = VOICE + '\n' + VOICE_ACTIONS + `
+
+// THE DETERMINISTIC LAYER for voice: Alexa (or, for free talk, Gemini) picked the intent; this picks every word.
+const p = $('voice intent (deterministic)').first().json;
+const plan = $('plan (deterministic)').first().json;
+const S = ACT[p.language === 'en' ? 'en' : 'ar'];
 let reply;
 if (!p.ok && p.kind === 'refused') reply = { speech: '', endSession: true, promptDoses: [] };
-else if (!p.ok) reply = voiceReply({ kind: 'not_linked', language: p.language });
-else reply = voiceReply({ kind: p.kind, language: p.language, doses, nowIso: p.nowIso, hasChat: !!chatId });
-if (!p.ok && p.kind === 'not_linked') {
-  reply = { speech: p.language === 'en' ? 'This device is not linked to a Jur\\'ah account yet.' : 'هذا الجهاز مو مربوط بحساب في جرعة بعد.', endSession: true, promptDoses: [] };
+else if (!p.ok) reply = { speech: p.language === 'en' ? 'This device is not linked to a Jur\\'ah account yet.' : 'هذا الجهاز مو مربوط بحساب في جرعة بعد.', endSession: true, promptDoses: [] };
+else if (p.kind === 'record') reply = plan.planSpeech ? { speech: plan.planSpeech, endSession: false, promptDoses: [] } : voiceReply({ kind: 'TodayDosesIntent', language: p.language, doses: null });
+else if (p.kind === 'AMAZON.YesIntent' && p.pending.length > 0) {
+  let codes = [];
+  try { codes = $('recomputes (deterministic)').first().json.codes; } catch (e) { /* nothing was written */ }
+  reply = plan.writes.length
+    ? { speech: recordedSpeech({ writes: plan.writes, results: codes, doses: plan.doses, language: p.language, spokenTime }), endSession: false, promptDoses: [] }
+    : { speech: plan.skipped.length ? S.none + plan.skipped.length : S.off, endSession: false, promptDoses: [] };
 }
+else if (p.kind === 'AMAZON.NoIntent' && p.pending.length > 0) reply = { speech: S.cancelled, endSession: false, promptDoses: [] };
+else reply = voiceReply({ kind: p.kind, language: p.language, doses: plan.doses, nowIso: p.nowIso, hasChat: !!plan.chatId });
 return [{ json: {
-  alexa: alexaResponse({ speech: reply.speech, endSession: reply.endSession, language: p.language }),
+  alexa: alexaResponse({ speech: reply.speech, endSession: reply.endSession, language: p.language, sessionAttributes: plan.pending ? { pending: plan.pending } : undefined }),
   refused: !p.ok && p.kind === 'refused',
-  prompts: reply.promptDoses.map((d) => d.id), promptDoses: reply.promptDoses, chatId, language: p.language, patientId: p.patientId || null,
-  // CR-069: what the patient's open web app should follow — a LINKED patient's turn only; the words are the ones just spoken.
+  prompts: reply.promptDoses.map((d) => d.id), promptDoses: reply.promptDoses, chatId: plan.chatId, language: p.language, patientId: p.patientId || null,
+  // CR-069: what the patient's open web app should follow - a LINKED patient's turn only; the words are the ones just spoken.
   screen: p.ok && screenTopic(p.kind) && reply.speech ? { topic: screenTopic(p.kind), language: p.language, reply: reply.speech } : null,
   // Visible in the execution log, so the device can be linked: never spoken, never stored elsewhere.
   log: { kind: p.kind, userId: p.userId, reason: p.reason || null },
 } }];`;
+
+const AX_PROMPT_TEXT = `You read ONE sentence a patient said to the Jur'ah voice assistant (usually English, sometimes Arabic).
+The sentence may be missing its first word (Alexa keeps it as a carrier), e.g. "is my next dose" means "what is my next dose".
+
+Return ONE intent:
+- next_dose - when/what is the next dose.
+- dose_amount - how much / how many to take.
+- today - the list of today's medicines or doses, "check my medicines".
+- forgot - they forgot or missed a dose but do not say which one.
+- record - they say which of TODAY's doses they took or missed, e.g. "mark the first two taken and the third missed",
+  "I took my Eltroxin", "the 7 am one I took late", "I missed the evening calcium".
+  Give one item per dose they named, naming it the way THEY did: position (1 = the first dose of today by time),
+  or time as "HH:MM" 24-hour, or medicine (the name they said). status is taken_on_time (took it, taken, done),
+  taken_late (took it late) or missed (missed, forgot it, did not take it).
+- help - what the assistant can do, greetings, thanks.
+- unclear - anything else, a medical question, or you are not sure.
+
+RULES
+1. If you are not confident, return unclear. Never guess a dose the patient did not name.
+2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
+3. You read language only. You never answer, never give medical advice, never decide doses or times.`;
+
+const AX_SCHEMA = JSON.stringify({
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'record', 'help', 'unclear'] },
+    confidence: { type: 'number' },
+    items: { type: 'array', items: { type: 'object', properties: {
+      position: { type: 'integer' }, time: { type: 'string' }, medicine: { type: 'string' },
+      status: { type: 'string', enum: ['taken_on_time', 'taken_late', 'missed'] },
+    }, required: ['status'] } },
+  },
+  required: ['intent', 'confidence'],
+}, null, 2);
 
 const AX_PROMPT = ADHERENCE + `
 
@@ -539,7 +633,7 @@ const alexa = {
     ifNode(AX(3), 'needs the schedule?', '={{ $json.ok && $json.needsDoses }}', [-240, 0]),
     api(AX(4), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [-20, -120]),
     api(AX(5), 'backend: who is eligible', 'GET', API_BASE + '/check-in-eligibility', [200, -120]),
-    code(AX(6), 'speak (deterministic)', AX_SPEAK, [420, 0]),
+    { ...code(AX(6), 'speak (deterministic)', AX_SPEAK, [420, 0]), executeOnce: true },
     { parameters: { respondWith: 'json', responseBody: '={{ JSON.stringify($json.alexa) }}', options: {} },
       id: AX(7), name: 'Answer Alexa', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [640, 0] },
     ifNode(AX(8), 'prompt Telegram?', "={{ $('speak (deterministic)').first().json.prompts.length > 0 }}", [860, 0]),
@@ -547,16 +641,48 @@ const alexa = {
     ifNode(AX(10), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [1300, -80]),
     telegramButtons(AX(11), 'Telegram: dose buttons', [1520, -160]),
     telegramText(AX(12), 'Telegram: header', [1520, 0]),
+    ifNode(AX(15), 'needs the model?', "={{ $json.ok && $json.kind === 'FreeTalkIntent' && !!$json.utterance }}", [-460, 200]),
+    gemini(AX(17), 'Gemini (chat model)', GEMINI_MODEL, [-400, 420]),
+    gemini(AX(18), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [-400, 560]),
+    { parameters: { schemaType: 'manual', inputSchema: AX_SCHEMA }, id: AX(19), name: 'Structured output',
+      type: '@n8n/n8n-nodes-langchain.outputParserStructured', typeVersion: 1.2, position: [-220, 420] },
+    { parameters: { promptType: 'define', text: "={{ $('alexa request (deterministic)').first().json.utterance || '-' }}", hasOutputParser: true, needsFallback: true,
+                    messages: { messageValues: [{ message: AX_PROMPT_TEXT }] } },
+      id: AX(16), name: 'Gemini: understand the sentence', type: '@n8n/n8n-nodes-langchain.chainLlm', typeVersion: 1.5, position: [-340, 200],
+      onError: 'continueRegularOutput' },
+    code(AX(20), 'voice intent (deterministic)', AX_INTENT, [-240, 0]),
+    code(AX(21), 'plan (deterministic)', AX_PLAN, [200, 0]),
+    ifNode(AX(22), 'record now?', '={{ $json.writes.length > 0 }}', [260, 200]),
+    code(AX(23), 'one item per write (deterministic)', AX_WRITE_ITEMS, [300, 320]),
+    api(AX(24), 'backend: record the status', 'POST', '={{ $json.url }}', [340, 440], '={{ JSON.stringify($json.body) }}'),
+    code(AX(25), 'recomputes (deterministic)', AX_RECOMPUTES, [380, 560]),
+    ifNode(AX(26), 'any recompute?', '={{ $json.recomputes.length > 0 }}', [420, 680]),
+    code(AX(27), 'one item per recompute (deterministic)', AX_RECOMPUTE_ITEMS, [460, 800]),
+    api(AX(28), 'backend: recompute', 'POST', '={{ $json.url }}', [500, 920], '={{ JSON.stringify($json.body) }}'),
     ifNode(AX(13), 'follow on screen?', "={{ $('speak (deterministic)').first().json.screen !== null }}", [860, 200]),
     api(AX(14), 'backend: voice turn for the screen', 'POST', "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}", [1080, 200],
       "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}"),
   ],
   connections: {
     'Alexa skill request': main('alexa request (deterministic)'),
-    'alexa request (deterministic)': main('needs the schedule?'),
-    'needs the schedule?': main('backend: doses of the day', 'speak (deterministic)'),
+    'alexa request (deterministic)': main('needs the model?'),
+    'needs the model?': main('Gemini: understand the sentence', 'voice intent (deterministic)'),
+    'Gemini (chat model)': { ai_languageModel: [[{ node: 'Gemini: understand the sentence', type: 'ai_languageModel', index: 0 }]] },
+    'Gemini (fallback model)': { ai_languageModel: [[{ node: 'Gemini: understand the sentence', type: 'ai_languageModel', index: 1 }]] },
+    'Structured output': { ai_outputParser: [[{ node: 'Gemini: understand the sentence', type: 'ai_outputParser', index: 0 }]] },
+    'Gemini: understand the sentence': main('voice intent (deterministic)'),
+    'voice intent (deterministic)': main('needs the schedule?'),
+    'needs the schedule?': main('backend: doses of the day', 'plan (deterministic)'),
     'backend: doses of the day': main('backend: who is eligible'),
-    'backend: who is eligible': main('speak (deterministic)'),
+    'backend: who is eligible': main('plan (deterministic)'),
+    'plan (deterministic)': main('record now?'),
+    'record now?': main('one item per write (deterministic)', 'speak (deterministic)'),
+    'one item per write (deterministic)': main('backend: record the status'),
+    'backend: record the status': main('recomputes (deterministic)'),
+    'recomputes (deterministic)': main('any recompute?'),
+    'any recompute?': main('one item per recompute (deterministic)', 'speak (deterministic)'),
+    'one item per recompute (deterministic)': main('backend: recompute'),
+    'backend: recompute': main('speak (deterministic)'),
     'speak (deterministic)': main('Answer Alexa'),
     'Answer Alexa': main(['prompt Telegram?', 'follow on screen?']),
     'follow on screen?': main('backend: voice turn for the screen'),

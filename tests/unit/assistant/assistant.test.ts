@@ -79,6 +79,7 @@ describe('CR-069 readVoiceTurn — a row from voice_turns as the panel receives 
     const page = (topic: string) => readVoiceTurn({ seq: 1, topic, language: 'ar', reply: 'x' })?.page;
     expect(['next_dose', 'dose_amount', 'today'].map(page)).toEqual(['today', 'today', 'today']);
     expect(page('forgot')).toBe('activity');
+    expect(page('record')).toBe('activity'); // CR-070: recorded by voice -> where the recorded rows are
     expect(['launch', 'unclear', 'bye'].map(page)).toEqual([null, null, null]);
   });
   it('a topic outside the list, an empty reply or a bad seq is dropped, never guessed', () => {

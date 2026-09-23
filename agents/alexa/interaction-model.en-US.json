@@ -53,12 +53,69 @@
             "I missed my pill"
           ]
         },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.NoIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] },
-        { "name": "AMAZON.NavigateHomeIntent", "samples": [] }
+        {
+          "name": "FreeTalkIntent",
+          "slots": [
+            {
+              "name": "utterance",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mark {utterance}",
+            "record {utterance}",
+            "log {utterance}",
+            "set {utterance}",
+            "update {utterance}",
+            "check {utterance}",
+            "change {utterance}",
+            "note {utterance}",
+            "I {utterance}",
+            "I want {utterance}",
+            "I need {utterance}",
+            "can you {utterance}",
+            "could you {utterance}",
+            "please {utterance}",
+            "tell me {utterance}",
+            "what {utterance}",
+            "when {utterance}",
+            "how {utterance}",
+            "is {utterance}",
+            "did {utterance}",
+            "my {utterance}",
+            "the {utterance}",
+            "show me {utterance}",
+            "for {utterance}"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        }
       ],
       "types": []
     }

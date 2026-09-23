@@ -7,7 +7,8 @@
  * no LLM runs on this path at all. Every sentence spoken here is built from the backend's data -
  * GET /api/agent/patients/{id}/doses?date= - so no time, name or amount is ever invented.
  *
- * The one rule: VOICE NEVER RECORDS A DOSE. An Echo sits in a room; it cannot tell the patient
+ * The one rule: VOICE NEVER RECORDS A DOSE here. (CR-070: agents/lib/voice-actions.js can, behind
+ * the workflow's VOICE_RECORDS switch - OFF in the repository, on only in the live demo node.) An Echo sits in a room; it cannot tell the patient
  * from a caregiver or a child (TC-AD-14), and dose status comes only from the patient's own chat
  * (CLAUDE.md rule 1). "I forgot my medicine" is therefore answered by (a) saying which dose it was
  * and what comes next, and (b) sending the patient that dose's three buttons in THEIR Telegram
@@ -104,7 +105,13 @@ function parseAlexaRequest({ body, nowIso, skillId, links }) {
     : req.type === 'IntentRequest' ? (req.intent && req.intent.name) || 'AMAZON.FallbackIntent'
     : 'unknown';
   if (!patientId) return { ok: false, kind: 'not_linked', language, userId, reason: 'this Alexa user is not linked to a patient' };
-  return { ok: true, kind, language, userId, patientId, needsDoses: VOICE_INTENTS.includes(kind) };
+  // CR-070: the free sentence (FreeTalkIntent's one AMAZON.SearchQuery slot) and the list a "yes" confirms
+  // (Alexa hands our own session attributes back) - both raw here, cleaned in voice-actions.js.
+  const slot = req.intent && req.intent.slots && req.intent.slots.utterance;
+  const utterance = slot && typeof slot.value === 'string' ? slot.value.trim().slice(0, 300) : '';
+  const pending = b.session && b.session.attributes && Array.isArray(b.session.attributes.pending) ? b.session.attributes.pending : [];
+  return { ok: true, kind, language, userId, patientId, utterance, pending,
+    needsDoses: VOICE_INTENTS.includes(kind) || (kind === 'AMAZON.YesIntent' && pending.length > 0) };
 }
 
 /**
@@ -162,8 +169,9 @@ function voiceReply({ kind, language, doses, nowIso, hasChat }) {
 }
 
 /** The Alexa response envelope. */
-function alexaResponse({ speech, endSession, language }) {
+function alexaResponse({ speech, endSession, language, sessionAttributes }) {
   const r = { version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: !!endSession } };
+  if (sessionAttributes && !endSession) r.sessionAttributes = sessionAttributes;
   if (!endSession) r.response.reprompt = { outputSpeech: { type: 'PlainText', text: SAY[language === 'en' ? 'en' : 'ar'].reprompt } };
   return r;
 }
@@ -176,7 +184,7 @@ function alexaResponse({ speech, endSession, language }) {
  */
 const SCREEN_TOPIC = {
   launch: 'launch', NextDoseIntent: 'next_dose', DoseAmountIntent: 'dose_amount', TodayDosesIntent: 'today',
-  ForgotDoseIntent: 'forgot', 'AMAZON.HelpIntent': 'unclear', 'AMAZON.FallbackIntent': 'unclear', unknown: 'unclear',
+  ForgotDoseIntent: 'forgot', record: 'record', 'AMAZON.YesIntent': 'record', 'AMAZON.HelpIntent': 'unclear', 'AMAZON.FallbackIntent': 'unclear', unknown: 'unclear',
   'AMAZON.StopIntent': 'bye', 'AMAZON.CancelIntent': 'bye', 'AMAZON.NoIntent': 'bye', 'AMAZON.NavigateHomeIntent': 'bye',
 };
 function screenTopic(kind) {
