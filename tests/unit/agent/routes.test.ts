@@ -375,3 +375,16 @@ describe('the HTTP surface — asserted absent', () => {
     ]);
   });
 });
+
+describe('the agent token is trimmed (a pasted dashboard value can end in a newline)', () => {
+  it('a token stored with trailing whitespace still admits the clean bearer; an all-blank one admits nobody', async () => {
+    vi.stubEnv('JURAH_AGENT_TOKEN', `${TOKEN}\r\n`);
+    let { GET } = await import('@/app/api/agent/check-in-eligibility/route');
+    expect((await GET(req('/api/agent/check-in-eligibility', { headers: auth() }))).status).toBe(200);
+    vi.resetModules();
+    vi.stubEnv('JURAH_AGENT_TOKEN', ' \n ');
+    ({ GET } = await import('@/app/api/agent/check-in-eligibility/route'));
+    expect((await GET(req('/api/agent/check-in-eligibility', { headers: { authorization: 'Bearer ' } }))).status).toBe(401);
+    expect((await GET(req('/api/agent/check-in-eligibility', { headers: auth() }))).status).toBe(401);
+  });
+});

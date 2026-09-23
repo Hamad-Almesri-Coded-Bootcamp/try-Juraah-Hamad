@@ -55,17 +55,22 @@ export const PUSH_IS_SIMULATED: boolean = !process.env.JURAH_VAPID_PRIVATE_KEY;
 export const BOT_TOKEN: string = process.env.JURAH_BOT_TOKEN ?? '';
 /** VAPID private key; its public half is PUSH_PUBLIC_KEY above. */
 export const VAPID_PRIVATE_KEY: string = process.env.JURAH_VAPID_PRIVATE_KEY ?? '';
-/** Bearer credential for app/api/agent/** (WP7). */
-export const AGENT_TOKEN: string = process.env.JURAH_AGENT_TOKEN ?? '';
-/** Bearer credential for app/api/jobs/** (the expiry job). */
-export const JOB_TOKEN: string = process.env.JURAH_JOB_TOKEN ?? '';
+/**
+ * Bearer credential for app/api/agent/** (WP7). Trimmed, as sessionSecret() is: a value pasted into
+ * the host's dashboard can carry a trailing newline that no HTTP header can ever match, so an
+ * untrimmed token refuses every caller (seen live on 2026-09-23). An all-blank value is still ''.
+ */
+export const AGENT_TOKEN: string = (process.env.JURAH_AGENT_TOKEN ?? '').trim();
+/** Bearer credential for app/api/jobs/** (the expiry job). Trimmed, for the same reason. */
+export const JOB_TOKEN: string = (process.env.JURAH_JOB_TOKEN ?? '').trim();
 /**
  * CR-063: where the Telegram webhook forwards a chat reply to the agents track (the n8n inbound
  * webhook, a `/webhook/` URL — never `/webhook-test/`), and the header secret it sends with it.
  * Either empty → nothing is forwarded (fail closed; the chat stays optional, G10).
  */
-export const AGENT_INBOUND_URL: string = process.env.JURAH_AGENT_INBOUND_URL ?? '';
-export const AGENT_INBOUND_SECRET: string = process.env.JURAH_AGENT_INBOUND_SECRET ?? '';
+// Trimmed: a trailing newline in the secret would make fetch() refuse the header outright.
+export const AGENT_INBOUND_URL: string = (process.env.JURAH_AGENT_INBOUND_URL ?? '').trim();
+export const AGENT_INBOUND_SECRET: string = (process.env.JURAH_AGENT_INBOUND_SECRET ?? '').trim();
 /** The deployment's own origin: builds the calendar feed's webcal:// URL and the VAPID subject. */
 export const APP_ORIGIN: string = process.env.JURAH_APP_ORIGIN || 'http://localhost:3000';
 
