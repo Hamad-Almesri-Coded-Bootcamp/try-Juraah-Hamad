@@ -591,7 +591,7 @@ With `JURAH_DATABASE_URL` working for the first time (2026-09-23), `npm run test
 
 **Also:** the owner's `JURAH_DATABASE_URL` was first the direct host `db.<ref>.supabase.co:5432`, which is IPv6-only and unresolvable from this machine, and its password was not percent-encoded. The lead rewrote that one line of `.env.local` to the transaction-pooler form (D-015), with the same password percent-encoded. No other line was touched. One value was exposed: the driver's first `Invalid URL` error echoed the unencoded URI, password included, into the lead's tool output (nowhere else). The owner has been told and may rotate the password.
 
-### D-040 (lead, deployment check 2026-09-23) · Production on Vercel runs without its server environment; the hardening that goes with it — `OPEN` until the owner sets the secrets
+### D-040 (lead, deployment check 2026-09-23) · Production on Vercel runs without its server environment; the hardening that goes with it — `RESOLVED` (agent/job tokens still owed)
 **Found, read-only, on `tryjuraaah.vercel.app` (deployment `dpl_7fAsZfgHB6zB283rw1rhhVp3r5y8`, commit `d9ee399` on `main`):**
 - **Every sign-in fails.** Each `POST /ar/signin` answers 500. Runtime log: `Error: JURAH_SESSION_SECRET is not set — refusing to issue an unsigned session (D-018)`. It fails closed as designed (D-94), but nobody gets past the landing page.
 - **The project defines only three variables** (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_BOT_HANDLE`, `NEXT_PUBLIC_PUSH_PUBLIC_KEY`; `hiddenProductionEnvCount: 0`). No `JURAH_DATABASE_URL`, `JURAH_SESSION_SECRET`, `JURAH_AGENT_TOKEN`, `JURAH_JOB_TOKEN` or `JURAH_APP_ORIGIN`. So production runs on the **mock** backend: the calendar feed answers 503, which it does only on the mock.
@@ -613,3 +613,13 @@ With `JURAH_DATABASE_URL` working for the first time (2026-09-23), `npm run test
 - `JURAH_APP_ORIGIN=https://tryjuraaah.vercel.app` and `JURAH_DATA_BACKEND=postgres` (not secrets).
 
 Then redeploy. Scoping the secrets to Production only keeps the `ai-agents` branch's preview deployments off the production database. Previews then fail closed at sign-in, which is the safe default; the agents track can ask for its own.
+
+**Resolved the same day.** Commit `7eee131` (the changes above) went live in `bom1`. The owner added `JURAH_SESSION_SECRET` (fresh, not the local one) and `JURAH_DATABASE_URL` (Production, Sensitive); the lead set `JURAH_APP_ORIGIN` and the default function region through the Vercel MCP. One lesson on the way: an explicit `JURAH_DATA_BACKEND=postgres` also applies during `next build`. Its prerender pass (the dynamic `/[locale]/app/more/caregivers` route) then opened a database connection and failed the build on the mistyped URL (`ERR_INVALID_URL`). The variable is now Development-only; at runtime the server selects Postgres by itself because the URL is set (D-020). Live proof on deployment `dpl_9vZbcY6hjW7w9Gd5WXCwpzsufCS1`:
+- `x-vercel-id: bom1::bom1`, and the five headers present on every route.
+- `GET /api/calendar/mock-token-cal-pt-03.ics` → 200, 79 131 bytes (the local Postgres feed's exact size); PUT/POST/DELETE → 405; an unknown token → 404.
+- A Playwright sign-in as حمد → `POST /ar/signin` 200 → `/ar/app` in 6.2 s, showing the seed's six doses on 2026-09-21 with no status pill (tracking off).
+- The session cookie is `jurah.session`, httpOnly, Secure, SameSite=Lax, signed; the `sessions` table holds pt-01's live rows.
+- No runtime errors in the 30 minutes after deploy.
+
+**Still owed:** `JURAH_AGENT_TOKEN` and `JURAH_JOB_TOKEN`. Without them the agent and job routes refuse everyone (401), no screen needs them, and the agents track needs them before it integrates. Also still owed: rotating the database password, which was exposed in a tool output; afterwards update the value in Vercel and in `.env.local`.
+
