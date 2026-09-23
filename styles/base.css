@@ -14,6 +14,14 @@ body {
 a { color: var(--navy-soft); }
 a:hover { color: var(--navy); }
 h1, h2, h3, p { margin: 0; }
+/* Room at the end of every page for the floating assistant launcher (CR-067), so it never rests on
+   the last control of a screen once scrolled to the end (audit C3). Every layout wraps its content
+   in #main-content (the skip link's target), inside the shell's scrolling pane where there is one.
+   Launcher offset + its own height below 834px; the smaller desktop offset + height + a gap above. */
+#main-content { padding-block-end: calc(var(--hit-area-primary) + var(--space-6) + var(--hit-area-primary)); }
+@media (min-width: 834px) {
+  #main-content { padding-block-end: calc(var(--space-6) + var(--hit-area-primary) + var(--space-2)); }
+}
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 var(--ring-gap) var(--on-fill), 0 0 0 calc(var(--ring-gap) + var(--ring)) var(--navy);

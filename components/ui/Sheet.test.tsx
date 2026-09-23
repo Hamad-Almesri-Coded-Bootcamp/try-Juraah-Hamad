@@ -82,12 +82,12 @@ describe('Sheet', () => {
 
   it('closes on a scrim click, and the scrim is a real labelled button', () => {
     const onClose = vi.fn();
-    const { container } = render(
+    const { baseElement } = render(
       <Sheet open onClose={onClose} title="Confirm refill" closeLabel="Close">
         content
       </Sheet>,
     );
-    const scrim = container.querySelector('.wsf-sheet__scrim');
+    const scrim = baseElement.querySelector('.wsf-sheet__scrim');
     expect(scrim?.tagName).toBe('BUTTON');
     expect(scrim).toHaveAccessibleName('Close');
     fireEvent.click(scrim as Element);
@@ -115,18 +115,36 @@ describe('Sheet', () => {
   });
 
   it('renders the sheet mode as a bottom sheet or a centred modal on request', () => {
-    const { container: sheetContainer } = render(
+    const sheet = render(
       <Sheet open onClose={() => {}} title="t" closeLabel="Close" mode="sheet">
         c
       </Sheet>,
     );
-    expect(sheetContainer.querySelector('.wsf-sheet-root')).toHaveClass('wsf-sheet-root--sheet');
+    expect(sheet.baseElement.querySelector('.wsf-sheet-root')).toHaveClass('wsf-sheet-root--sheet');
+    sheet.unmount();
 
-    const { container: modalContainer } = render(
+    const modal = render(
       <Sheet open onClose={() => {}} title="t" closeLabel="Close" mode="modal">
         c
       </Sheet>,
     );
-    expect(modalContainer.querySelector('.wsf-sheet-root')).toHaveClass('wsf-sheet-root--modal');
+    expect(modal.baseElement.querySelector('.wsf-sheet-root')).toHaveClass('wsf-sheet-root--modal');
+  });
+
+  // Audit C2 (2026-09-23): pinned to the screen that opened it, a sheet inside the shell's scrolling
+  // pane was as tall as the page and hid its own actions under the TabBar. It must own its layer.
+  it('renders in its own fixed viewport layer, outside the screen that opened it', () => {
+    const { container } = render(
+      <div className="relative">
+        <Sheet open onClose={() => {}} title="t" closeLabel="Close">
+          c
+        </Sheet>
+      </div>,
+    );
+    const layer = screen.getByTestId('sheet-layer');
+    expect(layer.parentElement).toBe(document.body);
+    expect(container.contains(layer)).toBe(false);
+    expect(layer).toHaveClass('fixed', 'inset-0');
+    expect(within(layer).getByRole('dialog')).toBeInTheDocument();
   });
 });

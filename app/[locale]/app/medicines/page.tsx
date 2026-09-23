@@ -90,6 +90,7 @@ export default async function MedicinesPage({
         tracked={settings.adherenceCheckInEnabled}
         locale={locale}
         hrefBuilder={(rx) => `/${locale}/app/medicines/${rx.id}`}
+        alertHrefBuilder={(alert) => `/${locale}/app/safety/${alert.id}`}
         addHref={`/${locale}/app/medicines/add`}
         safetyHref={`/${locale}/app/safety`}
       />

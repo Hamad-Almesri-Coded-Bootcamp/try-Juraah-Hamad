@@ -9,6 +9,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   variant?: 'quiet' | 'primary' | 'secondary' | 'danger';
   /** Mirrors the glyph under dir="rtl". Use for chevrons and the calendar-subscribe arrow only. */
   mirrorIcon?: boolean;
+  /** Points the glyph backward (Icon's `reverse`) — with `mirrorIcon`, a back or previous chevron. */
+  reverseIcon?: boolean;
   /** Renders a real link instead of a button — for a back control or any navigation. */
   href?: string;
 }
@@ -22,6 +24,7 @@ export function IconButton({
   icon,
   variant = 'quiet',
   mirrorIcon,
+  reverseIcon,
   href,
   className,
   type = 'button',
@@ -36,14 +39,14 @@ export function IconButton({
     const anchorRest = rest as unknown as AnchorHTMLAttributes<HTMLAnchorElement>;
     return (
       <a href={href} aria-label={label} className={classes} {...anchorRest}>
-        <Icon name={icon} mirror={mirrorIcon} />
+        <Icon name={icon} mirror={mirrorIcon} reverse={reverseIcon} />
       </a>
     );
   }
 
   return (
     <button {...rest} type={type} disabled={disabled} aria-label={label} className={classes}>
-      <Icon name={icon} mirror={mirrorIcon} />
+      <Icon name={icon} mirror={mirrorIcon} reverse={reverseIcon} />
     </button>
   );
 }

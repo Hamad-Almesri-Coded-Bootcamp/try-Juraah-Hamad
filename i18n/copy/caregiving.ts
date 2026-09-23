@@ -14,13 +14,17 @@ export const caregiving = {
   // ---------------------------------------------------------------------------------------------
   f0Kicker: { ar: 'طلب ربط · قرارك أنت', en: 'Linking request — your decision', placeholder: true },
   f0PendingTitleTemplate: { ar: '{name} يطلب ربطك بملفه الدوائي', en: '{name} is asking to be linked to their medical record', placeholder: true },
-  f0RelationshipTemplate: { ar: 'يقول إنك {relationship}.', en: 'Says you are their {relationship}.', placeholder: true },
+  // Audit M4: `relationship` is the PATIENT's own first-person word ('ابني' = "my son", as the seed
+  // stores it), so it is quoted as theirs — never asserted in the reader's voice ("يقول إنك ابني").
+  f0RelationshipTemplate: { ar: 'صلة القرابة في الطلب: «{relationship}».', en: 'Described you as “{relationship}”.', placeholder: true },
   f0CanSeeTitle: { ar: 'لو قبلت، راح تشوف:', en: 'If you accept, you will see:', placeholder: true },
   f0CanSee1: { ar: 'قائمة الأدوية', en: 'The medication list', placeholder: true },
   f0CanSee2: { ar: 'الجدول اليومي للجرعات', en: 'The daily dose schedule', placeholder: true },
   f0CanSee3: { ar: 'تنبيهات السلامة والتعارضات', en: 'Safety alerts and interactions', placeholder: true },
   f0CanSee4: { ar: 'سجل الأحداث', en: 'The activity log', placeholder: true },
-  f0CannotTitle: { ar: 'وما راح تقدر:', en: 'And you will never be able to:', placeholder: true },
+  // Audit M5: the old 'وما راح تقدر:' can be read as "and what you'll be able to" — the one list
+  // consent hinges on must be unmistakably negative.
+  f0CannotTitle: { ar: 'هذي أشياء ما تقدر تسويها أبدًا:', en: 'You will never be able to:', placeholder: true },
   f0Cannot1: { ar: 'تسجيل جرعة نيابةً عن المريض', en: 'Record a dose on the patient’s behalf', placeholder: true },
   f0Cannot2: { ar: 'تعديل وصفة أو جرعة', en: 'Change a prescription or a dose', placeholder: true },
   f0Cannot3: { ar: 'تغيير أي إعداد في الحساب', en: 'Change any setting in the account', placeholder: true },

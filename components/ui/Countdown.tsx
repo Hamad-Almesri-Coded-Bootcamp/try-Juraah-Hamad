@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
+import { formatNumber } from '@/i18n/format';
 import './styles/Countdown.css';
 
 export interface CountdownProps {
@@ -75,7 +76,7 @@ export function Countdown({
       setRemaining((prev) => {
         const next = prev <= 1 ? 0 : prev - 1;
         if (next % 10 === 0) {
-          setAnnouncement(next > 0 ? `${next} ${t(copy.vocabulary.secondsLeft, lang)}` : t(copy.vocabulary.countdownLapsed, lang));
+          setAnnouncement(next > 0 ? `${formatNumber(next, lang)} ${t(copy.vocabulary.secondsLeft, lang)}` : t(copy.vocabulary.countdownLapsed, lang));
         }
         if (prev <= 1) {
           clearInterval(id);
@@ -109,8 +110,10 @@ export function Countdown({
             aria-valuemax={seconds}
             aria-valuenow={remaining}
           >
+            {/* Digits follow the language — ٢٤ in Arabic, 24 in English (UX §3/§12, audit M7).
+                aria-valuenow stays the plain number ARIA requires. */}
             <span className="wsf-countdown__value type-h1" aria-hidden="true">
-              {remaining}
+              {formatNumber(remaining, lang)}
             </span>
           </div>
           <span className="wsf-sr" aria-live="polite" role="status">

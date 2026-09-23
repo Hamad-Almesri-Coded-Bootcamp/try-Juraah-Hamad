@@ -48,10 +48,83 @@ function typeCivilId(value: string) {
   return input;
 }
 
-describe('empty state', () => {
-  it('the continue button is disabled until something is typed', () => {
+describe('validation on submit — Continue is never disabled-until-valid (audit M14, UX Principles §5/§6)', () => {
+  function formOf(element: HTMLElement): HTMLFormElement {
+    const form = element.closest('form');
+    if (!form) throw new Error('the Civil ID field is not inside a <form>, so Enter cannot submit it');
+    return form;
+  }
+
+  it('Continue is enabled on an empty field, and is the submit button of a real <form>', () => {
     render(<SignInForm locale="en" />);
-    expect(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') })).toBeDisabled();
+    const button = screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') });
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('type', 'submit');
+    expect(formOf(screen.getByLabelText(t(copy.identity.civilIdLabel, 'en')))).toBe(button.closest('form'));
+  });
+
+  it('submitting an empty field says what to do — and never calls signIn', async () => {
+    render(<SignInForm locale="en" />);
+    fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') }));
+    expect(await screen.findByText('Enter your Civil ID')).toBeInTheDocument();
+    expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it('"123" + Enter says a Civil ID has 12 digits, keeps what was typed, and never calls signIn', async () => {
+    render(<SignInForm locale="en" />);
+    const input = typeCivilId('123');
+    fireEvent.submit(formOf(input)); // what pressing Enter in the field does: implicit form submission
+    expect(await screen.findByText('A Civil ID has 12 digits')).toBeInTheDocument();
+    expect(input).toHaveValue('123');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(signInMock).not.toHaveBeenCalled();
+    // "correct one digit and continue" belongs to the not-in-the-demo-list error only.
+    expect(screen.queryByText(t(copy.identity.invalidIdHint, 'en'))).not.toBeInTheDocument();
+  });
+
+  it('ar: the same two messages in Arabic', async () => {
+    render(<SignInForm locale="ar" />);
+    fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'ar') }));
+    expect(await screen.findByText('اكتب رقمك المدني')).toBeInTheDocument();
+    const input = screen.getByLabelText(t(copy.identity.civilIdLabel, 'ar'));
+    fireEvent.change(input, { target: { value: '12345' } });
+    fireEvent.submit(formOf(input));
+    expect(await screen.findByText('الرقم المدني ١٢ رقم')).toBeInTheDocument();
+    expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it('Enter on a twelve-digit ID runs the normal sign-in flow', async () => {
+    signInMock.mockResolvedValue({ kind: 'not_in_test_list' });
+    render(<SignInForm locale="en" />);
+    const input = typeCivilId('111111111111');
+    fireEvent.submit(formOf(input));
+    expect(await screen.findByText(t(copy.identity.invalidIdError, 'en'))).toBeInTheDocument();
+    expect(signInMock).toHaveBeenCalledWith('111111111111');
+    expect(screen.getByText(t(copy.identity.invalidIdHint, 'en'))).toBeInTheDocument();
+  });
+
+  it('Arabic-Indic digits from an Arabic keyboard count as digits: normalised for signIn, the field left exactly as typed', async () => {
+    signInMock.mockResolvedValue({ kind: 'not_in_test_list' });
+    render(<SignInForm locale="ar" />);
+    const input = screen.getByLabelText(t(copy.identity.civilIdLabel, 'ar'));
+    fireEvent.change(input, { target: { value: '٢٥٥٠٣١٢٠٠١٨٧' } });
+    fireEvent.submit(formOf(input));
+    await vi.waitFor(() => expect(signInMock).toHaveBeenCalledWith('255031200187'));
+    expect(input).toHaveValue('٢٥٥٠٣١٢٠٠١٨٧');
+    expect(screen.queryByText('الرقم المدني ١٢ رقم')).not.toBeInTheDocument();
+  });
+});
+
+describe('the countdown is not a card inside a card (audit m1)', () => {
+  it('the running countdown draws its own frame only — no outer Card around it', async () => {
+    signInMock.mockResolvedValue({ kind: 'single_role', session: { subjectId: 'pt-01', role: 'patient' } });
+    waitMock.mockImplementation(() => new Promise<void>(() => {})); // hold the countdown on screen; no stray navigation later
+    render(<SignInForm locale="en" />);
+    typeCivilId('255031200187');
+    fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') }));
+    const bar = await screen.findByRole('progressbar');
+    expect(bar.closest('.wsf-countdown')).not.toBeNull();
+    expect(bar.closest('.wsf-card')).toBeNull();
   });
 });
 

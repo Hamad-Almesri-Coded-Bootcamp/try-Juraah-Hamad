@@ -30,7 +30,11 @@ export interface MenuRowProps {
  */
 export function MenuRow({ label, value, description, icon, href, onClick, tone = 'default', trailing, className }: MenuRowProps) {
   const interactive = !trailing && (Boolean(href) || Boolean(onClick));
-  const classes = ['jr-menu-row', interactive ? 'wsf-focus' : null, className].filter(Boolean).join(' ');
+  // A trailing control makes the row wrap at phone width (MenuRow.css, audit M13); every other row
+  // keeps its one-line layout.
+  const classes = ['jr-menu-row', trailing ? 'jr-menu-row--trailing' : null, interactive ? 'wsf-focus' : null, className]
+    .filter(Boolean)
+    .join(' ');
 
   const content = (
     <>

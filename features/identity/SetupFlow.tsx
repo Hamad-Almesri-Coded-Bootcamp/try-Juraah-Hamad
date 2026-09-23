@@ -152,10 +152,13 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
           <>
             <h1 className="type-h1">{t(copy.identity.notificationsStepTitle, locale)}</h1>
             <p className="type-body">{t(copy.identity.notificationsStepBody, locale)}</p>
+            {/* Three legitimate paths, three EQUAL buttons — same variant, size and width, none of
+                them primary (UX §2/§13, brand book; audit M2). The board draws primary + secondary +
+                secondary; the spec wins, and the deviation is the lead's to log. */}
             <Card className="flex flex-col gap-3">
               <span className="type-body-strong">{t(copy.identity.browserOfferTitle, locale)}</span>
               <span className="type-body-small">{t(copy.identity.browserOfferBody, locale)}</span>
-              <Button variant="primary" size="lg" fullWidth icon="subscribe" lang={locale} loading={pending} onClick={handleBrowserOffer}>
+              <Button variant="secondary" size="lg" fullWidth icon="subscribe" lang={locale} loading={pending} onClick={handleBrowserOffer}>
                 {t(copy.identity.browserOfferButton, locale)}
               </Button>
             </Card>

@@ -4,7 +4,7 @@
  * `features/clinic`, not `lib/**`), and no `Date.now()` / bare `new Date()` anywhere (guard 6).
  */
 import { addDays, kuwaitToday } from '@/lib/schedule/dates';
-import { formatDate, formatNumber, formatTime } from '@/i18n/format';
+import { formatDate, formatNumber, formatStrength, formatTime } from '@/i18n/format';
 import { copy, t } from '@/i18n';
 import { interpolate } from '@/features/shell/interpolate';
 import type { Locale } from '@/i18n/locale';
@@ -89,10 +89,10 @@ export function doseTimesLabel(doseTimes: string[] | undefined, locale: Locale):
   return doseTimes.map((hhmm) => formatTime(hhmm, locale)).join(t(copy.clinic.listSeparator, locale));
 }
 
-/** "Warfarin 5 mg — مستشفى الفروانية", the strength unit exactly as written, never converted
- * (CLAUDE.md) — same shape as the patient-side alert detail's own `drugLine`. */
-export function prescriptionLine(rx: Prescription): string {
-  const unit = rx.drug.strengthUnit ?? 'mg';
-  const strength = rx.drug.strengthMg != null ? ` ${rx.drug.strengthMg} ${unit}` : '';
+/** "Warfarin 5 mg — مستشفى الفروانية" / "Warfarin ٥ ملغم — …": the strength in its own unit, never
+ * converted (guard U), through the one shared formatter (audit M7) — same shape as the patient-side
+ * alert detail's own `drugLine`. */
+export function prescriptionLine(rx: Prescription, locale: Locale): string {
+  const strength = rx.drug.strengthMg != null ? ` ${formatStrength(rx.drug.strengthMg, rx.drug.strengthUnit, locale)}` : '';
   return `${rx.drug.genericName}${strength} — ${rx.source.facilityName}`;
 }

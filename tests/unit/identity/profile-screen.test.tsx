@@ -44,6 +44,14 @@ describe('A3 — profile / account (حمد, pt-01)', () => {
     expect(link).toHaveTextContent('2');
   });
 
+  it('in Arabic the caregiver count uses Arabic-Indic digits — ٢ مربوط, never 2 مربوط (audit M7)', async () => {
+    setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+    render(await ProfileScreen({ locale: 'ar' }));
+    const link = screen.getByRole('link', { name: new RegExp(t(copy.identity.caregiverCountLabel, 'ar')) });
+    expect(link).toHaveTextContent('٢ مربوط');
+    expect(link.textContent).not.toMatch(/[0-9]/);
+  });
+
   it('browser notifications and chat both read neutrally off for حمد (default/not_connected), each linking to E5', async () => {
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
     render(await ProfileScreen({ locale: 'en' }));

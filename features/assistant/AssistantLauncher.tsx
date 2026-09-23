@@ -3,8 +3,8 @@
 /**
  * CR-067 — the web-app assistant, on EVERY page (mounted once in app/[locale]/layout.tsx): a
  * launcher button and a `Sheet` (bottom sheet below 834px, centred modal above) holding the
- * conversation. The Sheet pins itself to its nearest positioned ancestor, so while open it gets
- * its own fixed full-viewport layer — the same on the landing page as inside a shell.
+ * conversation. The Sheet brings its own fixed full-viewport layer (portalled to <body>), so it
+ * sits above the TabBar the same on the landing page as inside a shell (audit C2).
  *
  * Who is asking is decided on the SERVER (`assistantAudience`, `askAssistant`): a signed-in patient
  * gets personal answers from the agents track; everyone else gets app help from the copy catalogue.
@@ -126,13 +126,13 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
 
   return (
     <>
-      <div className="fixed bottom-24 end-4 z-10 tablet:bottom-6" data-testid="assistant-launcher">
-        <Button variant="primary" icon="inbox" onClick={() => setOpen(true)} lang={locale} aria-haspopup="dialog">
+      <div className="fixed bottom-launcher end-4 z-10 tablet:bottom-6" data-testid="assistant-launcher">
+        {/* secondary, never primary: every screen already has its own one primary action (UX §2) */}
+        <Button variant="secondary" icon="inbox" onClick={() => setOpen(true)} lang={locale} aria-haspopup="dialog">
           {t(c.launcherLabel, locale)}
         </Button>
       </div>
       {open && (
-        <div className="fixed inset-0 z-20" data-testid="assistant-layer">
           <Sheet
             open={open}
             onClose={close}
@@ -157,7 +157,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
             }
           >
             <div className="flex flex-col gap-3" data-testid="assistant-panel" data-audience={audience ?? 'unknown'}>
-              <ul className="flex max-h-96 flex-col gap-2 overflow-y-auto" aria-live="polite" data-testid="assistant-lines">
+              <ul className="flex max-h-chat flex-col gap-2 overflow-y-auto" aria-live="polite" data-testid="assistant-lines">
                 <li className="rounded-lg bg-surface-card p-3 type-body">{t(who === 'patient' ? c.intro : c.guestIntro, locale)}</li>
                 {lines.map((line, i) => (
                   <li
@@ -204,7 +204,6 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
               <p className="type-caption text-ink-muted">{t(c.safetyLine, locale)}</p>
             </div>
           </Sheet>
-        </div>
       )}
     </>
   );

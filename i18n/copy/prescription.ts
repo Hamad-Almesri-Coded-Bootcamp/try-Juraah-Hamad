@@ -23,7 +23,13 @@ export const prescription = {
   rxDoseTimesLabel: { ar: 'أوقات الجرعة', en: 'Dose times', placeholder: true },
   rxStartDateLabel: { ar: 'تبدأ من', en: 'Starts on', placeholder: true },
   rxDurationLabel: { ar: 'المدة', en: 'Duration', placeholder: true },
-  rxDurationDaysTemplate: { ar: '{count} يومًا', en: '{count} days', placeholder: true },
+  // One variant per plural category (i18n/format.ts formatCount, audit M7): "٧ يومًا" was wrong for
+  // rx-002/rx-007's seven days. The en text of two/few/many is never selected by English rules.
+  rxDurationDaysOne: { ar: 'يوم واحد', en: '{count} day', placeholder: true },
+  rxDurationDaysTwo: { ar: 'يومين', en: '{count} days', placeholder: true },
+  rxDurationDaysFew: { ar: '{count} أيام', en: '{count} days', placeholder: true },
+  rxDurationDaysMany: { ar: '{count} يومًا', en: '{count} days', placeholder: true },
+  rxDurationDaysOther: { ar: '{count} يوم', en: '{count} days', placeholder: true },
   rxTimingLabel: { ar: 'مع الأكل', en: 'Relative to food', placeholder: true },
   rxRouteLabel: { ar: 'طريقة الاستخدام', en: 'Route of administration', placeholder: true },
   rxIndicationLabel: { ar: 'دواعي الاستخدام', en: 'Indication', placeholder: true },
@@ -49,12 +55,9 @@ export const prescription = {
   rxDispenseDateLabel: { ar: 'تاريخ الصرف', en: 'Dispensed on', placeholder: true },
   rxBrandDispensedLabel: { ar: 'الاسم التجاري المصروف', en: 'Brand actually dispensed', placeholder: true },
 
-  // Strength units (rx-008 renders "50 mcg", never converted — guard U)
-  unitMg: { ar: 'ملغم', en: 'mg', placeholder: true },
-  unitMcg: { ar: 'ميكروغرام', en: 'mcg', placeholder: true },
-  unitG: { ar: 'غرام', en: 'g', placeholder: true },
-  unitMl: { ar: 'مل', en: 'ml', placeholder: true },
-  unitIU: { ar: 'وحدة دولية', en: 'IU', placeholder: true },
+  // Strength units moved to vocabulary.ts (unitMg…unitIU) — ONE word per unit on every screen,
+  // read through i18n/format.ts's formatStrength (audit M7). rx-008 still renders "50 mcg", never
+  // converted (guard U).
 
   // B3 — dose history
   doseHistoryTitle: { ar: 'سجل الجرعات', en: 'Dose history', placeholder: true },
@@ -64,6 +67,14 @@ export const prescription = {
     placeholder: true,
   },
   doseHistoryEmpty: { ar: 'ما فيه جرعات مسجّلة بعد لهذي الوصفة.', en: 'No doses recorded yet for this prescription.', placeholder: true },
+  // B3/F3 — the dose history is windowed to 7 days either side of today with a "show all" disclosure
+  // (audit M8: 90 flat rows, future dates under "Dose history"). The planned part gets its own plain
+  // heading. Deliberately NOT the status word `upcoming` ("قادمة", vocabulary.ts) — a section heading
+  // that reads like a pill word next to real pills (a tracked patient) would blur the fixed vocabulary.
+  doseHistoryPlannedTitle: { ar: 'الجرعات المخططة', en: 'Planned doses', placeholder: true },
+  doseHistoryShowAllPastTemplate: { ar: 'اعرض كل الجرعات السابقة ({count})', en: 'Show all {count} past doses', placeholder: true },
+  doseHistoryShowAllPlannedTemplate: { ar: 'اعرض كل الجرعات المخططة ({count})', en: 'Show all {count} planned doses', placeholder: true },
+  doseHistoryShowFewer: { ar: 'اعرض أقل', en: 'Show fewer', placeholder: true },
 
   // B3 — refill link (D1 is bundle f's screen; this bundle only links to it)
   refillButtonLabel: { ar: 'اطلب تجديد الوصفة', en: 'Request a refill', placeholder: true },
@@ -98,7 +109,8 @@ export const prescription = {
     en: 'We read the prescription, but a few fields were not clear in the photo. We do not treat it as confirmed until you confirm it.',
     placeholder: true,
   },
-  unclearMark: { ar: 'غير واضح', en: 'Unclear', placeholder: true },
+  // One phrase for an uncertain field, used as both the visible mark and the screen-reader label
+  // (audit m7: a separate short "Unclear" mark made every field read "unclear" twice).
   unclearFieldLabel: { ar: 'غير واضح بالصورة', en: 'Unclear in the photo', placeholder: true },
   b4ConfirmButton: { ar: 'تأكيد وحفظ', en: 'Confirm and save', placeholder: true },
 

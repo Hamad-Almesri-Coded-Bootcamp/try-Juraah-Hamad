@@ -35,7 +35,15 @@ describe('A1b — role chooser', () => {
     expect(
       screen.getByRole('button', { name: interpolate(t(copy.identity.roleChooserCaregiverButtonTemplate, 'en'), { name: 'حمد' }) }),
     ).toBeInTheDocument();
-    expect(screen.getByText('ابني')).toBeInTheDocument();
+    // The relationship is the PATIENT's own first-person label ('ابني' = "my son"), so it is quoted,
+    // never shown bare under the patient's name as if it described the reader (audit M4).
+    expect(screen.getByText('Described you as “ابني”')).toBeInTheDocument();
+    expect(screen.queryByText('ابني')).not.toBeInTheDocument();
+  });
+
+  it('ar: the relationship reads as a quote — صلة القرابة في الطلب: «ابني»', () => {
+    render(<RoleChooser options={options} locale="ar" />);
+    expect(screen.getByText('صلة القرابة في الطلب: «ابني»')).toBeInTheDocument();
   });
 
   it('choosing "my medicines" calls chooseRole with the patient option and routes to /app', async () => {
@@ -55,6 +63,6 @@ describe('A1b — role chooser', () => {
 
   it('a single-role option list renders only one card', () => {
     render(<RoleChooser options={[options[0]!]} locale="en" />);
-    expect(screen.queryByText('ابني')).not.toBeInTheDocument();
+    expect(screen.queryByText(/ابني/)).not.toBeInTheDocument();
   });
 });

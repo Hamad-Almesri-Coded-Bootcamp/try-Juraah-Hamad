@@ -41,10 +41,14 @@ export const day = {
     placeholder: true,
   },
 
-  // B1 — dose amount (dosePerAdministration is 1 throughout the seed; a plural template stays for
-  // defensive correctness even though the seed never exercises it)
+  // B1 — dose amount (dosePerAdministration is 1 throughout the seed; the plural forms stay for
+  // defensive correctness even though the seed never exercises them). One variant per Arabic plural
+  // category, chosen by i18n/format.ts's formatCount — "٢ حبات" and "١١ حبات" are ungrammatical.
+  // Also B3/F3's "Dose" row value (audit M9 — never a bare number).
   doseAmountOne: { ar: 'حبة واحدة', en: 'One tablet', placeholder: true },
-  doseAmountManyTemplate: { ar: '{count} حبات', en: '{count} tablets', placeholder: true },
+  doseAmountTwo: { ar: 'حبتين', en: '{count} tablets', placeholder: true },
+  doseAmountFewTemplate: { ar: '{count} حبات', en: '{count} tablets', placeholder: true },
+  doseAmountManyTemplate: { ar: '{count} حبة', en: '{count} tablets', placeholder: true },
 
   // B2 — section headings (board: "الوصفات النشطة" / "أدوية سابقة")
   activeMedicinesTitle: { ar: 'الوصفات النشطة', en: 'Active prescriptions', placeholder: true },
@@ -69,6 +73,10 @@ export const day = {
 
   // B2 — a card's next/most-recent dose time (board: "اليوم ٨:٠٠ ص") — B2 never leaves "today"
   todayAtTemplate: { ar: 'اليوم {time}', en: 'Today {time}', placeholder: true },
+
+  // B2/F2 — the lead alert always opens its own detail (audit C6: with a single alert it was a dead
+  // end). C2 is "push from B2"; F2's opens the caregiver's read-only alert route.
+  openAlertAction: { ar: 'افتح التنبيه', en: 'Open the alert', placeholder: true },
 
   // B2 — multiple alerts: lead with the most severe, link the rest (never a second danger fill)
   seeAllAlerts: { ar: 'عرض كل تنبيهات السلامة', en: 'See all safety alerts', placeholder: true },

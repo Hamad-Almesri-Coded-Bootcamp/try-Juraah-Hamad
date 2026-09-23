@@ -58,8 +58,25 @@ describe('B4 — needs_review outcome (1–99 bytes)', () => {
     choosePhoto(container, fileOfSize(50));
 
     await screen.findByText('Some fields need confirmation');
-    expect(screen.getAllByText('Unclear').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Unclear in the photo').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Confirm and save' })).toBeInTheDocument();
+  });
+
+  it('says "unclear" ONCE per field — the same phrase seen and heard, never "Unclear" plus "Unclear in the photo" (audit m7)', async () => {
+    const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
+    choosePhoto(container, fileOfSize(50));
+    await screen.findByText('Some fields need confirmation');
+
+    const marks = [...container.querySelectorAll('.wsf-dr__value--empty')];
+    const unclear = marks.filter((m) => /Unclear/.test(m.textContent ?? ''));
+    expect(unclear.length).toBe(4); // strength, times per day, dose times, start date — the mock's uncertainFields
+    for (const mark of unclear) {
+      const seen = mark.querySelector('[aria-hidden="true"]')?.textContent;
+      const heard = mark.querySelector('.wsf-sr')?.textContent;
+      expect(seen).toBe('Unclear in the photo');
+      expect(heard).toBe(seen);
+    }
+    expect(screen.queryAllByText('Unclear', { exact: true })).toHaveLength(0);
   });
 });
 

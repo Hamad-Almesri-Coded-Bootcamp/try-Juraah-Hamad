@@ -3,7 +3,7 @@
  * every date/time is passed in, matching the file's own doc comment (G3/rule 9).
  */
 import { describe, expect, it } from 'vitest';
-import { formatDoseAmount, formatDoseTime, formatTodayDoseTimeLabel, groupDosesByTime, pickNextOrMostRecent, timeOfIso } from '@/features/day/format';
+import { formatDoseAmount, formatDoseCount, formatDoseTime, formatTodayDoseTimeLabel, groupDosesByTime, pickNextOrMostRecent, timeOfIso } from '@/features/day/format';
 import type { DoseWithPrescription } from '@/types/views';
 
 function dose(overrides: Partial<DoseWithPrescription> & Pick<DoseWithPrescription, 'scheduledAt'>): DoseWithPrescription {
@@ -78,6 +78,20 @@ describe('formatDoseAmount', () => {
 
   it('omits the strength line entirely when strengthMg is absent', () => {
     expect(formatDoseAmount({ dosePerAdministration: 1, drug: { genericName: '(unreadable)' } }, 'en')).toBe('One tablet');
+  });
+
+  it('Arabic: Arabic-Indic digits and the Arabic unit word, never "mg" (audit M7)', () => {
+    expect(formatDoseAmount({ dosePerAdministration: 1, drug: { genericName: 'Ibuprofen', strengthMg: 400 } }, 'ar')).toBe('حبة واحدة · ٤٠٠ ملغم');
+    expect(formatDoseAmount({ dosePerAdministration: 1, drug: { genericName: 'Levothyroxine', strengthMg: 50, strengthUnit: 'mcg' } }, 'ar')).toBe('حبة واحدة · ٥٠ ميكروغرام');
+  });
+});
+
+describe('formatDoseCount — the amount as a person says it (audit M9, UX §3: never a bare number)', () => {
+  it('one and several, in both languages', () => {
+    expect(formatDoseCount(1, 'en')).toBe('One tablet');
+    expect(formatDoseCount(1, 'ar')).toBe('حبة واحدة');
+    expect(formatDoseCount(2, 'en')).toBe('2 tablets');
+    expect(formatDoseCount(2, 'ar')).not.toMatch(/[0-9]/);
   });
 });
 

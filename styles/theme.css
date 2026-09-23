@@ -20,6 +20,10 @@
   --font-sans: var(--font-sans);
 
   --spacing-*: initial;
+  /* The zero step (audit C3). The reset removes Tailwind's base multiplier too, so without this line
+     `inset-0`, `top-0` and `m-0` generate no CSS at all: the Sheet layer and the assistant's layer were
+     0×0 boxes, and the caregiver's whose-data banner (`sticky top-0`) scrolled away (UX §10). */
+  --spacing-0: 0px;
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
   --spacing-3: var(--space-3);
@@ -37,6 +41,19 @@
   /* The clinic shell's wider cap (navigation.md: the audit log and the reviewer queues may use the
      extra width for their columns) — one and a half times the reading cap. */
   --spacing-content-wide: calc(var(--content-max) * 1.5);
+  /* Audit C3 (2026-09-23): four sizes screens were asking for with Tailwind's default steps
+     (bottom-24, h-14, max-h-96, min-h-48). The reset above removes those steps, so each utility
+     silently generated no CSS — the assistant launcher sat below the bottom edge of every phone.
+     Named here instead, token arithmetic only; scripts/guards/token-scale.ts fails on a step the
+     theme does not define. */
+  /* The assistant launcher's offset from the bottom edge below 834px: clears the phone TabBar. */
+  --spacing-launcher: calc(var(--hit-area-primary) + var(--space-6));
+  /* The profile avatar: one primary hit area plus a small step. */
+  --spacing-avatar: calc(var(--hit-area-primary) + var(--space-2));
+  /* The assistant's scrolling conversation, before the Sheet's own body scrolls. */
+  --spacing-chat: calc(var(--space-6) * 8);
+  /* The reviewer's source-image placeholder (G3s). */
+  --spacing-figure: calc(var(--space-6) * 4);
 
   --radius-*: initial;
   --radius-sm: var(--radius-sm);

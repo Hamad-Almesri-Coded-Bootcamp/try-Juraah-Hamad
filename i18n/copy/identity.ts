@@ -33,6 +33,9 @@ export const identity = {
     en: 'This number is not in the demo list for this version',
     placeholder: true,
   },
+  // Audit M14: validated on submit, never disabled-until-valid — each says what to do next (UX §5/§6).
+  civilIdRequiredError: { ar: 'اكتب رقمك المدني', en: 'Enter your Civil ID', placeholder: true },
+  civilIdLengthError: { ar: 'الرقم المدني ١٢ رقم', en: 'A Civil ID has 12 digits', placeholder: true },
   invalidIdHint: {
     ar: 'المكتوب ما يُمحى — صحّح رقمًا واحدًا وتابع.',
     en: 'What you typed stays — correct one digit and continue.',
@@ -66,6 +69,8 @@ export const identity = {
   roleChooserOwnTitle: { ar: 'أدويتي', en: 'My medicines', placeholder: true },
   roleChooserOwnButton: { ar: 'افتح ملفي', en: 'Open my record', placeholder: true },
   roleChooserCaregiverTitleTemplate: { ar: 'أدوية {name}', en: '{name}’s medicines', placeholder: true },
+  // Audit M4: the patient's own first-person label ('ابنتي' = "my daughter"), quoted as theirs.
+  roleChooserRelationshipTemplate: { ar: 'صلة القرابة في الطلب: «{relationship}»', en: 'Described you as “{relationship}”', placeholder: true },
   roleChooserCaregiverButtonTemplate: { ar: 'افتح ملف {name}', en: 'Open {name}’s record', placeholder: true },
   roleChooserRememberNote: {
     ar: 'آخر اختيار يصير الافتراضي في المرة القادمة.',

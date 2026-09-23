@@ -43,7 +43,6 @@ import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/session';
 import { HAWIATI_COUNTDOWN_SECONDS } from '@/lib/config';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Countdown } from '@/components/ui/Countdown';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { TextField } from '@/components/ui/TextField';
@@ -51,6 +50,7 @@ import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { SignInOutcome } from '@/types/views';
 import { wait } from '@/features/identity/wait';
+import { CIVIL_ID_ERROR_COPY, civilIdProblem, normaliseCivilId, type CivilIdFieldError } from '@/features/identity/civilId';
 
 const APPROVAL_DELAY_MS = 1500;
 const COMPLETED_DISPLAY_MS = 600;
@@ -62,11 +62,12 @@ const CLINIC_ROLES = new Set(['reviewer', 'admin']);
 export function ClinicSignInForm({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [civilId, setCivilId] = useState('');
-  const [fieldError, setFieldError] = useState<string | undefined>(undefined);
+  const [fieldError, setFieldError] = useState<CivilIdFieldError | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>('form');
   const [countdownState, setCountdownState] = useState<'running' | 'completed' | 'lapsed'>('running');
   const [pending, startTransition] = useTransition();
   const cancelledRef = useRef(false);
+  const attemptedIdRef = useRef('');
 
   function resolveDestination(outcome: Extract<SignInOutcome, { kind: 'no_claims' | 'pending_invitation_only' | 'single_role' | 'multiple_roles' }>) {
     if (outcome.kind === 'no_claims') {
@@ -101,15 +102,16 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
     setPhase('refused');
   }
 
-  function attempt() {
+  function attempt(id: string) {
     cancelledRef.current = false;
+    attemptedIdRef.current = id;
     startTransition(() => {
       void (async () => {
-        const outcome = await signIn(civilId);
+        const outcome = await signIn(id);
         if (cancelledRef.current) return;
         if (outcome.kind === 'not_in_test_list') {
           setPhase('form');
-          setFieldError(t(copy.identity.invalidIdError, locale));
+          setFieldError('not_in_test_list');
           return;
         }
         setPhase('countdown');
@@ -124,9 +126,18 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
     });
   }
 
+  /** Same checks as A1, from the same module (features/identity/civilId.ts; audit M14). */
+  /** The form's action — a client function, so React blocks a native submit before hydration (a
+   * tap on a slow phone would otherwise reload the page and drop what was typed). */
   function handleSubmit() {
-    if (!civilId || pending) return;
-    attempt();
+    if (pending) return;
+    const id = normaliseCivilId(civilId);
+    const problem = civilIdProblem(id);
+    if (problem) {
+      setFieldError(problem);
+      return;
+    }
+    attempt(id);
   }
 
   function handleCancel() {
@@ -140,7 +151,7 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
   }
 
   function handleRetry() {
-    attempt();
+    attempt(attemptedIdRef.current);
   }
 
   function handleTryAnother() {
@@ -158,28 +169,31 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
             <h1 className="type-h1">{t(copy.clinic.x0Title, locale)}</h1>
             <p className="type-body">{t(copy.clinic.x0Body, locale)}</p>
           </div>
-          <TextField
-            label={t(copy.identity.civilIdLabel, locale)}
-            value={civilId}
-            onChange={(e) => {
-              setCivilId(e.target.value);
-              setFieldError(undefined);
-            }}
-            dir="ltr"
-            inputMode="numeric"
-            autoComplete="off"
-            helperText={t(copy.identity.civilIdHelper, locale)}
-            error={fieldError}
-            lang={locale}
-          />
-          <Button variant="primary" size="lg" fullWidth icon="shield" lang={locale} loading={pending} disabled={!civilId} onClick={handleSubmit}>
-            {t(copy.identity.continueLabel, locale)}
-          </Button>
+          {/* A real form: Enter submits, and Continue is never disabled-until-valid (audit M14). */}
+          <form action={handleSubmit} noValidate className="flex flex-col gap-4">
+            <TextField
+              label={t(copy.identity.civilIdLabel, locale)}
+              value={civilId}
+              onChange={(e) => {
+                setCivilId(e.target.value);
+                setFieldError(undefined);
+              }}
+              dir="ltr"
+              inputMode="numeric"
+              autoComplete="off"
+              helperText={t(copy.identity.civilIdHelper, locale)}
+              error={fieldError ? t(CIVIL_ID_ERROR_COPY[fieldError], locale) : undefined}
+              lang={locale}
+            />
+            <Button type="submit" variant="primary" size="lg" fullWidth icon="shield" lang={locale} loading={pending}>
+              {t(copy.identity.continueLabel, locale)}
+            </Button>
+          </form>
         </>
       )}
 
+      {/* Countdown draws its own frame — no Card around it (audit m1, same as A1). */}
       {phase === 'countdown' && (
-        <Card className="flex flex-col items-center gap-3">
           <Countdown
             seconds={HAWIATI_COUNTDOWN_SECONDS}
             state={countdownState}
@@ -191,7 +205,6 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
             retryLabel={t(copy.vocabulary.retry, locale)}
             lang={locale}
           />
-        </Card>
       )}
 
       {phase === 'refused' && (

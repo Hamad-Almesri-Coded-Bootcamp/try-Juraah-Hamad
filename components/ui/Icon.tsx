@@ -13,6 +13,15 @@ export interface IconProps {
    * capsule, clock, checkmark or numeral (brand book: "Arabic and English in one layout").
    */
   mirror?: boolean;
+  /**
+   * Point the glyph the other way in both directions — a BACKWARD chevron (audit C5, 2026-09-23).
+   * The one `chevron` glyph points to the reading end in LTR; `mirror` flips it only under RTL, so
+   * `chevron + mirror` is a FORWARD arrow in both languages (a row's "open"). A back or previous
+   * control needs `mirror` and `reverse` together: LTR points left, RTL points right. `reverse` is
+   * `scale`, `wsf-mirror` is `transform`, so the two compose. The design system's reference draws
+   * back as `chevron + mirror` too — a gap logged in docs/DECISIONS.md, not a style choice.
+   */
+  reverse?: boolean;
   className?: string;
 }
 
@@ -21,9 +30,9 @@ export interface IconProps {
  * technology (an icon never carries meaning alone — the label beside it does). Paths come from
  * design/icons.json, extracted once from the design system's bundle.js.
  */
-export function Icon({ name, small, mirror, className }: IconProps) {
+export function Icon({ name, small, mirror, reverse, className }: IconProps) {
   const d = icons.paths[name];
-  const classes = ['wsf-ico', small ? 'wsf-ico--sm' : null, mirror ? 'wsf-mirror' : null, className]
+  const classes = ['wsf-ico', small ? 'wsf-ico--sm' : null, mirror ? 'wsf-mirror' : null, reverse ? '-scale-x-100' : null, className]
     .filter(Boolean)
     .join(' ');
   return (

@@ -98,7 +98,7 @@ export const shell = {
 
   // The quiet pending-invitation notice (B1 / More — F0's second entry point)
   pendingInvitationNoticeTemplate: {
-    ar: '{name} يطلب متابعة سجلك الطبي',
+    ar: 'وصلك طلب من {name} لمتابعة سجلك الطبي',
     en: '{name} is asking to follow your medical record',
     placeholder: true,
   },

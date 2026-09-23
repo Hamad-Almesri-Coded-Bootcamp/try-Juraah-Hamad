@@ -8,6 +8,17 @@ import { InteractionAlert } from './InteractionAlert';
 afterEach(cleanup);
 
 describe('InteractionAlert', () => {
+  // The review panel's modifier must be one bundle.css styles (343-345): `pending_medical_review`
+  // is `--pending` there, so with the raw state name the pending glyph never got its warning colour.
+  it('uses the bundle\'s own review modifiers, so the pending glyph gets its colour', () => {
+    const { container, rerender } = render(<InteractionAlert severity="danger" reviewStatus="pending_medical_review" title="t" lang="en" />);
+    expect(container.querySelector('.wsf-alert__review')).toHaveClass('wsf-alert__review--pending');
+    rerender(<InteractionAlert severity="warning" reviewStatus="reviewed" title="t" lang="en" />);
+    expect(container.querySelector('.wsf-alert__review')).toHaveClass('wsf-alert__review--reviewed');
+    rerender(<InteractionAlert severity="info" reviewStatus="auto_cleared" title="t" lang="en" />);
+    expect(container.querySelector('.wsf-alert__review')).toHaveClass('wsf-alert__review--auto_cleared');
+  });
+
   it('renders the danger variant with a heading, severity word and no dismiss control', () => {
     render(
       <InteractionAlert

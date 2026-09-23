@@ -24,7 +24,7 @@ export function FeaturesSection({ locale }: { locale: Locale }) {
       <h2 className="text-h2 text-navy">{t(copy.landing.featuresHeading, locale)}</h2>
       <div className="grid grid-cols-1 gap-4 tablet:grid-cols-3 @[1200px]:grid-cols-6">
         {features.map(([title, body], i) => (
-          <Card key={i}>
+          <Card key={i} className="flex flex-col gap-2">
             <span className="text-body-strong">{t(title, locale)}</span>
             <span className="text-body-small text-ink-muted">{t(body, locale)}</span>
           </Card>

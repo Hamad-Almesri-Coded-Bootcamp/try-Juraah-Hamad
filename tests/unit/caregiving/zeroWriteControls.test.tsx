@@ -9,6 +9,7 @@
  * after that prescription and nothing else. F4's allowed buttons are the caregiver's own
  * relationship writes (push/chat toggle, unlink, sign out) — never anything shaped like patient data.
  */
+import { copy, t } from '@/i18n';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { CaregiverToday } from '@/features/caregiving/CaregiverToday';
@@ -43,9 +44,12 @@ describe('F2 — Medicines: every button is a navigation-only open-detail contro
     const { container } = render(element);
     const buttons = [...container.querySelectorAll('button')];
     // حمد has three active prescriptions (rx-001 Warfarin, rx-002 Ibuprofen, rx-003 Metformin) —
-    // exactly one navigation button per card, none for the past/discontinued group, none for the
-    // danger alert (no safetyHref supplied, so InteractionAlert renders no action button here).
-    expect(buttons.length).toBe(3);
+    // exactly one navigation button per card, none for the past/discontinued group — plus the danger
+    // alert's own "open the alert" (audit C6, 2026-09-23: F2 "danger alert shown, opens C2 content
+    // read-only"). Opening is navigation; nothing here writes.
+    expect(buttons.length).toBe(4);
+    const openAlert = buttons.filter((b) => b.textContent === t(copy.day.openAlertAction, 'ar'));
+    expect(openAlert).toHaveLength(1);
     for (const button of buttons) {
       expect(button.textContent).not.toMatch(/إضافة|تجديد|طلب/); // no add/refill/request wording
     }

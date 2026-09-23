@@ -18,3 +18,18 @@ export async function currentPath(): Promise<string> {
   const h = await headers();
   return h.get('x-jurah-path') ?? '/';
 }
+
+/**
+ * true while rendering the POST that ran a Server Action (Next marks it with the `next-action`
+ * header, node_modules/next/dist/client/components/app-router-headers.js). When an action sets or
+ * deletes a cookie, Next re-renders the current route inside that same request
+ * (docs/01-app/01-getting-started/07-mutating-data.md, "Cookies"). F0's decline is the case this
+ * exists for: it ends the pending-only session, and the re-render must still show the
+ * acknowledgement instead of redirecting a person who just said no to the sign-in form (audit C9).
+ * The request itself was admitted by proxy.ts while the session still existed; a crafted
+ * session-less POST never reaches a render.
+ */
+export async function isServerActionRender(): Promise<boolean> {
+  const h = await headers();
+  return h.has('next-action');
+}

@@ -21,7 +21,7 @@ export function SafetySection({ locale }: { locale: Locale }) {
       <h2 className="text-h2 text-navy">{t(copy.landing.safetyHeading, locale)}</h2>
       <div className="flex flex-col gap-4 tablet:flex-row">
         {items.map(([title, body], i) => (
-          <Card key={i} className="flex-1">
+          <Card key={i} className="flex flex-1 flex-col gap-2">
             <span className="text-body-strong">{t(title, locale)}</span>
             <span className="text-body-small text-ink-muted">{t(body, locale)}</span>
           </Card>

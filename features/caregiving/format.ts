@@ -5,53 +5,34 @@
  * here. No date maths beyond what `lib/schedule/dates` and `i18n/format` already expose (read-only
  * imports; this file lives in `features/caregiving`, not `lib/**`).
  */
-import { formatDate, formatNumber, formatTime } from '@/i18n/format';
+import { formatDate, formatStrength as formatStrengthValue, formatTime, formatUnit } from '@/i18n/format';
 import { dateOf } from '@/lib/schedule/dates';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { Caregiver, Prescription } from '@/types/contracts';
 
-// An object lookup, not a switch-case: one of these strength-unit codes reads, quoted, exactly like
-// a Tailwind margin-direction utility to guard 5's pattern scan. An unquoted object key sidesteps it
-// for every one of these identifiers, and is exactly as valid JavaScript.
-const UNIT_KEY = { mg: 'unitMg', mcg: 'unitMcg', g: 'unitG', ml: 'unitMl', IU: 'unitIU' } as const satisfies Record<
-  NonNullable<Prescription['drug']['strengthUnit']>,
-  keyof typeof copy.caregiving
->;
-
-/** `Prescription.drug.strengthUnit`'s word, in the caregiving catalogue (F2/F3 only need it here). */
+/** `Prescription.drug.strengthUnit`'s word — the one shared unit vocabulary (i18n/format.ts, audit
+ * M7), no longer this bundle's own catalogue copy. */
 export function unitLabel(unit: Prescription['drug']['strengthUnit'], locale: Locale): string {
-  return t(copy.caregiving[UNIT_KEY[unit ?? 'mg']], locale);
+  return formatUnit(unit, locale);
 }
 
-/** "500 mg" / "٥٠٠ ملغم" — never a fabricated form word (CLAUDE.md: never invent a seed value; the
- * contract carries no "tablet/capsule" field, so none is shown). `null` when strengthMg is absent
- * (an unread/flagged prescription, CR-002) — the caller renders nothing rather than "undefined". */
+/** "500 mg" / "٥٠٠ ملغم" — a thin wrapper over the one shared strength formatter (i18n/format.ts,
+ * audit M7), kept because the clinic's ReviewerDecision imports it from here. Never converted. `null`
+ * when strengthMg is absent (an unread/flagged prescription, CR-002) — the caller renders nothing
+ * rather than "undefined". */
 export function formatStrength(drug: { strengthMg?: number; strengthUnit?: Prescription['drug']['strengthUnit'] }, locale: Locale): string | null {
   if (drug.strengthMg == null) return null;
-  return `${formatNumber(drug.strengthMg, locale)} ${unitLabel(drug.strengthUnit, locale)}`;
+  return formatStrengthValue(drug.strengthMg, drug.strengthUnit, locale);
 }
 
-/** "8:00 · 2:00 PM" — every scheduled clock time, joined — mirroring `features/prescription/format.ts`'s
- * own `formatDoseTimes` (B3's reference for this field; composed independently here rather than
- * imported, matching B3's own reasoning: a change to the caregiver's read-only view must never
- * silently change the patient's). `null` when `doseTimes` is absent (CR-002 — a flagged/unread
- * prescription), so DetailRow shows its empty mark, never "undefined". */
-export function formatDoseTimes(times: string[] | undefined, locale: Locale): string | null {
-  if (!times || times.length === 0) return null;
-  return times.map((hhmm) => formatTime(hhmm, locale)).join(' · ');
-}
-
+// F3 itself now reads B3's own formatDoseTimes / rxStatusLabel / patternLabel from
+// features/prescription/format (audit M10: one word per field across both shells). This patternLabel
+// stays only for the clinic's ReviewerDecision, which imports it from here.
 export function patternLabel(pattern: Prescription['dosingPattern'], locale: Locale): string {
   if (pattern === 'alternate_day') return t(copy.caregiving.f3RxPatternAlternate, locale);
   if (pattern === 'other') return t(copy.caregiving.f3RxPatternOther, locale);
   return t(copy.caregiving.f3RxPatternDaily, locale);
-}
-
-export function rxStatusLabel(status: Prescription['status'], locale: Locale): string {
-  if (status === 'completed') return t(copy.caregiving.f3RxStatusCompleted, locale);
-  if (status === 'discontinued') return t(copy.caregiving.f3RxStatusDiscontinued, locale);
-  return t(copy.caregiving.f3RxStatusActive, locale);
 }
 
 /** A dose's "day time" cell for DoseTimeline — newest-first is the caller's sort, not this helper's. */

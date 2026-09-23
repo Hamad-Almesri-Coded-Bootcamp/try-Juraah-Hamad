@@ -1,4 +1,7 @@
-/* AlertRow — one interaction finding in a list (ReviewerQueue / FieldQueue / Safety board anatomy). */
+/* AlertRow — one interaction finding in a list (ReviewerQueue / FieldQueue / Safety board anatomy).
+   Audit M15: no coloured inline-start stripe. The brand book says a danger finding is not a stripe
+   and not a side border, and the row already carries severity three ways — the glyph, the severity
+   word, and that word's colour — so the frame is the same hairline all round as every other card. */
 
 .jr-alert-row {
   box-sizing: border-box;
@@ -8,7 +11,6 @@
   inline-size: 100%;
   background: var(--surface-card);
   border: var(--line) solid var(--border);
-  border-inline-start: var(--line-2) solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   box-shadow: var(--shadow-sm);
@@ -26,10 +28,6 @@ a.jr-alert-row:hover,
 button.jr-alert-row:hover {
   border-color: var(--navy-soft);
 }
-.jr-alert-row--danger { border-inline-start-color: var(--danger); }
-.jr-alert-row--warning { border-inline-start-color: var(--warning); }
-.jr-alert-row--info { border-inline-start-color: var(--navy-soft); }
-
 .jr-alert-row__head {
   display: flex;
   align-items: center;

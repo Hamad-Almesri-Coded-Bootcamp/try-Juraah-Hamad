@@ -1,12 +1,16 @@
 /**
  * C2 — interaction alert detail (`/[locale]/app/safety/[alertId]`). The three-part safety shape
- * (UX Principles §8 — what the risk is · what to do right now · who is checking it) for a
- * danger-severity finding while it is `pending_medical_review`: the risk and the "who" sentence are
- * `InteractionAlert`'s own built-in copy (severity description + `reviewStatus` sentence — see
- * `components/ui/README/InteractionAlert.md`), and this component adds only the missing middle part:
- * the what-to-do-now heading. No OK/dismiss/acknowledge control exists anywhere on this screen, at
- * any severity — `InteractionAlert` has no such prop by design, and nothing here adds
- * one; reading this screen calls only `getAlert`/`getPrescription`, both reads (G1).
+ * (UX Principles §8 — what the risk is · what to do right now · who is checking it, IN THAT ORDER)
+ * for a danger-severity finding while it is `pending_medical_review`. The risk is the alert's
+ * title, description and drug lines; its review line — the one slot `InteractionAlert` offers after
+ * the risk — carries the approved what-to-do heading and body as one line (do not stop or change any
+ * medication yourself; a doctor or pharmacist is reviewing this — parts two and three,
+ * features/safety/guidance.ts), the same line B2/F2's card shows. Before audit M11 that heading and body sat in their own section BELOW the
+ * alert, i.e. after the who-is-checking line; they moved into the alert rather than being repeated,
+ * and the built-in "still checking — not a final answer yet" sentence the review line used to carry
+ * follows directly under the alert so it is not lost. No OK/dismiss/acknowledge control exists
+ * anywhere on this screen, at any severity — `InteractionAlert` has no such prop by design, and
+ * nothing here adds one; reading this screen calls only `getAlert`/`getPrescription`, both reads (G1).
  *
  * `reviewed` → the decision, the reviewer's note and who reviewed it. "Who" (CR-028): `reviewedBy`
  * crosses the seam as an `Account.id` (e.g. `acc-10`), never a Civil ID — but no published data
@@ -25,7 +29,8 @@ import { Card } from '@/components/ui/Card';
 import { DetailRow } from '@/components/ui/DetailRow';
 import { PrescriptionCardLink } from '@/features/day/PrescriptionCardLink';
 import { copy, t } from '@/i18n';
-import { formatDate, formatTime } from '@/i18n/format';
+import { formatDate, formatStrength, formatTime } from '@/i18n/format';
+import { pendingDangerGuidance } from './guidance';
 import { TO_BE_SUPPLIED } from '@/lib/config';
 import type { Locale } from '@/i18n/locale';
 import type { InteractionAlert as InteractionAlertRecord, Prescription } from '@/types/contracts';
@@ -35,12 +40,12 @@ const DECISION_COPY = {
   cleared: copy.safety.c2DecisionCleared,
 } as const;
 
-/** "Warfarin 5 mg — مستشفى الفروانية" — the interacting drug, its strength (unit exactly as
- * written, never converted — CLAUDE.md) and its issuing facility, matching the approved wireframe's
- * own `pair` shape (`AlertDanger.dc.html`'s renderVals). */
-function drugLine(rx: Prescription): string {
-  const unit = rx.drug.strengthUnit ?? 'mg';
-  const strength = rx.drug.strengthMg != null ? ` ${rx.drug.strengthMg} ${unit}` : '';
+/** "Warfarin ٥ ملغم — مستشفى الفروانية" — the interacting drug, its strength (unit exactly as
+ * written, never converted — CLAUDE.md; digits and unit word through the one shared formatter, audit
+ * M7) and its issuing facility, matching the approved wireframe's own `pair` shape
+ * (`AlertDanger.dc.html`'s renderVals). */
+function drugLine(rx: Prescription, locale: Locale): string {
+  const strength = rx.drug.strengthMg != null ? ` ${formatStrength(rx.drug.strengthMg, rx.drug.strengthUnit, locale)}` : '';
   return `${rx.drug.genericName}${strength} — ${rx.source.facilityName}`;
 }
 
@@ -59,6 +64,7 @@ export interface AlertDetailProps {
 export function AlertDetail({ alert, prescriptions, locale, prescriptionHrefBuilder, className }: AlertDetailProps) {
   const drugNames = prescriptions.map((rx) => rx.drug.genericName);
   const citationIsUnverified = !alert.sourceCitation || alert.sourceCitation === TO_BE_SUPPLIED;
+  const guidance = pendingDangerGuidance(alert, locale);
 
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
@@ -67,16 +73,16 @@ export function AlertDetail({ alert, prescriptions, locale, prescriptionHrefBuil
         reviewStatus={alert.reviewStatus}
         title={drugNames.join(' × ')}
         description={alert.description}
-        drugs={prescriptions.map(drugLine)}
+        drugs={prescriptions.map((rx) => drugLine(rx, locale))}
+        reviewLabel={guidance}
         lang={locale}
       />
 
-      {alert.severity === 'danger' && alert.reviewStatus === 'pending_medical_review' && (
+      {guidance && (
         <>
-          <section className="flex flex-col gap-2">
-            <h2 className="type-h2">{t(copy.safety.c2WhatToDoHeading, locale)}</h2>
-            <p className="type-body">{t(copy.safety.c2WhatToDoPendingBody, locale)}</p>
-          </section>
+          {/* Part three restated in the built-in words the review line gave up for part two — "not a
+              final answer yet" must still be said (§8: a pending finding never reads as resolved). */}
+          <p className="type-body-small">{t(copy.vocabulary.pending_medical_review, locale)}</p>
           <p className="type-caption">{t(copy.safety.c2NoActionNote, locale)}</p>
         </>
       )}

@@ -45,7 +45,8 @@ export function ClinicRoleChooser({ options, locale }: { options: RoleOption[]; 
         <Card className="flex flex-col gap-3">
           <span className="type-body-strong">{t(copy.clinic.x0ChooserReviewerTitle, locale)}</span>
           <span className="type-body-small">{t(copy.clinic.x0ChooserReviewerBody, locale)}</span>
-          <Button variant="primary" size="lg" fullWidth lang={locale} loading={pending} onClick={() => choose(reviewerOption)}>
+          {/* Two equal options (UX §2; audit M2) — the board's primary is logged in CR-069(b). */}
+          <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={() => choose(reviewerOption)}>
             {t(copy.clinic.x0ChooserReviewerButton, locale)}
           </Button>
         </Card>

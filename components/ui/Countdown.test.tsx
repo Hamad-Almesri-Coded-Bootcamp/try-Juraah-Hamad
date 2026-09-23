@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Countdown } from './Countdown';
+import { copy, t } from '@/i18n';
 
 afterEach(cleanup);
 
@@ -84,5 +85,40 @@ describe('Countdown — behaviour', () => {
     const { rerender } = render(<Countdown seconds={25} state="lapsed" label="Approve" lang="en" />);
     rerender(<Countdown seconds={25} state="running" label="Approve" lang="en" />);
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+  });
+});
+
+describe('Countdown — digits follow the language (audit M7, UX Principles §3/§12)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('lang="ar": the visible number is Arabic-Indic (٢٥, never 25); aria-valuenow stays a plain number', () => {
+    render(<Countdown seconds={25} state="running" label="افتح تطبيق هويّاتي ووافق" lang="ar" />);
+    expect(screen.getByText('٢٥')).toBeInTheDocument();
+    expect(screen.queryByText('25')).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+  });
+
+  it('lang="ar": the polite ten-second announcement carries Arabic-Indic digits too', () => {
+    render(<Countdown seconds={25} state="running" label="افتح تطبيق هويّاتي ووافق" lang="ar" />);
+    act(() => {
+      vi.advanceTimersByTime(5000); // 25 → 20, a ten-second mark
+    });
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('٢٠');
+    expect(status.textContent).not.toMatch(/[0-9]/);
+  });
+
+  it('lang="en": Western digits, unchanged', () => {
+    render(<Countdown seconds={25} state="running" label="Approve" lang="en" />);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(screen.getByText('20')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(`20 ${t(copy.vocabulary.secondsLeft, 'en')}`);
   });
 });

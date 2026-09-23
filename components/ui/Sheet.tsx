@@ -1,7 +1,14 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+
+const noSubscribe = () => () => {};
+/** true once hydrated in a browser, false during the server render — the portal needs `document`. */
+function useIsClient(): boolean {
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
+}
 
 interface SheetSharedProps {
   open: boolean;
@@ -53,8 +60,9 @@ const FOCUSABLE_SELECTOR =
  * whatever opened it on close. Renders nothing while `open` is false and has no submit of its own:
  * dismissing it changes nothing.
  *
- * Positions itself against the nearest positioned ancestor (Sheet.md), so the screen that renders it
- * needs `position: relative`.
+ * Positions itself against the nearest positioned ancestor (Sheet.md) — which it brings itself: a
+ * fixed, full-viewport layer portalled to <body>, so it covers the shell's TabBar and never inherits
+ * the height of the screen that opened it (see the comment at the return).
  *
  * Gap noted in the WP2d report: the brief calls for "240ms motion collapsing under reduced motion", but
  * docs/design-system/bundle.css defines no transition or animation for `.wsf-sheet-root`/`.wsf-sheet`
@@ -66,6 +74,7 @@ export function Sheet({ open, onClose, title, mode = 'auto', footer, closeLabel,
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const isClient = useIsClient();
 
   useEffect(() => {
     if (!open) return;
@@ -114,7 +123,7 @@ export function Sheet({ open, onClose, title, mode = 'auto', footer, closeLabel,
 
   const rootClasses = ['wsf-sheet-root', MODE_CLASS[mode], className].filter(Boolean).join(' ');
 
-  return (
+  const sheet = (
     <div className={rootClasses}>
       {onClose && (
         <button type="button" className="wsf-sheet__scrim" aria-label={closeLabel} tabIndex={-1} onClick={onClose} />
@@ -135,4 +144,16 @@ export function Sheet({ open, onClose, title, mode = 'auto', footer, closeLabel,
       </div>
     </div>
   );
+
+  // The positioned ancestor Sheet.md asks for is this viewport layer, never the screen that opened
+  // the sheet (audit C2, 2026-09-23). A screen's own `relative` wrapper sits inside the shell's
+  // scrolling pane and is as tall as its content, so a sheet pinned to it was as tall as the whole
+  // page: bottom-aligned below the visible area, its actions hidden under the TabBar. A container
+  // query ancestor (`@container`) would trap a plain `fixed` layer the same way, hence the portal.
+  const layer = (
+    <div className="fixed inset-0 z-20" data-testid="sheet-layer">
+      {sheet}
+    </div>
+  );
+  return isClient ? createPortal(layer, document.body) : layer;
 }

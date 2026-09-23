@@ -12,7 +12,8 @@ export interface DoseRowProps {
     tracked?: boolean;
   };
   drug: { genericName: string; brandName?: string; strengthMg?: number; strengthUnit?: string };
-  /** Already-formatted dose amount with its unit, e.g. "حبة واحدة · ٥٠٠ mg". No maths done here. */
+  /** Already-formatted dose amount with its unit, e.g. "حبة واحدة · ٥٠٠ ملغم" — the caller formats it
+   * (features/day/format.ts → i18n/format.ts's one strength formatter, audit M7). No maths done here. */
   amountLabel: React.ReactNode;
   /** Already-formatted dose time. Optional — a row inside ScheduleGroup already sits under a time header. */
   timeLabel?: React.ReactNode;

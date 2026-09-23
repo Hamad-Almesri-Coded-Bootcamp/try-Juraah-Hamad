@@ -226,3 +226,24 @@ describe('Chat section — round trip: not_connected → pending → connected �
     expectNoTokenInDom();
   });
 });
+
+describe('E5 — exactly one primary action (UX Principles §2, audit M19)', () => {
+  const notConnected = { id: 'ml-01', subjectType: 'patient' as const, subjectId: 'pt-01', channel: 'telegram' as const, status: 'not_connected' as const };
+
+  it('push not yet asked + chat not connected: "Enable notifications" is the one primary; "Open Telegram" is secondary', () => {
+    const { container } = render(
+      <NotificationsScreen patientId="pt-01" permission="default" active={false} iosNeedsInstall={false} messaging={notConnected} botHandle="@jurah_bot" locale="en" />,
+    );
+    expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Enable notifications' })).toHaveClass('wsf-btn--primary');
+    expect(screen.getByRole('button', { name: 'Open Telegram' })).toHaveClass('wsf-btn--secondary');
+  });
+
+  it('push already decided (denied) + chat not connected: "Open Telegram" is then the screen’s one primary', () => {
+    const { container } = render(
+      <NotificationsScreen patientId="pt-01" permission="denied" active={false} iosNeedsInstall={false} messaging={notConnected} botHandle="@jurah_bot" locale="en" />,
+    );
+    expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Open Telegram' })).toHaveClass('wsf-btn--primary');
+  });
+});

@@ -84,7 +84,7 @@ export const clinic = {
   },
   g2sNoTrackingSubnote: {
     ar: 'ولا جرعة هنا تتحوّل إلى «فائتة» بسبب عدم الرد.',
-    en: 'No dose here is ever turned into "missed" for going unanswered.',
+    en: 'No dose here is ever turned into “missed” for going unanswered.',
     placeholder: true,
   },
   g2sDecisionHeading: { ar: 'القرار', en: 'Decision', placeholder: true },
@@ -100,13 +100,13 @@ export const clinic = {
   g2sConfirmSheetTitle: { ar: 'تأكيد الخطر', en: 'Confirm the risk', placeholder: true },
   g2sConfirmSheetBody: {
     ar: 'بعد التأكيد ينتقل التنبيه إلى «تمت المراجعة»، ويصل إشعار للمريض ومقدّم رعايته.',
-    en: 'Once confirmed, the alert moves to "reviewed" and the patient and their caregiver are notified.',
+    en: 'Once confirmed, the alert is marked as reviewed and the patient and their caregiver are notified.',
     placeholder: true,
   },
   g2sClearSheetTitle: { ar: 'إخلاء التنبيه', en: 'Clear the alert', placeholder: true },
   g2sClearSheetBody: {
     ar: 'بعد الإخلاء ينتقل التنبيه إلى «تمت المراجعة»، ويصل إشعار للمريض ومقدّم رعايته.',
-    en: 'Once cleared, the alert moves to "reviewed" and the patient and their caregiver are notified.',
+    en: 'Once cleared, the alert is marked as reviewed and the patient and their caregiver are notified.',
     placeholder: true,
   },
   g2sSheetConfirmLabel: { ar: 'تأكيد', en: 'Confirm', placeholder: true },
@@ -182,7 +182,7 @@ export const clinic = {
   x1ProofNoticeTitle: { ar: 'لحظة الإثبات', en: 'The proof moment', placeholder: true },
   x1ProofNoticeBodyTemplate: {
     ar: '{count} نتيجة مفلترة على «تسجيل حالة جرعة» — كلها فاعلها مساعد المتابعة أو النظام، ولا واحدة من الواجهة.',
-    en: '{count} result filtered to "dose status recorded" — every one from the adherence assistant or the system, none from the interface.',
+    en: '{count} result filtered to “dose status recorded” — every one from the adherence assistant or the system, none from the interface.',
     placeholder: true,
   },
   x1ScopeNote: {

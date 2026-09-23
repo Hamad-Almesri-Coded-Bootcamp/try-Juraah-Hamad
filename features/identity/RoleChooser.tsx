@@ -45,7 +45,8 @@ export function RoleChooser({ options, locale }: { options: RoleOption[]; locale
       {patientOption && (
         <Card className="flex flex-col gap-3">
           <span className="type-body-strong">{t(copy.identity.roleChooserOwnTitle, locale)}</span>
-          <Button variant="primary" size="lg" fullWidth lang={locale} loading={pending} onClick={() => choose(patientOption)}>
+          {/* Two equal options (UX §2 names the role chooser; audit M2) — the board's primary is logged in CR-069(b). */}
+          <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={() => choose(patientOption)}>
             {t(copy.identity.roleChooserOwnButton, locale)}
           </Button>
         </Card>
@@ -56,7 +57,13 @@ export function RoleChooser({ options, locale }: { options: RoleOption[]; locale
           <span className="type-body-strong">
             {interpolate(t(copy.identity.roleChooserCaregiverTitleTemplate, locale), { name: caregiverOption.patientFirstName ?? '' })}
           </span>
-          {caregiverOption.relationship && <span className="type-body-small">{caregiverOption.relationship}</span>}
+          {/* The relationship is the patient's own first-person word (the seed stores "my daughter"),
+              so it is quoted as theirs — never shown bare as if it described the reader (audit M4). */}
+          {caregiverOption.relationship && (
+            <span className="type-body-small">
+              {interpolate(t(copy.identity.roleChooserRelationshipTemplate, locale), { relationship: caregiverOption.relationship })}
+            </span>
+          )}
           <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={() => choose(caregiverOption)}>
             {interpolate(t(copy.identity.roleChooserCaregiverButtonTemplate, locale), { name: caregiverOption.patientFirstName ?? '' })}
           </Button>

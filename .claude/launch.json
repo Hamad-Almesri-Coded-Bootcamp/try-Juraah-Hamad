@@ -13,6 +13,34 @@
       "port": 3100
     },
     {
+      "name": "next-dev-mock-3100",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "JURAH_DATA_BACKEND=mock",
+        "JURAH_DATABASE_URL=",
+        "npx",
+        "next",
+        "dev",
+        "-p",
+        "3100"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "next-dev-mock-3300",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "JURAH_DATA_BACKEND=mock",
+        "JURAH_DATABASE_URL=",
+        "npx",
+        "next",
+        "dev",
+        "-p",
+        "3300"
+      ],
+      "port": 3300
+    },
+    {
       "name": "next-start-3200",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

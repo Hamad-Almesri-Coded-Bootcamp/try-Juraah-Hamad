@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, cleanup, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { AlertRow } from './AlertRow';
 
 afterEach(cleanup);
@@ -50,5 +52,23 @@ describe('AlertRow', () => {
     render(<AlertRow severity="danger" drugs={['Warfarin', 'Ibuprofen']} reviewStatus="pending_medical_review" lang="en" />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});
+
+// jsdom loads no CSS, so the stylesheet is read as text (the same approach as tests/unit/bundle-css.test.ts).
+const CSS = readFileSync(path.join(import.meta.dirname, 'styles/AlertRow.css'), 'utf8');
+
+// Audit M15 — the brand book: a danger finding is not a stripe and not a coloured side border.
+describe('AlertRow — no side stripe (audit M15)', () => {
+  it('the row has one hairline border all round, and no inline-start override anywhere', () => {
+    expect(CSS).toMatch(/\.jr-alert-row\s*\{[^}]*border:\s*var\(--line\)\s+solid\s+var\(--border\)/);
+    expect(CSS).not.toMatch(/border-inline-start/);
+    expect(CSS).not.toMatch(/--line-2/);
+  });
+
+  it('severity is still carried by the glyph, the word and the word’s colour — never by the border', () => {
+    expect(CSS).toMatch(/\.jr-alert-row--danger \.jr-alert-row__severity\s*\{\s*color:\s*var\(--danger\)/);
+    render(<AlertRow severity="danger" drugs={['Warfarin', 'Ibuprofen']} reviewStatus="pending_medical_review" lang="en" />);
+    expect(screen.getByText('Serious interaction')).toBeInTheDocument();
   });
 });

@@ -657,3 +657,101 @@ Then redeploy. Scoping the secrets to Production only keeps the `ai-agents` bran
 **What was added.** `pt-05` / `acc-12` هيثم حمد العجمي, Civil ID `294061800352` (masked `هيثم ح*** العجمي`) · `pt-06` / `acc-13` حمد المسري, Civil ID `297112300461` (a two-part name, shown unchanged). Both have the seed's 12-digit shape, clash with none of the twelve, and fail Kuwait's real check digit, so neither can be a real person's ID. Each starts like بدر: `onboardingCompleted: false` (A2 first-run setup), no prescription, no Settings, MessagingLink or PushSubscription row, no caregiver, no audit event. The account stores no role; `patient` is derived from the patients row (seed rule 2).
 **Why outside the seed.** `lib/data/mock/seed.ts` is a one-to-one transcription of `docs/Seed Dataset.md`, counted by `seed:diff` and guard S. So the seed doc, `seed.ts`, `SEED_COUNTS` and `tests/fixtures/seed-expected.json` are unchanged, the seed still has twelve test IDs, eleven accounts and four patients, and the mock store never holds the two. They live in `lib/data/mock/demo-patients.ts`. Two places read that list: the test-list step of `lib/session/resolve.ts` (production re-checks the code's list after the database's `civil_id_test_list`, so a database insert alone still answered `not_in_test_list`), and guard S's Civil-ID leak check, which now covers the two new IDs as well.
 **Where the rows are.** Inserted into the production database on 2026-09-23 by `scripts/db/add-demo-patients.ts --print` through `execute_sql`. It only inserts, with `on conflict do nothing`, as the system actor, and truncates nothing: production already carried live activity (88 audit events, a Settings row for بدر) and still does. Afterwards `signin_claims` returns `inList: true` and the patient id for both. **A re-seed removes them.** `npm run db:seed` and `npm run test:integration` truncate every table, so run the script again after either. **Proof.** `tests/unit/session/demo-patients.test.ts` (10 tests) was red before the `resolve.ts` change (both sign-in cases answered `not_in_test_list`) and green after; `resolve.test.ts`'s twelve-ID table passes unchanged.
+
+### CR-069 · UX audit, 2026-09-23 — what the owner has to decide — `PROPOSED` (raised by the lead from `docs/audits/2026-09-23-hallmark-ux-audit.md`)
+Every item below is a place where a board, a token or the design-system reference disagrees with a binding document, or where fixing it changes a contract. None of them was edited locally. Where the build now follows the binding document instead of a board, that is said, and the board is the owner's to correct. The code fixes that needed no decision are CR-070.
+
+**(a) The 13px floor.** *Documents:* UX Principles §4 says "Body text is 17px and never smaller than 14px anywhere". `tokens.json` sets `type-label` and `type-caption` to 13px, and `label` drives every Button, StatusPill, TabBar label and SectorChip. On the phone renders that covers dose times (`٨:٠٠`), "Turn it on", "Request a refill", "Taken on time", "Serious interaction", "Sign out", and 364 text nodes on X1. Every type token is in `px`, so a browser font-size preference changes nothing. *Proposal:* raise `label` and `caption` to 14px, and state the type scale in `rem`. *Cost:* one token edit and a re-copy of the compiled tokens. TabBar labels at 390 already wrap ("My Medicines"; see (d)). *If we don't:* the binding 14px rule stays broken on every screen.
+
+**(b) Equal choices drawn unequally on three boards. BUILT to the spec.** *Documents:* UX §2 ("a choice between two legitimate paths is drawn as two equal options"), §15, and the brand book ("same size, same width, same prominence"). *Boards:* `InviteConsent.dc.html` (primary + secondary), `Setup.dc.html` (primary + secondary + secondary), `ReviewerDecision.dc.html` (danger + secondary), `RoleChooser.dc.html` (primary + secondary) and `ClinicEntry.dc.html`'s chooser (primary + secondary); UX §2 names the role chooser explicitly. *As built:* F0's Accept/Decline, A2's three reminder offers, G2s's Confirm/Clear, A1b's two records and X0's two roles now share one variant (`secondary`), so all options carry the same weight, and those screens have no primary button: §2's "two equal options" outranks its "one primary" wherever the screen *is* the choice. The e2e "identical computed size" test still holds. *Owner:* correct the three boards, or say which one wins. *Also:* the notes these boards carry as text (`f0EqualNote` "Accepting and declining are the same size and weight…", `equalWeightNote` "'Later'… not a small link") are designer annotations that reached the UI as copy. They are copy-deck items (see (m)).
+
+**(c) Danger area.** *Documents:* the brand book says danger "never exceeds 5–10% of a screen", and the same brand book and InteractionAlert.md mandate a full danger fill for the alert. Measured at 390: 34–38% on B2, C2, F2 and G2s. *Proposal:* a danger band carrying the severity word and title, with the body on `surface-card`. *Cost:* an InteractionAlert variant in the design system. *If we don't:* the two rules keep contradicting each other on every alert screen.
+
+**(d) 200% text.** With every type token doubled at 390 (a text-only proxy for OS scaling): the TabBar labels overlap into an unreadable strip, the AppBar title truncates with an ellipsis ("آد…"), and every shell screen scrolls sideways by 12–29px. At 100% in English, "My Medicines" already wraps to two lines in the tab bar. Both behaviours live in `bundle.css` (`.wsf-appbar__title`, `.wsf-tabs`), which must stay byte-identical. *Proposal:* the AppBar title wraps to two lines, and TabBar labels wrap or scale inside their cell. *Owner:* change the reference bundle, or allow a project override.
+
+**(e) AuditEvent.message is one language.** In English, the activity feed (E2), the caregiver activity feed (F3) and X1 show every message in Arabic ("طلب تعبئة Metformin — يُوجَّه لصيدلية حكومية"). *Proposal:* render the sentence from `type` and its parameters through the copy catalogue, and keep `message` as the logged text. *Cost:* the contract gains typed parameters, and the backend fills them. *If we don't:* half of the English UI on those screens stays Arabic.
+
+**(f) The landing page is a wall of equal cards.** About 20 near-identical bordered cards at one section rhythm (problem, steps, six features, audience, three safety statements). The section order is G11's, and the grids are the boards' (`Landing.dc.html`, `Landing1440.dc.html`). *Proposal:* keep cards only where a card is an action (Audience), and set Features and the safety statements as a typographic list. *Owner:* a board change.
+
+**(g) Today says nothing about a pending danger finding.** Hamad's Today lists Warfarin and Ibuprofen four times with no pointer to the pending Warfarin × Ibuprofen finding, and the Safety tab carries no count. UX §14 names "the schedule" among the places an alert lives. *Proposal:* one line above the day list, linking to C2. It is not a pill and not a dose status. *Cost:* B1 scope. *Owner:* approve or decline.
+
+**(h) Two design-system gaps.** The 26-glyph set has no bell and no person glyph, so "Turn on notifications" uses `download` and Profile uses `home`. The reference also draws a **back** chevron as `chevron + mirror`, which points *forward* in both directions: English "›" on every back control, and inward-pointing day arrows. *As built (CR-070):* `Icon` gains `reverse` and `IconButton` gains `reverseIcon`, an unconditional flip that composes with the RTL mirror. Neither prop is in `index.d.ts`. *Owner:* add a back glyph, or those props, to the reference.
+
+**(i) `(unreadable)` is a literal drug name.** The seed stores rx-006's generic name as the string `(unreadable)`, so B2, B3 and G3s print an English word inside the Arabic layout. CR-002 already lets the name be absent while unread. *Proposal:* absence in the seed, plus a localised "name not readable" in the UI. *Cost:* a seed edit (the owner's) and `seed:diff`.
+
+**(j) The no-account caregiver row reads `[TO BE SUPPLIED]`.** The seed's cg-05 `name` is the owed-value marker, so F1 shows it to the patient as the row title. That is loud and honest, as the rule asks, but it is also the name the patient would have typed. *Owner:* supply a name for seed row 7, or accept the marker in the demo.
+
+**(k) CR-067's reach.** F0's "only exits are its two buttons" and A2's "no chrome during the flow" both now carry the assistant launcher, and the clinic shell offers reviewers the signed-out guest prompts. *As built (CR-070):* the launcher is `secondary` rather than `primary` (UX §2), and every page reserves room so it never rests on the last control. *Owner:* keep it on F0, A2 and the clinic shell, or unmount it there.
+
+**(l) Drug-name order.** `DoseRow`'s Today board (`TodayLTR.dc.html`) draws the generic name first ("Metformin Glucophage"). `PrescriptionCard.md` says "brand name first… the exact pair patients lose". A patient matching the box in hand meets two orders. *Owner:* one order for every surface.
+
+**(m) Copy-deck items (board-sourced wording).** These notes explain the design to the user, not the product: `f0EqualNote`, `equalWeightNote`, `c2NoActionNote` ("no 'Done' button here, on purpose"), B4's "fields the prescriber owns are never typed by hand here", F5's "the controls are not disabled — they are simply absent", X0's "that is filing, not protection", E3 and G3s's "schedule engine", and A1's "what you typed stays". *Proposal:* cut them, or say the user-facing truth. X0's substance is spec-mandated, so reword it rather than drop it.
+
+**(n) Who reviewed.** C2 (reviewed) shows "Reviewed by: A medical reviewer". UX §8 says "a resolved one never hides who resolved it". *Owner:* show the reviewer's name, or confirm that anonymity is intended.
+
+**(o) C3 cannot give the three-part safety answer.** `DrugCheckOutcome` carries `{ drugName, verdict, alertId? }`: no second drug, no review status. So C3's danger result names only the scanned drug and cannot say who is checking (UX §8, "wherever it appears"). It does hand off to C2, which has all three parts. *Proposal:* add `otherDrugName` and `reviewStatus` to the outcome, or let C3 read the alert by `alertId` (outside C3's data list in SCREENS.md). *Owner:* pick one.
+
+**(p) Smaller notes from the fix passes.**
+- "One tablet" / "حبة واحدة" assumes a tablet; the contract has no dosage-form field.
+- `RefillLine` has no strength, so D1 shows none.
+- The calendar feed (`lib/calendar/ics.ts:89`) still prints the Latin unit.
+- Sign-in now reads Arabic-Indic digits and ignores spaces in a Civil ID, so "٢٥٥٠٣١٢٠٠١٨٧" signs in. Say if you'd rather it didn't.
+
+### CR-070 · UX audit, 2026-09-23 — code fixes — `BUILT` (lead plus two area passes, 2026-09-23; not committed)
+Each fix below needed no decision: it makes the build do what a binding document already says. Each has a test that failed on HEAD and passes now; the outputs are in the audit report's *Fix log*. Board deviations and design-system gaps are CR-069.
+
+**Shared (lead).**
+- **Cascade layers (C4).** `app/globals.css` imports `bundle.css` and `tokens.css` into Tailwind's `components` layer, and `base.css` into `base`.
+  - Before: `.wsf-card { display: block }`, unlayered, beat every `flex`/`flex-col`/`gap-*` a screen put on a Card (34 usages in 20 files), so titles ran into their bodies ("…العيادةالمريض", "٢٠٢٦السبب:", "flowLinked").
+  - The bundle stays byte-identical.
+  - Verified with a full re-capture (135 renders plus the 200% pass) diffed against the audit baseline: 105 images identical, every changed one reviewed by eye.
+- **Sheet layer (C2).** `components/ui/Sheet.tsx` portals into a fixed, full-viewport layer on `<body>`.
+  - Before: pinned to the opening screen's `relative` wrapper inside the shell's scrolling pane, a sheet was as tall as the whole page. Its actions sat below the visible area, under the TabBar (D1 "Send the request", F1's Continue).
+  - A `@container` ancestor (G2s) would trap a plain `fixed` layer too, hence the portal. The assistant's own wrapper layer is gone.
+- **Spacing steps the theme never generated (C3, guard T).**
+  - Before: the theme's spacing reset meant `bottom-24`, `h-14`, `w-14`, `max-h-96` and `min-h-48` produced no CSS. Neither did `inset-0`, `top-0` or `m-0`, because the reset also removes the base multiplier.
+  - The effects: the assistant launcher sat below every phone's bottom edge; the Sheet and assistant layers were 0×0 boxes; and the caregiver's whose-data banner (`sticky top-0`) scrolled away (UX §10).
+  - Fix: a `--spacing-0` step and four named token-arithmetic steps.
+  - Guard: new `scripts/guards/token-scale.ts` (guard T) fails on any spacing utility outside the theme's steps. Red on HEAD (9 violations), green now.
+- **Launcher.**
+  - It is `secondary`, never `primary` (UX §2).
+  - `base.css` reserves room at the end of `#main-content`, so the launcher never covers a screen's last control.
+- **Backward chevrons (C5).**
+  - `Icon` gains `reverse`, and `IconButton` gains `reverseIcon`.
+  - The AppBar back control and both "previous day" buttons now use mirror + reverse; "next" uses mirror. Before, English back arrows pointed forward and both Arabic day arrows pointed inward.
+  - The design-system gap is CR-069(h).
+- **F0 decline (C9).** `app/[locale]/invitation/layout.tsx` renders without a session only inside the Server Action request that ended it (`features/shell/request.ts` `isServerActionRender`).
+  - Before, the post-decline re-render hit the layout's gate and sent the person to `/signin`, so the required "declined" acknowledgement never showed. CR-039 had seen the symptom.
+  - A session-less GET still redirects, in proxy.ts and again here.
+- **Units (found while fixing M7).**
+  - `PrescriptionCard` printed its own `' mg'` default instead of the prescription's `strengthUnit`, so سارة's 50 **mcg** levothyroxine (rx-008) read "50 mg" on B2 and C2: a thousandfold error on screen. It now uses the prescription's unit through the shared `formatStrength`, and the clinic's drug lines do too.
+  - `InteractionAlert` emitted `--pending_medical_review` where the bundle styles `--pending`, so the pending glyph never got its warning colour. Now mapped.
+- **Clinic and copy.**
+  - G2s Confirm/Clear, and the A1b/X0 role choosers, are drawn as equal options (CR-069(b)).
+  - The X0 sign-in shares A1's validation (`features/identity/civilId.ts`), and its countdown lost the card-in-card.
+  - Four straight-quoted English strings, and the internal state word `"reviewed"` in G2s's sheet, are fixed.
+  - The pending-invitation notice and the relationship line are gender-neutral ("فاطمة يطلب" and "وصفك" both read as male).
+
+**Caregiving and identity (area pass A).**
+- C7: caregiver Today and Medicines get an AppBar (title, h1, language switch).
+- M10: F3 is titled "الأدوية" (was the patient's "أدويتي"). Caregiver Today tells the caregiver, by name, that tracking is off, with no action, through a new `DoseDayList` `trackingOffNotice` prop; the rows still key off each dose's own `tracked`.
+- M4: F0 and A1b quote the relationship ("صلة القرابة في الطلب: «ابني»") instead of "يقول إنك ابني".
+- M5: F0's two lists carry check / close glyphs, under an unambiguous "never" heading.
+- M2: F0 Accept/Decline and A2's three offers use one variant.
+- M13: MenuRow rows with a trailing control wrap under 834px (F1 no longer overflows).
+- M14: A1 is a real form. Enter submits; an empty or malformed ID gets its own message; input is kept. Both sign-in forms (A1, X0) use a client-function `action`, so React renders its own guard before hydration (`action="javascript:throw…"`): a tap before the page is interactive does nothing, instead of submitting natively, reloading, and dropping the typed ID. The old button-without-a-form also did nothing then; the guard keeps that and adds Enter.
+- m1: A1 has no card-in-card.
+- M7: Countdown and the Profile count use Arabic-Indic digits.
+- C1 (withdrawn): the audit's "full name shown back" was wrong. `Caregiver.name` is "the name the PATIENT knows them by — a claim, not a lookup" (contract), so F1 shows the patient's own input. Unchanged.
+
+**Patient screens (area pass B).**
+- C6: My Medicines' alert, and the caregiver's, always offers "Open the alert" (C2 or the read-only detail). While a reviewer is checking, its review line says what to do now.
+- M11: C2 puts "what to do right now" before "who is checking".
+- M12: B1's no-prescription empty state offers "Add a prescription by photo".
+- M8: prescription detail shows the last 7 days and the next 7 planned days, with "Show all N". Nothing is dropped.
+- M9: "Dose 1" reads "One tablet".
+- M10: F3 uses B3's labels and value formatters.
+- M7: one `formatStrength` and one unit word per unit. Arabic-Indic digits in DepletionMeter. Arabic counted-noun forms ("باقي ٧٠ يومًا").
+- M15: AlertRow loses its side stripe.
+- M19: D1's per-row buttons and E5's Telegram button are secondary.
+- m7: B4 says "Unclear in the photo" once.

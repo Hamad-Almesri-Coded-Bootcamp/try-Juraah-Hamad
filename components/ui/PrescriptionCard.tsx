@@ -4,15 +4,17 @@ import { StatusPill, type DoseStatus } from './StatusPill';
 import { SectorChip, type Sector } from './SectorChip';
 import { Icon } from './Icon';
 import type { Locale } from '@/i18n';
+import { formatStrength, isStrengthUnit, type StrengthUnit } from '@/i18n/format';
 
 /** The subset of Prescription that PrescriptionCard reads, narrowed locally per index.d.ts. */
 export interface PrescriptionSummary {
   id?: string;
-  drug: { genericName: string; brandName?: string; strengthMg?: number };
+  /** `strengthUnit` is the prescription's own unit (the contract's field). When present it always
+   * wins: printing a default unit beside `strengthMg` showed 50 mcg levothyroxine as "50 mg". */
+  drug: { genericName: string; brandName?: string; strengthMg?: number; strengthUnit?: StrengthUnit };
   source: { facilityName: string; sector: Sector };
 }
 
-const DEFAULT_STRENGTH_UNIT = ' mg';
 
 export interface PrescriptionCardProps {
   prescription: PrescriptionSummary;
@@ -22,7 +24,8 @@ export interface PrescriptionCardProps {
   doseTimeLabel?: string;
   /** Present makes the whole card one button into the detail view and adds the mirroring chevron. */
   onOpen?: React.MouseEventHandler;
-  /** Unit appended after strengthMg, exactly as written — never converted. Default ' mg'. */
+  /** Fallback unit for a summary that carries no `drug.strengthUnit` (index.d.ts) — never converted.
+   * The prescription's own unit always wins; with neither, the contract's default (mg). */
   strengthUnit?: string;
   lang?: Locale;
   className?: string;
@@ -37,12 +40,15 @@ export function PrescriptionCard({
   dose,
   doseTimeLabel,
   onOpen,
-  strengthUnit = DEFAULT_STRENGTH_UNIT,
+  strengthUnit,
   lang = 'en',
   className,
 }: PrescriptionCardProps) {
   const { drug, source } = prescription;
-  const strengthText = drug.strengthMg != null ? `${drug.strengthMg}${strengthUnit}` : null;
+  const fallbackUnit = strengthUnit?.trim();
+  const unit = drug.strengthUnit ?? (isStrengthUnit(fallbackUnit) ? fallbackUnit : undefined);
+  // One formatter for every strength on every screen (audit M7): locale digits, one unit word.
+  const strengthText = drug.strengthMg != null ? formatStrength(drug.strengthMg, unit, lang) : null;
   const primaryName = drug.brandName ?? drug.genericName;
   const showGenericLine = Boolean(drug.brandName);
 

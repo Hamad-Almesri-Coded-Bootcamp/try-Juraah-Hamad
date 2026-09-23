@@ -82,15 +82,10 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
 
   function reviewRow(label: string, value: string | number | null | undefined, fieldKey?: string) {
     const isUncertain = !!fieldKey && (uncertain?.has(fieldKey) ?? false);
-    return (
-      <DetailRow
-        label={label}
-        value={value}
-        lang={locale}
-        emptyMark={isUncertain ? t(copy.prescription.unclearMark, locale) : undefined}
-        emptyLabel={isUncertain ? t(copy.prescription.unclearFieldLabel, locale) : undefined}
-      />
-    );
+    // One phrase, seen and heard alike (audit m7): the visible mark and the screen-reader label are
+    // the same "Unclear in the photo", so no reading of the row says "unclear" twice in two wordings.
+    const unclear = isUncertain ? t(copy.prescription.unclearFieldLabel, locale) : undefined;
+    return <DetailRow label={label} value={value} lang={locale} emptyMark={unclear} emptyLabel={unclear} />;
   }
 
   return (

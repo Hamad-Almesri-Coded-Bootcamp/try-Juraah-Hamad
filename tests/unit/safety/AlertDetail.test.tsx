@@ -96,9 +96,38 @@ describe('AlertDetail — pending_medical_review, danger (ia-001)', () => {
       />,
     );
     expect(screen.getByText(pendingDanger.description)).toBeInTheDocument(); // 1. the risk
-    expect(screen.getByText('What to do right now')).toBeInTheDocument(); // 2. what to do
-    expect(screen.getByText(/do not stop or change any medication yourself/i)).toBeInTheDocument();
+    expect(screen.getByText(/do not stop or change any medication yourself/i)).toBeInTheDocument(); // 2. what to do
     expect(screen.getByText(/medical reviewer is still checking this/i)).toBeInTheDocument(); // 3. who
+  });
+
+  it('keeps UX §8’s ORDER — risk, then what to do, then who is checking (audit M11) — with nothing repeated', () => {
+    const { container } = render(
+      <AlertDetail
+        alert={pendingDanger}
+        prescriptions={[rxWarfarin, rxIbuprofen]}
+        locale="en"
+        prescriptionHrefBuilder={(rx) => `/en/app/medicines/${rx.id}`}
+      />,
+    );
+    const risk = screen.getByText(pendingDanger.description);
+    const whatToDo = screen.getByText(/do not stop or change any medication yourself/i);
+    const stillChecking = screen.getByText(/medical reviewer is still checking this/i);
+    const follows = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(risk, whatToDo)).toBe(true);
+    expect(follows(whatToDo, stillChecking)).toBe(true);
+    // "What to do" sits inside the alert itself, right after the risk (its review line), not below it.
+    expect(container.querySelector('.wsf-alert__review')).toContainElement(whatToDo);
+    // The "not final yet" sentence is kept, not lost — and the approved heading leads part two.
+    expect(screen.getByText(/not a final answer yet/i)).toBeInTheDocument();
+    expect(whatToDo.textContent).toMatch(/^What to do right now: Do not stop/);
+  });
+
+  it('Arabic drug lines use Arabic-Indic digits and the Arabic unit word (audit M7)', () => {
+    const { container } = render(
+      <AlertDetail alert={pendingDanger} prescriptions={[rxWarfarin, rxIbuprofen]} locale="ar" prescriptionHrefBuilder={(rx) => `/ar/app/medicines/${rx.id}`} />,
+    );
+    const lines = [...container.querySelectorAll('.wsf-alert__drugs li')].map((li) => li.textContent);
+    expect(lines).toEqual(['Warfarin ٥ ملغم — Farwaniya Hospital', 'Ibuprofen ٤٠٠ ملغم — Elite Medical Clinic']);
   });
 
   it('never reads as final, and offers no OK / dismiss / acknowledge / resolve control of any kind', () => {

@@ -8,6 +8,7 @@ import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { SignOutButton } from '@/features/shell/SignOutButton';
 import { interpolate } from '@/features/shell/interpolate';
 import { copy, t } from '@/i18n';
+import { formatNumber } from '@/i18n/format';
 import { screenTitles } from '@/i18n/copy/shell';
 import { PhoneEditor } from './PhoneEditor';
 import type { Locale } from '@/i18n/locale';
@@ -63,7 +64,7 @@ export async function ProfileScreen({ locale }: { locale: Locale }) {
       />
       <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
         <Card className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-full bg-navy-tint type-body-strong">
+          <span aria-hidden="true" className="flex size-avatar items-center justify-center rounded-full bg-navy-tint type-body-strong">
             {initialsOf(patient.name)}
           </span>
           <span className="flex flex-col">
@@ -91,7 +92,7 @@ export async function ProfileScreen({ locale }: { locale: Locale }) {
           />
           <MenuRow
             label={t(copy.identity.caregiverCountLabel, locale)}
-            value={interpolate(t(copy.identity.caregiverCountTemplate, locale), { count: String(activeCaregivers) })}
+            value={interpolate(t(copy.identity.caregiverCountTemplate, locale), { count: formatNumber(activeCaregivers, locale) })}
             href={`/${locale}/app/more/caregivers`}
           />
         </div>

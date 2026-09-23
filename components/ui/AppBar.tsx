@@ -62,11 +62,11 @@ export function AppBar({ title, onBack, backHref, backLabel, action, className }
       aria-label={backLabel}
       onClick={onBack}
     >
-      <Icon name="chevron" mirror />
+      <Icon name="chevron" mirror reverse />
     </button>
   ) : backHref ? (
     <a href={backHref} className="wsf-btn wsf-btn--quiet wsf-iconbtn wsf-focus" aria-label={backLabel}>
-      <Icon name="chevron" mirror />
+      <Icon name="chevron" mirror reverse />
     </a>
   ) : null;
 

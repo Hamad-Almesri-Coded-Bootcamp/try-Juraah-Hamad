@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type * as React from 'react';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
+import { formatDaysLeft, formatNumber } from '@/i18n/format';
 
 const DEFAULT_LOW_AT_DAYS = 7;
 
@@ -25,6 +26,10 @@ export interface DepletionMeterProps {
  * Remaining quantity and days to depletion for one prescription, written out as numbers and drawn
  * as a bar behind them (docs/design-system/components/DepletionMeter.md). Does no arithmetic: every
  * value is passed in already computed by the schedule layer.
+ *
+ * `lang` also sets the digits (audit M7): the visible count and the days caption are formatted for
+ * the language (٧٠ / ٩٠, "باقي ٧٠ يومًا من الكمية"), and the caption takes the grammatical noun form
+ * for its number. `aria-valuenow`/`aria-valuemax` stay plain numbers — they are data, not text.
  */
 export function DepletionMeter({
   label,
@@ -51,7 +56,7 @@ export function DepletionMeter({
           </span>
         ) : null}
         <span id={countId} className="wsf-dep__count type-body-strong">
-          {remaining} / {total}
+          {formatNumber(remaining, lang)} / {formatNumber(total, lang)}
           {unit ? <> {unit}</> : null}
         </span>
       </div>
@@ -68,7 +73,7 @@ export function DepletionMeter({
       {daysRemaining != null ? (
         <span className="wsf-dep__note type-body-small">
           {low ? <Icon name="warning" small /> : null}
-          {daysRemaining} {t(copy.vocabulary.daysLeft, lang)}
+          {formatDaysLeft(daysRemaining, lang)}
           {low ? <> · {t(copy.vocabulary.lowSupply, lang)}</> : null}
         </span>
       ) : null}

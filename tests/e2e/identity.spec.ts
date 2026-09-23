@@ -88,9 +88,19 @@ test.describe('A0 — session gate', () => {
 // A1 — sign-in / identity verification
 // ---------------------------------------------------------------------------------------------
 test.describe('A1 — sign-in', () => {
-  test('empty: continue is disabled until something is typed', async ({ page }) => {
+  // Audit M14 (2026-09-23): Continue is never disabled-until-valid. Empty and malformed input each
+  // get their own message in the field on submit — by button or by Enter — and nothing is cleared.
+  test('empty: continue stays enabled and says what to do, on click or Enter', async ({ page }) => {
     await page.goto('/ar/signin');
-    await expect(page.getByRole('button', { name: 'متابعة' })).toBeDisabled();
+    const continueButton = page.getByRole('button', { name: 'متابعة' });
+    await expect(continueButton).toBeEnabled();
+    await continueButton.click();
+    await expect(page.getByText('اكتب رقمك المدني')).toBeVisible();
+    await page.getByLabel('الرقم المدني').fill('123');
+    await page.getByLabel('الرقم المدني').press('Enter');
+    await expect(page.getByText('الرقم المدني ١٢ رقم')).toBeVisible();
+    await expect(page.getByLabel('الرقم المدني')).toHaveValue('123');
+    await expect(page).toHaveURL(/\/ar\/signin$/);
   });
 
   test('invalid ID: a specific error, the input kept', async ({ page }) => {

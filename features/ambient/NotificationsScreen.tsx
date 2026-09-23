@@ -238,7 +238,10 @@ export function NotificationsScreen({
           <div className="flex flex-col gap-3" data-testid="chat-not-connected">
             <InlineNotice tone="info" title={t(copy.ambient.e5ChatNotConnectedBody, locale)} />
             <p className="type-body-small">{t(copy.ambient.e5ChatStepsBody, locale)}</p>
-            <Button variant="primary" size="lg" fullWidth lang={locale} icon="link" loading={pending} onClick={handleConnectChat}>
+            {/* One primary per screen (UX §2, audit M19): while the browser section still offers its
+                own primary "Enable notifications", the chat's action steps down to secondary; once
+                that choice is made (granted/denied/unsupported), this is the screen's one primary. */}
+            <Button variant={showDefault ? 'secondary' : 'primary'} size="lg" fullWidth lang={locale} icon="link" loading={pending} onClick={handleConnectChat}>
               {t(copy.ambient.e5OpenChatAction, locale)}
             </Button>
           </div>

@@ -29,6 +29,8 @@ export const safety = {
   // C2 — "what to do right now", the danger-severity three-part shape's second part (UX Principles
   // §8), shown only while pending_medical_review holds. Real approved wording, from the reviewed
   // wireframe `AlertDanger.dc.html:50` — not invented here.
+  // Since audit M11 heading + body form the alert's own review line, "heading: body"
+  // (features/safety/guidance.ts), so what-to-do comes before who-is-checking — on C2 and on B2/F2's card.
   c2WhatToDoHeading: { ar: 'شنو تسوي الآن', en: 'What to do right now', placeholder: true },
   c2WhatToDoPendingBody: {
     ar: 'لا توقف ولا تغيّر أي دواء من نفسك. فيه طبيب أو صيدلي يراجع الحالة، وتوصلك النتيجة هنا.',

@@ -32,9 +32,9 @@ const GUEST_KEYS = ['guestSuggestWhat', 'guestSuggestSignIn', 'guestSuggestTeleg
 describe('AssistantLauncher', () => {
   it('a patient: opens on its own fixed layer with the patient intro, four suggestions and the safety line', async () => {
     render(<AssistantLauncher locale="ar" />);
-    expect(screen.queryByTestId('assistant-layer')).toBeNull();
+    expect(screen.queryByTestId('sheet-layer')).toBeNull();
     await open();
-    expect(screen.getByTestId('assistant-layer').className).toMatch(/fixed inset-0/);
+    expect(screen.getByTestId('sheet-layer').className).toMatch(/fixed inset-0/);
     expect(screen.getByText(t(copy.assistant.intro, 'ar'))).toBeTruthy();
     for (const key of PATIENT_KEYS) expect(screen.getByRole('button', { name: t(copy.assistant[key], 'ar') })).toBeTruthy();
     expect(screen.getByText(t(copy.assistant.safetyLine, 'ar'))).toBeTruthy();
@@ -114,7 +114,7 @@ describe('AssistantLauncher', () => {
     fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestSafety, 'ar') }));
     await waitFor(() => expect(screen.getByText(t(copy.assistant.movedSafety, 'ar'))).toBeTruthy());
     expect(nav.push).toHaveBeenCalledWith('/ar/app/safety');
-    expect(screen.getByTestId('assistant-layer')).toBeTruthy(); // the conversation stays open
+    expect(screen.getByTestId('sheet-layer')).toBeTruthy(); // the conversation stays open
     fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.confirmYes, 'ar') }));
     expect(screen.getByText(t(copy.assistant.confirmThanks, 'ar'))).toBeTruthy();
     expect(screen.queryByTestId('assistant-confirm')).toBeNull();

@@ -112,3 +112,33 @@ describe('D1 — a supply write is never a dose-status write (G1)', () => {
     expect(['upcoming', 'taken_on_time', 'taken_late', 'missed']).not.toContain(request.status);
   });
 });
+
+describe('D1 — no primary per row (UX Principles §2, audit M19)', () => {
+  it('each prescription’s "Request a refill" is secondary; the list has no primary until the confirm sheet opens', async () => {
+    setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+    const overview = await getRefillOverview('pt-01');
+    const requests = await getRefillRequests('pt-01');
+    render(<RefillList overview={overview} requests={requests} patientId="pt-01" locale="en" />);
+
+    const rowButtons = screen.getAllByRole('button', { name: 'Request a refill' });
+    for (const b of rowButtons) expect(b).toHaveClass('wsf-btn--secondary');
+    expect(document.body.querySelectorAll('.wsf-btn--primary')).toHaveLength(0);
+
+    fireEvent.click(rowButtons[0]!);
+    // The Sheet portals into document.body — its "Send the request" stays the one primary.
+    const send = await screen.findByRole('button', { name: 'Send the request' });
+    expect(send).toHaveClass('wsf-btn--primary');
+    expect(document.body.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
+  });
+
+  it('lang="ar": the meter reads Arabic-Indic digits and a grammatical days caption (audit M7)', async () => {
+    setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+    const overview = await getRefillOverview('pt-01');
+    const requests = await getRefillRequests('pt-01');
+    const { container } = render(<RefillList overview={overview} requests={requests} patientId="pt-01" locale="ar" />);
+    const notes = [...container.querySelectorAll('.wsf-dep__note')].map((n) => n.textContent ?? '');
+    expect(notes.length).toBeGreaterThan(0);
+    for (const note of notes) expect(note).not.toMatch(/[0-9]/);
+    expect(notes).toContain('باقي ٧٠ يومًا من الكمية'); // rx-001 Warfarin on REFERENCE_NOW
+  });
+});

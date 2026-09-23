@@ -36,5 +36,28 @@ button.jr-menu-row:hover {
 .jr-menu-row__label { color: var(--navy); }
 .jr-menu-row__desc { color: var(--ink-muted); }
 .jr-menu-row__value { color: var(--ink-muted); flex: none; }
-.jr-menu-row__trailing { flex: none; display: flex; align-items: center; }
 .jr-menu-row__go { color: var(--navy); flex: none; }
+
+/* A row holding a trailing control — a button, a toggle (audit M13, 2026-09-23). At 390px the
+   label was crushed to one word per line, the value overlapped it and a long button ran off the
+   viewport, because value and control were both `flex: none` beside a label allowed to shrink to
+   nothing. Such a row now WRAPS: the label keeps a floor of half the row, a long value drops beneath
+   it, and at phone width the control takes its own line at the row's inline end. From tablet up the
+   control sits inline again. Destination and value rows (More, profile) are untouched. */
+.jr-menu-row--trailing {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+.jr-menu-row--trailing .jr-menu-row__text { flex: 1 1 50%; }
+.jr-menu-row--trailing .jr-menu-row__value { flex: 0 1 auto; min-inline-size: 0; }
+.jr-menu-row__trailing {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+@media (min-width: 834px) {
+  .jr-menu-row__trailing { flex: none; }
+}

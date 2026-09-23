@@ -107,7 +107,7 @@ export function FlaggedPrescriptionDetail({ prescription, locale, backHref }: { 
     <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
       <section className="flex flex-col gap-2" aria-label={t(copy.clinic.g3sSourceImageHeading, locale)}>
         <h2 className="type-h2">{t(copy.clinic.g3sSourceImageHeading, locale)}</h2>
-        <div role="img" aria-label={t(copy.clinic.g3sSourceImageAlt, locale)} className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-md border border-border">
+        <div role="img" aria-label={t(copy.clinic.g3sSourceImageAlt, locale)} className="flex min-h-figure flex-col items-center justify-center gap-2 rounded-md border border-border">
           <Icon name="capsule" />
         </div>
       </section>

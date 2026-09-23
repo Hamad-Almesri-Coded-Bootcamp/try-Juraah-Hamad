@@ -58,6 +58,22 @@ describe('A2 step 2 — notification offer (three equal options)', () => {
     expect(screen.getByRole('button', { name: t(copy.identity.laterOfferButton, 'en') })).toBeInTheDocument();
   });
 
+  it('the three offers are three EQUAL buttons — same variant, same size, same width, none primary (UX §2/§13, audit M2)', () => {
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    const offers = [copy.identity.browserOfferButton, copy.identity.telegramOfferButton, copy.identity.laterOfferButton].map((entry) =>
+      screen.getByRole('button', { name: t(entry, 'en') }),
+    );
+    const classSets = offers.map((button) => [...new Set(button.className.split(/\s+/))].sort());
+    for (const classes of classSets) {
+      expect(classes).toContain('wsf-btn--secondary');
+      expect(classes).toContain('wsf-btn--lg');
+      expect(classes).toContain('wsf-btn--block');
+      expect(classes).not.toContain('wsf-btn--primary');
+    }
+    expect(classSets[1]).toEqual(classSets[0]);
+    expect(classSets[2]).toEqual(classSets[0]);
+  });
+
   it('"later" advances without calling any notification function', async () => {
     render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.laterOfferButton, 'en') }));

@@ -80,7 +80,8 @@ describe('CaregiverPrescriptionDetail — doseTimes renders as a field (parity w
     const element = await CaregiverPrescriptionDetail({ prescriptionId: 'rx-002', locale: 'ar' });
     const { container } = render(element);
     // 'ar' locale renders Arabic-Indic digits (i18n/format.ts) — rx-002's three doseTimes joined.
-    expect(container.textContent).toContain('مواعيد الجرعات٨:٠٠ · ١٤:٠٠ · ٢٠:٠٠');
+    // Same label as B3 now (audit M10: F3 is B3 minus actions).
+    expect(container.textContent).toContain('أوقات الجرعة٨:٠٠ · ١٤:٠٠ · ٢٠:٠٠');
     expect(container.querySelectorAll('button').length).toBe(0);
   });
 
@@ -105,7 +106,7 @@ describe('CaregiverPrescriptionDetail — doseTimes renders as a field (parity w
 
     const element = await CaregiverPrescriptionDetail({ prescriptionId: 'rx-006', locale: 'ar' });
     const { container } = render(element);
-    expect(container.textContent).toContain('مواعيد الجرعات');
+    expect(container.textContent).toContain('أوقات الجرعة');
     expect(container.textContent).not.toContain('undefined');
   });
 });

@@ -5,7 +5,7 @@
  * strings and group already-fetched data.
  */
 import { copy, t } from '@/i18n';
-import { formatNumber, formatTime } from '@/i18n/format';
+import { formatCount, formatStrength, formatTime, type PluralCopy } from '@/i18n/format';
 import { interpolate } from '@/features/shell/interpolate';
 import type { Locale } from '@/i18n/locale';
 import type { DoseWithPrescription } from '@/types/views';
@@ -16,19 +16,32 @@ export function timeOfIso(scheduledAtIso: string): string {
   return scheduledAtIso.slice(11, 16);
 }
 
-/** One dose's already-formatted amount line — "One tablet · 500 mg" / "حبة واحدة · ٥٠٠ mg" — the
- * shape DoseRow.md asks for ("this component does no maths"). `strengthUnit` is appended exactly as
- * given, never converted (rx-008 is 50 mcg, never 0.05 — CLAUDE.md rule on unit conversion). */
+const DOSE_COUNT: PluralCopy = {
+  one: copy.day.doseAmountOne,
+  two: copy.day.doseAmountTwo,
+  few: copy.day.doseAmountFewTemplate,
+  many: copy.day.doseAmountManyTemplate,
+  other: copy.day.doseAmountManyTemplate,
+};
+
+/** `dosePerAdministration` as a person says it — "One tablet" / "حبة واحدة" — never a bare number
+ * (UX Principles §3). Also B3/F3's "Dose" row value (audit M9). */
+export function formatDoseCount(count: number, locale: Locale): string {
+  return formatCount(count, locale, DOSE_COUNT);
+}
+
+/** One dose's already-formatted amount line — "One tablet · 500 mg" / "حبة واحدة · ٥٠٠ ملغم" — the
+ * shape DoseRow.md asks for ("this component does no maths"). The strength goes through the one
+ * shared formatter (audit M7), in the unit `strengthUnit` names, never converted (rx-008 is 50 mcg,
+ * never 0.05 — CLAUDE.md rule on unit conversion). */
 export function formatDoseAmount(
   dose: Pick<DoseWithPrescription, 'dosePerAdministration' | 'drug'>,
   locale: Locale,
 ): string {
-  const count = dose.dosePerAdministration;
-  const amount = count === 1 ? t(copy.day.doseAmountOne, locale) : interpolate(t(copy.day.doseAmountManyTemplate, locale), { count: formatNumber(count, locale) });
+  const amount = formatDoseCount(dose.dosePerAdministration, locale);
   const { strengthMg, strengthUnit } = dose.drug;
   if (strengthMg == null) return amount;
-  const unit = strengthUnit ? ` ${strengthUnit}` : ' mg';
-  return `${amount} · ${formatNumber(strengthMg, locale)}${unit}`;
+  return `${amount} · ${formatStrength(strengthMg, strengthUnit, locale)}`;
 }
 
 /** One dose's already-formatted clock time — "٨:٠٠ ص" / "8:00 AM" is out of scope (no AM/PM word in

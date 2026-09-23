@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { copy, t } from '@/i18n';
-import { formatDate } from '@/i18n/format';
+import { formatDate, formatStrength } from '@/i18n/format';
 import { interpolate } from '@/features/shell/interpolate';
+import { pendingDangerGuidance } from '@/features/safety/guidance';
 import type { Locale } from '@/i18n/locale';
 import type { DoseStatus } from '@/components/ui/StatusPill';
 import type { InteractionAlert as InteractionAlertRecord, Prescription } from '@/types/contracts';
@@ -35,12 +36,18 @@ export interface MedicinesListProps {
   /** Builds the href for a card's only affordance (opens the prescription detail). `null` renders
    * every card with no link — the caregiver-with-no-detail-route case in the cross-bundle contract. */
   hrefBuilder: ((prescription: Prescription) => string) | null;
+  /** Builds the href the lead alert's "Open the alert" action pushes to — C2 (`/app/safety/[id]`) for
+   * the patient, the read-only `/care/alerts/[id]` for a caregiver (F2: "danger alert shown, opens C2
+   * content read-only"). The alert is the most prominent element on the screen, so it always opens
+   * something (audit C6). `null` renders no open action — only for a consumer with no alert route. */
+  alertHrefBuilder: ((alert: InteractionAlertRecord) => string) | null;
   /** true = the caregiver's read-only view: the empty state offers no add/scan action (a caregiver
    * cannot add the patient's prescriptions) and nothing here exposes a write control. Default false. */
   readOnly?: boolean;
   /** Where the empty state's "add a prescription" action points. Ignored when `readOnly`. */
   addHref?: string;
-  /** Where "see all safety alerts" points, shown only when more than one alert exists. */
+  /** Where "see all safety alerts" points — a second, quiet action beside "Open the alert", shown
+   * only when more than one alert exists. */
   safetyHref?: string;
   className?: string;
 }
@@ -51,11 +58,11 @@ const ALERT_TITLE = {
   info: copy.day.alertTitleInfo,
 } as const;
 
+/** "Warfarin ٥ ملغم — مستشفى الفروانية" — the drug name stays Latin (a name, not a unit); the strength
+ * goes through the one shared formatter, digits and unit word following the locale (audit M7). */
 function drugLine(rx: Prescription | undefined, locale: Locale): string | null {
   if (!rx) return null;
-  void locale; // numerals here mirror board practice (Western digits in the citation-style line); no formatting done
-  const unit = rx.drug.strengthUnit ?? 'mg';
-  const strength = rx.drug.strengthMg != null ? ` ${rx.drug.strengthMg} ${unit}` : '';
+  const strength = rx.drug.strengthMg != null ? ` ${formatStrength(rx.drug.strengthMg, rx.drug.strengthUnit, locale)}` : '';
   return `${rx.drug.genericName}${strength} — ${rx.source.facilityName}`;
 }
 
@@ -77,6 +84,7 @@ export function MedicinesList({
   tracked,
   locale,
   hrefBuilder,
+  alertHrefBuilder,
   readOnly = false,
   addHref,
   safetyHref,
@@ -86,6 +94,8 @@ export function MedicinesList({
   const past = prescriptions.filter((p) => p.status !== 'active');
   const leadAlert = alerts[0];
   const rxById = new Map(prescriptions.map((p) => [p.id, p]));
+  const leadAlertHref = leadAlert && alertHrefBuilder ? alertHrefBuilder(leadAlert) : undefined;
+  const seeAllHref = alerts.length > 1 ? safetyHref : undefined;
 
   return (
     <div className={['@container flex flex-col gap-4', className].filter(Boolean).join(' ')}>
@@ -96,12 +106,25 @@ export function MedicinesList({
           title={t(ALERT_TITLE[leadAlert.severity], locale)}
           description={leadAlert.description}
           drugs={leadAlert.involvedPrescriptionIds.map((id) => drugLine(rxById.get(id), locale)).filter((v): v is string => v != null)}
+          // §8 part two (what to do now) before part three (who is checking) — pending danger only.
+          reviewLabel={pendingDangerGuidance(leadAlert, locale)}
           lang={locale}
           actions={
-            alerts.length > 1 && safetyHref ? (
-              <NavigateButton href={safetyHref} variant="secondary" lang={locale}>
-                {t(copy.day.seeAllAlerts, locale)}
-              </NavigateButton>
+            leadAlertHref || seeAllHref ? (
+              <>
+                {/* Secondary and quiet only: inside a danger alert both restyle to on-fill
+                    (InteractionAlert.md) — navy primary on red is not a checked pair. */}
+                {leadAlertHref && (
+                  <NavigateButton href={leadAlertHref} variant="secondary" lang={locale}>
+                    {t(copy.day.openAlertAction, locale)}
+                  </NavigateButton>
+                )}
+                {seeAllHref && (
+                  <NavigateButton href={seeAllHref} variant="quiet" lang={locale}>
+                    {t(copy.day.seeAllAlerts, locale)}
+                  </NavigateButton>
+                )}
+              </>
             ) : undefined
           }
         />

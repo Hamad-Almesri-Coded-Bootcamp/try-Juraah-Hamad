@@ -21,7 +21,9 @@ beforeEach(() => {
 });
 
 async function driveToCreated(civilId: string, name: string, relationship: string): Promise<string> {
-  const { container } = render(<InviteSheet patientId="pt-01" locale="ar" onDone={() => {}} />);
+  // Sheet portals into document.body (it covers the shell's TabBar), so the rendered panel lives
+  // outside RTL's `container` — read it from `baseElement` (document.body) instead.
+  const { baseElement } = render(<InviteSheet patientId="pt-01" locale="ar" onDone={() => {}} />);
 
   fireEvent.change(screen.getByLabelText('الرقم المدني'), { target: { value: civilId } });
   fireEvent.change(screen.getByLabelText('الاسم اللي تعرفه فيه'), { target: { value: name } });
@@ -40,7 +42,7 @@ async function driveToCreated(civilId: string, name: string, relationship: strin
 
   await waitFor(() => expect(screen.getByTestId('invite-created-panel')).toBeInTheDocument());
 
-  return container.querySelector('[data-testid="invite-created-panel"]')!.innerHTML;
+  return baseElement.querySelector('[data-testid="invite-created-panel"]')!.innerHTML;
 }
 
 describe('InviteSheet — the created outcome is identical whichever path led to it', () => {

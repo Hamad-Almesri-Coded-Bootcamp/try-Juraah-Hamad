@@ -98,7 +98,9 @@ export function RefillList({ overview, requests, patientId, locale, highlightPre
                       {alreadyRequestedBody(pendingRequest.routedTo, locale)}
                     </InlineNotice>
                   ) : (
-                    <Button variant="primary" fullWidth lang={locale} onClick={() => setConfirmTarget(line)}>
+                    // Secondary, not primary (UX §2, audit M19): one per active prescription would put
+                    // three primaries on the screen. The confirm Sheet's "Send the request" is the one.
+                    <Button variant="secondary" fullWidth lang={locale} onClick={() => setConfirmTarget(line)}>
                       {t(copy.supply.d1RequestButtonLabel, locale)}
                     </Button>
                   )}

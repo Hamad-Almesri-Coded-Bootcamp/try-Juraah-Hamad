@@ -5,15 +5,15 @@
  * — a secondary Button into D1 (refill, bundle f's screen, wave 3) carrying this rx in `?rx=`
  * (DEPENDENCIES: a placeholder page already exists there; this bundle only links to it).
  *
- * Composed independently of `features/caregiving/CaregiverPrescriptionDetail` (F3, read at
- * DEPENDENCIES §1 for parity — see docs/backend-notes/wp4d.md §7 for the drift found) rather than
- * imported, so a change to the caregiver's read-only view can never silently change the patient's.
+ * `features/caregiving/CaregiverPrescriptionDetail` (F3) is this screen minus its action (UX §10):
+ * since audit M10 it reads the SAME field labels (`copy.prescription.*`), the same value formatters
+ * (this bundle's `./format`) and the same windowed `DoseHistorySection`, so the two cannot drift
+ * into two words for one field again. Numbers are formatted for the locale (audit M7).
  * Nothing here can create or change a `Dose.status` (G1): every row is `DetailRow`/`DoseTimeline`,
- * never a control, and the only Button on this screen navigates, it does not write.
+ * never a control; the only Buttons navigate (refill) or disclose more history rows — none writes.
  */
 import { DetailRow } from '@/components/ui/DetailRow';
 import { SectorChip } from '@/components/ui/SectorChip';
-import { DoseTimeline } from '@/components/ui/DoseTimeline';
 import { DepletionMeter } from '@/components/ui/DepletionMeter';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Card } from '@/components/ui/Card';
@@ -21,8 +21,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { getDoseHistory, getPrescription, getSettings } from '@/lib/data';
 import { computeDepletion } from '@/lib/schedule/depletion';
-import { formatDate } from '@/i18n/format';
-import { formatDoseTimes, formatDurationDays, formatStrength, patternLabel, rxStatusLabel, timelineWhen } from './format';
+import { kuwaitNow } from '@/lib/config';
+import { formatDate, formatNumber } from '@/i18n/format';
+import { formatDoseCount } from '@/features/day/format';
+import { formatDoseTimes, formatDurationDays, formatStrength, patternLabel, rxStatusLabel } from './format';
+import { DoseHistorySection } from './DoseHistorySection';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 
@@ -60,6 +63,7 @@ export async function PrescriptionDetail({
   // all-null without a dispensing record; the `rx.dispensing ? ... : null` guard is belt-and-braces).
   const depletion = rx.dispensing ? computeDepletion(rx) : null;
   const strength = formatStrength(rx.drug, locale);
+  const num = (n: number | undefined) => (n == null ? null : formatNumber(n, locale));
 
   return (
     <div className="flex flex-col gap-4 p-3 tablet:p-5">
@@ -84,8 +88,10 @@ export async function PrescriptionDetail({
         <DetailRow label={t(copy.prescription.rxGenericLabel, locale)} value={rx.drug.genericName} lang={locale} />
         <DetailRow label={t(copy.prescription.rxBrandLabel, locale)} value={rx.drug.brandName} lang={locale} />
         <DetailRow label={t(copy.prescription.rxStrengthLabel, locale)} value={strength} lang={locale} />
-        <DetailRow label={t(copy.prescription.rxDoseLabel, locale)} value={rx.dosePerAdministration} lang={locale} />
-        <DetailRow label={t(copy.prescription.rxFrequencyLabel, locale)} value={rx.frequencyPerDay} lang={locale} />
+        {/* The amount as a person says it (One tablet), never a bare 1 (audit M9, UX §3) — phrased
+            by the same function B1's DoseRow amount line uses. */}
+        <DetailRow label={t(copy.prescription.rxDoseLabel, locale)} value={formatDoseCount(rx.dosePerAdministration, locale)} lang={locale} />
+        <DetailRow label={t(copy.prescription.rxFrequencyLabel, locale)} value={num(rx.frequencyPerDay)} lang={locale} />
         <DetailRow label={t(copy.prescription.rxPatternLabel, locale)} value={patternLabel(rx.dosingPattern, locale)} lang={locale} />
         <DetailRow label={t(copy.prescription.rxDoseTimesLabel, locale)} value={formatDoseTimes(rx.doseTimes, locale)} lang={locale} />
         <DetailRow label={t(copy.prescription.rxStartDateLabel, locale)} value={rx.startDate ? formatDate(rx.startDate, locale) : null} lang={locale} />
@@ -110,12 +116,12 @@ export async function PrescriptionDetail({
       </Card>
 
       <div className="flex flex-col gap-2">
-        <span className="type-h2">{t(copy.prescription.rxDispensingTitle, locale)}</span>
+        <h2 className="type-h2">{t(copy.prescription.rxDispensingTitle, locale)}</h2>
         {/* The block itself never disappears, dispensed or not (DetailRow.md: "don't hide the block
             it sits in") — only the DepletionMeter below is conditional on a real dispensing record. */}
         <Card className="flex flex-col gap-2">
-          <DetailRow label={t(copy.prescription.rxUnitsPerPackageLabel, locale)} value={rx.dispensing?.unitsPerPackage} lang={locale} />
-          <DetailRow label={t(copy.prescription.rxTotalDispensedLabel, locale)} value={rx.dispensing?.totalQuantityDispensed} lang={locale} />
+          <DetailRow label={t(copy.prescription.rxUnitsPerPackageLabel, locale)} value={num(rx.dispensing?.unitsPerPackage)} lang={locale} />
+          <DetailRow label={t(copy.prescription.rxTotalDispensedLabel, locale)} value={num(rx.dispensing?.totalQuantityDispensed)} lang={locale} />
           <DetailRow
             label={t(copy.prescription.rxDispenseDateLabel, locale)}
             value={rx.dispensing ? formatDate(rx.dispensing.dispenseDate, locale) : null}
@@ -128,21 +134,18 @@ export async function PrescriptionDetail({
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <span className="type-h2">{t(copy.prescription.doseHistoryTitle, locale)}</span>
-        {/* Tracking-off note keys off Settings.adherenceCheckInEnabled, never off any dose's status
-            word (rule 3) — and each DoseTimeline row's own pill visibility keys off that dose's own
-            `tracked`, not this note, so the two can never silently disagree. */}
-        {!settings.adherenceCheckInEnabled && <InlineNotice tone="info">{t(copy.prescription.doseHistoryTrackingOffNote, locale)}</InlineNotice>}
-        {history.length === 0 ? (
-          <p className="type-body-small">{t(copy.prescription.doseHistoryEmpty, locale)}</p>
-        ) : (
-          <DoseTimeline
-            items={[...history].reverse().map((d) => ({ ...timelineWhen(d.scheduledAt, locale), status: d.status, tracked: d.tracked }))}
-            lang={locale}
-          />
-        )}
-      </div>
+      {/* Windowed to 7 days either side of now, the plan under its own heading, the rest behind a
+          "show all" disclosure (audit M8). Tracking-off note keys off Settings.adherenceCheckInEnabled,
+          never off any dose's status word (rule 3) — and each row's own pill visibility keys off that
+          dose's own `tracked`, not this note, so the two can never silently disagree. */}
+      <DoseHistorySection
+        history={history}
+        nowIso={kuwaitNow()}
+        locale={locale}
+        trackingOffNote={
+          !settings.adherenceCheckInEnabled ? <InlineNotice tone="info">{t(copy.prescription.doseHistoryTrackingOffNote, locale)}</InlineNotice> : null
+        }
+      />
 
       {rx.status === 'active' && (
         <NavigateButton href={`/${locale}/app/more/refill?rx=${rx.id}`} variant="secondary" size="lg" fullWidth lang={locale}>

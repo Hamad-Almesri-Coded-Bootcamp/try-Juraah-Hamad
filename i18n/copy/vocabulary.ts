@@ -34,6 +34,16 @@ export const vocabulary = {
   retry: { ar: 'حاول مرة ثانية', en: 'Try again', placeholder: true },
   back: { ar: 'رجوع', en: 'Back', placeholder: true },
   daysLeft: { ar: 'أيام باقية من الكمية', en: 'days of supply left', placeholder: true },
+  // DepletionMeter's caption, one variant per plural category (audit M7: "70 أيام" is ungrammatical —
+  // an Arabic count agrees with its noun). Chosen by i18n/format.ts's formatDaysLeft via
+  // Intl.PluralRules; `daysLeft` above stays only because it mirrors design/ds-fallback-strings.json.
+  // The en text of the two/few/many variants is never selected by English rules (one/other only).
+  daysLeftZero: { ar: 'باقي أقل من يوم من الكمية', en: 'Less than a day of supply left', placeholder: true },
+  daysLeftOne: { ar: 'باقي يوم واحد من الكمية', en: '{count} day of supply left', placeholder: true },
+  daysLeftTwo: { ar: 'باقي يومين من الكمية', en: '{count} days of supply left', placeholder: true },
+  daysLeftFew: { ar: 'باقي {count} أيام من الكمية', en: '{count} days of supply left', placeholder: true },
+  daysLeftMany: { ar: 'باقي {count} يومًا من الكمية', en: '{count} days of supply left', placeholder: true },
+  daysLeftOther: { ar: 'باقي {count} يوم من الكمية', en: '{count} days of supply left', placeholder: true },
   lowSupply: { ar: 'الكمية قاربت تخلص', en: 'Running low', placeholder: true },
   dismiss: { ar: 'إخفاء', en: 'Dismiss', placeholder: true },
   copy: { ar: 'نسخ', en: 'Copy', placeholder: true },
@@ -50,6 +60,15 @@ export const vocabulary = {
   asOf: { ar: 'آخر تحديث', en: 'As of', placeholder: true },
   simulatedRole: { ar: 'دور تجريبي', en: 'Simulated role', placeholder: true },
   viewingRecordOf: { ar: 'تعرض ملف', en: 'Viewing the record of', placeholder: true },
+
+  // Strength units — ONE word per unit for every screen (audit M7; UX Principles §3: no Latin
+  // abbreviation in Arabic). Read only through i18n/format.ts's formatStrength. The Arabic spellings
+  // are the ones prescription.ts and caregiving.ts already carried; the clinic's `ملغ` is the outlier.
+  unitMg: { ar: 'ملغم', en: 'mg', placeholder: true },
+  unitMcg: { ar: 'ميكروغرام', en: 'mcg', placeholder: true },
+  unitG: { ar: 'غرام', en: 'g', placeholder: true },
+  unitMl: { ar: 'مل', en: 'ml', placeholder: true },
+  unitIU: { ar: 'وحدة دولية', en: 'IU', placeholder: true },
 
   // Actor labels (6) — human labels for AuditEvent.actor.role. X1 is the one surface that may also
   // show the literal role string beside the label (CR-010); every other screen shows the label only.

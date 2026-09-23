@@ -6,7 +6,10 @@ import { requireRole } from '@/features/shell/gate';
 import { CaregiverPrescriptionDetail } from '@/features/caregiving/CaregiverPrescriptionDetail';
 import { copy, t } from '@/i18n';
 
-/** F3 — caregiver detail access, prescription detail (B3's content minus every action). */
+/**
+ * F3 — caregiver detail access, prescription detail (B3's content minus every action). Titled with
+ * the caregiver tab's label, never the patient's "My Medicines" (audit M10).
+ */
 export default async function CaregiverPrescriptionDetailPage({
   params,
 }: {
@@ -19,7 +22,7 @@ export default async function CaregiverPrescriptionDetailPage({
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar
-        title={t(copy.shell.tabMedicines, locale)}
+        title={t(copy.shell.careTabMedicines, locale)}
         backHref={`/${locale}/care/medicines`}
         backLabel={t(copy.vocabulary.back, locale)}
         action={<LanguageSwitch locale={locale} role={session.role} subjectId={session.subjectId} />}

@@ -34,6 +34,15 @@ const SEVERITY_WORD = {
   warning: copy.vocabulary.severityWarning,
   info: copy.vocabulary.severityInfo,
 } as const;
+/** The bundle's own modifier per review state (bundle.css:343-345). `pending_medical_review` is
+ * styled as `--pending`; with the raw state name the pending glyph was never coloured (the one
+ * state whose `warning` colour tells a patient a reviewer is still checking). */
+const REVIEW_CLASS: Record<ReviewStatus, string> = {
+  pending_medical_review: 'pending',
+  reviewed: 'reviewed',
+  auto_cleared: 'auto_cleared',
+};
+
 const REVIEW_ICON: Record<ReviewStatus, IconName> = {
   pending_medical_review: 'clock',
   reviewed: 'review',
@@ -89,7 +98,7 @@ export function InteractionAlert({
         </ul>
       )}
       {reviewStatus && (
-        <div className={`wsf-alert__review wsf-alert__review--${reviewStatus}`}>
+        <div className={`wsf-alert__review wsf-alert__review--${REVIEW_CLASS[reviewStatus]}`}>
           <Icon name={REVIEW_ICON[reviewStatus]} small className="wsf-alert__review-icon" />
           <p className="type-body-small" style={{ margin: 0 }}>
             {reviewLabel ?? t(REVIEW_WORD[reviewStatus], lang)}

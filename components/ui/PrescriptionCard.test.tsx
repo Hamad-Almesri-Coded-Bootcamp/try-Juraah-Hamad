@@ -9,6 +9,28 @@ const warfarin = {
   source: { facilityName: 'مستشفى الفروانية', sector: 'public' as const },
 };
 
+// Audit, found while fixing M7 (2026-09-23): the card ignored the prescription's own unit and printed
+// its ' mg' default, so سارة's levothyroxine — 50 MICROgrams in the seed (rx-008) — read "50 mg" on B2
+// and C2: a thousandfold error on screen. Guard U forbids converting the number; the card must also
+// never swap the unit.
+const eltroxin = {
+  drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin', strengthMg: 50, strengthUnit: 'mcg' as const },
+  source: { facilityName: 'مستشفى العدان', sector: 'public' as const },
+};
+
+describe('PrescriptionCard — the unit is the prescription\'s own', () => {
+  it('en: 50 mcg stays 50 mcg, never 50 mg', () => {
+    render(<PrescriptionCard prescription={eltroxin} lang="en" />);
+    expect(screen.getByText(/50 mcg/)).toBeInTheDocument();
+    expect(screen.queryByText(/50 ?mg/)).not.toBeInTheDocument();
+  });
+
+  it('ar: Arabic-Indic digits and the Arabic unit word', () => {
+    render(<PrescriptionCard prescription={eltroxin} lang="ar" />);
+    expect(screen.getByText(/٥٠ ميكروغرام/)).toBeInTheDocument();
+  });
+});
+
 describe('PrescriptionCard', () => {
   it('renders the brand name with its strength, and the generic underneath', () => {
     render(<PrescriptionCard prescription={warfarin} lang="en" />);
@@ -39,7 +61,7 @@ describe('PrescriptionCard', () => {
       source: { facilityName: 'مستشفى العدان', sector: 'public' as const },
     };
     render(<PrescriptionCard prescription={levothyroxine} strengthUnit="mcg" lang="en" />);
-    expect(screen.getByText(/50mcg/)).toBeInTheDocument();
+    expect(screen.getByText(/50 mcg/)).toBeInTheDocument(); // the shared formatter spaces number and unit (audit M7)
   });
 
   it('becomes a single button with a mirroring chevron when onOpen is set', () => {

@@ -73,6 +73,17 @@ describe('DoseDayList', () => {
     expect(screen.getByText(/not tracking your doses/i)).toBeInTheDocument();
   });
 
+  it('an empty state’s action renders beside the dose-list root, never inside it (audit M12, G1)', () => {
+    render(<DoseDayList doses={[]} tracked={false} locale="en" hrefBuilder={null} emptyAction={<button type="button">Add</button>} />);
+    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument();
+    expect(screen.getByTestId('dose-list').querySelectorAll('button, a, input, [role="button"]').length).toBe(0);
+  });
+
+  it('readOnly (the caregiver) never shows the empty state’s action — a caregiver cannot add', () => {
+    render(<DoseDayList doses={[]} tracked={false} locale="en" hrefBuilder={null} readOnly emptyAction={<button type="button">Add</button>} />);
+    expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument();
+  });
+
   it('renders an EmptyState instead of the tracking-off notice when the day has no doses', () => {
     render(<DoseDayList doses={[]} tracked={false} locale="en" hrefBuilder={null} settingsHref="/en/app/more/settings" />);
     expect(screen.getByTestId('dose-list')).toBeInTheDocument();

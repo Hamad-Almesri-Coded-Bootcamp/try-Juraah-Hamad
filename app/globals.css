@@ -1,7 +1,14 @@
 @import 'tailwindcss';
 /* The design system's own stylesheet, byte-identical to docs/design-system/bundle.css (tests/unit/bundle-css.test.ts).
-   Loaded BEFORE tokens.css so the --wsf-* aliases in tokens.css win over the bundle's own :root copies (same values). */
-@import '../components/ui/styles/bundle.css';
-@import '../styles/tokens.css';
+   Loaded BEFORE tokens.css so the --wsf-* aliases in tokens.css win over the bundle's own :root copies (same values).
+
+   Both sit in Tailwind's `components` layer, below `utilities` (audit C4, 2026-09-23). Unlayered, `.wsf-card
+   { display: block }` beat every layered `flex`/`flex-col`/`gap-*` a screen put on a Card, so a title and its
+   body ran together as one line. In the layer, a utility a screen writes wins, as Tailwind intends; the two
+   files keep their order relative to each other, so nothing inside the system changes precedence.
+   base.css goes into `base` for the same reason: unlayered, its `a { color }` would now beat the layered
+   `.wsf-btn--primary { color: var(--on-fill) }` on every link-styled button. */
+@import '../components/ui/styles/bundle.css' layer(components);
+@import '../styles/tokens.css' layer(components);
 @import '../styles/theme.css';
-@import '../styles/base.css';
+@import '../styles/base.css' layer(base);

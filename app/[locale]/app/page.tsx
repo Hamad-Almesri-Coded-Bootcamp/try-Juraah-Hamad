@@ -98,12 +98,12 @@ export default async function TodayPage({
   const content = (
     <div className="flex flex-col gap-4 p-3 tablet:p-5">
       <div className="flex items-center gap-2">
-        <IconButton label={t(copy.day.previousDay, locale)} icon="chevron" mirrorIcon href={prevHref} />
+        <IconButton label={t(copy.day.previousDay, locale)} icon="chevron" mirrorIcon reverseIcon href={prevHref} />
         <div className="flex flex-1 flex-col">
           <span className="type-body-strong">{formatDayLabel(isoDate, locale)}</span>
           <span className="type-caption">{caption}</span>
         </div>
-        <IconButton label={t(copy.day.nextDay, locale)} icon="chevron" href={nextHref} />
+        <IconButton label={t(copy.day.nextDay, locale)} icon="chevron" mirrorIcon href={nextHref} />
       </div>
 
       {!isToday && (
@@ -131,6 +131,16 @@ export default async function TodayPage({
         settingsHref={`/${locale}/app/more/settings`}
         emptyTitle={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsTitle, locale) : undefined}
         emptyDescription={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsDescription, locale) : undefined}
+        // Audit M12: a patient with no prescription at all is offered the one action that fills this
+        // screen — B4 (SCREENS.md: "push from B2 / B1 empty state"), in B2's own empty-state words.
+        // A day that merely has no dose gets none: the day navigation above is the way on.
+        emptyAction={
+          !hasActivePrescriptions ? (
+            <NavigateButton href={`/${locale}/app/medicines/add`} variant="secondary" icon="camera" lang={locale}>
+              {t(copy.day.addPrescriptionAction, locale)}
+            </NavigateButton>
+          ) : undefined
+        }
       />
     </div>
   );

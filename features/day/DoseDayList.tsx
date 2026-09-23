@@ -41,6 +41,16 @@ export interface DoseDayListProps {
    * active prescription at all yet, versus a day that simply has none. */
   emptyTitle?: ReactNode;
   emptyDescription?: ReactNode;
+  /** The empty state's one action, when there is one that applies (UX §1/§7, audit M12): B1 passes
+   * "add a prescription by photo" only for a patient with no active prescription at all. A day that
+   * simply has no dose (an alternate-day medicine) passes none — the day navigation is the way on.
+   * Ignored when `readOnly`. Rendered OUTSIDE the `dose-list` root, which never holds a control. */
+  emptyAction?: ReactNode;
+  /** Replaces the tracking-off explanation (still shown only when `tracked` is false and the day has
+   * doses). The default is written TO the patient ("we are not tracking your doses — turn it on");
+   * the caregiver's F2 passes the same fact in the caregiver's voice, naming the patient, with no
+   * action (UX §10, rule 8; audit M10). Rendered outside the `dose-list` root, like the default. */
+  trackingOffNotice?: ReactNode;
   className?: string;
 }
 
@@ -61,6 +71,8 @@ export function DoseDayList({
   settingsHref,
   emptyTitle,
   emptyDescription,
+  emptyAction,
+  trackingOffNotice,
   className,
 }: DoseDayListProps) {
   const groups = groupDosesByTime(doses);
@@ -68,14 +80,18 @@ export function DoseDayList({
 
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
+      {/* Empty: the EmptyState (and its one action, if any) sits beside the list root, never inside
+          it — the root stays free of every control, the G1 runtime proof's structural invariant. */}
+      {isEmpty && (
+        <EmptyState
+          icon="capsule"
+          title={emptyTitle ?? t(copy.day.emptyDayTitle, locale)}
+          description={emptyDescription ?? t(copy.day.emptyDayDescription, locale)}
+          action={!readOnly ? emptyAction : undefined}
+        />
+      )}
       <div data-testid="dose-list" className="flex flex-col gap-4">
-        {isEmpty ? (
-          <EmptyState
-            icon="capsule"
-            title={emptyTitle ?? t(copy.day.emptyDayTitle, locale)}
-            description={emptyDescription ?? t(copy.day.emptyDayDescription, locale)}
-          />
-        ) : (
+        {isEmpty ? null : (
           groups.map((group) => (
             <ScheduleGroup key={group.time} timeLabel={formatDoseTime(group.doses[0]!.scheduledAt, locale)}>
               {group.doses.map((dose) => (
@@ -92,7 +108,8 @@ export function DoseDayList({
           ))
         )}
       </div>
-      {!tracked && !isEmpty && (
+      {!tracked && !isEmpty && trackingOffNotice}
+      {!tracked && !isEmpty && !trackingOffNotice && (
         <InlineNotice>
           <span className="flex flex-col items-start gap-2">
             <span>{t(copy.day.trackingOffNotice, locale)}</span>

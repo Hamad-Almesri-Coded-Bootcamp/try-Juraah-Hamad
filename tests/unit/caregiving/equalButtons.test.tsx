@@ -1,10 +1,11 @@
 /**
- * Named invariant — equal buttons (WP4h ACCEPTANCE): F0's accept/decline are the same size and
- * weight, the only permitted difference being primary vs secondary tone (CLAUDE.md rule 5; UX
- * Principles §2/§15). A computed-size assertion in jsdom cannot read real pixel layout (no
- * stylesheet is loaded under vitest), so this asserts the structural contract that actually decides
- * rendered size: identical `size`/`fullWidth` classes, identical tag and type, and the ONE permitted
- * class difference (variant).
+ * Named invariant — equal buttons (WP4h ACCEPTANCE; audit M2, 2026-09-23): F0's accept and decline
+ * carry EQUAL weight — same size, same width, same prominence (UX Principles §2/§15, brand book).
+ * The earlier build drew Accept primary and Decline secondary, following InviteConsent.dc.html; the
+ * spec wins over the board, so both are now the same variant and the permitted difference is none.
+ * A computed-size assertion in jsdom cannot read real pixel layout (no stylesheet is loaded under
+ * vitest), so this asserts the structural contract that decides rendered size and weight: identical
+ * tag, type and class set.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -24,7 +25,7 @@ const pendingInvitation: InvitationSummary = {
 };
 
 describe('F0 — accept and decline are the same size and weight', () => {
-  it('both are size=lg fullWidth buttons, differing only in primary/secondary variant', () => {
+  it('both are the same variant, size=lg and fullWidth — identical class sets, no primary on either', () => {
     render(<InviteConsent invitation={pendingInvitation} locale="ar" homeHref="/ar" />);
     const accept = screen.getByTestId('f0-accept');
     const decline = screen.getByTestId('f0-decline');
@@ -40,19 +41,16 @@ describe('F0 — accept and decline are the same size and weight', () => {
     expect(declineClasses.has('wsf-btn--lg')).toBe(true);
     expect(acceptClasses.has('wsf-btn--block')).toBe(true);
     expect(declineClasses.has('wsf-btn--block')).toBe(true);
-    // Same type-scale class (Button.tsx sets type-body-strong at size=lg for both).
     expect(acceptClasses.has('type-body-strong')).toBe(true);
     expect(declineClasses.has('type-body-strong')).toBe(true);
 
-    // The only permitted difference: primary vs secondary tone.
-    expect(acceptClasses.has('wsf-btn--primary')).toBe(true);
-    expect(declineClasses.has('wsf-btn--secondary')).toBe(true);
-    expect(acceptClasses.has('wsf-btn--secondary')).toBe(false);
+    // Same prominence: neither is the screen's lone primary; both are secondary.
+    expect(acceptClasses.has('wsf-btn--primary')).toBe(false);
     expect(declineClasses.has('wsf-btn--primary')).toBe(false);
+    expect(acceptClasses.has('wsf-btn--secondary')).toBe(true);
+    expect(declineClasses.has('wsf-btn--secondary')).toBe(true);
 
-    // Removing the one permitted difference leaves the class sets identical.
-    const acceptWithoutVariant = [...acceptClasses].filter((c) => c !== 'wsf-btn--primary').sort();
-    const declineWithoutVariant = [...declineClasses].filter((c) => c !== 'wsf-btn--secondary').sort();
-    expect(acceptWithoutVariant).toEqual(declineWithoutVariant);
+    // No permitted difference at all: the class sets are identical.
+    expect([...acceptClasses].sort()).toEqual([...declineClasses].sort());
   });
 });

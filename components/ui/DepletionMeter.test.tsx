@@ -36,3 +36,27 @@ describe('DepletionMeter', () => {
     expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument();
   });
 });
+
+describe('DepletionMeter — Arabic digits and counted noun (audit M7)', () => {
+  it('lang="ar": the count reads ٧٠ / ٩٠, and aria-valuenow stays a plain number', () => {
+    const { container } = render(<DepletionMeter remaining={70} total={90} daysRemaining={70} lang="ar" />);
+    expect(container.querySelector('.wsf-dep__count')?.textContent).toBe('٧٠ / ٩٠');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '70');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '90');
+  });
+
+  it('lang="ar": the caption is grammatical — ٧٠ يومًا, never "70 أيام" — with no Western digit', () => {
+    const { container } = render(<DepletionMeter remaining={70} total={90} daysRemaining={70} lang="ar" />);
+    const note = container.querySelector('.wsf-dep__note')?.textContent ?? '';
+    expect(note).toContain('٧٠ يومًا');
+    expect(note).not.toMatch(/[0-9]/);
+    expect(note).not.toContain('أيام');
+  });
+
+  it('lang="ar": 5 days takes the 3–10 form (أيام) and stays low with the low-supply word', () => {
+    const { container } = render(<DepletionMeter remaining={15} total={21} daysRemaining={5} lang="ar" />);
+    const note = container.querySelector('.wsf-dep__note')?.textContent ?? '';
+    expect(note).toContain('٥ أيام');
+    expect(note).toContain('الكمية قاربت تخلص');
+  });
+});

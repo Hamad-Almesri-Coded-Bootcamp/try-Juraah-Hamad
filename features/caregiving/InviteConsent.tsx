@@ -9,7 +9,7 @@
  * module, not a lib/data function; see tests/unit/caregiving/module-graph.test.ts). Nothing else is
  * imported, so nothing else can be loaded (CLAUDE.md rule 5; F0 non-negotiable invariant).
  */
-import { useState, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -23,6 +23,9 @@ import type { Locale } from '@/i18n/locale';
 import type { InvitationSummary } from '@/types/views';
 
 type LocalState = 'pending' | 'accepted' | 'declined' | 'unavailable';
+
+const CAN_SEE = ['f0CanSee1', 'f0CanSee2', 'f0CanSee3', 'f0CanSee4'] as const;
+const CANNOT = ['f0Cannot1', 'f0Cannot2', 'f0Cannot3', 'f0Cannot4'] as const;
 
 function initialState(status: InvitationSummary['status']): LocalState {
   if (status === 'pending') return 'pending';
@@ -49,6 +52,8 @@ export function InviteConsent({
   const [error, setError] = useState(false);
 
   const name = invitation.patientFirstName;
+  const canSeeHeadingId = useId();
+  const cannotHeadingId = useId();
 
   function handleAccept() {
     setError(false);
@@ -155,20 +160,35 @@ export function InviteConsent({
       <h1 className="type-h1">{interpolate(t(copy.caregiving.f0PendingTitleTemplate, locale), { name })}</h1>
       <p className="type-body">{interpolate(t(copy.caregiving.f0RelationshipTemplate, locale), { relationship: invitation.relationship })}</p>
 
-      <Card>
-        <p className="type-body-strong">{t(copy.caregiving.f0CanSeeTitle, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0CanSee1, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0CanSee2, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0CanSee3, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0CanSee4, locale)}</p>
+      {/* Audit M5: the two lists consent hinges on must not look alike — every "you will see" row
+          carries the check glyph, every "you will never" row the close glyph (decorative; the words
+          carry the meaning, UX §11), each list named by its own heading. */}
+      <Card className="flex flex-col gap-2">
+        <p id={canSeeHeadingId} className="type-body-strong">
+          {t(copy.caregiving.f0CanSeeTitle, locale)}
+        </p>
+        <ul aria-labelledby={canSeeHeadingId} className="flex flex-col gap-2">
+          {CAN_SEE.map((key) => (
+            <li key={key} className="flex items-start gap-2 type-body">
+              <Icon name="check" />
+              <span>{t(copy.caregiving[key], locale)}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
-      <Card>
-        <p className="type-body-strong">{t(copy.caregiving.f0CannotTitle, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0Cannot1, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0Cannot2, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0Cannot3, locale)}</p>
-        <p className="type-body">{t(copy.caregiving.f0Cannot4, locale)}</p>
+      <Card className="flex flex-col gap-2">
+        <p id={cannotHeadingId} className="type-body-strong">
+          {t(copy.caregiving.f0CannotTitle, locale)}
+        </p>
+        <ul aria-labelledby={cannotHeadingId} className="flex flex-col gap-2">
+          {CANNOT.map((key) => (
+            <li key={key} className="flex items-start gap-2 type-body">
+              <Icon name="close" />
+              <span>{t(copy.caregiving[key], locale)}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <InlineNotice tone="info" title={t(copy.caregiving.f0WillBeToldTitle, locale)}>
@@ -176,7 +196,9 @@ export function InviteConsent({
       </InlineNotice>
 
       <div className="flex flex-col gap-2">
-        <Button variant="primary" size="lg" fullWidth lang={locale} loading={pending} onClick={handleAccept} data-testid="f0-accept">
+        {/* Equal weight — same variant, size and width (UX §2/§15, brand book; audit M2). The board
+            draws primary + secondary; the spec wins, and the deviation is the lead's to log. */}
+        <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={handleAccept} data-testid="f0-accept">
           {t(copy.caregiving.f0Accept, locale)}
         </Button>
         <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={handleDecline} data-testid="f0-decline">

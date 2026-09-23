@@ -118,7 +118,7 @@ export function ReviewerDecision({
             reviewStatus={alert.reviewStatus}
             title={drugNames.join(' × ')}
             description={alert.description}
-            drugs={involvedPrescriptions.map(prescriptionLine)}
+            drugs={involvedPrescriptions.map((rx) => prescriptionLine(rx, locale))}
             lang={locale}
           />
 
@@ -156,8 +156,11 @@ export function ReviewerDecision({
               placeholder={t(copy.clinic.g2sNotePlaceholder, locale)}
               lang={locale}
             />
+            {/* Two legitimate decisions, drawn as two equal options (UX §2; audit M2). The board draws
+                confirm as `danger` and clear as `secondary` — logged in docs/DECISIONS.md. The weight
+                of the choice lives in the Sheet that commits it, not in which button is louder. */}
             <div className="flex gap-2">
-              <Button variant="danger" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('confirmed')}>
+              <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('confirmed')}>
                 {t(copy.clinic.g2sConfirmButton, locale)}
               </Button>
               <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('cleared')}>
