@@ -17,7 +17,7 @@ const assert = require('node:assert/strict');
 
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
-const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening'];
+const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa'];
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 let failures = 0;
@@ -283,9 +283,93 @@ async function scenarios() {
   });
 }
 
+/** agent-alexa, walked as its connections run. `configure` stands in for setting the skill id and
+ * the device link inside the live n8n node - the committed workflow ships both EMPTY. */
+async function alexaScenarios() {
+  console.log('\n######## agent-alexa (voice, read-only)');
+  const SKILL = 'amzn1.ask.skill.check';
+  const USER = 'amzn1.ask.account.CHECKUSER';
+  const wf = WF('agent-alexa');
+  const configure = (skill, links) => {
+    const copy = JSON.parse(JSON.stringify(wf));
+    const n = copy.nodes.find((x) => x.name === 'alexa request (deterministic)');
+    n.parameters.jsCode = n.parameters.jsCode.replace("const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};",
+      'const ALEXA_SKILL_ID = ' + JSON.stringify(skill) + ';\nconst ALEXA_LINKS = ' + JSON.stringify(links) + ';');
+    return copy;
+  };
+  const body = (type, intent, locale = 'ar-SA') => [{ json: { body: {
+    version: '1.0', session: { application: { applicationId: SKILL }, user: { userId: USER } },
+    request: { type, locale, timestamp: new Date().toISOString(), ...(intent ? { intent: { name: intent } } : {}) } } } }];
+  const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const doseAt = (id, rx, hhmm, brand) => ({ ...dose(id, rx, hhmm, OPEN, brand), scheduledAt: today + 'T' + hhmm + ':00+03:00' });
+  // One dose already passed (00:05) and one still ahead (23:55), whatever the clock says.
+  const DAYDOSES = [doseAt('rx-008-x-0005', 'rx-008', '00:05', 'Eltroxin'), doseAt('rx-009-x-2355', 'rx-009', '23:55')];
+  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]) } = {}) => {
+    const r = runner(w);
+    const [p] = await r.code('alexa request (deterministic)', input);
+    if (p.json.ok && p.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
+    const [s] = await r.code('speak (deterministic)', [{ json: {} }]);
+    const prompts = s.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
+    return { parsed: p.json, spoken: s.json, prompts: prompts.map((x) => x.json) };
+  };
+
+  await check('the COMMITTED workflow ships no skill id and no link -> every request refused, nothing read', async () => {
+    const s = await walk(wf, body('IntentRequest', 'NextDoseIntent'));
+    assert.equal(s.parsed.ok, false);
+    assert.equal(s.parsed.dosesUrl, null);
+    assert.equal(s.spoken.refused, true);
+  });
+  await check('an unlinked device is told so, and its userId is in the execution log for linking', async () => {
+    const s = await walk(configure(SKILL, {}), body('LaunchRequest'));
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /مو مربوط/);
+    assert.equal(s.spoken.log.userId, USER);
+  });
+  await check('«شنو جرعتي الجاية» -> the next OPEN dose, spoken in Arabic, session stays open', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'NextDoseIntent'));
+    assert.match(s.parsed.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
+    const text = s.spoken.alexa.response.outputSpeech.text;
+    assert.match(text, /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, false);
+    assert.deepEqual(s.prompts, []);
+    console.log('        -> ' + text);
+  });
+  await check('«نسيت دواي» -> names the passed dose, records nothing, sends ITS buttons to the patient’s own chat', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'ForgotDoseIntent'));
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /Eltroxin الساعة 12 و5 دقيقة بالليل/);
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /ما سجّلت شي بالصوت/);
+    assert.equal(s.prompts.length, 2);
+    assert.equal(s.prompts[0].chatId, '5550001');
+    assert.deepEqual(s.prompts[1].buttons.map((b) => b.data), ['d:rx-008-x-0005:taken_on_time', 'd:rx-008-x-0005:taken_late', 'd:rx-008-x-0005:missed']);
+    console.log('        -> ' + s.spoken.alexa.response.outputSpeech.text);
+  });
+  await check('"what is my next dose" in en-US -> English', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'NextDoseIntent', 'en-US'));
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Your next dose is Calcium carbonate \+ vitamin D3 at 11:55 in the evening/);
+  });
+  await check('the backend refused (401) -> an honest failure, no schedule invented, no prompt', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'ForgotDoseIntent'), { doses: http(401, { error: 'unauthorized' }) });
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /ما قدرت أوصل لجدولك/);
+    assert.deepEqual(s.prompts, []);
+  });
+  await check('the voice workflow holds no write: its only HTTP calls are GETs to the two read routes, no Code node calls out', async () => {
+    const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
+    assert.equal(httpNodes.length, 2);
+    for (const n of httpNodes) {
+      assert.equal(n.parameters.method, 'GET', n.name);
+      assert.ok(n.parameters.url === '={{ $json.dosesUrl }}' || /\/api\/agent\/check-in-eligibility$/.test(n.parameters.url), n.name + ' -> ' + n.parameters.url);
+    }
+    for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
+      assert.ok(!/helpers\.httpRequest|\bfetch\s*\(|XMLHttpRequest/.test(n.parameters.jsCode), n.name + ' makes its own network call');
+    }
+    const parse = wf.nodes.find((x) => x.name === 'alexa request (deterministic)').parameters.jsCode;
+    assert.match(parse, /dosesUrl: p\.ok \? API \+ '\/patients\/' \+ encodeURIComponent\(p\.patientId\) \+ '\/doses\?date='/);
+  });
+}
+
 (async () => {
   await staticChecks();
   await scenarios();
+  await alexaScenarios();
   console.log('\n' + (failures === 0 ? 'all checks passed' : failures + ' check(s) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 })();

@@ -52,6 +52,7 @@ function inline(file) {
 const ADHERENCE = inline('lib/adherence.js');
 const SCREENING = inline('lib/screening.js');
 const EXTRACTION = inline('lib/extraction.js');
+const VOICE = inline('lib/voice.js');
 
 const uuid = (prefix, n) => prefix + String(n).padStart(12, '0');
 const code = (id, name, jsCode, position) => ({
@@ -463,5 +464,98 @@ const screening = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-for (const wf of [inbound, checkin, screening]) write(wf);
+// =============================================================== 4. agent-alexa (demo, READ-ONLY)
+const AX = (n) => uuid('b4000000-0000-4000-8000-', n);
+
+/**
+ * The skill id and the Alexa-user -> patient link table. Empty in the repository on purpose: an
+ * empty table fails closed ("this device is not linked"), and the live values are set in the n8n
+ * node itself (the userId arrives in the first request's execution data).
+ */
+const ALEXA_CONFIG = "const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};";
+
+const AX_PARSE = CONFIG + '\n' + ALEXA_CONFIG + '\n' + ADHERENCE + '\n' + VOICE + `
+
+const body = $input.first().json.body || {};
+const nowIso = new Date().toISOString();
+const p = parseAlexaRequest({ body, nowIso, skillId: ALEXA_SKILL_ID, links: ALEXA_LINKS });
+const date = kuwaitDate(nowIso);
+return [{ json: { ...p, nowIso, date,
+  dosesUrl: p.ok ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date : null } }];`;
+
+const AX_SPEAK = VOICE + `
+
+// THE DETERMINISTIC LAYER for voice: Alexa picked the intent; this picks every word. No writes.
+const p = $('alexa request (deterministic)').first().json;
+let doses = null;
+let chatId = null;
+try {
+  const d = $('backend: doses of the day').first().json;
+  if (d.statusCode === 200 && d.body && Array.isArray(d.body.doses)) doses = d.body.doses;
+} catch (e) { /* not fetched */ }
+try {
+  const e = $('backend: who is eligible').first().json;
+  const mine = e.statusCode === 200 && Array.isArray(e.body) ? e.body.find((x) => x.patientId === p.patientId) : null;
+  chatId = mine ? mine.chatId : null;
+} catch (e) { /* not fetched */ }
+
+let reply;
+if (!p.ok && p.kind === 'refused') reply = { speech: '', endSession: true, promptDoses: [] };
+else if (!p.ok) reply = voiceReply({ kind: 'not_linked', language: p.language });
+else reply = voiceReply({ kind: p.kind, language: p.language, doses, nowIso: p.nowIso, hasChat: !!chatId });
+if (!p.ok && p.kind === 'not_linked') {
+  reply = { speech: p.language === 'en' ? 'This device is not linked to a Jur\\'ah account yet.' : 'هذا الجهاز مو مربوط بحساب في جرعة بعد.', endSession: true, promptDoses: [] };
+}
+return [{ json: {
+  alexa: alexaResponse({ speech: reply.speech, endSession: reply.endSession, language: p.language }),
+  refused: !p.ok && p.kind === 'refused',
+  prompts: reply.promptDoses.map((d) => d.id), promptDoses: reply.promptDoses, chatId, language: p.language, patientId: p.patientId || null,
+  // Visible in the execution log, so the device can be linked: never spoken, never stored elsewhere.
+  log: { kind: p.kind, userId: p.userId, reason: p.reason || null },
+} }];`;
+
+const AX_PROMPT = ADHERENCE + `
+
+// "I forgot" by voice -> the dose's three buttons in the PATIENT'S OWN chat. The tap records it.
+const s = $('speak (deterministic)').first().json;
+if (!s.chatId || !s.promptDoses.length) return [];
+const c = buildCheckIn({ patientId: s.patientId, chatId: s.chatId, language: s.language, doses: s.promptDoses });
+const head = s.language === 'en' ? 'From your Alexa: confirm the dose you asked about 👇' : 'من أليكسا: أكّد الجرعة اللي سألت عنها 👇';
+return [{ json: { chatId: s.chatId, text: head, buttons: null } }]
+  .concat(c.messages.slice(1).map((m) => ({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } })));`;
+
+const alexa = {
+  name: 'agent-alexa',
+  nodes: [
+    { parameters: { httpMethod: 'POST', path: 'jurah/alexa', responseMode: 'responseNode', options: {} },
+      id: AX(1), name: 'Alexa skill request', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [-680, 0], webhookId: AX(1) },
+    code(AX(2), 'alexa request (deterministic)', AX_PARSE, [-460, 0]),
+    ifNode(AX(3), 'needs the schedule?', '={{ $json.ok && $json.needsDoses }}', [-240, 0]),
+    api(AX(4), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [-20, -120]),
+    api(AX(5), 'backend: who is eligible', 'GET', API_BASE + '/check-in-eligibility', [200, -120]),
+    code(AX(6), 'speak (deterministic)', AX_SPEAK, [420, 0]),
+    { parameters: { respondWith: 'json', responseBody: '={{ JSON.stringify($json.alexa) }}', options: {} },
+      id: AX(7), name: 'Answer Alexa', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [640, 0] },
+    ifNode(AX(8), 'prompt Telegram?', "={{ $('speak (deterministic)').first().json.prompts.length > 0 }}", [860, 0]),
+    code(AX(9), 'telegram prompt (deterministic)', AX_PROMPT, [1080, -80]),
+    ifNode(AX(10), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [1300, -80]),
+    telegramButtons(AX(11), 'Telegram: dose buttons', [1520, -160]),
+    telegramText(AX(12), 'Telegram: header', [1520, 0]),
+  ],
+  connections: {
+    'Alexa skill request': main('alexa request (deterministic)'),
+    'alexa request (deterministic)': main('needs the schedule?'),
+    'needs the schedule?': main('backend: doses of the day', 'speak (deterministic)'),
+    'backend: doses of the day': main('backend: who is eligible'),
+    'backend: who is eligible': main('speak (deterministic)'),
+    'speak (deterministic)': main('Answer Alexa'),
+    'Answer Alexa': main('prompt Telegram?'),
+    'prompt Telegram?': main('telegram prompt (deterministic)'),
+    'telegram prompt (deterministic)': main('with buttons?'),
+    'with buttons?': main('Telegram: dose buttons', 'Telegram: header'),
+  },
+  settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
+};
+
+for (const wf of [inbound, checkin, screening, alexa]) write(wf);
 console.log('JURAH_API_BASE = ' + API_BASE + (process.env.JURAH_API_BASE ? '' : '   <- placeholder: rebuild with the deployed URL before import'));

@@ -74,3 +74,30 @@ not been imported yet; check them on import. The screening reference set holds o
 the seed already asserts, with citations `[TO BE SUPPLIED]`, and every unmatched profile goes to
 the reviewer rather than being cleared — a real drug database needs the human-supplied pairs the
 spec asks for. Extraction's ≥90% accuracy target needs the ≥10 ground-truth samples; none exist.
+
+## Voice — Alexa / Echo Dot (demo, read-only)
+
+`agent-alexa` answers an Alexa custom skill in **Arabic (ar-SA, Gulf)** and **English (en-US)**:
+«شنو جرعتي الجاية؟» · «كم آخذ؟» · «شنو أدويتي اليوم؟» · «نسيت دواي». Alexa's own NLU picks the intent
+from `agents/alexa/interaction-model.*.json`; `agents/lib/voice.js` builds every word from
+`GET /api/agent/patients/{id}/doses` — no LLM on this path.
+
+**Voice never records a dose.** An Echo cannot tell the patient from anyone else in the room
+(TC-AD-14), and a dose status comes only from the patient's own chat. «نسيت دواي» says which dose
+passed and what is next, then sends that dose's three buttons to the patient's **Telegram** — the
+tap records it through the adherence path. The workflow's only HTTP calls are two GETs (asserted
+by `scripts/check.js`).
+
+Setup (the Amazon account the Echo is registered to):
+1. developer.amazon.com → Alexa → Create Skill → Custom, "Provision your own", primary language
+   **Arabic (SA)**; then Language settings → add **English (US)**.
+2. Build → JSON Editor → paste `interaction-model.ar-SA.json` (and the en-US one in English) → Build.
+3. Endpoint → HTTPS → `https://mohammad-aljry.app.n8n.cloud/webhook/jurah/alexa`, certificate
+   option "a certificate from a trusted certificate authority".
+4. Test tab → **Development**. Copy the skill id (`amzn1.ask.skill…`).
+5. The skill id and the device's Alexa `userId` → `pt-03` are set inside the live n8n node
+   `alexa request (deterministic)` — the repository ships both empty, so it fails closed.
+
+Known demo limits: Alexa's request **signature** is not verified (the skill id, a 150-second
+timestamp window and the userId link are); certification would need it. There is no OAuth account
+linking — one device is linked by hand.

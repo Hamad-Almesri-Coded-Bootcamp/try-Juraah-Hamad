@@ -1,0 +1,66 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "jurah assistant",
+      "intents": [
+        {
+          "name": "NextDoseIntent",
+          "slots": [],
+          "samples": [
+            "what is my next dose",
+            "what's my next dose",
+            "when is my next dose",
+            "when do I take my medicine",
+            "when is my next medicine",
+            "what medicine is next",
+            "next dose"
+          ]
+        },
+        {
+          "name": "DoseAmountIntent",
+          "slots": [],
+          "samples": [
+            "how much do I take",
+            "how many do I take",
+            "how many pills do I take",
+            "what is the dose",
+            "how much should I take",
+            "what is my dose amount"
+          ]
+        },
+        {
+          "name": "TodayDosesIntent",
+          "slots": [],
+          "samples": [
+            "what are my medicines today",
+            "what are my doses today",
+            "what do I take today",
+            "read my schedule",
+            "what is my schedule today",
+            "my medicines today"
+          ]
+        },
+        {
+          "name": "ForgotDoseIntent",
+          "slots": [],
+          "samples": [
+            "I forgot my medicine",
+            "I forgot my medicines",
+            "I forgot my dose",
+            "I forgot to take my medicine",
+            "I missed my dose",
+            "I did not take my medicine",
+            "I missed my pill"
+          ]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.NoIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}
