@@ -74,6 +74,19 @@ export const JOB_TOKEN: string = (process.env.JURAH_JOB_TOKEN ?? '').trim();
  * unavailable; nothing else changes.
  */
 export const AGENT_CHAT_URL: string = (process.env.JURAH_AGENT_CHAT_URL ?? '').trim();
+/**
+ * CR-066: the drug-knowledge agents (agents/knowledge) the seam calls, each a `/webhook/` URL of an
+ * activated n8n workflow, authenticated with the same header secret as the relay:
+ *   - TRAVEL_CHECK  → checkDrugPhoto (C3) asks agent-travel-check;
+ *   - EXTRACTION    → submitPrescriptionImage (B4) asks agent-extraction (save:false — the app keeps
+ *                     its own draft → confirm → save flow);
+ *   - SCREENING     → savePrescriptionDraft hands every saved, unflagged prescription to
+ *                     agent-interaction-screening-ddinter.
+ * Empty → that function keeps the CR-049 deterministic stub, byte for byte; nothing else changes.
+ */
+export const AGENT_TRAVEL_CHECK_URL: string = (process.env.JURAH_AGENT_TRAVEL_CHECK_URL ?? '').trim();
+export const AGENT_EXTRACTION_URL: string = (process.env.JURAH_AGENT_EXTRACTION_URL ?? '').trim();
+export const AGENT_SCREENING_URL: string = (process.env.JURAH_AGENT_SCREENING_URL ?? '').trim();
 // Trimmed: a trailing newline in the secret would make fetch() refuse the header outright.
 export const AGENT_INBOUND_URL: string = (process.env.JURAH_AGENT_INBOUND_URL ?? '').trim();
 export const AGENT_INBOUND_SECRET: string = (process.env.JURAH_AGENT_INBOUND_SECRET ?? '').trim();

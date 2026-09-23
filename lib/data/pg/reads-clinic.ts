@@ -27,6 +27,8 @@ import {
 import { toAlert, toFieldQueueItem, toReviewQueueItem } from '../shapes/reads-clinic';
 import { toDoseWithPrescription, toPrescription } from '../shapes/reads-rx';
 import type { DrugCheckOutcome } from '@/types/views';
+import { askTravelCheck, travelCheckConfigured } from '@/lib/agent-webhooks';
+import { languageOf } from '@/lib/agent-webhooks/core';
 
 /** Every InteractionAlert column, projected for toAlert (timestamps through iso_kw, enums as text). */
 const ALERT_COLUMNS = `
@@ -81,6 +83,13 @@ export const PG_QUERIES_CLINIC = {
       and jurah_session_is('patient') and jurah_session()->>'subjectId' = $1
     order by p.seq
     limit 1`,
+  // CR-066: the language the agent answers in — the patient's own settings row (RLS settings_own),
+  // under the same patient-self gate as checkDrugPhoto. No row → Arabic (the product's default).
+  patientLanguage: `
+    select s.language::text as language
+    from settings s
+    where s.patient_id = $1
+      and jurah_session_is('patient') and jurah_session()->>'subjectId' = $1`,
   // Every pending alert, most severe first, then OLDEST first (the mock's queue order).
   // waitedMinutes = floor((REFERENCE_NOW − createdAt) / 1 min), never negative — jurah_now() is
   // REFERENCE_NOW (D-021). drugNames keep involved_prescription_ids' order; an id with no readable
@@ -167,11 +176,27 @@ export const getAlert: DataApi['getAlert'] = async (alertId) => {
   });
 };
 
-/** CR-049: identified by the image's byte size and the patient's own record, never a vision model. */
+/**
+ * CR-066: when JURAH_AGENT_TRAVEL_CHECK_URL is set, the photo goes to the Travel Check agent
+ * (agents/knowledge, agent-travel-check): Gemini reads only the name on the box, the agent resolves
+ * it to verified ingredients and screens them against the patient's active profile, which it reads
+ * itself through /api/agent (never from here). Its answer is validated in lib/agent-webhooks/core.
+ * The session gate below runs FIRST either way — the agent is only ever asked about the caller's
+ * own record. Unset → CR-049's deterministic stub, unchanged: identified by the image's byte size
+ * and the patient's own record, never a vision model.
+ */
 export const checkDrugPhoto: DataApi['checkDrugPhoto'] = async (patientId, image) => {
   const session = await sessionOf();
   if (!session || session.role !== 'patient' || session.subjectId !== patientId) return drugCheckRefusal();
   if (image.size === 0) return drugCheckRefusal();
+  if (travelCheckConfigured()) {
+    const language = await withSession(session, async (sql) => {
+      const [row] = await sql.unsafe(PG_QUERIES_CLINIC.patientLanguage, [patientId]);
+      return languageOf(row?.language);
+    });
+    const fromAgent = await askTravelCheck(patientId, image, language);
+    if (fromAgent) return fromAgent;
+  }
   return withSession(session, async (sql) => {
     const [row] = await sql.unsafe(PG_QUERIES_CLINIC.checkDrugPhoto, [patientId]);
     if (!row) return drugCheckRefusal();

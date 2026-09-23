@@ -98,6 +98,17 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
             </InlineNotice>
           )}
 
+          {/* CR-066: the agent can find an interaction without raising an alert (a warning-level
+              finding, a drug already taken). The finding is still shown — never a blank result. */}
+          {outcome.verdict === 'interaction_found' && !outcome.alertId && (
+            <InteractionAlert
+              severity="warning"
+              title={outcome.drugName}
+              description={t(copy.supply.c3InteractionNoDetailsDescription, locale)}
+              lang={locale}
+            />
+          )}
+
           {outcome.verdict === 'interaction_found' && outcome.alertId && (
             <InteractionAlert
               severity="danger"

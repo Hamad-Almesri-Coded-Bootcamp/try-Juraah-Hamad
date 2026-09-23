@@ -47,6 +47,14 @@ export const supply = {
     placeholder: true,
   },
   c3OpenInteractionButton: { ar: 'افتح تفاصيل التعارض', en: 'Open interaction details', placeholder: true },
+  // CR-066: an interaction the Travel Check agent found but raised no alert for (a warning-level
+  // finding, or a drug already in the profile) — there are no details to open, so the line says what
+  // to do instead. Never shown by the stub, which always links an alert.
+  c3InteractionNoDetailsDescription: {
+    ar: 'قد يتعارض هذا الدواء مع دواء في ملفك. لا تأخذه قبل ما تسأل الصيدلي أو الطبيب.',
+    en: 'This medication may interact with one in your profile. Ask your pharmacist or doctor before taking it.',
+    placeholder: true,
+  },
   c3CheckAnotherButton: { ar: 'صورة ثانية', en: 'Check another photo', placeholder: true },
 
   // Could-not-identify — an explicit, honest state (ErrorState tone), never a guessed drug, and

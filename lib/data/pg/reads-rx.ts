@@ -35,6 +35,8 @@ import {
   toDoseWithPrescription,
   toPrescription,
 } from '../shapes/reads-rx';
+import { askExtraction, extractionConfigured, requestScreening, screeningConfigured } from '@/lib/agent-webhooks';
+import { draftSource, languageOf, shouldScreen } from '@/lib/agent-webhooks/core';
 
 /** Every Prescription column, each timestamp through iso_kw(), each date to_char, each numeric ::float8. */
 const RX_COLUMNS = `id, patient_id, facility_name, sector::text as sector, generic_name, brand_name,
@@ -109,6 +111,13 @@ export const PG_QUERIES_RX = {
     select adherence_check_in_enabled
     from settings
     where patient_id = $1`,
+  // CR-066: the language the agents answer in — the patient's own row only (RLS settings_own plus
+  // the same patient-self gate as insertDraft). No row → Arabic.
+  selectLanguage: `
+    select language::text as language
+    from settings
+    where patient_id = $1
+      and jurah_session_is('patient') and jurah_session()->>'subjectId' = $1`,
   // $1 the Prescription as JSON, snake_case keys (see rowForInsert). RLS prescriptions_insert_own.
   insertPrescription: `
     insert into prescriptions (id, patient_id, facility_name, sector, generic_name, brand_name, strength_mg, strength_unit,
@@ -206,6 +215,7 @@ export const getRecentDoses: DataApi['getRecentDoses'] = async (patientId, days)
 export const submitPrescriptionImage: DataApi['submitPrescriptionImage'] = async (patientId, image) => {
   if (image.size === 0) return extractionRefusal();
   const session = await sessionOf();
+  if (extractionConfigured()) return submitToExtractionAgent(session, patientId, image);
   const draftId = newId('draft');
   const confident = image.size >= 100;
   const prescription = confident ? confidentDraft(REFERENCE_DATE) : needsReviewDraft();
@@ -222,17 +232,55 @@ export const submitPrescriptionImage: DataApi['submitPrescriptionImage'] = async
   });
 };
 
+/**
+ * CR-066 — JURAH_AGENT_EXTRACTION_URL is set: the Extraction agent (agents/knowledge,
+ * agent-extraction, save:false) reads the photo into the app's own draft shape; every value it is not
+ * sure of is left unset and listed in uncertainFields (needs_review), and an image that is not a
+ * readable prescription is `unreadable` — never a fabricated record. The answer is validated with the
+ * backend's own parsePrescriptionBody (lib/agent-webhooks/core). The patient still confirms in B4,
+ * and savePrescriptionDraft below is still the only write. Patient-self gate first: nobody else's
+ * session reaches the agent. The image is stored with the draft exactly as the stub stores it.
+ */
+async function submitToExtractionAgent(session: Awaited<ReturnType<typeof sessionOf>>, patientId: string, image: Blob) {
+  if (!session || session.role !== 'patient' || session.subjectId !== patientId) return extractionRefusal();
+  const language = await withSession(session, async (sql) => {
+    const [row] = await sql.unsafe(PG_QUERIES_RX.selectLanguage, [patientId]);
+    return languageOf(row?.language);
+  });
+  const answer = await askExtraction(patientId, image, language);
+  if (!answer || answer.draft.kind === 'unreadable' || !answer.imageBase64) return extractionRefusal();
+  const { draft, imageBase64 } = answer;
+  const draftId = newId('draft');
+  const confident = draft.kind === 'confident';
+  const uncertainFields = draft.kind === 'needs_review' ? [...draft.uncertainFields] : null;
+  return withSession(session, async (sql) => {
+    const stored = await sql.unsafe(PG_QUERIES_RX.insertDraft, [
+      draftId, patientId, draft.prescription as JsonValue, confident, uncertainFields, imageBase64,
+    ]);
+    if (stored.length === 0) return extractionRefusal();
+    return draft.kind === 'confident'
+      ? { kind: 'confident' as const, draftId, prescription: draft.prescription }
+      : { kind: 'needs_review' as const, draftId, prescription: draft.prescription, uncertainFields: draft.uncertainFields };
+  });
+}
+
 /** One transaction: the draft must be the session patient's own (D-014 — RLS shows no other; no
  * fabricated record is ever saved) → insert the prescription (CR-042's fabricated source, D-19) →
  * its generated doses with `tracked` from the patient's settings (no row → false) → delete the
  * draft → append prescription_added. Any failure rolls the whole thing back. */
 export const savePrescriptionDraft: DataApi['savePrescriptionDraft'] = async (patientId, draftId) => {
   const session = await sessionOf();
-  return withSession(session, async (sql) => {
+  const screen = screeningConfigured();
+  let language: 'ar' | 'en' = 'ar';
+  const saved = await withSession(session, async (sql) => {
     const [draft] = await sql.unsafe(PG_QUERIES_RX.selectDraft, [draftId, patientId]);
     if (!draft) return draftSaveRefusal(patientId);
     const draftRx = (typeof draft.prescription === 'string' ? JSON.parse(draft.prescription) : draft.prescription) as Partial<Prescription>;
-    const rx = prescriptionFromDraft(newId('rx'), patientId, draftRx);
+    const built = prescriptionFromDraft(newId('rx'), patientId, draftRx);
+    // CR-066: a draft the Extraction agent read carries the real facility and sector off the paper
+    // (CR-042 — never fabricated); the stub's drafts carry none, so they keep the mock's literal.
+    const realSource = draftSource(draftRx);
+    const rx = realSource ? { ...built, source: realSource } : built;
     await sql.unsafe(PG_QUERIES_RX.insertPrescription, [rowForInsert(rx) as JsonValue]);
     const [settings] = await sql.unsafe(PG_QUERIES_RX.selectTracking, [patientId]);
     const trackingOn = settings ? Boolean(settings.adherence_check_in_enabled) : false;
@@ -244,7 +292,19 @@ export const savePrescriptionDraft: DataApi['savePrescriptionDraft'] = async (pa
       scope: 'patient', patientId, actor: { role: 'patient', id: patientId }, type: 'prescription_added',
       message: `أُضيفت وصفة ${rx.drug.genericName}`, relatedId: rx.id,
     });
+    if (screen) {
+      const [lang] = await sql.unsafe(PG_QUERIES_RX.selectLanguage, [patientId]);
+      language = languageOf(lang?.language);
+    }
     const [row] = await sql.unsafe(PG_QUERIES_RX.getPrescription, [rx.id]);
     return row ? toPrescription(row) : draftSaveRefusal(patientId);
   });
+  // CR-066: AFTER the transaction has committed — the Interaction Screening agent reads the new
+  // prescription back through /api/agent, so it must already be there. Only a saved, active,
+  // unflagged prescription (a flagged one is screened once the reviewer confirms it, TC-IX-06).
+  // Best effort: the save stands whatever n8n answers (lib/agent-webhooks requestScreening).
+  if (screen && saved.id && saved.patientId === patientId && shouldScreen(saved)) {
+    await requestScreening(patientId, saved.id, language);
+  }
+  return saved;
 };
