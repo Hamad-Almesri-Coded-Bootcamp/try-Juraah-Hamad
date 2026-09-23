@@ -11,7 +11,13 @@
  * command, free text, a malformed body — writes nothing. The response is the same neutral 200
  * in every case, so the webhook never tells anyone whether a token was valid. The chat id is
  * stored server-side and never returned (rule 7). Only POST is exported.
+ *
+ * CR-063: every other update is offered to the agents track AFTER the response — lib/agent/inbound.ts
+ * forwards a reply from a patient's or an ACTIVE caregiver's chat to the n8n inbound workflow and
+ * drops everything else. The response is unchanged, so the forward reveals nothing to Telegram.
  */
+import { after } from 'next/server';
+import { relayReply } from '@/lib/agent/inbound';
 import { selectedBackend } from '@/lib/db/client';
 import { connectMessagingLinkByToken } from '@/lib/data/pg/channels';
 import { isWebhookSecret, startUpdateOf } from '@/lib/messaging/telegram';
@@ -29,5 +35,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ sec
   // The mock backend holds no link store a bot could confirm; there the update is acknowledged
   // and nothing is written (the mock's own startMessagingLink confirms itself — D-12).
   if (start && selectedBackend() === 'postgres') await connectMessagingLinkByToken(start.token, start.chatId);
+  else if (!start && selectedBackend() === 'postgres') {
+    after(async () => {
+      await relayReply(update);
+    });
+  }
   return Response.json({ ok: true });
 }

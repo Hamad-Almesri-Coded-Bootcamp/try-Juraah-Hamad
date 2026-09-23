@@ -71,3 +71,73 @@ export async function sendMessage(chatId: string, text: string): Promise<Telegra
     return { sent: false, reason: 'bot_api_refused' };
   }
 }
+
+/**
+ * CR-063 — a chat update the agents track should see: a typed message, a photo or document (with
+ * its caption as the text), or a quick-reply tap (TC-AD-07, Telegram's `callback_query`, whose
+ * `data` is the text). Never a `/start …` message — linking is the webhook's own path, and a
+ * malformed `/start` must not leak out of it. Only the fields the agents need are kept; `sentAt`
+ * is Telegram's own timestamp (seconds), never this server's clock (G3).
+ */
+export interface ChatReply {
+  kind: 'message' | 'callback';
+  chatId: string;
+  messageId: number;
+  sentAt: string;
+  text: string | null;
+  photoFileId: string | null;
+  documentFileId: string | null;
+  /** Present for a quick-reply tap, so the agent can answer the tap itself. */
+  callbackQueryId: string | null;
+}
+
+type TgMessage = {
+  message_id?: unknown; date?: unknown; text?: unknown; caption?: unknown;
+  chat?: { id?: unknown };
+  photo?: { file_id?: unknown; file_size?: unknown }[];
+  document?: { file_id?: unknown };
+};
+
+const chatIdOf = (m: TgMessage | undefined): string | null => {
+  const id = m?.chat?.id;
+  if (typeof id !== 'number' && typeof id !== 'string') return null;
+  const s = String(id);
+  return /^-?[0-9]{1,20}$/.test(s) ? s : null;
+};
+const sentAtOf = (date: unknown): string | null =>
+  typeof date === 'number' && Number.isInteger(date) && date > 0 ? new Date(date * 1000).toISOString() : null;
+const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+
+export function replyUpdateOf(update: unknown): ChatReply | null {
+  if (!update || typeof update !== 'object') return null;
+  const u = update as { message?: TgMessage; callback_query?: { id?: unknown; data?: unknown; message?: TgMessage } };
+
+  if (u.callback_query && typeof u.callback_query === 'object') {
+    const q = u.callback_query;
+    const chatId = chatIdOf(q.message);
+    const sentAt = sentAtOf(q.message?.date);
+    const data = str(q.data);
+    if (!chatId || !sentAt || !data || typeof q.message?.message_id !== 'number' || !str(q.id)) return null;
+    return {
+      kind: 'callback', chatId, messageId: q.message.message_id, sentAt, text: data.slice(0, 4096),
+      photoFileId: null, documentFileId: null, callbackQueryId: String(q.id),
+    };
+  }
+
+  const m = u.message;
+  if (!m || typeof m !== 'object') return null;
+  const chatId = chatIdOf(m);
+  const sentAt = sentAtOf(m.date);
+  if (!chatId || !sentAt || typeof m.message_id !== 'number') return null;
+  const text = str(m.text) ?? str(m.caption);
+  if (text !== null && /^\/start(?:@|\s|$)/.test(text.trim())) return null;
+  const photos = Array.isArray(m.photo) ? m.photo.filter((p) => str(p?.file_id)) : [];
+  // Telegram lists a photo's sizes smallest first; the last is the largest.
+  const photoFileId = photos.length > 0 ? String(photos[photos.length - 1]!.file_id) : null;
+  const documentFileId = str(m.document?.file_id);
+  if (text === null && !photoFileId && !documentFileId) return null;
+  return {
+    kind: 'message', chatId, messageId: m.message_id, sentAt, text: text === null ? null : text.slice(0, 4096),
+    photoFileId, documentFileId, callbackQueryId: null,
+  };
+}

@@ -1,0 +1,315 @@
+{
+  "name": "agent-checkin-daily",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Daily 08:00 (Kuwait)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jurah/checkin-now",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Send now (demo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        200
+      ],
+      "webhookId": "b2000000-0000-4000-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://tryjuraaah.vercel.app/api/agent/check-in-eligibility",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "backend: who is eligible",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const API = \"https://tryjuraaah.vercel.app/api/agent\";\nconst N8N = \"https://mohammad-aljry.app.n8n.cloud/webhook\";\n/* ===== generated from agents/lib/adherence.js - do not edit here; edit the source and rebuild ===== */\n/**\n * Jur'ah - the Adherence Agent's deterministic layer, against the Phase 2 backend.\n *\n * The model reads one short reply and returns { intent, confidence, quote }. It decides nothing\n * else. Which dose the reply is about, whether the classification is trusted, what is written,\n * what the patient reads back - all of it is computed here and unit-tested (agents/test).\n *\n * What the backend accepts (docs/API-SURFACE.md section B):\n *   POST /api/agent/doses/{id}/status   { status, recordedAt, source: 'adherence_agent' }\n *   POST /api/agent/schedule/recompute  { prescriptionId, reason: 'reported_miss', missedDoseId }\n *                                       { prescriptionId, reason: 'discontinued', discontinuedReason }\n * and the doses come from GET /api/agent/patients/{id}/doses?date= (CR-062), TRACKED doses only.\n *\n * Rules that live here and nowhere else (docs/AI Agents Acceptance Criteria.md, section 2):\n *   - a status is written only on an explicit reply FROM THE PATIENT'S OWN CHAT (TC-AD-14);\n *   - silence is never a status; this file is only ever run on a reply (TC-AD-10);\n *   - below MIN_CONFIDENCE, or an intent that does not exist, is `unclear` - ask, write nothing;\n *   - a reply that could mean more than one dose is asked about, never guessed (TC-AD-12);\n *   - `missed` only for a dose whose time has come; `taken` never for a dose hours away.\n *\n * Plain CommonJS, no dependencies, no clock: every time comes from the reply's own timestamp.\n * The build inlines this file into an n8n Code node (agents/scripts/build.js).\n */\n\nconst HOUR_MS = 3600 * 1000;\nconst KUWAIT_OFFSET_HOURS = 3;\n\n/** G11 - below this the model's answer is not a decision, whatever it says. */\nconst MIN_CONFIDENCE = 0.7;\n\n/** The six intent classes of the spec. Anything else the model invents is `unclear`. */\nconst INTENTS = ['taken_on_time', 'taken_late', 'missed', 'ran_out', 'discontinued_by_doctor', 'unclear'];\n\n/**\n * The backend's recorded dose words (lib/agent/validate.ts RECORDED_DOSE_WORDS), and the one word\n * a dose carries before anything is recorded. Arrays, never `status:` literals (guard 4).\n */\nconst RECORDED_WORDS = ['taken_on_time', 'taken_late', 'missed'];\nconst OPEN_WORD = ['upcoming'][0];\n\n/** A patient may take a dose a little before its time; further ahead than this is not \"this dose\". */\nconst EARLY_GRACE_HOURS = 1;\n\n/** Quick-reply taps carry `d:<doseId>:<intent>` - the dose is named, never inferred. */\nconst TAP_PREFIX = 'd:';\nconst TAP_INTENTS = ['taken_on_time', 'taken_late', 'missed'];\n\n/**\n * What the patient reads. Chosen by outcome, never written by a model, so no branch can produce\n * free text and none can tell anyone a medicine is safe. `ar` is Kuwaiti; `en` for Patient.language.\n */\nconst REPLIES = {\n  ar: {\n    taken_on_time: '\u062a\u0645\u0627\u0645\u060c \u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646\u0643 \u0623\u062e\u0630\u062a \u062c\u0631\u0639\u0629 {drug} \u0641\u064a \u0648\u0642\u062a\u0647\u0627 \u2705',\n    taken_late: '\u0633\u062c\u0651\u0644\u0646\u0627\u0647\u0627 \u0645\u062a\u0623\u062e\u0631\u0629 \u2705 ({drug}). \u062d\u0627\u0648\u0644 \u062a\u0627\u062e\u0630 \u0627\u0644\u062c\u0627\u064a\u0629 \u0628\u0648\u0642\u062a\u0647\u0627.',\n    missed: '\u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646 \u062c\u0631\u0639\u0629 {drug} \u0641\u0627\u062a\u062a\u0643. \u0631\u062a\u0651\u0628\u0646\u0627 \u0628\u0627\u0642\u064a \u062c\u062f\u0648\u0644\u0643 \u0639\u0644\u0649 \u0646\u0641\u0633 \u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f \u23f3',\n    missed_no_recompute: '\u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646 \u062c\u0631\u0639\u0629 {drug} \u0641\u0627\u062a\u062a\u0643. \u062c\u062f\u0648\u0644\u0643 \u0645\u0627 \u062a\u063a\u064a\u0651\u0631.',\n    ran_out: '\u0641\u0647\u0645\u0646\u0627 \u0625\u0646 {drug} \u062e\u0644\u0635. \u062a\u0642\u062f\u0631 \u062a\u0637\u0644\u0628 \u0625\u0639\u0627\u062f\u0629 \u0635\u0631\u0641 \u0645\u0646 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 (\u0627\u0644\u0623\u062f\u0648\u064a\u0629 \u2190 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0635\u0631\u0641).',\n    discontinued: '\u062a\u0645\u0627\u0645\u060c \u0623\u0648\u0642\u0641\u0646\u0627 \u062c\u0631\u0639\u0627\u062a {drug} \u0627\u0644\u062c\u0627\u064a\u0629. \u0631\u0627\u062c\u0639 \u062f\u0643\u062a\u0648\u0631\u0643 \u0623\u0648 \u0627\u0644\u0635\u064a\u062f\u0644\u0627\u0646\u064a \u0644\u0648 \u0639\u0646\u062f\u0643 \u0633\u0624\u0627\u0644.',\n    unclear: '\u0645\u0627 \u0641\u0647\u0645\u062a \u0639\u0644\u064a\u0643 \u062a\u0645\u0627\u0645 \ud83d\ude4f \u0627\u0636\u063a\u0637 \u0639\u0644\u0649 \u0627\u0644\u0632\u0631 \u062a\u062d\u062a \u0627\u0644\u062c\u0631\u0639\u0629\u060c \u0623\u0648 \u0627\u0643\u062a\u0628: \u00ab\u0623\u062e\u0630\u062a\u0647\u00bb \u0623\u0648 \u00ab\u0623\u062e\u0630\u062a\u0647 \u0645\u062a\u0623\u062e\u0631\u00bb \u0623\u0648 \u00ab\u0646\u0633\u064a\u062a\u00bb.',\n    which_dose: '\u0639\u0646\u062f\u0643 \u0623\u0643\u062b\u0631 \u0645\u0646 \u062c\u0631\u0639\u0629 \u0645\u0641\u062a\u0648\u062d\u0629 \u0627\u0644\u062d\u064a\u0646. \u0627\u062e\u062a\u0631 \u0627\u0644\u062c\u0631\u0639\u0629 \u0645\u0646 \u0627\u0644\u0623\u0632\u0631\u0627\u0631 \u062a\u062d\u062a \ud83d\udc47',\n    no_dose: '\u0645\u0627 \u0644\u0642\u064a\u0646\u0627 \u062c\u0631\u0639\u0629 \u0645\u0641\u062a\u0648\u062d\u0629 \u0646\u0633\u062c\u0651\u0644 \u0639\u0644\u064a\u0647\u0627 \u0627\u0644\u062d\u064a\u0646. \u0644\u0648 \u062a\u0639\u062a\u0642\u062f \u0641\u064a\u0647 \u0634\u064a \u063a\u0644\u0637\u060c \u0631\u0627\u062c\u0639 \u0637\u0628\u064a\u0628\u0643 \u0623\u0648 \u0627\u0644\u0635\u064a\u062f\u0644\u0627\u0646\u064a.',\n    already: '\u0647\u0630\u064a \u0627\u0644\u062c\u0631\u0639\u0629 \u0645\u0633\u062c\u0651\u0644\u0629 \u0645\u0646 \u0642\u0628\u0644 \u2705',\n    failed: '\u0635\u0627\u0631 \u062e\u0644\u0644 \u0639\u0646\u062f\u0646\u0627 \u0648\u0645\u0627 \u0642\u062f\u0631\u0646\u0627 \u0646\u0633\u062c\u0651\u0644 \u0627\u0644\u062d\u064a\u0646. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u062b\u0627\u0646\u064a\u0629 \u0628\u0639\u062f \u0634\u0648\u064a.',\n    caregiver: '\u0634\u0643\u0631\u0627\u064b \u0644\u0643 \ud83d\ude4f \u0627\u0644\u062c\u0631\u0639\u0627\u062a \u064a\u0633\u062c\u0651\u0644\u0647\u0627 \u0627\u0644\u0645\u0631\u064a\u0636 \u0628\u0646\u0641\u0633\u0647 \u0641\u0642\u0637 \u0645\u0646 \u0645\u062d\u0627\u062f\u062b\u062a\u0647. \u062a\u0642\u062f\u0631 \u062a\u062a\u0627\u0628\u0639 \u062c\u062f\u0648\u0644\u0647 \u0645\u0646 \u0627\u0644\u062a\u0637\u0628\u064a\u0642.',\n  },\n  en: {\n    taken_on_time: 'Done - your {drug} dose is recorded as taken on time \u2705',\n    taken_late: 'Recorded as taken late \u2705 ({drug}). Try to take the next one on time.',\n    missed: 'Recorded: you missed your {drug} dose. The rest of your schedule keeps its times \u23f3',\n    missed_no_recompute: 'Recorded: you missed your {drug} dose. Your schedule has not changed.',\n    ran_out: 'Understood - your {drug} has run out. You can request a refill in the app (Medicines \u2192 Refill).',\n    discontinued: 'Done - we stopped the upcoming {drug} doses. Ask your doctor or pharmacist if you have questions.',\n    unclear: 'Sorry, I did not catch that \ud83d\ude4f Tap a button under the dose, or write: \"taken\", \"taken late\" or \"missed\".',\n    which_dose: 'You have more than one open dose right now. Pick the dose with the buttons below \ud83d\udc47',\n    no_dose: 'There is no open dose to record right now. If something looks wrong, check with your doctor or pharmacist.',\n    already: 'That dose is already recorded \u2705',\n    failed: 'Something went wrong on our side and nothing was recorded. Please try again shortly.',\n    caregiver: 'Thank you \ud83d\ude4f Only the patient can confirm a dose, from their own chat. You can follow the schedule in the app.',\n  },\n};\n\nconst lang = (l) => (l === 'en' ? 'en' : 'ar');\nconst fill = (template, drug) => template.replace('{drug}', drug || '');\n\n/** YYYY-MM-DD in Kuwait (UTC+3 all year, no DST). Computed, never formatted by a locale library. */\nfunction kuwaitDate(isoString) {\n  const t = new Date(isoString).getTime();\n  if (Number.isNaN(t)) return null;\n  return new Date(t + KUWAIT_OFFSET_HOURS * HOUR_MS).toISOString().slice(0, 10);\n}\n\n/** HH:MM in Kuwait. */\nfunction kuwaitHHMM(isoString) {\n  const t = new Date(isoString).getTime();\n  if (Number.isNaN(t)) return null;\n  const k = new Date(t + KUWAIT_OFFSET_HOURS * HOUR_MS);\n  return String(k.getUTCHours()).padStart(2, '0') + ':' + String(k.getUTCMinutes()).padStart(2, '0');\n}\n\n/** The Kuwait date before `isoDate` (YYYY-MM-DD). */\nfunction previousDate(isoDate) {\n  const t = Date.parse(isoDate + 'T00:00:00Z');\n  return new Date(t - 24 * HOUR_MS).toISOString().slice(0, 10);\n}\n\n/** The name the patient knows the medicine by: brand first, then generic. */\nfunction drugLabel(dose) {\n  if (!dose) return '';\n  return dose.brandName || dose.genericName || '';\n}\n\n/**\n * G11 - trust the model only inside the whitelist and above the floor. Everything else is\n * `unclear`, and `unclear` writes nothing.\n */\nfunction trustClassification({ intent, confidence, quote }, minConfidence = MIN_CONFIDENCE) {\n  const claimed = String(intent == null ? 'unclear' : intent);\n  const score = Number(confidence);\n  const known = INTENTS.includes(claimed);\n  const confident = Number.isFinite(score) && score >= minConfidence;\n  if (known && confident) return { intent: claimed, claimed, confidence: score, quote: String(quote || ''), guardrail: null };\n  return {\n    intent: 'unclear',\n    claimed,\n    confidence: Number.isFinite(score) ? score : 0,\n    quote: String(quote || ''),\n    guardrail: 'G11',\n  };\n}\n\n/** `d:<doseId>:<intent>` -> { doseId, intent }, or null for anything else. */\nfunction parseTap(data) {\n  if (typeof data !== 'string' || !data.startsWith(TAP_PREFIX)) return null;\n  const rest = data.slice(TAP_PREFIX.length);\n  const cut = rest.lastIndexOf(':');\n  if (cut <= 0) return null;\n  const doseId = rest.slice(0, cut);\n  const intent = rest.slice(cut + 1);\n  if (!/^[A-Za-z0-9_-]{1,48}$/.test(doseId) || !TAP_INTENTS.includes(intent)) return null;\n  return { doseId, intent };\n}\n\n/** The callback data for one quick-reply button. Telegram allows 64 bytes. */\nfunction tapData(doseId, intent) {\n  const data = TAP_PREFIX + doseId + ':' + intent;\n  if (data.length > 64) throw new Error('callback data over 64 bytes for ' + doseId);\n  return data;\n}\n\n/**\n * Which dose could a TYPED reply be about? Open (not yet recorded) tracked doses only.\n *   - `missed`: a dose whose time has already come;\n *   - anything else: a dose already due, or due within EARLY_GRACE_HOURS.\n * Returns every candidate, most recent first. The caller refuses to guess between two.\n */\nfunction candidateDoses({ doses, sentAt, intent }) {\n  const t = new Date(sentAt).getTime();\n  const horizon = intent === 'missed' ? t : t + EARLY_GRACE_HOURS * HOUR_MS;\n  return (doses || [])\n    .filter((d) => d && d.status === OPEN_WORD)\n    .filter((d) => new Date(d.scheduledAt).getTime() <= horizon)\n    .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));\n}\n\n/**\n * THE decision. Input is everything the workflow knows; output is the complete, closed list of\n * what may happen next - nothing outside `writes` is ever sent to the backend.\n *\n *   subjectType   'patient' | 'caregiver' (from the relay - the chat's owner, resolved server-side)\n *   language      'ar' | 'en'\n *   sentAt        the reply's own Telegram timestamp (ISO)\n *   doses         today's (and, for a tap, the tapped day's) TRACKED doses from the backend\n *   tap           parseTap(...) of a quick-reply, or null for typed text\n *   classification  the model's { intent, confidence, quote }, or null for a tap\n *\n * Output:\n *   { outcome, intent, dose, writes: [...], reply, guardrail, reason, askDoses: [...] }\n *   writes[i] is { op: 'dose_status', doseId, body } or { op: 'recompute', body } - in order.\n */\nfunction decide({ subjectType, language, sentAt, doses, tap, classification }) {\n  const L = REPLIES[lang(language)];\n  const base = { intent: 'unclear', dose: null, writes: [], askDoses: [], guardrail: null, reason: null };\n\n  // TC-AD-14 - the role boundary. A caregiver cannot report a dose, whatever they wrote or tapped.\n  if (subjectType !== 'patient') {\n    return { ...base, outcome: 'caregiver_refused', reply: L.caregiver, guardrail: 'TC-AD-14',\n             reason: 'the chat belongs to a caregiver; only the patient may confirm a dose' };\n  }\n  if (!kuwaitDate(sentAt)) {\n    return { ...base, outcome: 'refused', reply: L.failed, guardrail: 'G10', reason: 'the reply carries no usable timestamp' };\n  }\n\n  // A tap names its dose - but the name is checked against the patient's own doses, never trusted.\n  let trusted;\n  let dose = null;\n  if (tap) {\n    trusted = { intent: tap.intent, claimed: tap.intent, confidence: 1, quote: '', guardrail: null };\n    dose = (doses || []).find((d) => d && d.id === tap.doseId) || null;\n    if (!dose) {\n      return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',\n               reason: 'the tapped dose is not one of this patient\\'s tracked doses' };\n    }\n    if (dose.status !== OPEN_WORD) {\n      return { ...base, outcome: 'already_recorded', dose, reply: L.already, reason: 'the tapped dose already carries ' + dose.status };\n    }\n    if (tap.intent === 'missed' && new Date(dose.scheduledAt).getTime() > new Date(sentAt).getTime()) {\n      return { ...base, outcome: 'refused', dose, reply: L.no_dose, guardrail: 'G10', reason: 'a dose cannot be missed before its time' };\n    }\n  } else {\n    trusted = trustClassification(classification || {});\n  }\n\n  const intent = trusted.intent;\n  if (intent === 'unclear') {\n    return { ...base, outcome: 'unclear', reply: L.unclear, guardrail: trusted.guardrail,\n             reason: trusted.guardrail ? 'confidence or intent not trusted (claimed ' + trusted.claimed + ' @ ' + trusted.confidence + ')' : 'the reply is not an adherence answer' };\n  }\n\n  if (!dose) {\n    const candidates = candidateDoses({ doses, sentAt, intent });\n    if (candidates.length === 0) {\n      return { ...base, intent, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10', reason: 'no open tracked dose this reply could be about' };\n    }\n    // TC-AD-12 - two open doses and a typed \"I took it\": ask with buttons, never pick one.\n    if (candidates.length > 1 && intent !== 'ran_out' && intent !== 'discontinued_by_doctor') {\n      return { ...base, intent, outcome: 'ask_which', reply: L.which_dose, askDoses: candidates.slice().reverse(),\n               reason: candidates.length + ' open doses could be meant' };\n    }\n    // A prescription-level report needs ONE prescription behind the candidates.\n    if (candidates.length > 1) {\n      const rxIds = [...new Set(candidates.map((d) => d.prescriptionId))];\n      if (rxIds.length > 1) {\n        return { ...base, intent, outcome: 'ask_which', reply: L.unclear, askDoses: [],\n                 reason: 'the report names no medicine and ' + rxIds.length + ' prescriptions are open' };\n      }\n    }\n    dose = candidates[0];\n  }\n\n  const drug = drugLabel(dose);\n  const recordedAt = new Date(sentAt).toISOString();\n  const statusBody = (word) => ({ status: word, recordedAt, source: 'adherence_agent' });\n\n  if (RECORDED_WORDS.includes(intent)) {\n    const writes = [{ op: 'dose_status', doseId: dose.id, body: statusBody(intent) }];\n    // TC-RS-01 - a reported miss is recorded FIRST, then the engine recomputes (it refuses otherwise).\n    if (intent === RECORDED_WORDS[2]) {\n      writes.push({ op: 'recompute', body: { prescriptionId: dose.prescriptionId, reason: 'reported_miss', missedDoseId: dose.id } });\n    }\n    return { ...base, outcome: 'record', intent, dose, writes, reply: fill(L[intent], drug), quote: trusted.quote };\n  }\n\n  if (intent === 'ran_out') {\n    // No status and no write: a refill is the patient's request through the app (requestRefill).\n    return { ...base, outcome: 'ran_out', intent, dose, reply: fill(L.ran_out, drug) };\n  }\n\n  // discontinued_by_doctor - TC-RS-03. Cancels the remaining doses of ONE prescription, with the\n  // patient's own words as the reason (rx_discontinued_complete requires one).\n  const quote = trusted.quote ? ': \u00ab' + trusted.quote.slice(0, 200) + '\u00bb' : '';\n  return {\n    ...base, outcome: 'discontinue', intent, dose,\n    writes: [{ op: 'recompute', body: { prescriptionId: dose.prescriptionId, reason: 'discontinued',\n                                         discontinuedReason: 'Patient reported in chat that the doctor stopped it' + quote } }],\n    reply: fill(L.discontinued, drug),\n  };\n}\n\n/**\n * The reply after the writes ran. A write the backend refused must never read as \"recorded\".\n *   results[i] is { statusCode } for writes[i], in order; a missing result means it never ran.\n */\nfunction replyAfterWrites(decision, results, language) {\n  const L = REPLIES[lang(language)];\n  const drug = drugLabel(decision.dose);\n  const writes = decision.writes || [];\n  if (writes.length === 0) return { reply: decision.reply, recorded: false };\n  const ok = (i) => results && results[i] && results[i].statusCode >= 200 && results[i].statusCode < 300;\n  if (writes[0].op === 'dose_status' && !ok(0)) {\n    const code = results && results[0] ? results[0].statusCode : null;\n    return { reply: code === 409 ? L.no_dose : L.failed, recorded: false };\n  }\n  if (writes[0].op === 'recompute' && !ok(0)) return { reply: L.failed, recorded: false };\n  // The miss IS recorded; only the recompute failed or refused - say exactly that much.\n  if (writes.length > 1 && !ok(1)) return { reply: fill(L.missed_no_recompute, drug), recorded: true };\n  return { reply: decision.reply, recorded: true };\n}\n\n/**\n * The daily check-in for one patient: a header, then one message per open dose with three\n * quick-reply buttons naming that dose (TC-AD-07/12). Times and names come from the data only.\n */\nfunction buildCheckIn({ patientId, chatId, language, doses }) {\n  const l = lang(language);\n  const open = (doses || []).filter((d) => d && d.status === OPEN_WORD)\n    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));\n  if (open.length === 0) return { patientId, skipped: true, reason: 'no open tracked doses today', messages: [] };\n  const labels = l === 'en'\n    ? { head: 'Good morning \ud83d\udc4b Your doses today:', taken: 'Taken \u2705', late: 'Taken late \u23f0', missed: 'Missed \u2716' }\n    : { head: '\u0635\u0628\u0627\u062d \u0627\u0644\u062e\u064a\u0631 \ud83d\udc4b \u062c\u0631\u0639\u0627\u062a\u0643 \u0627\u0644\u064a\u0648\u0645:', taken: '\u0623\u062e\u0630\u062a\u0647 \u2705', late: '\u0623\u062e\u0630\u062a\u0647 \u0645\u062a\u0623\u062e\u0631 \u23f0', missed: '\u0646\u0633\u064a\u062a \u2716' };\n  const line = (d) => {\n    const strength = d.strengthMg != null ? ' ' + d.strengthMg + ' ' + (d.strengthUnit || 'mg') : '';\n    const food = d.timingRelativeToFood ? ' \u2014 ' + d.timingRelativeToFood : '';\n    return kuwaitHHMM(d.scheduledAt) + ' \u00b7 ' + drugLabel(d) + strength + food;\n  };\n  const messages = [{ chatId, text: labels.head + '\\n' + open.map((d) => '\u2022 ' + line(d)).join('\\n'), buttons: null }];\n  for (const d of open) {\n    messages.push({\n      chatId,\n      text: line(d),\n      buttons: [\n        { text: labels.taken, data: tapData(d.id, 'taken_on_time') },\n        { text: labels.late, data: tapData(d.id, 'taken_late') },\n        { text: labels.missed, data: tapData(d.id, 'missed') },\n      ],\n      doseId: d.id,\n    });\n  }\n  return { patientId, skipped: false, reason: null, messages };\n}\n/* ===== end generated ===== */\n\n// Eligibility is the BACKEND's (tracking on AND the latest link connected) - never decided here.\nconst res = $input.first().json;\nif (res.statusCode !== 200 || !Array.isArray(res.body)) return [];\nconst today = kuwaitDate(new Date().toISOString());\n// every_other_day: a fixed, documented parity (days since 2026-01-01 even) - never a guess per patient.\nconst dayIndex = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);\nreturn res.body\n  .filter((e) => e && e.patientId && e.chatId)\n  .filter((e) => e.frequency !== 'every_other_day' || dayIndex % 2 === 0)\n  .map((e) => ({ json: { patientId: e.patientId, chatId: e.chatId, language: e.language === 'en' ? 'en' : 'ar', date: today,\n                         dosesUrl: API + '/patients/' + encodeURIComponent(e.patientId) + '/doses?date=' + today } }));"
+      },
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "plan (deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.dosesUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "backend: doses of the day",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ===== generated from agents/lib/adherence.js - do not edit here; edit the source and rebuild ===== */\n/**\n * Jur'ah - the Adherence Agent's deterministic layer, against the Phase 2 backend.\n *\n * The model reads one short reply and returns { intent, confidence, quote }. It decides nothing\n * else. Which dose the reply is about, whether the classification is trusted, what is written,\n * what the patient reads back - all of it is computed here and unit-tested (agents/test).\n *\n * What the backend accepts (docs/API-SURFACE.md section B):\n *   POST /api/agent/doses/{id}/status   { status, recordedAt, source: 'adherence_agent' }\n *   POST /api/agent/schedule/recompute  { prescriptionId, reason: 'reported_miss', missedDoseId }\n *                                       { prescriptionId, reason: 'discontinued', discontinuedReason }\n * and the doses come from GET /api/agent/patients/{id}/doses?date= (CR-062), TRACKED doses only.\n *\n * Rules that live here and nowhere else (docs/AI Agents Acceptance Criteria.md, section 2):\n *   - a status is written only on an explicit reply FROM THE PATIENT'S OWN CHAT (TC-AD-14);\n *   - silence is never a status; this file is only ever run on a reply (TC-AD-10);\n *   - below MIN_CONFIDENCE, or an intent that does not exist, is `unclear` - ask, write nothing;\n *   - a reply that could mean more than one dose is asked about, never guessed (TC-AD-12);\n *   - `missed` only for a dose whose time has come; `taken` never for a dose hours away.\n *\n * Plain CommonJS, no dependencies, no clock: every time comes from the reply's own timestamp.\n * The build inlines this file into an n8n Code node (agents/scripts/build.js).\n */\n\nconst HOUR_MS = 3600 * 1000;\nconst KUWAIT_OFFSET_HOURS = 3;\n\n/** G11 - below this the model's answer is not a decision, whatever it says. */\nconst MIN_CONFIDENCE = 0.7;\n\n/** The six intent classes of the spec. Anything else the model invents is `unclear`. */\nconst INTENTS = ['taken_on_time', 'taken_late', 'missed', 'ran_out', 'discontinued_by_doctor', 'unclear'];\n\n/**\n * The backend's recorded dose words (lib/agent/validate.ts RECORDED_DOSE_WORDS), and the one word\n * a dose carries before anything is recorded. Arrays, never `status:` literals (guard 4).\n */\nconst RECORDED_WORDS = ['taken_on_time', 'taken_late', 'missed'];\nconst OPEN_WORD = ['upcoming'][0];\n\n/** A patient may take a dose a little before its time; further ahead than this is not \"this dose\". */\nconst EARLY_GRACE_HOURS = 1;\n\n/** Quick-reply taps carry `d:<doseId>:<intent>` - the dose is named, never inferred. */\nconst TAP_PREFIX = 'd:';\nconst TAP_INTENTS = ['taken_on_time', 'taken_late', 'missed'];\n\n/**\n * What the patient reads. Chosen by outcome, never written by a model, so no branch can produce\n * free text and none can tell anyone a medicine is safe. `ar` is Kuwaiti; `en` for Patient.language.\n */\nconst REPLIES = {\n  ar: {\n    taken_on_time: '\u062a\u0645\u0627\u0645\u060c \u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646\u0643 \u0623\u062e\u0630\u062a \u062c\u0631\u0639\u0629 {drug} \u0641\u064a \u0648\u0642\u062a\u0647\u0627 \u2705',\n    taken_late: '\u0633\u062c\u0651\u0644\u0646\u0627\u0647\u0627 \u0645\u062a\u0623\u062e\u0631\u0629 \u2705 ({drug}). \u062d\u0627\u0648\u0644 \u062a\u0627\u062e\u0630 \u0627\u0644\u062c\u0627\u064a\u0629 \u0628\u0648\u0642\u062a\u0647\u0627.',\n    missed: '\u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646 \u062c\u0631\u0639\u0629 {drug} \u0641\u0627\u062a\u062a\u0643. \u0631\u062a\u0651\u0628\u0646\u0627 \u0628\u0627\u0642\u064a \u062c\u062f\u0648\u0644\u0643 \u0639\u0644\u0649 \u0646\u0641\u0633 \u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f \u23f3',\n    missed_no_recompute: '\u0633\u062c\u0651\u0644\u0646\u0627 \u0625\u0646 \u062c\u0631\u0639\u0629 {drug} \u0641\u0627\u062a\u062a\u0643. \u062c\u062f\u0648\u0644\u0643 \u0645\u0627 \u062a\u063a\u064a\u0651\u0631.',\n    ran_out: '\u0641\u0647\u0645\u0646\u0627 \u0625\u0646 {drug} \u062e\u0644\u0635. \u062a\u0642\u062f\u0631 \u062a\u0637\u0644\u0628 \u0625\u0639\u0627\u062f\u0629 \u0635\u0631\u0641 \u0645\u0646 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 (\u0627\u0644\u0623\u062f\u0648\u064a\u0629 \u2190 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0635\u0631\u0641).',\n    discontinued: '\u062a\u0645\u0627\u0645\u060c \u0623\u0648\u0642\u0641\u0646\u0627 \u062c\u0631\u0639\u0627\u062a {drug} \u0627\u0644\u062c\u0627\u064a\u0629. \u0631\u0627\u062c\u0639 \u062f\u0643\u062a\u0648\u0631\u0643 \u0623\u0648 \u0627\u0644\u0635\u064a\u062f\u0644\u0627\u0646\u064a \u0644\u0648 \u0639\u0646\u062f\u0643 \u0633\u0624\u0627\u0644.',\n    unclear: '\u0645\u0627 \u0641\u0647\u0645\u062a \u0639\u0644\u064a\u0643 \u062a\u0645\u0627\u0645 \ud83d\ude4f \u0627\u0636\u063a\u0637 \u0639\u0644\u0649 \u0627\u0644\u0632\u0631 \u062a\u062d\u062a \u0627\u0644\u062c\u0631\u0639\u0629\u060c \u0623\u0648 \u0627\u0643\u062a\u0628: \u00ab\u0623\u062e\u0630\u062a\u0647\u00bb \u0623\u0648 \u00ab\u0623\u062e\u0630\u062a\u0647 \u0645\u062a\u0623\u062e\u0631\u00bb \u0623\u0648 \u00ab\u0646\u0633\u064a\u062a\u00bb.',\n    which_dose: '\u0639\u0646\u062f\u0643 \u0623\u0643\u062b\u0631 \u0645\u0646 \u062c\u0631\u0639\u0629 \u0645\u0641\u062a\u0648\u062d\u0629 \u0627\u0644\u062d\u064a\u0646. \u0627\u062e\u062a\u0631 \u0627\u0644\u062c\u0631\u0639\u0629 \u0645\u0646 \u0627\u0644\u0623\u0632\u0631\u0627\u0631 \u062a\u062d\u062a \ud83d\udc47',\n    no_dose: '\u0645\u0627 \u0644\u0642\u064a\u0646\u0627 \u062c\u0631\u0639\u0629 \u0645\u0641\u062a\u0648\u062d\u0629 \u0646\u0633\u062c\u0651\u0644 \u0639\u0644\u064a\u0647\u0627 \u0627\u0644\u062d\u064a\u0646. \u0644\u0648 \u062a\u0639\u062a\u0642\u062f \u0641\u064a\u0647 \u0634\u064a \u063a\u0644\u0637\u060c \u0631\u0627\u062c\u0639 \u0637\u0628\u064a\u0628\u0643 \u0623\u0648 \u0627\u0644\u0635\u064a\u062f\u0644\u0627\u0646\u064a.',\n    already: '\u0647\u0630\u064a \u0627\u0644\u062c\u0631\u0639\u0629 \u0645\u0633\u062c\u0651\u0644\u0629 \u0645\u0646 \u0642\u0628\u0644 \u2705',\n    failed: '\u0635\u0627\u0631 \u062e\u0644\u0644 \u0639\u0646\u062f\u0646\u0627 \u0648\u0645\u0627 \u0642\u062f\u0631\u0646\u0627 \u0646\u0633\u062c\u0651\u0644 \u0627\u0644\u062d\u064a\u0646. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u062b\u0627\u0646\u064a\u0629 \u0628\u0639\u062f \u0634\u0648\u064a.',\n    caregiver: '\u0634\u0643\u0631\u0627\u064b \u0644\u0643 \ud83d\ude4f \u0627\u0644\u062c\u0631\u0639\u0627\u062a \u064a\u0633\u062c\u0651\u0644\u0647\u0627 \u0627\u0644\u0645\u0631\u064a\u0636 \u0628\u0646\u0641\u0633\u0647 \u0641\u0642\u0637 \u0645\u0646 \u0645\u062d\u0627\u062f\u062b\u062a\u0647. \u062a\u0642\u062f\u0631 \u062a\u062a\u0627\u0628\u0639 \u062c\u062f\u0648\u0644\u0647 \u0645\u0646 \u0627\u0644\u062a\u0637\u0628\u064a\u0642.',\n  },\n  en: {\n    taken_on_time: 'Done - your {drug} dose is recorded as taken on time \u2705',\n    taken_late: 'Recorded as taken late \u2705 ({drug}). Try to take the next one on time.',\n    missed: 'Recorded: you missed your {drug} dose. The rest of your schedule keeps its times \u23f3',\n    missed_no_recompute: 'Recorded: you missed your {drug} dose. Your schedule has not changed.',\n    ran_out: 'Understood - your {drug} has run out. You can request a refill in the app (Medicines \u2192 Refill).',\n    discontinued: 'Done - we stopped the upcoming {drug} doses. Ask your doctor or pharmacist if you have questions.',\n    unclear: 'Sorry, I did not catch that \ud83d\ude4f Tap a button under the dose, or write: \"taken\", \"taken late\" or \"missed\".',\n    which_dose: 'You have more than one open dose right now. Pick the dose with the buttons below \ud83d\udc47',\n    no_dose: 'There is no open dose to record right now. If something looks wrong, check with your doctor or pharmacist.',\n    already: 'That dose is already recorded \u2705',\n    failed: 'Something went wrong on our side and nothing was recorded. Please try again shortly.',\n    caregiver: 'Thank you \ud83d\ude4f Only the patient can confirm a dose, from their own chat. You can follow the schedule in the app.',\n  },\n};\n\nconst lang = (l) => (l === 'en' ? 'en' : 'ar');\nconst fill = (template, drug) => template.replace('{drug}', drug || '');\n\n/** YYYY-MM-DD in Kuwait (UTC+3 all year, no DST). Computed, never formatted by a locale library. */\nfunction kuwaitDate(isoString) {\n  const t = new Date(isoString).getTime();\n  if (Number.isNaN(t)) return null;\n  return new Date(t + KUWAIT_OFFSET_HOURS * HOUR_MS).toISOString().slice(0, 10);\n}\n\n/** HH:MM in Kuwait. */\nfunction kuwaitHHMM(isoString) {\n  const t = new Date(isoString).getTime();\n  if (Number.isNaN(t)) return null;\n  const k = new Date(t + KUWAIT_OFFSET_HOURS * HOUR_MS);\n  return String(k.getUTCHours()).padStart(2, '0') + ':' + String(k.getUTCMinutes()).padStart(2, '0');\n}\n\n/** The Kuwait date before `isoDate` (YYYY-MM-DD). */\nfunction previousDate(isoDate) {\n  const t = Date.parse(isoDate + 'T00:00:00Z');\n  return new Date(t - 24 * HOUR_MS).toISOString().slice(0, 10);\n}\n\n/** The name the patient knows the medicine by: brand first, then generic. */\nfunction drugLabel(dose) {\n  if (!dose) return '';\n  return dose.brandName || dose.genericName || '';\n}\n\n/**\n * G11 - trust the model only inside the whitelist and above the floor. Everything else is\n * `unclear`, and `unclear` writes nothing.\n */\nfunction trustClassification({ intent, confidence, quote }, minConfidence = MIN_CONFIDENCE) {\n  const claimed = String(intent == null ? 'unclear' : intent);\n  const score = Number(confidence);\n  const known = INTENTS.includes(claimed);\n  const confident = Number.isFinite(score) && score >= minConfidence;\n  if (known && confident) return { intent: claimed, claimed, confidence: score, quote: String(quote || ''), guardrail: null };\n  return {\n    intent: 'unclear',\n    claimed,\n    confidence: Number.isFinite(score) ? score : 0,\n    quote: String(quote || ''),\n    guardrail: 'G11',\n  };\n}\n\n/** `d:<doseId>:<intent>` -> { doseId, intent }, or null for anything else. */\nfunction parseTap(data) {\n  if (typeof data !== 'string' || !data.startsWith(TAP_PREFIX)) return null;\n  const rest = data.slice(TAP_PREFIX.length);\n  const cut = rest.lastIndexOf(':');\n  if (cut <= 0) return null;\n  const doseId = rest.slice(0, cut);\n  const intent = rest.slice(cut + 1);\n  if (!/^[A-Za-z0-9_-]{1,48}$/.test(doseId) || !TAP_INTENTS.includes(intent)) return null;\n  return { doseId, intent };\n}\n\n/** The callback data for one quick-reply button. Telegram allows 64 bytes. */\nfunction tapData(doseId, intent) {\n  const data = TAP_PREFIX + doseId + ':' + intent;\n  if (data.length > 64) throw new Error('callback data over 64 bytes for ' + doseId);\n  return data;\n}\n\n/**\n * Which dose could a TYPED reply be about? Open (not yet recorded) tracked doses only.\n *   - `missed`: a dose whose time has already come;\n *   - anything else: a dose already due, or due within EARLY_GRACE_HOURS.\n * Returns every candidate, most recent first. The caller refuses to guess between two.\n */\nfunction candidateDoses({ doses, sentAt, intent }) {\n  const t = new Date(sentAt).getTime();\n  const horizon = intent === 'missed' ? t : t + EARLY_GRACE_HOURS * HOUR_MS;\n  return (doses || [])\n    .filter((d) => d && d.status === OPEN_WORD)\n    .filter((d) => new Date(d.scheduledAt).getTime() <= horizon)\n    .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));\n}\n\n/**\n * THE decision. Input is everything the workflow knows; output is the complete, closed list of\n * what may happen next - nothing outside `writes` is ever sent to the backend.\n *\n *   subjectType   'patient' | 'caregiver' (from the relay - the chat's owner, resolved server-side)\n *   language      'ar' | 'en'\n *   sentAt        the reply's own Telegram timestamp (ISO)\n *   doses         today's (and, for a tap, the tapped day's) TRACKED doses from the backend\n *   tap           parseTap(...) of a quick-reply, or null for typed text\n *   classification  the model's { intent, confidence, quote }, or null for a tap\n *\n * Output:\n *   { outcome, intent, dose, writes: [...], reply, guardrail, reason, askDoses: [...] }\n *   writes[i] is { op: 'dose_status', doseId, body } or { op: 'recompute', body } - in order.\n */\nfunction decide({ subjectType, language, sentAt, doses, tap, classification }) {\n  const L = REPLIES[lang(language)];\n  const base = { intent: 'unclear', dose: null, writes: [], askDoses: [], guardrail: null, reason: null };\n\n  // TC-AD-14 - the role boundary. A caregiver cannot report a dose, whatever they wrote or tapped.\n  if (subjectType !== 'patient') {\n    return { ...base, outcome: 'caregiver_refused', reply: L.caregiver, guardrail: 'TC-AD-14',\n             reason: 'the chat belongs to a caregiver; only the patient may confirm a dose' };\n  }\n  if (!kuwaitDate(sentAt)) {\n    return { ...base, outcome: 'refused', reply: L.failed, guardrail: 'G10', reason: 'the reply carries no usable timestamp' };\n  }\n\n  // A tap names its dose - but the name is checked against the patient's own doses, never trusted.\n  let trusted;\n  let dose = null;\n  if (tap) {\n    trusted = { intent: tap.intent, claimed: tap.intent, confidence: 1, quote: '', guardrail: null };\n    dose = (doses || []).find((d) => d && d.id === tap.doseId) || null;\n    if (!dose) {\n      return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',\n               reason: 'the tapped dose is not one of this patient\\'s tracked doses' };\n    }\n    if (dose.status !== OPEN_WORD) {\n      return { ...base, outcome: 'already_recorded', dose, reply: L.already, reason: 'the tapped dose already carries ' + dose.status };\n    }\n    if (tap.intent === 'missed' && new Date(dose.scheduledAt).getTime() > new Date(sentAt).getTime()) {\n      return { ...base, outcome: 'refused', dose, reply: L.no_dose, guardrail: 'G10', reason: 'a dose cannot be missed before its time' };\n    }\n  } else {\n    trusted = trustClassification(classification || {});\n  }\n\n  const intent = trusted.intent;\n  if (intent === 'unclear') {\n    return { ...base, outcome: 'unclear', reply: L.unclear, guardrail: trusted.guardrail,\n             reason: trusted.guardrail ? 'confidence or intent not trusted (claimed ' + trusted.claimed + ' @ ' + trusted.confidence + ')' : 'the reply is not an adherence answer' };\n  }\n\n  if (!dose) {\n    const candidates = candidateDoses({ doses, sentAt, intent });\n    if (candidates.length === 0) {\n      return { ...base, intent, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10', reason: 'no open tracked dose this reply could be about' };\n    }\n    // TC-AD-12 - two open doses and a typed \"I took it\": ask with buttons, never pick one.\n    if (candidates.length > 1 && intent !== 'ran_out' && intent !== 'discontinued_by_doctor') {\n      return { ...base, intent, outcome: 'ask_which', reply: L.which_dose, askDoses: candidates.slice().reverse(),\n               reason: candidates.length + ' open doses could be meant' };\n    }\n    // A prescription-level report needs ONE prescription behind the candidates.\n    if (candidates.length > 1) {\n      const rxIds = [...new Set(candidates.map((d) => d.prescriptionId))];\n      if (rxIds.length > 1) {\n        return { ...base, intent, outcome: 'ask_which', reply: L.unclear, askDoses: [],\n                 reason: 'the report names no medicine and ' + rxIds.length + ' prescriptions are open' };\n      }\n    }\n    dose = candidates[0];\n  }\n\n  const drug = drugLabel(dose);\n  const recordedAt = new Date(sentAt).toISOString();\n  const statusBody = (word) => ({ status: word, recordedAt, source: 'adherence_agent' });\n\n  if (RECORDED_WORDS.includes(intent)) {\n    const writes = [{ op: 'dose_status', doseId: dose.id, body: statusBody(intent) }];\n    // TC-RS-01 - a reported miss is recorded FIRST, then the engine recomputes (it refuses otherwise).\n    if (intent === RECORDED_WORDS[2]) {\n      writes.push({ op: 'recompute', body: { prescriptionId: dose.prescriptionId, reason: 'reported_miss', missedDoseId: dose.id } });\n    }\n    return { ...base, outcome: 'record', intent, dose, writes, reply: fill(L[intent], drug), quote: trusted.quote };\n  }\n\n  if (intent === 'ran_out') {\n    // No status and no write: a refill is the patient's request through the app (requestRefill).\n    return { ...base, outcome: 'ran_out', intent, dose, reply: fill(L.ran_out, drug) };\n  }\n\n  // discontinued_by_doctor - TC-RS-03. Cancels the remaining doses of ONE prescription, with the\n  // patient's own words as the reason (rx_discontinued_complete requires one).\n  const quote = trusted.quote ? ': \u00ab' + trusted.quote.slice(0, 200) + '\u00bb' : '';\n  return {\n    ...base, outcome: 'discontinue', intent, dose,\n    writes: [{ op: 'recompute', body: { prescriptionId: dose.prescriptionId, reason: 'discontinued',\n                                         discontinuedReason: 'Patient reported in chat that the doctor stopped it' + quote } }],\n    reply: fill(L.discontinued, drug),\n  };\n}\n\n/**\n * The reply after the writes ran. A write the backend refused must never read as \"recorded\".\n *   results[i] is { statusCode } for writes[i], in order; a missing result means it never ran.\n */\nfunction replyAfterWrites(decision, results, language) {\n  const L = REPLIES[lang(language)];\n  const drug = drugLabel(decision.dose);\n  const writes = decision.writes || [];\n  if (writes.length === 0) return { reply: decision.reply, recorded: false };\n  const ok = (i) => results && results[i] && results[i].statusCode >= 200 && results[i].statusCode < 300;\n  if (writes[0].op === 'dose_status' && !ok(0)) {\n    const code = results && results[0] ? results[0].statusCode : null;\n    return { reply: code === 409 ? L.no_dose : L.failed, recorded: false };\n  }\n  if (writes[0].op === 'recompute' && !ok(0)) return { reply: L.failed, recorded: false };\n  // The miss IS recorded; only the recompute failed or refused - say exactly that much.\n  if (writes.length > 1 && !ok(1)) return { reply: fill(L.missed_no_recompute, drug), recorded: true };\n  return { reply: decision.reply, recorded: true };\n}\n\n/**\n * The daily check-in for one patient: a header, then one message per open dose with three\n * quick-reply buttons naming that dose (TC-AD-07/12). Times and names come from the data only.\n */\nfunction buildCheckIn({ patientId, chatId, language, doses }) {\n  const l = lang(language);\n  const open = (doses || []).filter((d) => d && d.status === OPEN_WORD)\n    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));\n  if (open.length === 0) return { patientId, skipped: true, reason: 'no open tracked doses today', messages: [] };\n  const labels = l === 'en'\n    ? { head: 'Good morning \ud83d\udc4b Your doses today:', taken: 'Taken \u2705', late: 'Taken late \u23f0', missed: 'Missed \u2716' }\n    : { head: '\u0635\u0628\u0627\u062d \u0627\u0644\u062e\u064a\u0631 \ud83d\udc4b \u062c\u0631\u0639\u0627\u062a\u0643 \u0627\u0644\u064a\u0648\u0645:', taken: '\u0623\u062e\u0630\u062a\u0647 \u2705', late: '\u0623\u062e\u0630\u062a\u0647 \u0645\u062a\u0623\u062e\u0631 \u23f0', missed: '\u0646\u0633\u064a\u062a \u2716' };\n  const line = (d) => {\n    const strength = d.strengthMg != null ? ' ' + d.strengthMg + ' ' + (d.strengthUnit || 'mg') : '';\n    const food = d.timingRelativeToFood ? ' \u2014 ' + d.timingRelativeToFood : '';\n    return kuwaitHHMM(d.scheduledAt) + ' \u00b7 ' + drugLabel(d) + strength + food;\n  };\n  const messages = [{ chatId, text: labels.head + '\\n' + open.map((d) => '\u2022 ' + line(d)).join('\\n'), buttons: null }];\n  for (const d of open) {\n    messages.push({\n      chatId,\n      text: line(d),\n      buttons: [\n        { text: labels.taken, data: tapData(d.id, 'taken_on_time') },\n        { text: labels.late, data: tapData(d.id, 'taken_late') },\n        { text: labels.missed, data: tapData(d.id, 'missed') },\n      ],\n      doseId: d.id,\n    });\n  }\n  return { patientId, skipped: false, reason: null, messages };\n}\n/* ===== end generated ===== */\n\n// One patient per item: a header, then one message per OPEN dose with three buttons naming it.\n// TC-AD-10: sending is all this does. Nothing is ever recorded from silence.\nconst plans = $('plan (deterministic)').all();\nconst out = [];\n$input.all().forEach((item, i) => {\n  const plan = plans[i] && plans[i].json;\n  const res = item.json;\n  if (!plan || res.statusCode !== 200 || !res.body || !Array.isArray(res.body.doses)) return;\n  const c = buildCheckIn({ patientId: plan.patientId, chatId: plan.chatId, language: plan.language, doses: res.body.doses });\n  for (const m of c.messages) out.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } });\n});\nreturn out;"
+      },
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "check-in (deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b2000000-0000-4000-8000-000000000007-c",
+              "leftValue": "={{ Array.isArray($json.buttons) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "with buttons?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.buttons[0].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.buttons[0].data }}"
+                    }
+                  },
+                  {
+                    "text": "={{ $json.buttons[1].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.buttons[1].data }}"
+                    }
+                  },
+                  {
+                    "text": "={{ $json.buttons[2].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.buttons[2].data }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Telegram: dose with buttons",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        20
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000009",
+      "name": "Telegram: header",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        180
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Daily 08:00 (Kuwait)": {
+      "main": [
+        [
+          {
+            "node": "backend: who is eligible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send now (demo)": {
+      "main": [
+        [
+          {
+            "node": "backend: who is eligible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "backend: who is eligible": {
+      "main": [
+        [
+          {
+            "node": "plan (deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "plan (deterministic)": {
+      "main": [
+        [
+          {
+            "node": "backend: doses of the day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "backend: doses of the day": {
+      "main": [
+        [
+          {
+            "node": "check-in (deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-in (deterministic)": {
+      "main": [
+        [
+          {
+            "node": "with buttons?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "with buttons?": {
+      "main": [
+        [
+          {
+            "node": "Telegram: dose with buttons",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kuwait"
+  }
+}

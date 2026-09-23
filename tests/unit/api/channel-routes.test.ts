@@ -18,7 +18,13 @@ const h = vi.hoisted(() => ({
   attach: vi.fn(async () => 'stored' as 'stored' | 'no_live_row'),
   revoke: vi.fn(async () => undefined),
   job: vi.fn(async (): Promise<string[] | null> => ['cg-03']),
+  // CR-063: after() is captured (a unit test has no request scope) and the relay is a spy.
+  afterQueue: [] as (() => unknown)[],
+  relay: vi.fn(async (u: unknown) => { void u; return { forwarded: false, reason: 'not_configured' }; }),
 }));
+
+vi.mock('next/server', async (orig) => ({ ...(await orig<typeof import('next/server')>()), after: (fn: () => unknown) => { h.afterQueue.push(fn); } }));
+vi.mock('@/lib/agent/inbound', () => ({ relayReply: h.relay }));
 
 vi.mock('@/lib/data/pg/_shared', () => ({ sessionOf: async () => h.session, notImplemented: () => { throw new Error('x'); }, NOT_IMPLEMENTED: 'x' }));
 vi.mock('@/lib/data/pg/channels', () => ({
@@ -35,7 +41,8 @@ const req = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =
 beforeEach(() => {
   vi.resetModules();
   h.session = null;
-  for (const f of [h.connect, h.feed, h.attach, h.revoke, h.job]) f.mockClear();
+  for (const f of [h.connect, h.feed, h.attach, h.revoke, h.job, h.relay]) f.mockClear();
+  h.afterQueue.length = 0;
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -138,6 +145,7 @@ describe('POST /api/messaging/telegram/webhook/{secret}', () => {
     expect(await res.text()).toBe('{"ok":true}');
     expect(h.connect).toHaveBeenCalledTimes(1);
     expect(h.connect).toHaveBeenCalledWith('AbC_123-xyz', '424242');
+    expect(h.afterQueue).toHaveLength(0); // CR-063: a linking message is never offered to the agents
   });
 
   it('a used/unknown token gets the SAME neutral body as a valid one (the helper reports false, the response does not change)', async () => {
@@ -162,6 +170,29 @@ describe('POST /api/messaging/telegram/webhook/{secret}', () => {
       expect(await res.text()).toBe('{"ok":true}');
     }
     expect(h.connect).not.toHaveBeenCalled();
+  });
+
+  it('CR-063: anything but /start <token> is offered to the relay AFTER the response, with the parsed update', async () => {
+    vi.stubEnv('JURAH_BOT_TOKEN', TOKEN);
+    vi.stubEnv('JURAH_DATA_BACKEND', 'postgres');
+    const { POST } = await load();
+    const s = secretOf(TOKEN);
+    const res = await POST(post(s, update('أخذته')), params({ secret: s }));
+    expect(await res.text()).toBe('{"ok":true}');
+    expect(h.relay).not.toHaveBeenCalled(); // nothing ran before the response
+    expect(h.afterQueue).toHaveLength(1);
+    await h.afterQueue[0]!();
+    expect(h.relay).toHaveBeenCalledWith(JSON.parse(update('أخذته')));
+  });
+
+  it('CR-063: under the mock backend, and on a wrong secret, nothing is relayed', async () => {
+    vi.stubEnv('JURAH_BOT_TOKEN', TOKEN);
+    vi.stubEnv('JURAH_DATA_BACKEND', 'mock');
+    const { POST } = await load();
+    const s = secretOf(TOKEN);
+    await POST(post(s, update('hello')), params({ secret: s }));
+    await POST(post('0'.repeat(40), update('hello')), params({ secret: '0'.repeat(40) }));
+    expect(h.afterQueue).toHaveLength(0);
   });
 });
 
