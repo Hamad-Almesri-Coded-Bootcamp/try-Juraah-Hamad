@@ -934,6 +934,27 @@ Until screening answers, a new prescription shows as being checked. The owner's 
 ### CR-085 · D13 · The real bot handle, and the webhook — `DECIDED: the handle is the one Telegram reports for the configured bot token (getMe); the webhook stays registered to the app`
 The owed handle is not typed anywhere: the server reads it from Telegram for the token it already holds, and the `@jurah_bot` placeholder remains only as the simulated fallback. The bot's webhook has pointed at the app since 2026-09-23 (the operator's handoff); AP-13 re-reads it with `getWebhookInfo`. Unblocks AP-09, AP-13.
 
+### CR-091 · AP-12 · CR-061: the audit insert policy checks the actor a row names (migration 0014) — `PROPOSED` (raised by AP-12, 2026-09-24; needs 0014 applied to production, which merging does not do)
+**What the documents say.** `docs/SCHEMA.md` §3 gives `audit_events` INSERT to "`jurah_app`/`jurah_agent` via `append()`", and 0005 implements it as `audit_insert_session` (`with check (jurah_session() is not null)`) and `audit_agent_insert` (`with check (true)`). CR-061 recorded that this accepts `actor_role = 'agent'` from a patient session.
+
+**Why it is a problem.** The audit log is the proof that no dose status came from the interface (rule 1, the closing query of AP-14). A patient session with SQL in hand could write a row naming the agent, or a `dose_status_recorded` row naming `system`, which `audit_dose_status_actor` admits; and because `jurah.session` is a setting any caller can set, the same caller can claim the system session. Only `append()` writes rows today (guard 8), so no product path does this; the database did not refuse it.
+
+**What is built (AP-12).** `supabase/migrations/0014_audit_insert_actor.sql`: one RESTRICTIVE insert policy `audit_insert_actor` on `audit_events` for `jurah_app`, ANDed with `audit_insert_session`. From `jurah_app`: a row naming `agent` only from the system session and only as `prescription_discontinued`; a `dose_status_recorded` row never, the system session included (its one writer is the `doses_status_recorded_audit` trigger on `update of status on doses`, and `jurah_app` holds no UPDATE on `doses.status`, 0005, so no `jurah_app` writer produces that row); everything else as before. `jurah_agent` is unchanged. Tests: `tests/integration/enforcement/audit.test.ts` (runtime, needs the database with 0014 applied, fails loudly otherwise) and `tests/unit/db/audit-insert-policy.test.ts` (static, in `npm test`: the migration's shape, and every `append()` that names the agent runs under `withAgent()` or is the D-025 row under `withSystem()`).
+
+**The one exception, and why.** D-025: `POST /api/agent/schedule/recompute` with `reason: 'discontinued'` checks the agent bearer and then runs as the system actor (`withSystem()`, role `jurah_app`), and its `prescription_discontinued` row names the agent (`lib/data/pg/agent.ts`, `recomputeSchedule`; `tests/integration/enforcement/agent.test.ts` asserts `actor: 'agent'`). A policy that took the agent actor from `jurah_agent` alone would refuse that row in production. The exception is limited to that one event type and to the system session, which no cookie can claim (`lib/session/verify.ts` admits only the four user roles, and the cookie is signed, D-018); raw SQL can still claim it (open item 4 below).
+
+**What it costs.** One policy expression per audit insert from `jurah_app`. No table, column, grant, function or code change. The seam's writers are unchanged.
+
+**What breaks if it is not applied.** Nothing new; CR-061's gap stays open in the database.
+
+**Still open, proposed for a later change (not built here).**
+1. `jurah_agent` may still write a row naming any actor (0005's `with check (true)`). Pinning it to `agent` would move the refusal in `tests/integration/schema/links-audit-settings.test.ts` (the agent writing a `dose_status_recorded` row naming `patient`) from `audit_dose_status_actor` to RLS, so that test's expected layer has to change in the same change.
+2. A user session may still name another user actor (for example a patient session naming `reviewer`). A full session-to-actor map needs the seam's legitimate cross-actor rows written down first: a patient session writes `system` on disconnect and `caregiver` when an invited patient accepts; a pending-only session writes `caregiver` on decline and `system` on sign-out; the system session writes `patient` or `caregiver` for `messaging_connected`.
+3. Documents, once 0014 is applied: `docs/SCHEMA.md` §3 (the `audit_events` row) and a new `docs/ENFORCEMENT.md` row for these tests (AP-19).
+4. The D-025 exception is open to a forged system session: a caller running SQL as `jurah_app` can set `jurah.session` to `{"role":"system"}` and write `prescription_discontinued` naming the agent. Closing it means D-025's row names the system actor or is written under `jurah_agent`, which changes the expectation in `tests/integration/enforcement/agent.test.ts`.
+
+**Live steps (the lead, after merge).** `get_advisors` before; a Supabase branch after cost approval (CR-080); show the SQL; `apply_migration`; `npm run test:integration` on the branch; `get_advisors` after; production by the same call; compare the stored md5 with `supabase/README.md`. Until then the status stays `PROPOSED`.
+
 ---
 
 ## Gate B · AP-06 · DDInter rebuild with the seed scope (docs/AGENTS-POLISH-PLAN.md § 7.3)
