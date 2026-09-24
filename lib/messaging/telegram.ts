@@ -73,6 +73,33 @@ export async function sendMessage(chatId: string, text: string): Promise<Telegra
 }
 
 /**
+ * F1 — the bot's own @username, asked of Telegram (`getMe`) rather than written anywhere: the handle
+ * the owner still owed is simply what the configured token answers to. Cached for the life of the
+ * server instance; null while simulated or when Telegram does not answer (the caller falls back).
+ */
+let cachedUsername: string | null = null;
+export async function botUsername(): Promise<string | null> {
+  if (BOT_IS_SIMULATED || !BOT_TOKEN) return null;
+  if (cachedUsername) return cachedUsername;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { ok?: boolean; result?: { username?: unknown } };
+    const name = body.ok && typeof body.result?.username === 'string' ? body.result.username : null;
+    cachedUsername = name && /^[A-Za-z0-9_]{5,32}$/.test(name) ? name : null;
+    return cachedUsername;
+  } catch {
+    return null;
+  }
+}
+
+/** The Telegram deep link that opens the bot and sends `/start <token>` — for the server's redirect only. */
+export function startLink(username: string, token: string): string | null {
+  if (!/^[A-Za-z0-9_]{5,32}$/.test(username) || !/^[A-Za-z0-9_-]{1,64}$/.test(token)) return null;
+  return `https://t.me/${username}?start=${token}`;
+}
+
+/**
  * CR-063 — a chat update the agents track should see: a typed message, a photo or document (with
  * its caption as the text), or a quick-reply tap (TC-AD-07, Telegram's `callback_query`, whose
  * `data` is the text). Never a `/start …` message — linking is the webhook's own path, and a

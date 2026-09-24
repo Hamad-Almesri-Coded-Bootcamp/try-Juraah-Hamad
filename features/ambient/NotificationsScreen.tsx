@@ -19,8 +19,14 @@
  *
  * Chat section: `not_connected` / `pending` / `connected` / `expired`, rule 7's one strict line —
  * `MessagingLink.linkToken` is never read by this component, so it can never reach the DOM at any
- * step of the round trip. While `pending`, this component polls (`router.refresh()`) for the mock's
- * own delayed auto-confirm rather than sleeping a fixed guess.
+ * step of the round trip. While `pending`, this component polls (`router.refresh()`) until the bot's
+ * webhook confirms, rather than sleeping a fixed guess.
+ *
+ * F1 — opening Telegram: the tap opens a tab AT ONCE (a tab opened after an await is a blocked
+ * pop-up), and once the link is minted that tab goes to /api/messaging/telegram/open, which reads
+ * the token on the server and redirects to t.me/<bot>?start=<token>. The page never holds the token;
+ * while pending, "Open Telegram" reopens the same route. Polling runs for 5 minutes (the token lives
+ * 15), long enough to switch apps, press Start and come back.
  */
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -43,8 +49,10 @@ import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { MessagingLink, PushSubscription } from '@/types/contracts';
 
-const POLL_MS = 400;
-const POLL_MAX_TRIES = 30; // ~12s — well past the mock's own ~50ms confirm delay
+const POLL_MS = 2000;
+const POLL_MAX_TRIES = 150; // 5 minutes: a person has to switch to Telegram, press Start and come back
+/** The server route that redirects to the bot with this person's own pending link (the token stays server-side). */
+const openTelegramUrl = (locale: string) => '/api/messaging/telegram/open?locale=' + (locale === 'en' ? 'en' : 'ar');
 
 export function NotificationsScreen({
   patientId,
@@ -125,12 +133,22 @@ export function NotificationsScreen({
   }
 
   function handleConnectChat() {
+    // Opened during the tap itself, so the browser allows it; pointed at the bot once the link exists.
+    const tab = simulated ? null : window.open('', '_blank');
     startTransition(() => {
       void (async () => {
-        await startMessagingLink(subject);
+        const link = await startMessagingLink(subject);
+        if (tab) {
+          if (link.status === 'pending') tab.location.href = openTelegramUrl(locale);
+          else tab.close();
+        }
         router.refresh();
       })();
     });
+  }
+
+  function handleReopenTelegram() {
+    window.open(openTelegramUrl(locale), '_blank', 'noopener');
   }
 
   function handleSendTestMessage() {
@@ -270,6 +288,11 @@ export function NotificationsScreen({
             <InlineNotice tone="info" title={t(copy.ambient.e5ChatWaitingTitle, locale)}>
               {t(copy.ambient.e5ChatWaitingBody, locale)}
             </InlineNotice>
+            {!simulated && (
+              <Button variant="secondary" size="lg" fullWidth lang={locale} icon="link" onClick={handleReopenTelegram}>
+                {t(copy.ambient.e5OpenChatAction, locale)}
+              </Button>
+            )}
           </div>
         )}
 

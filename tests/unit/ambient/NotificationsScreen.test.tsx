@@ -289,3 +289,26 @@ describe('E5 — test sends and the demo line', () => {
     expect(screen.queryByText(new RegExp(A.e5SimulatedNote.en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).not.toBeInTheDocument();
   });
 });
+
+describe('F1 — opening Telegram without the token ever reaching the page', () => {
+  const pendingLink = { id: 'ml-09', subjectType: 'patient' as const, subjectId: 'pt-03', channel: 'telegram' as const, status: 'pending' as const, linkToken: 'tok_SECRET_123' };
+  it('pending (real bot): "Open Telegram" opens our own route in a new tab — never t.me, never the token', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_real_bot" locale="ar" />);
+    fireEvent.click(screen.getByRole('button', { name: A.e5OpenChatAction.ar }));
+    expect(open).toHaveBeenCalledWith('/api/messaging/telegram/open?locale=ar', '_blank', 'noopener');
+    expect(document.body.innerHTML).not.toContain('tok_SECRET_123');
+    expect(document.body.innerHTML).not.toContain('t.me');
+    open.mockRestore();
+  });
+  it('pending while the bot is simulated: no "Open Telegram" (there is no bot to open)', () => {
+    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_bot" simulated locale="ar" />);
+    expect(screen.queryByRole('button', { name: A.e5OpenChatAction.ar })).toBeNull();
+  });
+  it('pending keeps checking for 5 minutes (a person has to switch apps and press Start), then stops', () => {
+    vi.useFakeTimers();
+    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_real_bot" locale="ar" />);
+    vi.advanceTimersByTime(2000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
