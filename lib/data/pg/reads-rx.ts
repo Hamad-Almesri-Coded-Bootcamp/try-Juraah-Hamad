@@ -35,8 +35,9 @@ import {
   toDoseWithPrescription,
   toPrescription,
 } from '../shapes/reads-rx';
-import { askExtraction, extractionConfigured, requestScreening, screeningConfigured } from '@/lib/agent-webhooks';
-import { draftSource, languageOf, shouldScreen } from '@/lib/agent-webhooks/core';
+import { askExtraction, extractionConfigured, screeningConfigured } from '@/lib/agent-webhooks';
+import { screenOrHold } from './screening';
+import { draftSource, languageOf } from '@/lib/agent-webhooks/core';
 
 /** Every Prescription column, each timestamp through iso_kw(), each date to_char, each numeric ::float8. */
 const RX_COLUMNS = `id, patient_id, facility_name, sector::text as sector, generic_name, brand_name,
@@ -299,12 +300,13 @@ export const savePrescriptionDraft: DataApi['savePrescriptionDraft'] = async (pa
     const [row] = await sql.unsafe(PG_QUERIES_RX.getPrescription, [rx.id]);
     return row ? toPrescription(row) : draftSaveRefusal(patientId);
   });
-  // CR-066: AFTER the transaction has committed — the Interaction Screening agent reads the new
+  // CR-066 / F3: AFTER the transaction has committed — the Interaction Screening agent reads the new
   // prescription back through /api/agent, so it must already be there. Only a saved, active,
-  // unflagged prescription (a flagged one is screened once the reviewer confirms it, TC-IX-06).
-  // Best effort: the save stands whatever n8n answers (lib/agent-webhooks requestScreening).
-  if (screen && saved.id && saved.patientId === patientId && shouldScreen(saved)) {
-    await requestScreening(patientId, saved.id, language);
+  // unflagged prescription (a flagged one is screened once the reviewer confirms it, TC-IX-06:
+  // writes.ts confirmPrescriptionFields). Awaited, so the patient's add flow ends only once it is
+  // screened; screening that cannot be confirmed HOLDS it for a specialist (./screening.ts).
+  if (screen && saved.id && saved.patientId === patientId) {
+    await screenOrHold(patientId, saved, language);
   }
   return saved;
 };

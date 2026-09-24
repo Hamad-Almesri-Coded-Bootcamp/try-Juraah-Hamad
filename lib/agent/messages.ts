@@ -8,6 +8,15 @@
  */
 import type { InteractionAlert } from '@/types/contracts';
 
+/**
+ * F3 — the hold a prescription gets when its interaction screening could not be confirmed: a
+ * pending alert, so a specialist checks it before it is trusted («unknown means refuse»). The owner
+ * may reword it in the copy deck.
+ */
+export function screeningUnconfirmedDescription(genericName: string): string {
+  return `لم يكتمل فحص التعارضات لوصفة ${genericName} — بانتظار مراجعة مختص قبل الاعتماد عليها.`;
+}
+
 /** The seed's form: «إعادة حساب جدول Levothyroxine بعد جرعة فائتة» (actor system). */
 export function scheduleRecomputedMessage(genericName: string): string {
   return `إعادة حساب جدول ${genericName} بعد جرعة فائتة`;

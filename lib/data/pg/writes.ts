@@ -28,6 +28,7 @@ import { withSession, type Tx } from '@/lib/db/withSession';
 import { append } from '@/lib/db/audit';
 import { newId } from '@/lib/db/ids';
 import { loadPrescription, regenerateUpcoming } from '@/lib/engine';
+import { screenOrHold } from './screening';
 import { clearSessionCookie, readSessionClaims, writeSessionCookie } from '@/lib/session/cookie';
 import { insertSessionRow, revokeSessionRow } from '@/lib/session/pg';
 import { canonicalSession } from '@/lib/session/verify';
@@ -529,8 +530,9 @@ export const confirmPrescriptionFields: DataApi['confirmPrescriptionFields'] = a
   const session = await sessionOf();
   const f = pickConfirmedFields(values);
   if (!confirmableValues(f)) return unchangedPrescription(session, prescriptionId);
+  let confirmedRx: Prescription | null = null;
   try {
-    return await withSession(session, async (sql) => {
+    const result = await withSession(session, async (sql) => {
       const before = await loadPrescription(sql, prescriptionId);
       if (!before) throw new Refused('not visible');
       const ctx = await reviewerContext(sql);
@@ -560,8 +562,13 @@ export const confirmPrescriptionFields: DataApi['confirmPrescriptionFields'] = a
         scope: 'patient', patientId: before.patientId, actor: { role: 'reviewer', id: ctx.subjectId }, type: 'prescription_field_confirmed',
         message: `تأكيد بيانات وصفة ${confirmed.drug.genericName}`, relatedId: prescriptionId,
       });
+      confirmedRx = confirmed;
       return confirmed;
     });
+    // F3 (TC-IX-06): the confirmed prescription is screened now — AFTER the commit, so the agent can
+    // read it — or held for a specialist when screening cannot be confirmed (./screening.ts).
+    if (confirmedRx) await screenOrHold((confirmedRx as Prescription).patientId, confirmedRx, 'ar');
+    return result;
   } catch (e) {
     if (!isRefusal(e)) throw e;
     return unchangedPrescription(session, prescriptionId);
