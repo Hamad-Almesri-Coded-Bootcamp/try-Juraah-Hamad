@@ -1039,6 +1039,8 @@ CR-078 (Gate A) decided the app gets its own `cannot_verify` `DrugCheckOutcome`.
 
 **Merge order with PR #13 (AP-11a, the app half).** Either order is safe. `main`'s `readDrugCheck` already maps an unknown `DrugCheckOutcome.kind` to `could_not_identify` (PR #13's own notes), so this branch merging first shows a temporarily conservative "could not identify" until PR #13's app-side `cannot_verify` copy lands; PR #13 merging first shows nothing new until this branch lands. Neither order produces a wrong clinical claim.
 
+**Found by the root gate, fixed here.** `tests/unit/agent-webhooks/core.test.ts` ("every appOutcome the real agent produces is read back unchanged") runs the real `travelCheck` and asserts `readDrugCheck` returns it byte-for-byte - it did not know about this one exception. Updated to assert the documented fallback (`could_not_identify`) for `cannot_verify` specifically, unchanged for every other outcome, with a comment naming PR #13 as the closer. This file is outside this package's own list; it is touched only because leaving it red would leave the root gate red for a reason this entry already called safe.
+
 **What it costs.** No schema change, no migration, no human-owed value.
 
 **What breaks if we don't.** The app-side `cannot_verify` copy (PR #13) stays unreachable in production - the agent never sends that outcome kind, so the new copy never shows.
