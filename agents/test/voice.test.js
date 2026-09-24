@@ -28,7 +28,20 @@ const req = (type, intentName, over = {}) => ({
 
 test('parse: the right skill, a fresh timestamp and a linked user -> ok, with the patient', () => {
   const p = V.parseAlexaRequest({ body: req('IntentRequest', 'NextDoseIntent'), nowIso: '2026-09-24T09:00:30Z', skillId: SKILL, links: { [USER]: 'pt-03' } });
-  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', utterance: '', pending: [], needsDoses: true });
+  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', utterance: '', needsDoses: true });
+});
+
+test('AP-02 (CR-073): a "yes" is just a word - a pending list in the session is not read, nothing is fetched for it, and nothing is carried on', () => {
+  const body = req('IntentRequest', 'AMAZON.YesIntent');
+  body.session.attributes = { pending: [{ doseId: 'rx-008-20260924-0700', prescriptionId: 'rx-008', status: ['missed'][0] }] };
+  const p = V.parseAlexaRequest({ body, nowIso: '2026-09-24T09:00:30Z', skillId: SKILL, links: { [USER]: 'pt-03' } });
+  assert.equal(p.needsDoses, false);
+  assert.ok(!('pending' in p));
+  const r = V.voiceReply({ kind: p.kind, language: 'en', doses: DAY(), nowIso: at('09:00'), hasChat: true });
+  assert.match(r.speech, /^Ask me: /);
+  assert.deepEqual(r.promptDoses, []);
+  assert.equal(V.screenTopic('AMAZON.YesIntent'), 'unclear');
+  assert.ok(!('sessionAttributes' in V.alexaResponse({ speech: 'x', endSession: false, language: 'en', sessionAttributes: { pending: [] } })));
 });
 
 test('parse fails closed: no skill id configured, another skill, a stale or replayed request', () => {
