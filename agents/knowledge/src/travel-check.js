@@ -9,16 +9,18 @@
  *   interaction_found   -> { kind:'identified', verdict:'interaction_found', alertId? }
  *   already_taking      -> { kind:'identified', verdict:'interaction_found' }   (duplicate dose)
  *   no_interaction_found-> { kind:'identified', verdict:'no_interaction' }     (never "safe")
- *   cannot_verify       -> { kind:'could_not_identify' }   identified, but a drug is not in the
+ *   cannot_verify       -> { kind:'cannot_verify' }         identified, but a drug is not in the
  *                                                          index, a pair lies outside the loaded DDInter
  *                                                          category files (AP-06), a pair is ungraded, or a prescription
  *                                                          is still awaiting review - so nothing can be
  *                                                          said about the whole profile (TC-IX-03/06)
  *   needs_confirmation  -> { kind:'could_not_identify' }   one near match; the chat can ask
  *   could_not_identify  -> { kind:'could_not_identify' }   G5 - unreadable or unknown name
- * The app's DrugCheckOutcome has no cannot-verify verdict. Mapping it to
- * could_not_identify is the conservative choice (the app then says "ask a
- * pharmacist"); mapping it to no_interaction would be a false all-clear.
+ * D6/CR-078 (AP-11): the app's DrugCheckOutcome gained its own cannot_verify kind, with its own
+ * copy, instead of the earlier CR-066 stub's could_not_identify mapping - "not in our data" reads
+ * differently from "we could not read the box", and the app's own copy says so. needs_confirmation
+ * and could_not_identify stay could_not_identify: both are genuinely about the PHOTO, not the
+ * profile, and the chat can still ask about the same photo (never a false all-clear either way).
  *
  * A danger finding is escalated: one pending_medical_review alert body is
  * produced for POST /api/agent/alerts (involving the patient's conflicting
@@ -49,7 +51,9 @@ function appOutcomeFor(verdict, drugName, alertId) {
     return o;
   }
   if (verdict === VERDICT.NO_INTERACTION_FOUND) return { kind: 'identified', drugName, verdict: 'no_interaction' };
-  return { kind: 'could_not_identify' };
+  // D6/CR-078: its own outcome, never mapped into could_not_identify any more.
+  if (verdict === VERDICT.CANNOT_VERIFY) return { kind: 'cannot_verify' };
+  return { kind: 'could_not_identify' }; // needs_confirmation | could_not_identify
 }
 
 /**

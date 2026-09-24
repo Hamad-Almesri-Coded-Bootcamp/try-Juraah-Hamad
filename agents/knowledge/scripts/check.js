@@ -342,13 +342,13 @@ async function travelScenarios() {
     assert.deepEqual(a.json.appOutcome, { kind: 'identified', drugName: 'Simvastatin', verdict: 'interaction_found' });
   });
 
-  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app could_not_identify', async () => {
+  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app cannot_verify (D6/CR-078)', async () => {
     const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Amlodipine' } }];
     const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: p }), geminiText('Ezetimibe'));
     assert.equal(c.post, false);
     assert.equal(c.result.verdict, 'cannot_verify');
     assert.equal(c.result.reason, 'pair_outside_loaded_categories');
-    assert.deepEqual(c.result.appOutcome, { kind: 'could_not_identify' });
+    assert.deepEqual(c.result.appOutcome, { kind: 'cannot_verify' });
   });
 
   await check('profile unreadable (backend 503) -> never "no interaction"', async () => {

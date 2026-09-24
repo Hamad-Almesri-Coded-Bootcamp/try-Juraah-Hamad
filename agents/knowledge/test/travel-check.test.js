@@ -56,10 +56,10 @@ test('already taking: EUTHYROX photographed by سارة (on Levothyroxine) -> al
   assert.equal(r.alert, null, 'only a danger finding raises an alert');
 });
 
-test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app could_not_identify', () => {
+test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app cannot_verify (D6/CR-078)', () => {
   const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Gliclazide')] });
   assert.equal(r.verdict, 'cannot_verify');
-  assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
+  assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
   assert.ok(r.notCovered.includes('Gliclazide'));
 });
 
@@ -85,12 +85,12 @@ test('no_interaction_found only when every pair was checkable - and the words ne
   assert.doesNotMatch(r.message, /\bsafe\b/i);
 });
 
-test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction', () => {
+test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction; app cannot_verify (D6/CR-078)', () => {
   for (const [box, onFile] of [['Ezetimibe', 'Amlodipine'], ['Ibuprofen 400 mg', 'Ciprofloxacin']]) {
     const r = check({ visionText: box, prescriptions: [rx('t-1', onFile)], language: 'en' });
     assert.equal(r.verdict, 'cannot_verify', box);
     assert.equal(r.reason, 'pair_outside_loaded_categories');
-    assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
+    assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
     assert.equal(r.notCheckable.length, 1);
     assert.match(r.message, new RegExp('would cover it with ' + onFile + ' is not available to us yet'));
     assert.doesNotMatch(r.message, /not a clearance|no interaction/i);
@@ -128,12 +128,12 @@ test('a generic box resolves only by the index\'s own ingredient name, exactly',
 });
 
 // ---------------------------------------------------------------- regressions from the adversarial review
-test('a flagged or returned prescription in the profile -> cannot_verify, never a false all-clear', () => {
+test('a flagged or returned prescription in the profile -> cannot_verify, never a false all-clear; app cannot_verify (D6/CR-078)', () => {
   for (const extra of [{ needsReview: true, fieldReviewStatus: 'pending' }, { needsReview: true, fieldReviewStatus: 'returned' }, { fieldReviewStatus: 'returned' }]) {
     const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Clarithromycin', extra)] });
     assert.equal(r.verdict, 'cannot_verify', JSON.stringify(extra));
     assert.equal(r.reason, 'profile_has_unconfirmed_prescriptions');
-    assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
+    assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
   }
 });
 

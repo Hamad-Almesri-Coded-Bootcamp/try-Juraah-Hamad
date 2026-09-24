@@ -77,7 +77,8 @@ describe('agents/knowledge/src/travel-check.js → parseAlertBody', () => {
     for (const patientId of patients) {
       for (const text of ['KLACID', 'Euthyrox', 'ZOCOR', 'Panadol', 'UNKNOWNXYZ', '']) {
         const o = T.travelCheck({ patientId, visionText: text, prescriptions: activeOf(patientId), index, brandIndex }).appOutcome;
-        if (o.kind === 'could_not_identify') expect(Object.keys(o)).toEqual(['kind']);
+        // D6/CR-078 (AP-11): cannot_verify is its own outcome kind now, not mapped into could_not_identify.
+        if (o.kind === 'could_not_identify' || o.kind === 'cannot_verify') expect(Object.keys(o)).toEqual(['kind']);
         else {
           expect(o.kind).toBe('identified');
           expect(typeof o.drugName).toBe('string');
