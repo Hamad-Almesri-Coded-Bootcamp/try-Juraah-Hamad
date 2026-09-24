@@ -36,7 +36,7 @@ test('seed سارة (pt-03): Levothyroxine x "Calcium carbonate + vitamin D3" fi
   for (const a of r.alerts) assertBackendShape(a, 'pt-03');
 });
 
-test('seed حمد (pt-01): adding Ibuprofen finds Warfarin x Ibuprofen as DANGER (DDInter "Major") and Ibuprofen x Metformin as a warning - both to a human first (F2)', () => {
+test('TC-IX-01 seed حمد (pt-01): adding Ibuprofen finds Warfarin x Ibuprofen as DANGER (DDInter "Major"), pending_medical_review, with the DDInter citation passed through, and Ibuprofen x Metformin as a warning - both to a human first (F2, AP-06)', () => {
   const r = screen({ patientId: 'pt-01', newPrescriptionId: 'rx-002', prescriptions: seedActive('pt-01') });
   assert.equal(r.alerts.length, 2);
   const danger = r.alerts.find((a) => a.severity === 'danger');
@@ -46,6 +46,14 @@ test('seed حمد (pt-01): adding Ibuprofen finds Warfarin x Ibuprofen as DANGER
   assert.match(danger.description, /Ibuprofen/);
   assert.match(danger.sourceCitation, /level "Major"/);
   assert.match(danger.sourceCitation, /DDInter 2\.0/);
+  // AP-06: the citation is passed through from the index, never written here - the DDInter paper
+  // (index meta), both DDInter ids and the level, all as the build read them from DDInter's files.
+  const { pairCitation } = require('../src/text');
+  assert.equal(danger.sourceCitation, pairCitation(index.meta, index.drugs.get('ibuprofen'), index.drugs.get('warfarin'), 'Major'));
+  assert.ok(danger.sourceCitation.startsWith(index.meta.source.citation + ' '), 'the paper, verbatim from the index');
+  assert.match(danger.sourceCitation, /Interaction record: Ibuprofen \(DDInter900\) x Warfarin \(DDInter1951\), level "Major"\./);
+  assert.equal(index.pairs.get('ibuprofen|warfarin').level, 'Major');
+  assert.deepEqual(index.pairs.get('ibuprofen|warfarin').rowIds, ['DDInter900', 'DDInter1951']);
   const warning = r.alerts.find((a) => a.severity === 'warning');
   assert.deepEqual([...warning.involvedPrescriptionIds].sort(), ['rx-002', 'rx-003']);
   for (const a of r.alerts) {
@@ -89,7 +97,8 @@ test('seed فاطمة (pt-02): the flagged rx-006 and returned rx-007 are exclud
 });
 
 test('nothing found but a prescription awaits review -> pending, and the text says what was left out', () => {
-  const p = [rx('t-1', 'Ezetimibe'), rx('t-2', 'Amlodipine'), rx('t-3', '(unreadable)', { needsReview: true, fieldReviewStatus: 'pending' })];
+  // Metformin (ATC A, file A loaded) x Calcium carbonate: a checkable pair with no DDInter row.
+  const p = [rx('t-1', 'Metformin'), rx('t-2', 'Calcium carbonate'), rx('t-3', '(unreadable)', { needsReview: true, fieldReviewStatus: 'pending' })];
   const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p, language: 'en' });
   assert.equal(r.alerts.length, 1);
   assert.equal(r.alerts[0].reviewStatus, 'pending_medical_review');
@@ -132,15 +141,136 @@ test('danger sorts first; a Minor row is info and auto_cleared', () => {
   assert.equal(minor.reviewStatus, 'auto_cleared');
 });
 
-test('TC-IX-02: both drugs covered, no row -> no interaction alert; one auto_cleared "screened, nothing recorded" (seed ia-003 shape)', () => {
-  const p = [rx('t-1', 'Ezetimibe'), rx('t-2', 'Amlodipine')];
+test('TC-IX-02: both drugs covered, no row, one in a loaded category file -> no interaction alert; one auto_cleared "screened, nothing recorded" (seed ia-003 shape)', () => {
+  // Metformin is ATC A and DDInter file A is loaded: file A lists every Metformin interaction, and
+  // none with Calcium carbonate, so the absence is a real "none recorded".
+  const p = [rx('t-1', 'Metformin'), rx('t-2', 'Calcium carbonate')];
   const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p });
   assert.equal(r.alerts.length, 1);
   assert.equal(r.alerts[0].severity, 'info');
   assert.equal(r.alerts[0].reviewStatus, 'auto_cleared');
   assert.deepEqual(r.alerts[0].involvedPrescriptionIds, ['t-2']);
-  assert.match(r.alerts[0].description, /تم فحص Amlodipine/);
+  assert.match(r.alerts[0].description, /تم فحص Calcium carbonate/);
   assert.match(r.alerts[0].description, /ليس ضماناً للسلامة/);
+  assert.deepEqual(r.report.notCheckable, []);
+});
+
+// ---------------------------------------------------------------- AP-06: the loaded DDInter category files
+test('AP-06 false reassurance: Ibuprofen (ATC M) x Ciprofloxacin (ATC J), both outside the loaded files A, B, H -> cannot verify, never "no interaction"', () => {
+  const p = [rx('t-1', 'Ibuprofen'), rx('t-2', 'Ciprofloxacin')];
+  for (const language of ['ar', 'en']) {
+    const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p, language });
+    assert.equal(r.alerts.length, 1);
+    const [a] = r.alerts;
+    assert.equal(a.severity, 'info');
+    assert.equal(a.reviewStatus, 'pending_medical_review', 'to the reviewer, never auto_cleared');
+    assert.deepEqual([...a.involvedPrescriptionIds].sort(), ['t-1', 't-2']);
+    assert.match(a.description, /Ciprofloxacin/);
+    assert.match(a.description, /Ibuprofen/);
+    assert.doesNotMatch(a.description, /تم فحص|لم نجد تعارضاً|no interaction is recorded|was screened/, 'never the nothing-found wording');
+    assert.match(a.sourceCitation, /DDInter category files A, B, H/);
+    assert.match(a.sourceCitation, /Ciprofloxacin \(DDInter384, ATC J\/S\) x Ibuprofen \(DDInter900, ATC C\/G\/M\/R\)/);
+    assert.match(a.sourceCitation, /nothing is cleared/);
+    assert.ok(a.description.length <= 400);
+    assertBackendShape(a, 't-patient');
+    assert.deepEqual(r.report.notCheckable, ['ciprofloxacin|ibuprofen']);
+    assert.equal(r.report.validationFailed, 0);
+  }
+  const en = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p, language: 'en' }).alerts[0];
+  assert.equal(en.description, 'We could not check for an interaction when taking Ciprofloxacin with Ibuprofen: the part of our drug-interaction database that records interactions for these medicines is not available to us yet. This will be shown to a medical reviewer.');
+  const ar = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p }).alerts[0];
+  assert.equal(ar.description, 'لم نستطع التحقق من وجود تعارض عند أخذ Ciprofloxacin مع Ibuprofen، لأن الجزء الذي يسجّل تداخلات هذه الأدوية في قاعدة بيانات التداخلات الدوائية ليس متوفراً لدينا بعد. سيُعرض ذلك على مختص طبي للمراجعة.');
+  for (const a of [en, ar]) assert.doesNotMatch(a.description, /—/, 'no em dash');
+});
+
+test('AP-06 false reassurance: Atorvastatin (ATC C) x Ibuprofen (ATC M) - the seed\'s own rx-004 x rx-002 pair - is cannot verify', () => {
+  const p = [rx('t-1', 'Ibuprofen'), rx('t-2', 'Atorvastatin')];
+  const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p });
+  assert.equal(r.alerts.length, 1);
+  assert.equal(r.alerts[0].reviewStatus, 'pending_medical_review');
+  assert.ok(!r.alerts.some((a) => a.reviewStatus === 'auto_cleared'));
+  assert.deepEqual(r.report.notCheckable, ['atorvastatin|ibuprofen']);
+});
+
+test('AP-06: Ezetimibe x Amlodipine (both ATC C, no ATC recorded here) - the old TC-IX-02 fixture was a false all-clear and is now cannot verify', () => {
+  const p = [rx('t-1', 'Ezetimibe'), rx('t-2', 'Amlodipine')];
+  const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p });
+  assert.equal(r.alerts.length, 1);
+  assert.equal(r.alerts[0].reviewStatus, 'pending_medical_review');
+  assert.doesNotMatch(r.alerts[0].description, /تم فحص/);
+  assert.match(r.alerts[0].sourceCitation, /Amlodipine \(DDInter79, ATC unknown\) x Ezetimibe \(DDInter707, ATC unknown\)/);
+});
+
+test('AP-06 covered-absent: one drug in a loaded category is enough, even when the other\'s ATC is unknown (Metformin A x Diphenhydramine) -> nothing recorded, auto_cleared', () => {
+  const p = [rx('t-1', 'Metformin'), rx('t-2', 'Diphenhydramine')];
+  const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p });
+  assert.equal(r.alerts.length, 1);
+  assert.equal(r.alerts[0].reviewStatus, 'auto_cleared');
+  assert.equal(r.evidence.findings[0].findingType, 'nothing_found');
+});
+
+test('AP-06 fail closed: a drug with no recorded ATC category is treated as not loaded', () => {
+  const { loadIndex } = require('../src/interactions');
+  const json = JSON.parse(JSON.stringify(require('./helpers').INDEX_JSON));
+  delete json.drugs.metformin.atcCategories;
+  const r = screenNewPrescription({ index: loadIndex(json), language: 'en', patientId: 't-patient', newPrescriptionId: 't-2',
+    prescriptions: [rx('t-1', 'Metformin'), rx('t-2', 'Diphenhydramine')] });
+  assert.equal(r.alerts.length, 1);
+  assert.equal(r.alerts[0].reviewStatus, 'pending_medical_review');
+  assert.deepEqual(r.report.notCheckable, ['diphenhydramine|metformin']);
+});
+
+test('AP-06 fail closed: an index that does not record its loaded category files proves no absence at all', () => {
+  const { loadIndex } = require('../src/interactions');
+  const json = JSON.parse(JSON.stringify(require('./helpers').INDEX_JSON));
+  delete json.meta.categoryFilesLoaded;
+  const old = loadIndex(json);
+  const clean = screenNewPrescription({ index: old, language: 'en', patientId: 't-patient', newPrescriptionId: 't-2',
+    prescriptions: [rx('t-1', 'Metformin'), rx('t-2', 'Calcium carbonate')] });
+  assert.equal(clean.alerts.length, 1);
+  assert.equal(clean.alerts[0].reviewStatus, 'pending_medical_review', 'no "nothing recorded" without the record of what was loaded');
+  assert.match(clean.alerts[0].sourceCitation, /category files none recorded/);
+  // A row that IS in the index is still found: the rule only governs absences.
+  const found = screenNewPrescription({ index: old, language: 'en', patientId: 'pt-01', newPrescriptionId: 'rx-002', prescriptions: seedActive('pt-01') });
+  assert.ok(found.alerts.some((a) => a.severity === 'danger'));
+});
+
+test('AP-06: a missing drug and an uncheckable pair are both sent to the reviewer, and nothing reads clean', () => {
+  const p = [rx('t-new', 'Ibuprofen'), rx('t-a', 'Gliclazide'), rx('t-b', 'Ciprofloxacin')];
+  const r = screen({ patientId: 't-patient', newPrescriptionId: 't-new', prescriptions: p, language: 'en' });
+  assert.equal(r.alerts.length, 2);
+  assert.ok(r.alerts.every((a) => a.severity === 'info' && a.reviewStatus === 'pending_medical_review'));
+  assert.ok(r.alerts.some((a) => /Gliclazide/.test(a.description)));
+  assert.ok(r.alerts.some((a) => /Ibuprofen with Ciprofloxacin/.test(a.description)));
+  assert.equal(r.report.validationFailed, 0);
+});
+
+test('AP-06: many uncheckable pairs are capped in the text, never dropped for length; the citation keeps them all', () => {
+  const p = [rx('t-new', 'Ibuprofen'), rx('t-1', 'Ciprofloxacin'), rx('t-2', 'Atorvastatin'), rx('t-3', 'Ezetimibe'), rx('t-4', 'Amlodipine'),
+             rx('t-5', 'Caffeine'), rx('t-6', 'Chlorpheniramine'), rx('t-7', 'Pseudoephedrine')];
+  for (const language of ['ar', 'en']) {
+    const r = screen({ patientId: 't-patient', newPrescriptionId: 't-new', prescriptions: p, language });
+    assert.equal(r.report.validationFailed, 0, JSON.stringify(r.evidence.validationFailures));
+    assert.equal(r.report.notCheckable.length, 7);
+    const a = r.alerts[r.evidence.findings.findIndex((f) => f.findingType === 'pair_not_checkable')];
+    assert.ok(a);
+    assert.equal(a.reviewStatus, 'pending_medical_review');
+    assert.equal(a.involvedPrescriptionIds.length, 8);
+    assert.ok(a.description.length <= 400, String(a.description.length));
+    for (const d of ['DDInter384', 'DDInter133', 'DDInter707', 'DDInter79']) assert.match(a.sourceCitation, new RegExp(d));
+  }
+});
+
+test('AP-06 V4: a "not checkable" finding that names a pair the index holds is withheld and escalates', () => {
+  const { validateAlerts } = require('../src/validate');
+  const alert = { patientId: 't', involvedPrescriptionIds: ['a', 'b'], severity: 'info', description: 'd', sourceCitation: 'c', reviewStatus: 'pending_medical_review' };
+  const v = validateAlerts([{ alert, evidence: { findingType: 'pair_not_checkable', pairKeys: ['ibuprofen|warfarin'], allowedNames: [] } }],
+    { patientId: 't', knownPrescriptionIds: ['a', 'b'], index });
+  assert.equal(v.mustEscalate, true);
+  assert.match(v.failed[0].violations.join(' '), /V4 a not-checkable pair is in the index: ibuprofen\|warfarin/);
+  const cleared = validateAlerts([{ alert: Object.assign({}, alert, { reviewStatus: 'auto_cleared' }), evidence: { findingType: 'pair_not_checkable', pairKeys: ['ciprofloxacin|ibuprofen'], allowedNames: [] } }],
+    { patientId: 't', knownPrescriptionIds: ['a', 'b'], index });
+  assert.equal(cleared.mustEscalate, true, 'an uncheckable pair is never auto_cleared');
 });
 
 test('G8: an Unknown-level row is never "nothing found" - it goes to the reviewer ungraded', () => {

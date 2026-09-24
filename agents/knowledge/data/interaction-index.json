@@ -3,7 +3,7 @@
     "source": {
       "name": "DDInter 2.0",
       "url": "https://ddinter.scbdd.com/download/",
-      "citation": "Xiong G, et al. DDInter 2.0: an enhanced drug interaction resource. Nucleic Acids Research 2025;53(D1):D1356.",
+      "citation": "Tian Y, Yi J, Wang N, Wu C, Peng J, Liu S, Yang G, Cao D. DDInter 2.0: an enhanced drug interaction resource with expanded data coverage, new interaction types, and improved user interface. Nucleic Acids Research 2025;53(D1):D1356-D1362. doi:10.1093/nar/gkae726.",
       "retrievedAt": "2026-09-24",
       "licenceNote": "Open-access academic resource. Used here for a non-commercial student capstone. Re-check terms before any real-world deployment."
     },
@@ -16,7 +16,13 @@
       "Carbimazole",
       "Domperidone",
       "Gliclazide"
-    ]
+    ],
+    "categoryFilesLoaded": [
+      "A",
+      "B",
+      "H"
+    ],
+    "categoryRule": "A DDInter category file lists the interactions of the drugs in that ATC category. A pair absent from the index is \"no interaction recorded\" only when at least one of its two drugs has an ATC category (drugs[k].atcCategories, WHO ATC/DDD index, data/seed-drug-scope.json) whose file is in categoryFilesLoaded. Otherwise the pair is \"cannot verify\". A drug without atcCategories is treated as not loaded."
   },
   "drugs": {
     "simvastatin": {
@@ -33,7 +39,10 @@
     },
     "levothyroxine": {
       "label": "Levothyroxine",
-      "ddinterId": "DDInter1064"
+      "ddinterId": "DDInter1064",
+      "atcCategories": [
+        "H"
+      ]
     },
     "acetaminophen": {
       "label": "Acetaminophen",
@@ -57,7 +66,10 @@
     },
     "calcium carbonate": {
       "label": "Calcium carbonate",
-      "ddinterId": "DDInter271"
+      "ddinterId": "DDInter271",
+      "atcCategories": [
+        "A"
+      ]
     },
     "amlodipine": {
       "label": "Amlodipine",
@@ -65,31 +77,61 @@
     },
     "metformin": {
       "label": "Metformin",
-      "ddinterId": "DDInter1164"
+      "ddinterId": "DDInter1164",
+      "atcCategories": [
+        "A"
+      ]
     },
     "prednisolone": {
       "label": "Prednisolone",
-      "ddinterId": "DDInter1513"
+      "ddinterId": "DDInter1513",
+      "atcCategories": [
+        "A",
+        "C",
+        "D",
+        "H",
+        "R",
+        "S"
+      ]
     },
     "ciprofloxacin": {
       "label": "Ciprofloxacin",
-      "ddinterId": "DDInter384"
+      "ddinterId": "DDInter384",
+      "atcCategories": [
+        "J",
+        "S"
+      ]
     },
     "warfarin": {
       "label": "Warfarin",
-      "ddinterId": "DDInter1951"
+      "ddinterId": "DDInter1951",
+      "atcCategories": [
+        "B"
+      ]
     },
     "ibuprofen": {
       "label": "Ibuprofen",
-      "ddinterId": "DDInter900"
+      "ddinterId": "DDInter900",
+      "atcCategories": [
+        "C",
+        "G",
+        "M",
+        "R"
+      ]
     },
     "cholecalciferol": {
       "label": "Cholecalciferol",
-      "ddinterId": "DDInter367"
+      "ddinterId": "DDInter367",
+      "atcCategories": [
+        "A"
+      ]
     },
     "atorvastatin": {
       "label": "Atorvastatin",
-      "ddinterId": "DDInter133"
+      "ddinterId": "DDInter133",
+      "atcCategories": [
+        "C"
+      ]
     }
   },
   "pairs": {

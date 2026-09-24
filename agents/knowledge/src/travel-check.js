@@ -10,7 +10,8 @@
  *   already_taking      -> { kind:'identified', verdict:'interaction_found' }   (duplicate dose)
  *   no_interaction_found-> { kind:'identified', verdict:'no_interaction' }     (never "safe")
  *   cannot_verify       -> { kind:'could_not_identify' }   identified, but a drug is not in the
- *                                                          index, a pair is ungraded, or a prescription
+ *                                                          index, a pair lies outside the loaded DDInter
+ *                                                          category files (AP-06), a pair is ungraded, or a prescription
  *                                                          is still awaiting review - so nothing can be
  *                                                          said about the whole profile (TC-IX-03/06)
  *   needs_confirmation  -> { kind:'could_not_identify' }   one near match; the chat can ask
@@ -60,7 +61,7 @@ function travelCheck(args) {
   const { patientId, visionText, index, brandIndex } = args;
   const l = lang(args.language);
   const out = (verdict, extra) => {
-    const r = Object.assign({ verdict, patientId, candidate: null, findings: [], alreadyTaking: [], notCovered: [],
+    const r = Object.assign({ verdict, patientId, candidate: null, findings: [], alreadyTaking: [], notCovered: [], notCheckable: [],
                               ungraded: [], excluded: [], alert: null, reviewRequired: false }, extra);
     r.appOutcome = appOutcomeFor(verdict, r.candidate ? r.candidate.ingredients.join(' + ') : null, null);
     return r;
@@ -112,6 +113,7 @@ function travelCheck(args) {
   const notCovered = [];                       // labels as the patient knows them, never raw keys
   const addNotCovered = (label) => { if (label && notCovered.indexOf(label) === -1) notCovered.push(label); };
   const ungraded = [];
+  const notCheckable = [];                     // both known to DDInter, but the file that would list the pair was not loaded
   const generic = (p) => (p.drug && typeof p.drug.genericName === 'string' ? p.drug.genericName : '');
   const taking = (key, p) => alreadyTaking.push({ ingredient: key, ingredientLabel: candidateLabel(key), prescriptionId: p.id,
     brandName: (p.drug && p.drug.brandName) || null, facility: (p.source && p.source.facilityName) || null });
@@ -128,6 +130,9 @@ function travelCheck(args) {
         if (!res.found) {
           if (res.reason === 'same_ingredient') taking(c, p);
           else if (res.reason === 'drug_not_in_index' && !isCovered(b, index)) addNotCovered(parts.length === 1 ? generic(p) : part.text);
+          else if (res.reason === 'pair_not_checkable') {
+            notCheckable.push({ candidateIngredient: c, prescriptionId: p.id, pairKey: res.pairKey, with: parts.length === 1 ? generic(p) : part.text });
+          }
           continue;
         }
         if (res.unclassified || !res.severity) { ungraded.push({ candidateIngredient: c, prescriptionId: p.id, level: res.level, pairKey: res.pairKey }); continue; }
@@ -144,7 +149,7 @@ function travelCheck(args) {
   const rank = { danger: 0, warning: 1, info: 2 };
   findings.sort((a, b) => rank[a.severity] - rank[b.severity]);
   const worst = findings.length ? findings[0].severity : null;
-  const common = { candidate, findings, alreadyTaking, notCovered, ungraded, excluded, unconfirmedExcluded: unconfirmed };
+  const common = { candidate, findings, alreadyTaking, notCovered, notCheckable, ungraded, excluded, unconfirmedExcluded: unconfirmed };
 
   // A danger finding outranks everything and goes to the reviewer.
   if (worst === 'danger') {
@@ -190,11 +195,17 @@ function travelCheck(args) {
     }));
   }
 
-  // Nothing graded found. That is only "no interaction" if EVERY pair was checkable
-  // and every prescription was part of the check.
+  // Nothing graded found. That is only "no interaction" if EVERY pair was checkable (both drugs
+  // in the index, and one of them in a loaded category file) and every prescription was part of the check.
   if (notCovered.length) {
     return out(VERDICT.CANNOT_VERIFY, Object.assign({}, common, {
       reason: 'drug_not_in_index', message: TRAVEL_TEXT.cannot_verify(l, candidateName, notCovered)
+    }));
+  }
+  if (notCheckable.length) {
+    return out(VERDICT.CANNOT_VERIFY, Object.assign({}, common, {
+      reason: 'pair_outside_loaded_categories',
+      message: TRAVEL_TEXT.pair_not_checkable(l, candidateName, [...new Set(notCheckable.map((n) => n.with))])
     }));
   }
   if (ungraded.length) {

@@ -11,7 +11,11 @@
  * The rules, each one a test case in AI Agents Acceptance Criteria.md section 4:
  *   - a graded pair in the index          -> an alert with that pair's severity and
  *                                            its DDInter record as sourceCitation (TC-IX-01)
- *   - both drugs covered, no pair         -> no interaction alert (TC-IX-02); when NOTHING
+ *   - both drugs covered, no pair, but    -> ONE `info` "cannot verify" alert, pending the
+ *     neither drug in a loaded DDInter        reviewer: the category file that would list the
+ *     category file                           pair was not loaded, so its absence proves nothing
+ *   - both drugs covered, no pair, one    -> no interaction alert (TC-IX-02); when NOTHING
+ *     drug in a loaded category file
  *                                            at all is found, one `info` "screened, nothing
  *                                            recorded" alert, auto_cleared (the seed's ia-003) -
  *                                            or pending the reviewer while any prescription is
@@ -34,7 +38,7 @@ const { canonical, ingredientParts, ingredientsOf } = require('./normalise');
 const { reviewStatusFor } = require('./severity');
 const { isCovered, lookupPair } = require('./interactions');
 const {
-  lang, unnamed, ALERT_TEXT, pairCitation, ungradedCitation, notCoveredCitation, nothingFoundCitation, duplicateCitation
+  lang, unnamed, ALERT_TEXT, pairCitation, ungradedCitation, notCoveredCitation, notCheckableCitation, nothingFoundCitation, duplicateCitation
 } = require('./text');
 const { validateAlerts } = require('./validate');
 
@@ -108,7 +112,8 @@ function screenNewPrescription(args) {
   const findings = [];     // graded DDInter rows
   const ungraded = [];     // DDInter rows with level Unknown
   const duplicates = [];   // same ingredient in two prescriptions
-  const noPair = [];       // both covered, no row
+  const noPair = [];       // both covered, no row, one drug in a loaded category file
+  const notCheckable = []; // both covered, no row, neither drug in a loaded category file
   const uncovered = new Map(); // prescriptionId -> Set(ingredient label) not in the index
 
   const markUncovered = (p, ing) => {
@@ -129,7 +134,8 @@ function screenNewPrescription(args) {
           else if (res.reason === 'drug_not_in_index') {
             if (!isCovered(a, index)) markUncovered(p, a);
             if (!isCovered(b, index)) markUncovered(q, b);
-          } else noPair.push({ p, q, a: res.keyA, b: res.keyB });
+          } else if (res.reason === 'pair_not_checkable') notCheckable.push({ p, q, a, b, res });
+          else noPair.push({ p, q, a: res.keyA, b: res.keyB });
           continue;
         }
         if (res.unclassified || !res.severity) ungraded.push({ p, q, res });
@@ -204,6 +210,27 @@ function screenNewPrescription(args) {
     });
   }
 
+  // Both drugs are known to DDInter, but neither is in a category file that was loaded: the one
+  // file that would list the pair was never read, so its absence proves nothing. One `info`
+  // "cannot verify" alert to the reviewer, never "no interaction" (AP-06).
+  if (notCheckable.length) {
+    const ids = [];
+    const involved = [];
+    const labels = [];
+    const cited = new Map();
+    for (const n of notCheckable) {
+      ids.push(n.p.id, n.q.id);
+      involved.push(n.p, n.q);
+      const label = labelFor(n.p, n.a, index, l) + (l === 'en' ? ' with ' : ' مع ') + labelFor(n.q, n.b, index, l);
+      if (labels.indexOf(label) === -1) labels.push(label);
+      if (!cited.has(n.res.pairKey)) cited.set(n.res.pairKey, { drugA: index.drugs.get(n.res.keyA), drugB: index.drugs.get(n.res.keyB) });
+    }
+    candidates.push({
+      alert: body(ids, 'info', ALERT_TEXT.pairNotCheckable(l, labels), notCheckableCitation(index.meta, [...cited.values()]), 'pending_medical_review'),
+      evidence: { findingType: 'pair_not_checkable', pairKeys: [...cited.keys()], allowedNames: namesOf(...involved) }
+    });
+  }
+
   // Nothing at all was found. Only "nothing recorded" (auto_cleared, the seed's ia-003 shape) when
   // every prescription was part of the run; with prescriptions still awaiting review it goes to the
   // reviewer instead, and says so (TC-IX-06: the exclusion is visible, not silent).
@@ -245,6 +272,7 @@ function screenNewPrescription(args) {
       ungraded: ungraded.length,
       duplicates: seenDup.size,
       notCovered: [...uncovered.values()].flatMap((s) => [...s]),
+      notCheckable: [...new Set(notCheckable.map((n) => n.res.pairKey))],
       toSend: dryRun ? 0 : validation.passed.length,
       validationFailed: validation.failed.length,
       mustEscalate: validation.mustEscalate

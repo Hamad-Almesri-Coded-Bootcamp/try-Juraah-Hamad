@@ -186,6 +186,36 @@ async function screeningScenarios() {
     console.log('        -> ' + danger.description);
   });
 
+  await check('AP-06 - both drugs outside the loaded DDInter files (Ibuprofen x Ciprofloxacin): one info "cannot verify" alert POSTed for the reviewer, never "nothing recorded"', async () => {
+    const r = runner(wf);
+    await r.code('input (deterministic)', webhookItem({ patientId: 't-patient', newPrescriptionId: 't-2', language: 'en' }));
+    const p = [
+      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Ibuprofen' } },
+      { id: 't-2', status: 'active', needsReview: false, drug: { genericName: 'Ciprofloxacin' } }
+    ];
+    const items = await r.code('screen (deterministic)', r.set('backend: active prescriptions', http(200, { prescriptions: p })));
+    assert.equal(items.length, 1);
+    assert.equal(items[0].json.post, true);
+    const a = items[0].json.alert;
+    assert.equal(a.severity, 'info');
+    assert.equal(a.reviewStatus, 'pending_medical_review');
+    assert.match(a.sourceCitation, /DDInter category files A, B, H/);
+    assert.doesNotMatch(a.description, /no interaction is recorded/);
+    console.log('        -> ' + a.description);
+  });
+
+  await check('AP-06 - one drug in a loaded category file (Metformin, A) x Calcium carbonate, no row: one auto_cleared "nothing recorded"', async () => {
+    const r = runner(wf);
+    await r.code('input (deterministic)', webhookItem({ patientId: 't-patient', newPrescriptionId: 't-2', language: 'en' }));
+    const p = [
+      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Metformin' } },
+      { id: 't-2', status: 'active', needsReview: false, drug: { genericName: 'Calcium carbonate' } }
+    ];
+    const items = await r.code('screen (deterministic)', r.set('backend: active prescriptions', http(200, { prescriptions: p })));
+    assert.equal(items.length, 1);
+    assert.equal(items[0].json.alert.reviewStatus, 'auto_cleared');
+  });
+
   await check('a refused danger alert (422) is escalated, never reported as done', async () => {
     const r = runner(wf);
     await r.code('input (deterministic)', webhookItem({ patientId: 't-patient', newPrescriptionId: 't-2' }));
@@ -310,6 +340,15 @@ async function travelScenarios() {
     assert.equal(c.result.verdict, 'interaction_found');
     const [a] = await r.code('answer (deterministic)', [{ json: c }]);
     assert.deepEqual(a.json.appOutcome, { kind: 'identified', drugName: 'Simvastatin', verdict: 'interaction_found' });
+  });
+
+  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app could_not_identify', async () => {
+    const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Amlodipine' } }];
+    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: p }), geminiText('Ezetimibe'));
+    assert.equal(c.post, false);
+    assert.equal(c.result.verdict, 'cannot_verify');
+    assert.equal(c.result.reason, 'pair_outside_loaded_categories');
+    assert.deepEqual(c.result.appOutcome, { kind: 'could_not_identify' });
   });
 
   await check('profile unreadable (backend 503) -> never "no interaction"', async () => {
