@@ -46,6 +46,7 @@ import { copy, t } from '@/i18n';
 import { interpolate } from '@/features/shell/interpolate';
 import { formatDate, formatNumber, formatTime } from '@/i18n/format';
 import { localizePersonName, localizeText } from '@/i18n/localize';
+import { AsWritten } from '@/components/ui/AsWritten';
 import { actorLabel, eventTypeLabel, groupByDay, proofNoticeKind, type AuditPeriod } from './format';
 import type { Locale } from '@/i18n/locale';
 import type { AuditEvent } from '@/types/contracts';
@@ -145,7 +146,8 @@ export function AuditLogView({
       // The table's time cell is `dir="ltr"` (ActivityRow); the inner span keeps an Arabic time at
       // the reading edge of its column instead of drifting to the far side.
       timeLabel: <span dir={locale === 'ar' ? 'rtl' : 'ltr'} className="block">{formatTime(e.createdAt.slice(11, 16), locale)}</span>,
-      description: localizeText(e.message, locale),
+      // A name someone typed stays as written, declared in its language (AsWritten, CR-071).
+      description: <AsWritten text={localizeText(e.message, locale)} locale={locale} />,
       actor: { label: actorLabel(e.actor.role, locale), kind: e.actor.role },
       // CR-010's literal role string, English only (CR-071).
       code: locale === 'en' ? e.actor.role : undefined,

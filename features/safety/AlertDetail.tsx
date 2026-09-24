@@ -217,7 +217,11 @@ export function AlertDetail({ alert, prescriptions, locale, prescriptionHrefBuil
     {
       key: 'risk',
       heading: t(alert.severity === 'info' ? copy.safety.c2StepFindingHeading : copy.safety.c2StepRiskHeading, locale),
-      body: <p className="m-0 type-body">{localizeText(alert.description, locale)}</p>,
+      body: (
+        <p className="m-0 type-body">
+          <AsWritten text={localizeText(alert.description, locale)} locale={locale} />
+        </p>
+      ),
     },
     ...(showWhatToDo
       ? [

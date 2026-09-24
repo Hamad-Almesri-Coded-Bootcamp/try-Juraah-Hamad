@@ -1,5 +1,6 @@
 import type * as React from 'react';
 import { copy, t, type Locale } from '@/i18n';
+import { AsWritten } from './AsWritten';
 
 const EMPTY_MARK = '—'; // em dash — a structural mark, not translated copy
 
@@ -32,7 +33,8 @@ export function DetailRow({ label, value, emptyMark, emptyLabel, lang = 'en', cl
           <span className="wsf-sr">{emptyLabel ?? t(copy.vocabulary.empty, lang)}</span>
         </span>
       ) : (
-        <span className="wsf-dr__value type-body">{value}</span>
+        // A string value is data: a run in the other script (a note typed by a person) is declared as written.
+        <span className="wsf-dr__value type-body">{typeof value === 'string' ? <AsWritten text={value} locale={lang} /> : value}</span>
       )}
     </div>
   );
