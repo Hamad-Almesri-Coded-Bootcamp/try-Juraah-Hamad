@@ -303,8 +303,9 @@ export const savePrescriptionDraft: DataApi['savePrescriptionDraft'] = async (pa
   // CR-066 / F3: AFTER the transaction has committed — the Interaction Screening agent reads the new
   // prescription back through /api/agent, so it must already be there. Only a saved, active,
   // unflagged prescription (a flagged one is screened once the reviewer confirms it, TC-IX-06:
-  // writes.ts confirmPrescriptionFields). Awaited, so the patient's add flow ends only once it is
-  // screened; screening that cannot be confirmed HOLDS it for a specialist (./screening.ts).
+  // writes.ts confirmPrescriptionFields). Awaited, so the patient's add flow ends only once n8n has
+  // accepted the job; a request it does not accept HOLDS the prescription for a specialist
+  // (./screening.ts). B2 shows it as "being checked" until the answer arrives (CR-089).
   if (screen && saved.id && saved.patientId === patientId) {
     await screenOrHold(patientId, saved, language);
   }

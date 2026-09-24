@@ -7,14 +7,17 @@
  * (`تسجيل حالة جرعة — <word>: <generic name>`), byte-identical to the seed's five rows.
  */
 import type { InteractionAlert } from '@/types/contracts';
+import { copy, t, type Locale } from '@/i18n';
 
 /**
- * F3 — the hold a prescription gets when its interaction screening could not be confirmed: a
- * pending alert, so a specialist checks it before it is trusted («unknown means refuse»). The owner
- * may reword it in the copy deck.
+ * F3 / AP-10 — the description of the hold a prescription gets when its screening request was not
+ * accepted: a pending alert, so a specialist checks it before it is trusted («unknown means
+ * refuse»). Unlike the audit messages below, an alert description is shown to the patient, so it is
+ * written once in the PATIENT's language from the copy catalogue (`copy.safety.screeningHeldTemplate`,
+ * the owner may reword it there).
  */
-export function screeningUnconfirmedDescription(genericName: string): string {
-  return `لم يكتمل فحص التعارضات لوصفة ${genericName} — بانتظار مراجعة مختص قبل الاعتماد عليها.`;
+export function screeningUnconfirmedDescription(genericName: string, language: Locale): string {
+  return t(copy.safety.screeningHeldTemplate, language).replace('{drug}', genericName);
 }
 
 /** The seed's form: «إعادة حساب جدول Levothyroxine بعد جرعة فائتة» (actor system). */

@@ -21,7 +21,7 @@
  * called BEFORE the confirming update (D-033).
  */
 import type { DataApi } from '../api';
-import type { Prescription } from '@/types/contracts';
+import type { Prescription, RefillRequest } from '@/types/contracts';
 import type { PermittedSettingsPatch, Session } from '@/types/views';
 import { sessionOf } from './_shared';
 import { withSession, type Tx } from '@/lib/db/withSession';
@@ -297,21 +297,35 @@ export const updateSettings: DataApi['updateSettings'] = async (patientId, patch
 // Supply
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * D10 / CR-082 (AP-10): a refill passes through screening. After the request has COMMITTED, the
+ * refilled prescription's pairs are screened again (./screening.ts screenOrHold: handed to the
+ * agent, or held for a specialist when n8n does not accept it). A refused request screens nothing;
+ * a flagged prescription is skipped (its reviewer's confirmation screens it).
+ */
 export const requestRefill: DataApi['requestRefill'] = async (patientId, prescriptionId) => {
   const session = await sessionOf();
-  return refusedAs(
+  // `refilled` is non-null only from a transaction that COMMITTED the request: a refusal (0 rows,
+  // or the refill_routing trigger raising) carries null, and nothing is screened.
+  const refused = (): { request: RefillRequest; refilled: Prescription | null } => ({
+    request: refillRequestRefusal(patientId, prescriptionId),
+    refilled: null,
+  });
+  const { request, refilled } = await refusedAs(
     () => withSession(session, async (sql) => {
       const [row] = await sql.unsafe(PG_QUERIES_WRITES.insertRefill, [newId('rf'), patientId, prescriptionId]);
-      if (!row) return refillRequestRefusal(patientId, prescriptionId);
+      if (!row) return refused();
       const [rx] = await sql.unsafe(PG_QUERIES_WRITES.genericName, [prescriptionId]);
       await append(sql, {
         scope: 'patient', patientId, actor: { role: 'patient', id: patientId }, type: 'refill_requested',
         message: `طلب تعبئة ${String(rx?.generic_name ?? '')}`, relatedId: String(row.id),
       });
-      return toRefillRequestWrite(row);
+      return { request: toRefillRequestWrite(row), refilled: await loadPrescription(sql, prescriptionId) };
     }),
-    () => refillRequestRefusal(patientId, prescriptionId),
+    refused,
   );
+  if (refilled) await screenOrHold(patientId, refilled);
+  return request;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -530,9 +544,9 @@ export const confirmPrescriptionFields: DataApi['confirmPrescriptionFields'] = a
   const session = await sessionOf();
   const f = pickConfirmedFields(values);
   if (!confirmableValues(f)) return unchangedPrescription(session, prescriptionId);
-  let confirmedRx: Prescription | null = null;
+  let saved: Prescription;
   try {
-    const result = await withSession(session, async (sql) => {
+    saved = await withSession(session, async (sql) => {
       const before = await loadPrescription(sql, prescriptionId);
       if (!before) throw new Refused('not visible');
       const ctx = await reviewerContext(sql);
@@ -562,17 +576,19 @@ export const confirmPrescriptionFields: DataApi['confirmPrescriptionFields'] = a
         scope: 'patient', patientId: before.patientId, actor: { role: 'reviewer', id: ctx.subjectId }, type: 'prescription_field_confirmed',
         message: `تأكيد بيانات وصفة ${confirmed.drug.genericName}`, relatedId: prescriptionId,
       });
-      confirmedRx = confirmed;
       return confirmed;
     });
-    // F3 (TC-IX-06): the confirmed prescription is screened now — AFTER the commit, so the agent can
-    // read it — or held for a specialist when screening cannot be confirmed (./screening.ts).
-    if (confirmedRx) await screenOrHold((confirmedRx as Prescription).patientId, confirmedRx, 'ar');
-    return result;
   } catch (e) {
     if (!isRefusal(e)) throw e;
     return unchangedPrescription(session, prescriptionId);
   }
+  // F3 (TC-IX-06): the confirmed prescription is screened now, AFTER the commit so the agent can
+  // read it, or held for a specialist when n8n does not accept the job (./screening.ts). A refusal
+  // has returned above and screens nothing. No language passed: screenOrHold reads the PATIENT's own
+  // under the agent role (the reviewer's session may no longer see the patient once the record left
+  // the queue, P8). screenOrHold never throws: the confirmation stands whatever n8n answers.
+  await screenOrHold(saved.patientId, saved);
+  return saved;
 };
 
 export const returnPrescriptionToClinic: DataApi['returnPrescriptionToClinic'] = async (prescriptionId, reason) => {

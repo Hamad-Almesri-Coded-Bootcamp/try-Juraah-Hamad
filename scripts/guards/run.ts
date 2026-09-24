@@ -10,10 +10,11 @@ import * as gp from './placeholders';
 import * as g8 from './sql-only-in-db';
 import * as g9 from './no-secrets';
 import * as gt from './token-scale';
+import * as gr from './screening-on-every-path';
 import { existsSync } from 'node:fs';
 
 async function main() {
-  const guards = [g2, g3, g4, g5, g6, g7, g8, g9, gu, gp, gt];
+  const guards = [g2, g3, g4, g5, g6, g7, g8, g9, gu, gp, gt, gr];
   let ok = true;
   console.log('Jur\u2019ah repository guards');
   for (const g of guards) ok = report(g.run()) && ok;
