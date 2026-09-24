@@ -83,6 +83,12 @@ const ALERT_TEXT = {
       ? 'We could not find ' + names + ' in our drug-interaction database, so we cannot check for interactions with your other medicines. This will be shown to a medical reviewer.'
       : 'لم نجد ' + names + ' في قاعدة بيانات التداخلات الدوائية لدينا، فلا نستطيع التحقق من وجود تعارض مع أدويتك الأخرى. سيُعرض ذلك على مختص طبي للمراجعة.'));
   },
+  /** Both drugs are in the database, but the category file that would list the pair was not loaded. */
+  pairNotCheckable(l, pairLabels) {
+    return fitting(l, pairLabels, (names) => (lang(l) === 'en'
+      ? 'We could not check for an interaction when taking ' + names + ': the part of our drug-interaction database that records interactions for these medicines is not available to us yet. This will be shown to a medical reviewer.'
+      : 'لم نستطع التحقق من وجود تعارض عند أخذ ' + names + '، لأن الجزء الذي يسجّل تداخلات هذه الأدوية في قاعدة بيانات التداخلات الدوائية ليس متوفراً لدينا بعد. سيُعرض ذلك على مختص طبي للمراجعة.'));
+  },
   nothingFound(l, drugLabel) {
     return lang(l) === 'en'
       ? drugLabel + ' was screened against your other medicines and no interaction is recorded in our drug-interaction database. This is not a guarantee of safety; ask your pharmacist if you are unsure.'
@@ -128,6 +134,11 @@ const TRAVEL_TEXT = {
     return lang(l) === 'en'
       ? 'I identified ' + candidate + ', but our drug-interaction database does not include ' + capped(l, missing) + ', so I cannot check for interactions with your medicines. Please ask a pharmacist before taking it.'
       : 'تعرّفت على ' + candidate + '، لكن ما عندنا ' + capped(l, missing) + ' في قاعدة بيانات التداخلات الدوائية، فما أقدر أتحقق من التعارض مع أدويتك. اسأل الصيدلي قبل ما تاخذه.';
+  },
+  pair_not_checkable(l, candidate, others) {
+    return lang(l) === 'en'
+      ? 'I identified ' + candidate + ', but the part of our drug-interaction database that would cover it with ' + capped(l, others) + ' is not available to us yet, so I cannot check for an interaction. Please ask a pharmacist before taking it.'
+      : 'تعرّفت على ' + candidate + '، لكن الجزء الذي يغطيه مع ' + capped(l, others) + ' في قاعدة بيانات التداخلات الدوائية غير متوفر عندنا بعد، فما أقدر أتحقق من التعارض. اسأل الصيدلي قبل ما تاخذه.';
   },
   unconfirmed_profile(l, candidate, count) {
     return lang(l) === 'en'
@@ -192,6 +203,18 @@ function notCoveredCitation(meta, labels) {
   return 'Not covered by the ' + indexLabel(meta) + ': ' + labels.join(', ') + '. No interaction could be looked up for these; nothing is cleared.';
 }
 
+/**
+ * pairs: [{ drugA, drugB }] - the two index entries of each pair ({ label, ddinterId, atcCategories? }).
+ * Says which category files were loaded and why the missing record proves nothing.
+ */
+function notCheckableCitation(meta, pairs) {
+  const loaded = meta && Array.isArray(meta.categoryFilesLoaded) && meta.categoryFilesLoaded.length ? meta.categoryFilesLoaded.join(', ') : 'none recorded';
+  const drug = (d) => d.label + ' (' + d.ddinterId + ', ATC ' + (Array.isArray(d.atcCategories) && d.atcCategories.length ? d.atcCategories.join('/') : 'unknown') + ')';
+  return 'Not checkable in the ' + indexLabel(meta) + ', built from DDInter category files ' + loaded + ': ' +
+    pairs.map((p) => drug(p.drugA) + ' x ' + drug(p.drugB)).join('; ') +
+    '. A category file lists the interactions of the drugs in that ATC category, and neither drug of these pairs is in a loaded one, so a missing record proves nothing; nothing is cleared.';
+}
+
 function nothingFoundCitation(meta, pairLabels) {
   const shown = pairLabels.slice(0, 12);
   return indexLabel(meta) + ': no interaction record for ' + shown.join('; ') +
@@ -206,5 +229,5 @@ function duplicateCitation(label, facilities) {
 
 module.exports = {
   LANGS, lang, joinList, capped, fitting, awaitingCount, unnamed, ALERT_TEXT, TRAVEL_TEXT,
-  pairCitation, ungradedCitation, notCoveredCitation, nothingFoundCitation, duplicateCitation
+  pairCitation, ungradedCitation, notCoveredCitation, notCheckableCitation, nothingFoundCitation, duplicateCitation
 };

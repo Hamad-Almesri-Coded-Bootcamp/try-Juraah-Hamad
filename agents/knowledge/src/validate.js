@@ -22,7 +22,7 @@ const ALERT_KEYS = ['patientId', 'involvedPrescriptionIds', 'severity', 'descrip
 /**
  * alert:    the POST /api/agent/alerts body.
  * evidence: this agent's private record of why the alert exists (never sent).
- *   { findingType: 'interaction'|'duplicate_therapy'|'ungraded'|'not_covered'|'nothing_found'|'travel_interaction',
+ *   { findingType: 'interaction'|'duplicate_therapy'|'ungraded'|'not_covered'|'pair_not_checkable'|'nothing_found'|'travel_interaction',
  *     pairKey?, allowedNames: string[] }   allowedNames = the involved records' own names and ingredient keys
  * ctx: { patientId, knownPrescriptionIds: string[], index }
  */
@@ -60,13 +60,19 @@ function validateAlert(alert, evidence, ctx) {
   if (alert.severity !== 'info' && alert.reviewStatus !== 'pending_medical_review') {
     v.push('V3 a ' + alert.severity + ' alert must be pending_medical_review, got ' + alert.reviewStatus);
   }
-  if ((ev.findingType === 'not_covered' || ev.findingType === 'ungraded') && alert.reviewStatus !== 'pending_medical_review') {
+  if ((ev.findingType === 'not_covered' || ev.findingType === 'ungraded' || ev.findingType === 'pair_not_checkable') && alert.reviewStatus !== 'pending_medical_review') {
     v.push('V3 an unverifiable finding goes to the reviewer, never auto_cleared');
   }
 
   // V4 - GUARDRAIL G1. A graded interaction must cite a row that is actually in the index.
   if (ev.findingType === 'interaction' || ev.findingType === 'travel_interaction') {
     if (!ev.pairKey || !ctx.index.pairs.has(ev.pairKey)) v.push('V4 cited pair is not in the index: ' + ev.pairKey);
+  }
+  // A "not checkable" finding names pairs, and none of them may be a row the index holds (that
+  // pair would have a real answer, and the alert would hide it).
+  if (ev.findingType === 'pair_not_checkable') {
+    if (!Array.isArray(ev.pairKeys) || ev.pairKeys.length === 0) v.push('V4 a not-checkable finding names no pair');
+    else for (const k of ev.pairKeys) if (ctx.index.pairs.has(k)) v.push('V4 a not-checkable pair is in the index: ' + k);
   }
   if (typeof alert.sourceCitation !== 'string' || alert.sourceCitation.trim().length === 0) {
     v.push('V4 sourceCitation is empty');
