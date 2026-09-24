@@ -103,7 +103,10 @@ export type ExtractionOutcome =
 
 export type DrugCheckOutcome =
   | { kind: 'identified'; drugName: string; verdict: 'no_interaction' | 'interaction_found'; alertId?: string }
-  | { kind: 'could_not_identify' };
+  | { kind: 'could_not_identify' }
+  // CR-078: the medicine was recognised but Travel Check cannot screen it against the whole
+  // profile right now. Carries no drugName and no verdict — nothing is guessed, nothing screened.
+  | { kind: 'cannot_verify' };
 
 // ---------------------------------------------------------------------------------------------
 // Supply

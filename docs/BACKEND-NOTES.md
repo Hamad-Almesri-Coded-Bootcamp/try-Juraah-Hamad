@@ -46,7 +46,7 @@ One table: name · arguments and their types · return type · which screens cal
 |---|---|---|---|---|
 | `getAlerts` | `patientId: string` | `Promise<InteractionAlert[]>` | B2, C1, F2 | Lists a patient's interaction alerts (danger banner, safety list). |
 | `getAlert` | `alertId: string` | `Promise<InteractionAlert \| null>` | C2, F3 | Loads one interaction alert's detail. |
-| `checkDrugPhoto` | `patientId: string, image: Blob` | `Promise<DrugCheckOutcome>` | C3 | Screens a photographed drug against the patient's full profile (`identified` with verdict, or `could_not_identify`). |
+| `checkDrugPhoto` | `patientId: string, image: Blob` | `Promise<DrugCheckOutcome>` | C3 | Screens a photographed drug against the patient's full profile (`identified` with verdict, `could_not_identify`, or `cannot_verify` — CR-078, recognised but not screenable against the whole profile; this mock has no path that produces it). |
 
 **Supply**
 

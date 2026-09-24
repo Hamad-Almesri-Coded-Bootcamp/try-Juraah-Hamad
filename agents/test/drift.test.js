@@ -51,3 +51,44 @@ test('CRLF in live code is not drift; a changed connection is', () => {
   delete live.connections['Answer Alexa'];
   assert.equal(D.compare(repoOf(WF), liveOf(live)).problems.length, 1);
 });
+
+// AP-18: agent-error's Telegram node ships an owed literal chatId (build-error-workflow.js's own
+// TEAM_CHAT_ID constant); the lead sets the team's real chat id only in the live node after import.
+// That must never read as drift - but any OTHER change to that same node, or to any other node,
+// still must.
+const { TEAM_CHAT_ID } = require('../scripts/build-error-workflow.js');
+test('AP-18: agent-error\'s real chat id (set live, after import) is live-only config - no drift; any other change to it still is', () => {
+  const EWF = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'workflows', 'agent-error.json'), 'utf8'));
+  const telegramNode = (wf) => wf.nodes.find((n) => n.type === 'n8n-nodes-base.telegram');
+  assert.equal(telegramNode(EWF).parameters.chatId, TEAM_CHAT_ID, 'the committed file ships the owed marker, never a real chat id');
+
+  const liveWithRealChat = copy(EWF);
+  telegramNode(liveWithRealChat).parameters.chatId = '-1002345678901'; // a real n8n Telegram chat id shape
+  assert.deepEqual(D.compare(repoOf(EWF), liveOf(liveWithRealChat)).problems, []);
+
+  const liveEdited = copy(liveWithRealChat);
+  telegramNode(liveEdited).parameters.text = '={{ $json.text }} edited';
+  const r = D.compare(repoOf(EWF), liveOf(liveEdited));
+  assert.equal(r.problems.length, 1);
+  assert.match(r.report.join('\n'), /DRIFT {2}agent-error: Telegram: notify the team/);
+
+  const liveCodeEdited = copy(liveWithRealChat);
+  const codeNode = liveCodeEdited.nodes.find((n) => n.type === 'n8n-nodes-base.code');
+  codeNode.parameters.jsCode += '\n// edited live';
+  const r2 = D.compare(repoOf(EWF), liveOf(liveCodeEdited));
+  assert.equal(r2.problems.length, 1);
+  assert.match(r2.report.join('\n'), /DRIFT {2}agent-error: message \(deterministic\)/);
+});
+
+// A chatId written as an n8n expression (every OTHER workflow's Telegram send) must never be masked -
+// only a literal value is live-only config.
+test('an expression chatId (every other Telegram send) is never masked: a real change to it is drift', () => {
+  const live = copy(WF); // agent-alexa has no Telegram node with a literal chatId to begin with, but
+  // the masking rule itself must still tell a literal from an expression on ANY node shape.
+  const n1 = D.normaliseNode({ type: 'n8n-nodes-base.telegram', typeVersion: 1.2, parameters: { chatId: '={{ $json.chatId }}', text: 'a' } });
+  const n2 = D.normaliseNode({ type: 'n8n-nodes-base.telegram', typeVersion: 1.2, parameters: { chatId: '={{ $json.otherChatId }}', text: 'a' } });
+  assert.notEqual(n1, n2, 'two different expressions must not hash equal');
+  const n3 = D.normaliseNode({ type: 'n8n-nodes-base.telegram', typeVersion: 1.2, parameters: { chatId: '5550001', text: 'a' } });
+  const n4 = D.normaliseNode({ type: 'n8n-nodes-base.telegram', typeVersion: 1.2, parameters: { chatId: '5550002', text: 'a' } });
+  assert.equal(n3, n4, 'two literal chat ids must hash equal (masked) - this is the only case that should');
+});

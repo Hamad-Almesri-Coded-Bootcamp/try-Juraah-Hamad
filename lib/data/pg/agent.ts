@@ -33,7 +33,11 @@ import {
   alertRaisedMessage, prescriptionAddedMessage, prescriptionDiscontinuedMessage, scheduleRecomputedMessage,
 } from '@/lib/agent/messages';
 import type { AlertInput, DoseStatusInput, PrescriptionInput, RecomputeInput, VoiceTurnInput } from '@/lib/agent/validate';
-import type { Dose, InteractionAlert, Prescription } from '@/types/contracts';
+import type { Dose, InteractionAlert, Prescription, Settings } from '@/types/contracts';
+// AP-10: a cycle with ./screening.ts (which raises its hold through insertAlert below), safe by
+// construction: each module uses the other's bindings only inside function bodies, never while it
+// is being evaluated, and the functions involved are hoisted declarations.
+import { screenOrHold, type ScreeningOutcome } from './screening';
 
 /** Parameterised ($n). Exported so a gate proof runs the very same text through the MCP connector. */
 export const PG_QUERIES_AGENT = {
@@ -81,6 +85,9 @@ export const PG_QUERIES_AGENT = {
     returning ${PRESCRIPTION_COLUMNS}`,
   // withAgent. Tracking state now (rule 3: `tracked` is fixed at generation). No row → false.
   trackingOn: `select adherence_check_in_enabled as tracking_on from settings where patient_id = $1`,
+  // withAgent. AP-10: the language screening writes the patient's alerts in (the recipients query
+  // below reads the same column under the same role). No row → 'ar', the settings default.
+  patientLanguage: `select language::text as language from settings where patient_id = $1`,
   // withAgent. Tracking on AND the patient's LATEST link connected (the same "latest" rule as
   // settings_tracking_requires_link, p2-wp1 §3.12).
   checkInEligibility: `
@@ -95,6 +102,9 @@ export const PG_QUERIES_AGENT = {
   // each with the chat id of its latest link when that link is connected and its push target when
   // the subscription is active + granted + attached. A pending/declined/expired/revoked caregiver
   // is not a row of this result at all (E-07). No row at all → the patient does not exist.
+  // notification_channel (AP-18/CR-105) is the PATIENT's chat-channel setting only — it gates the
+  // patient's own Telegram send in lib/agent/notify.ts, never a caregiver's (no Settings row exists
+  // for a caregiver at all) and never push (governed by the granted subscription, contracts.ts:224).
   recipients: `
     with subjects as (
       select 'patient'::text as subject_type, p.id as subject_id, 0::bigint as ord from patients p where p.id = $1
@@ -108,7 +118,8 @@ export const PG_QUERIES_AGENT = {
              where l.subject_type::text = s.subject_type and l.subject_id = s.subject_id
              order by l.seq desc limit 1) as chat_id,
            ps.endpoint, ps.p256dh, ps.auth,
-           (select st.language::text from settings st where st.patient_id = $1) as language
+           (select st.language::text from settings st where st.patient_id = $1) as language,
+           (select st.notification_channel::text from settings st where st.patient_id = $1) as notification_channel
       from subjects s
       left join push_subscriptions ps
         on ps.subject_type::text = s.subject_type and ps.subject_id = s.subject_id
@@ -269,7 +280,7 @@ export async function insertAlert(input: AlertInput): Promise<AlertWriteResult> 
 // POST /api/agent/prescriptions
 // -------------------------------------------------------------------------------------------
 export type PrescriptionWriteResult =
-  | { kind: 'ok'; prescription: Prescription; doseCount: number }
+  | { kind: 'ok'; prescription: Prescription; doseCount: number; screening: ScreeningOutcome }
   | { kind: 'refused'; constraint: string };
 
 /** The jsonb record of PG_QUERIES_AGENT.insertPrescription (snake_case columns, null for absent). Exported for the gate proof. */
@@ -294,9 +305,18 @@ export function prescriptionRecord(id: string, input: PrescriptionInput): Record
   };
 }
 
+/**
+ * POST /api/agent/prescriptions' write, then (AP-10, CR-090) its screening. The insert commits first
+ * (the screening agent reads the prescription back); an UNFLAGGED one is then handed to screening,
+ * or held for a specialist when n8n does not accept it (./screening.ts). A flagged one is screened
+ * when the reviewer confirms it (writes.ts confirmPrescriptionFields), never before (TC-IX-06).
+ * `screening` goes back in the 201 body, so the calling workflow knows the backend has already
+ * handed it over and does not screen it a second time.
+ */
 export async function insertExtractedPrescription(input: PrescriptionInput): Promise<PrescriptionWriteResult> {
+  let saved: { prescription: Prescription; doseCount: number };
   try {
-    return await withAgent(async (sql): Promise<PrescriptionWriteResult> => {
+    saved = await withAgent(async (sql) => {
       const [row] = await sql.unsafe(PG_QUERIES_AGENT.insertPrescription, [prescriptionRecord(newId('rx'), input) as JsonValue]);
       const rx = prescriptionFromRow(row!);
       const [t] = await sql.unsafe(PG_QUERIES_AGENT.trackingOn, [rx.patientId]);
@@ -307,12 +327,24 @@ export async function insertExtractedPrescription(input: PrescriptionInput): Pro
         scope: 'patient', patientId: rx.patientId, actor: { role: 'agent' }, type: 'prescription_added',
         message: prescriptionAddedMessage(rx.drug.genericName), relatedId: rx.id,
       });
-      return { kind: 'ok', prescription: rx, doseCount: doses.length };
+      return { prescription: rx, doseCount: doses.length };
     });
   } catch (e) {
     const name = refusalOf(e);
     if (name) return { kind: 'refused', constraint: name };
     throw e;
+  }
+  const screening = await screenOrHold(saved.prescription.patientId, saved.prescription);
+  return { kind: 'ok', ...saved, screening };
+}
+
+/** AP-10: the patient's own language, for the alerts screening writes. Any failure → 'ar' (the default). */
+export async function patientLanguage(patientId: string): Promise<'ar' | 'en'> {
+  try {
+    const [row] = await withAgent((sql) => sql.unsafe(PG_QUERIES_AGENT.patientLanguage, [patientId]));
+    return row?.language === 'en' ? 'en' : 'ar';
+  } catch {
+    return 'ar';
   }
 }
 
@@ -351,17 +383,29 @@ export interface RecipientTarget {
 export interface Recipients {
   patientId: string;
   language: 'ar' | 'en';
+  /** The PATIENT's chat-channel setting (CR-105). A missing settings row or any value the column
+   * cannot hold reads as 'none' — never invented as "probably telegram" (fail closed). It gates only
+   * the patient's own Telegram send in lib/agent/notify.ts: a caregiver has no Settings row and is
+   * unaffected, and so is push (contracts.ts:224, "the CHAT channel"). */
+  notificationChannel: Settings['notificationChannel'];
   /** The patient first, then ACTIVE caregivers only, in invitation order. */
   targets: RecipientTarget[];
 }
+
+const NOTIFICATION_CHANNELS: readonly Settings['notificationChannel'][] = ['none', 'telegram', 'whatsapp', 'email'];
 
 /** null ⇔ no such patient. The targets carry push keys: server-side use only, never returned raw. */
 export async function recipientsFor(patientId: string): Promise<Recipients | null> {
   const rows = await withAgent((sql) => sql.unsafe(PG_QUERIES_AGENT.recipients, [patientId]));
   if (rows.length === 0) return null;
+  const channel = String(rows[0]?.notification_channel ?? '');
   return {
     patientId,
     language: String(rows[0]?.language) === 'en' ? 'en' : 'ar',
+    // A missing settings row reads as SQL null; anything the column cannot hold is not ours to guess
+    // at either (D-82 lets a write-path bug store a stray value) — both fall closed to 'none'.
+    notificationChannel: (NOTIFICATION_CHANNELS as readonly string[]).includes(channel)
+      ? (channel as Settings['notificationChannel']) : 'none',
     targets: rows.map((r) => ({
       subjectType: String(r.subject_type) as RecipientTarget['subjectType'],
       subjectId: String(r.subject_id),
