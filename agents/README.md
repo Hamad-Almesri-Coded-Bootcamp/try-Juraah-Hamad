@@ -88,24 +88,40 @@ spec asks for. Extraction's ≥90% accuracy target needs the ≥10 ground-truth 
 `agent-alexa` answers an Alexa custom skill in **Arabic (ar-SA, Gulf)** and **English (en-US)**:
 «شنو جرعتي الجاية؟» · «كم آخذ؟» · «شنو أدويتي اليوم؟» · «نسيت دواي». Alexa's own NLU picks the intent
 from `agents/alexa/interaction-model.*.json`; `agents/lib/voice.js` builds every word from
-`GET /api/agent/patients/{id}/doses` — no LLM on this path.
+`GET /api/agent/patients/{id}/doses`. In English, free talk (`FreeTalkIntent`, CR-070) sends the
+sentence to Gemini, which only names the intent and, for a record request, the doses the patient
+meant; `agents/lib/voice-actions.js` does the rest.
 
-**Voice never records a dose.** An Echo cannot tell the patient from anyone else in the room
-(TC-AD-14), and a dose status comes only from the patient's own chat. «نسيت دواي» says which dose
-passed and what is next, then sends that dose's three buttons to the patient's **Telegram** — the
-tap records it through the adherence path. The workflow's only HTTP calls are two GETs (asserted
-by `scripts/check.js`).
+**Voice never records a dose** (CR-073, which reverses the recording in the agents entry CR-070;
+CLAUDE.md rule 1, TC-AD-14/15). An Echo cannot tell the patient from anyone else in the room, and a
+dose status comes only from the patient's own chat. «نسيت دواي» says which dose passed and what is
+next, then sends that dose's three buttons to the patient's **Telegram**. A record request ("mark it
+taken", "I took the first two and missed the third") is answered "I can't record by voice; I've sent
+the buttons to your Telegram" («ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»), and the buttons
+of the doses the patient meant (open and due; every open due dose if none was named) go to the
+patient's own chat. The Arabic skill has no free talk, so its model carries a slotless
+`RecordDoseIntent` («سجل الجرعة», «خذيت دواي», «خذيت الأولى والثانية وفاتتني الثالثة»): it names no
+dose and runs no model, and it gets the same fixed line and the buttons of every open dose that is
+due. A tap on one of those buttons in Telegram records it through the adherence path. There is no recording
+switch and no write node: `scripts/check.js` asserts the workflow makes exactly two GETs (the doses
+of the day, who is eligible) and the one CR-069 voice-turn POST, and no call whose URL contains
+`/doses/` or `/schedule/`, and shows that assertion going red on copies edited to break it.
 
 Setup (the Amazon account the Echo is registered to):
 1. developer.amazon.com → Alexa → Create Skill → Custom, "Provision your own", primary language
    **Arabic (SA)**; then Language settings → add **English (US)**.
 2. Build → JSON Editor → paste `interaction-model.ar-SA.json` (and the en-US one in English) → Build.
+   Paste and build again whenever a model file changes (AP-02 added the ar-SA `RecordDoseIntent`).
 3. Endpoint → HTTPS → `https://mohammad-aljry.app.n8n.cloud/webhook/jurah/alexa`, certificate
    option "a sub-domain of a domain that has a wildcard certificate" — the host serves
    `*.app.n8n.cloud` (Google Trust Services), checked 2026-09-23.
 4. Test tab → **Development**. Copy the skill id (`amzn1.ask.skill…`).
 5. The skill id and the device's Alexa `userId` → `pt-03` are set inside the live n8n node
    `alexa request (deterministic)` — the repository ships both empty, so it fails closed.
+   **Live-only config:** every rebuilt `agent-alexa.json` still ships `const ALEXA_SKILL_ID = '';`
+   and `const ALEXA_LINKS = {};` (asserted by `scripts/check.js`). Publishing it wipes the live
+   values, so whoever publishes re-enters both in that node before activating, then runs the drift
+   check (`npm run drift`, which masks the two lines and never prints them).
 
 Known demo limits: Alexa's request **signature** is not verified (the skill id, a 150-second
 timestamp window and the userId link are); certification would need it. There is no OAuth account

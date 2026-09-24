@@ -287,6 +287,65 @@ async function scenarios() {
   });
 }
 
+/** The node types agent-alexa may hold. Any other (an Execute Workflow node, an HTTP tool, ...) could call out. */
+const ALEXA_NODE_TYPES = [
+  'n8n-nodes-base.webhook', 'n8n-nodes-base.code', 'n8n-nodes-base.if', 'n8n-nodes-base.httpRequest',
+  'n8n-nodes-base.respondToWebhook', 'n8n-nodes-base.telegram',
+  '@n8n/n8n-nodes-langchain.lmChatGoogleGemini', '@n8n/n8n-nodes-langchain.outputParserStructured', '@n8n/n8n-nodes-langchain.chainLlm',
+];
+/** Exactly these three calls, and no other: two reads and the CR-069 screen turn. */
+const ALEXA_CALLS = [
+  { name: 'backend: doses of the day', method: 'GET', url: (u) => u === '={{ $json.dosesUrl }}' },
+  { name: 'backend: who is eligible', method: 'GET', url: (u) => /^https:\/\/[^\s{}$]+\/api\/agent\/check-in-eligibility$/.test(u) },
+  { name: 'backend: voice turn for the screen', method: 'POST', url: (u) => u === "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}",
+    body: "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}" },
+];
+/** The two dose-writing route families: POST /doses/{id}/status and POST /schedule/recompute. */
+const WRITE_PATH = /\/(doses|schedule)\//;
+const ALEXA_CONFIG_LINE = "const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};";
+
+/** The committed workflow as the live node holds it: the skill id and the device link set. */
+function configureAlexa(wf, skill, links) {
+  const copy = JSON.parse(JSON.stringify(wf));
+  const n = copy.nodes.find((x) => x.name === 'alexa request (deterministic)');
+  assert.ok(n && n.parameters.jsCode.includes(ALEXA_CONFIG_LINE), 'the parse node no longer ships the empty skill id and link table');
+  n.parameters.jsCode = n.parameters.jsCode.replace(ALEXA_CONFIG_LINE,
+    'const ALEXA_SKILL_ID = ' + JSON.stringify(skill) + ';\nconst ALEXA_LINKS = ' + JSON.stringify(links) + ';');
+  return copy;
+}
+
+/**
+ * AP-02 (CR-073) - what agent-alexa may call: exactly two GETs (the doses of the day, who is eligible)
+ * and the one CR-069 voice-turn POST, and no call whose URL contains /doses/ or /schedule/ - neither
+ * written in an HTTP node nor built by the Code node that feeds one. Throws on the first breach.
+ * alexaScenarios runs it on the committed workflow, and on copies edited to break it (each must throw).
+ */
+async function assertVoiceCallsReadOnly(wf) {
+  for (const n of wf.nodes) assert.ok(ALEXA_NODE_TYPES.includes(n.type), 'a node type that could call out: ' + n.name + ' (' + n.type + ')');
+  const httpNodes = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.httpRequest');
+  assert.deepEqual(httpNodes.map((n) => n.name).sort(), ALEXA_CALLS.map((c) => c.name).sort(), 'agent-alexa must make exactly the two GETs and the voice-turn POST');
+  for (const c of ALEXA_CALLS) {
+    const n = httpNodes.find((x) => x.name === c.name);
+    assert.equal(n.parameters.method, c.method, c.name + ': method');
+    assert.ok(c.url(n.parameters.url), c.name + ' calls ' + n.parameters.url);
+    assert.equal(n.parameters.jsonBody, c.body, c.name + ': body');
+    assert.ok(!WRITE_PATH.test(JSON.stringify(n.parameters)), c.name + ' names a /doses/ or /schedule/ URL');
+  }
+  for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
+    const src = n.parameters.jsCode;
+    assert.ok(!/helpers\.httpRequest|\bfetch\s*\(|XMLHttpRequest/.test(src), n.name + ' makes its own network call');
+    assert.ok(!/['"`]\/(doses|schedule)\//.test(src), n.name + ' builds a /doses/ or /schedule/ URL');
+    assert.ok(!/VOICE_RECORDS/.test(src), n.name + ' carries the CR-070 recording switch');
+  }
+  // The URLs the parse node hands the two expression-driven calls, as they resolve on a linked request.
+  const r = runner(configureAlexa(wf, 'amzn1.ask.skill.calls', { 'amzn1.ask.account.CALLS': 'pt-03' }));
+  const [p] = await r.code('alexa request (deterministic)', [{ json: { body: {
+    version: '1.0', session: { application: { applicationId: 'amzn1.ask.skill.calls' }, user: { userId: 'amzn1.ask.account.CALLS' } },
+    request: { type: 'IntentRequest', locale: 'en-US', timestamp: new Date().toISOString(), intent: { name: 'TodayDosesIntent' } } } } }]);
+  assert.match(String(p.json.dosesUrl), /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/, 'the doses GET resolves to ' + p.json.dosesUrl);
+  assert.match(String(p.json.voiceTurnUrl), /\/api\/agent\/patients\/pt-03\/voice-turns$/, 'the voice-turn POST resolves to ' + p.json.voiceTurnUrl);
+}
+
 /** agent-alexa, walked as its connections run. `configure` stands in for setting the skill id and
  * the device link inside the live n8n node - the committed workflow ships both EMPTY. */
 async function alexaScenarios() {
@@ -294,97 +353,103 @@ async function alexaScenarios() {
   const SKILL = 'amzn1.ask.skill.check';
   const USER = 'amzn1.ask.account.CHECKUSER';
   const wf = WF('agent-alexa');
-  // `records` stands in for turning the CR-070 switch on in the live node (the repository ships it off).
-  const configure = (skill, links, records = false) => {
-    const copy = JSON.parse(JSON.stringify(wf));
-    const n = copy.nodes.find((x) => x.name === 'alexa request (deterministic)');
-    n.parameters.jsCode = n.parameters.jsCode.replace("const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};",
-      'const ALEXA_SKILL_ID = ' + JSON.stringify(skill) + ';\nconst ALEXA_LINKS = ' + JSON.stringify(links) + ';');
-    if (records) {
-      const plan = copy.nodes.find((x) => x.name === 'plan (deterministic)');
-      plan.parameters.jsCode = plan.parameters.jsCode.replace('const VOICE_RECORDS = false;', 'const VOICE_RECORDS = true;');
-    }
-    return copy;
-  };
-  const body = (type, intent, locale = 'ar-SA', { utterance, pending } = {}) => [{ json: { body: {
-    version: '1.0', session: { application: { applicationId: SKILL }, user: { userId: USER }, ...(pending ? { attributes: { pending } } : {}) },
+  const configure = (skill, links) => configureAlexa(wf, skill, links);
+  const linked = configure(SKILL, { [USER]: 'pt-03' });
+  const body = (type, intent, locale = 'ar-SA', { utterance, attributes } = {}) => [{ json: { body: {
+    version: '1.0', session: { application: { applicationId: SKILL }, user: { userId: USER }, ...(attributes ? { attributes } : {}) },
     request: { type, locale, timestamp: new Date().toISOString(),
       ...(intent ? { intent: { name: intent, ...(utterance ? { slots: { utterance: { name: 'utterance', value: utterance } } } : {}) } } : {}) } } } }];
   const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
   const doseAt = (id, rx, hhmm, brand) => ({ ...dose(id, rx, hhmm, OPEN, brand), scheduledAt: today + 'T' + hhmm + ':00+03:00' });
   // One dose already passed (00:05) and one still ahead (23:55), whatever the clock says.
   const DAYDOSES = [doseAt('rx-008-x-0005', 'rx-008', '00:05', 'Eltroxin'), doseAt('rx-009-x-2355', 'rx-009', '23:55')];
-  // Walked as the connections run: parse -> (Gemini, for free talk) -> intent -> reads -> plan -> (writes) -> speak.
-  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]), model = null, writeCode = 200 } = {}) => {
+  // For a record request, relative to now: Eltroxin two hours ago (due), calcium in three hours (not due).
+  const nowMs = Date.now();
+  const relDose = (id, rx, hours, brand, word = OPEN) => ({ ...dose(id, rx, '00:00', word, brand), scheduledAt: new Date(nowMs + hours * 3600 * 1000).toISOString() });
+  const RECDAY = (word = OPEN) => [relDose('rx-008-rec-a', 'rx-008', -2, 'Eltroxin', word), relDose('rx-009-rec-b', 'rx-009', 3, null, word)];
+  const ELIG = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]);
+  // Walked as the connections run: parse -> (Gemini, for free talk) -> intent -> (the two reads) -> speak -> Telegram / screen.
+  // `calls` is every HTTP call the walk makes, with its resolved URL: the runtime side of assertVoiceCallsReadOnly.
+  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = ELIG, model = null } = {}) => {
     const r = runner(w);
+    const eligUrl = w.nodes.find((n) => n.name === 'backend: who is eligible').parameters.url;
+    const calls = [];
     const [p] = await r.code('alexa request (deterministic)', input);
     let toIntent = [p];
-    if (p.json.ok && p.json.kind === 'FreeTalkIntent' && p.json.utterance) toIntent = r.set('Gemini: understand the sentence', [{ json: { output: model } }]);
+    if (p.json.ok && p.json.kind === 'FreeTalkIntent' && p.json.utterance && !p.json.quick) toIntent = r.set('Gemini: understand the sentence', [{ json: { output: model } }]);
     const [q] = await r.code('voice intent (deterministic)', toIntent);
-    if (q.json.ok && q.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
-    const [pl] = await r.code('plan (deterministic)', [{ json: {} }]);
-    const posted = [];
-    if (pl.json.writes.length) {
-      const items = await r.code('one item per write (deterministic)', [pl]);
-      posted.push(...items.map((x) => x.json));
-      r.set('backend: record the status', items.map(() => ({ json: { statusCode: writeCode, body: {} } })));
-      const [rc] = await r.code('recomputes (deterministic)', [{ json: {} }]);
-      if (rc.json.recomputes.length) {
-        const re = await r.code('one item per recompute (deterministic)', [rc]);
-        posted.push(...re.map((x) => x.json));
-        r.set('backend: recompute', re.map(() => ({ json: { statusCode: 200, body: {} } })));
-      }
+    if (q.json.ok && q.json.needsDoses) {
+      calls.push({ method: 'GET', url: q.json.dosesUrl });
+      r.set('backend: doses of the day', doses);
+      calls.push({ method: 'GET', url: eligUrl });
+      r.set('backend: who is eligible', elig);
     }
     const [s] = await r.code('speak (deterministic)', [{ json: {} }]);
+    if (s.json.screen !== null) calls.push({ method: 'POST', url: p.json.voiceTurnUrl });
     const prompts = s.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
-    return { parsed: p.json, intent: q.json, plan: pl.json, posted, spoken: s.json, prompts: prompts.map((x) => x.json) };
+    return { parsed: p.json, intent: q.json, spoken: s.json, prompts: prompts.map((x) => x.json), calls };
   };
+  /** Every call a walk made is one of the three allowed, and none is a dose write. */
+  const readOnly = (s) => {
+    for (const c of s.calls) {
+      assert.ok(!WRITE_PATH.test(c.url), 'a dose write: ' + c.method + ' ' + c.url);
+      assert.ok((c.method === 'GET' && (/\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/.test(c.url) || /\/check-in-eligibility$/.test(c.url)))
+        || (c.method === 'POST' && /\/patients\/pt-03\/voice-turns$/.test(c.url)), 'not an allowed call: ' + c.method + ' ' + c.url);
+    }
+  };
+  const text = (s) => s.spoken.alexa.response.outputSpeech.text;
+  const buttonData = (s) => s.prompts.slice(1).map((m) => m.buttons.map((b) => b.data));
+  const EN_SENT = 'I can\'t record by voice; I\'ve sent the buttons to your Telegram. Please confirm there yourself.';
+  const AR_SENT = 'ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام. أكّد منها بنفسك.';
 
   await check('the COMMITTED workflow ships no skill id and no link -> every request refused, nothing read', async () => {
+    const parse = wf.nodes.find((x) => x.name === 'alexa request (deterministic)').parameters.jsCode;
+    assert.ok(parse.includes(ALEXA_CONFIG_LINE), 'ALEXA_SKILL_ID = \'\' and ALEXA_LINKS = {} (the lead re-enters the live values at publish)');
     const s = await walk(wf, body('IntentRequest', 'NextDoseIntent'));
     assert.equal(s.parsed.ok, false);
     assert.equal(s.parsed.dosesUrl, null);
     assert.equal(s.spoken.refused, true);
+    assert.deepEqual(s.calls, []);
   });
   await check('an unlinked device is told so, and its userId is in the execution log for linking', async () => {
     const s = await walk(configure(SKILL, {}), body('LaunchRequest'));
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /مو مربوط/);
+    assert.match(text(s), /مو مربوط/);
     assert.equal(s.spoken.log.userId, USER);
   });
   await check('«شنو جرعتي الجاية» -> the next OPEN dose, spoken in Arabic, session stays open', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'NextDoseIntent'));
+    const s = await walk(linked, body('IntentRequest', 'NextDoseIntent'));
     assert.match(s.parsed.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
-    const text = s.spoken.alexa.response.outputSpeech.text;
-    assert.match(text, /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
+    assert.match(text(s), /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
     assert.equal(s.spoken.alexa.response.shouldEndSession, false);
     assert.deepEqual(s.prompts, []);
-    console.log('        -> ' + text);
+    readOnly(s);
+    console.log('        -> ' + text(s));
   });
   await check('«نسيت دواي» -> names the passed dose, records nothing, sends ITS buttons to the patient’s own chat', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'ForgotDoseIntent'));
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /Eltroxin الساعة 12 و5 دقيقة بالليل/);
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /ما سجّلت شي بالصوت/);
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'));
+    assert.match(text(s), /Eltroxin الساعة 12 و5 دقيقة بالليل/);
+    assert.match(text(s), /ما سجّلت شي بالصوت/);
     assert.equal(s.prompts.length, 2);
     assert.equal(s.prompts[0].chatId, '5550001');
-    assert.deepEqual(s.prompts[1].buttons.map((b) => b.data), ['d:rx-008-x-0005:taken_on_time', 'd:rx-008-x-0005:taken_late', 'd:rx-008-x-0005:missed']);
-    console.log('        -> ' + s.spoken.alexa.response.outputSpeech.text);
+    assert.deepEqual(buttonData(s), [['d:rx-008-x-0005:taken_on_time', 'd:rx-008-x-0005:taken_late', 'd:rx-008-x-0005:missed']]);
+    readOnly(s);
+    console.log('        -> ' + text(s));
   });
   await check('"what is my next dose" in en-US -> English', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'NextDoseIntent', 'en-US'));
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Your next dose is Calcium carbonate \+ vitamin D3 at 11:55 in the evening/);
+    const s = await walk(linked, body('IntentRequest', 'NextDoseIntent', 'en-US'));
+    assert.match(text(s), /^Your next dose is Calcium carbonate \+ vitamin D3 at 11:55 in the evening/);
   });
   await check('the backend refused (401) -> an honest failure, no schedule invented, no prompt', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'ForgotDoseIntent'), { doses: http(401, { error: 'unauthorized' }) });
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /ما قدرت أوصل لجدولك/);
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { doses: http(401, { error: 'unauthorized' }) });
+    assert.match(text(s), /ما قدرت أوصل لجدولك/);
     assert.deepEqual(s.prompts, []);
   });
   await check('CR-069: a linked turn tells the patient\'s screen its topic and the words just spoken; refused / unlinked / a closed session tell it nothing', async () => {
-    const linked = configure(SKILL, { [USER]: 'pt-03' });
     let s = await walk(linked, body('IntentRequest', 'TodayDosesIntent'));
     assert.match(s.parsed.voiceTurnUrl, /\/api\/agent\/patients\/pt-03\/voice-turns$/);
     assert.deepEqual(Object.keys(s.spoken.screen).sort(), ['language', 'reply', 'topic']);
     assert.equal(s.spoken.screen.topic, 'today');
-    assert.equal(s.spoken.screen.reply, s.spoken.alexa.response.outputSpeech.text);
+    assert.equal(s.spoken.screen.reply, text(s));
     s = await walk(linked, body('IntentRequest', 'AMAZON.FallbackIntent', 'en-US'));
     assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.language], ['unclear', 'en']);
     s = await walk(linked, body('SessionEndedRequest'));
@@ -397,79 +462,174 @@ async function alexaScenarios() {
     // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path.
     assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
   });
-  // ---- CR-070: free talk, and dose actions by voice behind the switch.
-  const FIRST_TWO_THIRD = { intent: 'record', confidence: 0.95, items: [{ position: 1, status: W_ON }, { position: 2, status: W_MISS }] };
+  await check('"Alexa, ask medicine helper what are my medicines today" -> today\'s schedule with each status, in code (no model), the screen to «اليوم»; never the record path; only the two GETs and the screen POST', async () => {
+    const en = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.en-US.json'), 'utf8')).interactionModel.languageModel.intents;
+    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
+    const enToday = en.find((i) => i.name === 'TodayDosesIntent').samples;
+    const arToday = ar.find((i) => i.name === 'TodayDosesIntent').samples;
+    for (const s of ['what are my medicines today', 'what medicines do I take today', 'what are my meds today', 'which medicines today']) assert.ok(enToday.includes(s), 'en-US TodayDosesIntent sample: ' + s);
+    for (const s of ['شنو أدويتي اليوم', 'وش أدويتي اليوم']) assert.ok(arToday.includes(s), 'ar-SA TodayDosesIntent sample: ' + s);
+    // Spoken as a sample (TodayDosesIntent), or caught by free talk's "what {utterance}" carrier - both the same answer.
+    const bySample = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'en-US'));
+    const byFree = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'are my medicines today' }), { model: { intent: 'record', confidence: 0.99, items: [] } });
+    for (const s of [bySample, byFree]) {
+      assert.equal(s.intent.kind, 'TodayDosesIntent');
+      assert.match(text(s), /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
+      assert.equal(s.spoken.screen.topic, 'today');
+      assert.deepEqual(s.prompts, [], 'no Telegram buttons: nothing to record');
+      assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
+      readOnly(s);
+    }
+    assert.equal(byFree.parsed.quick, 'TodayDosesIntent', 'answered in code: the model node does not run');
+    const arS = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'ar-SA'));
+    assert.match(text(arS), /^عندك اليوم 2 جرعات: /);
+    assert.equal(arS.spoken.screen.topic, 'today');
+    readOnly(arS);
+    console.log('        -> ' + text(bySample));
+  });
   await check('CR-070 free talk: the sentence goes to Gemini, and its intent is answered from the data ("check my medicines" -> today)', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'my medicines for today' }), { model: { intent: 'today', confidence: 0.9 } });
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'my medicines for today' }), { model: { intent: 'today', confidence: 0.9 } });
     assert.equal(s.intent.kind, 'TodayDosesIntent');
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
+    assert.match(text(s), /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
     assert.equal(s.spoken.screen.topic, 'today');
-    const u = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'what is the weather' }), { model: { intent: 'unclear', confidence: 0.9 } });
+    const u = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'what is the weather' }), { model: { intent: 'unclear', confidence: 0.9 } });
     assert.equal(u.intent.kind, 'AMAZON.FallbackIntent');
     assert.equal(u.spoken.screen.topic, 'unclear');
-    const failed = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'x y z' }), { model: null });
+    const failed = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'x y z' }), { model: null });
     assert.equal(failed.intent.kind, 'AMAZON.FallbackIntent'); // the model failed -> unclear, never a guess
   });
-  await check('CR-070 switch ON, turn 1: "mark the first two taken and the third missed" is read back and asked; NOTHING is written; a not-due dose is named and skipped', async () => {
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken and the third missed' }), { model: FIRST_TWO_THIRD });
+
+  // ---- AP-02 (CR-073): voice records nothing. A record request gets the fixed line, and the buttons.
+  await check('AP-02 TC-AD-15: "mark it taken" (en-US) -> "I can\'t record by voice; I\'ve sent the buttons to your Telegram"; nothing written; the due dose\'s buttons go to the patient\'s own chat', async () => {
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [] } });
     assert.equal(s.intent.kind, 'record');
-    assert.deepEqual(s.posted, []);
-    assert.deepEqual(s.spoken.alexa.sessionAttributes, { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_ON }] });
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /^I will record: Eltroxin at 12:05 in the morning taken\. I could not record: Calcium carbonate \+ vitamin D3 at 11:55 in the evening - not due yet\. Shall I\? Say yes, or no\.$/);
-    assert.equal(s.spoken.alexa.response.shouldEndSession, false);
-    assert.equal(s.spoken.screen.topic, 'record');
-    console.log('        -> ' + s.spoken.alexa.response.outputSpeech.text);
+    assert.equal(text(s), EN_SENT);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
+    assert.ok(!('sessionAttributes' in s.spoken.alexa), 'no list is carried to a "yes"');
+    assert.deepEqual([s.prompts[0].chatId, s.prompts[0].buttons], ['5550001', null]);
+    assert.deepEqual(buttonData(s), [['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']]); // calcium is 3 h ahead: not due
+    assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
+    readOnly(s);
+    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.reply], ['record', EN_SENT]);
+    console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text + ' / ' + s.prompts[1].text);
   });
-  await check('CR-070 switch ON, turn 2 "yes": the list comes back from Alexa\'s session, is re-checked, and is written exactly as the Telegram path writes it (a miss is recomputed)', async () => {
-    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }, { doseId: 'rx-009-x-2355', prescriptionId: 'rx-009', status: W_ON }];
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending }));
-    assert.deepEqual(s.posted.map((x) => [x.url.replace(/^.*\/api\/agent/, ''), x.body.status || x.body.reason]), [
-      ['/doses/rx-008-x-0005/status', 'missed'], ['/schedule/recompute', 'reported_miss'],
-    ]); // 23:55 is not due -> not written even though it came back in the session
-    assert.equal(s.posted[0].body.source, 'adherence_agent');
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Done\. I recorded: Eltroxin at 12:05 in the morning missed\./);
-    assert.equal(s.spoken.alexa.sessionAttributes, undefined); // the list is spent
-    const refused = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: pending.slice(0, 1) }), { writeCode: 409 });
-    assert.match(refused.spoken.alexa.response.outputSpeech.text, /^I could not record: Eltroxin/); // a refused write never reads as recorded
-    const no = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.NoIntent', 'en-US', { pending }));
-    assert.deepEqual(no.posted, []);
-    assert.match(no.spoken.alexa.response.outputSpeech.text, /did not record anything/);
+  await check('AP-02 TC-AD-15: "I took the first two and missed the third" (en-US) -> the fixed line; buttons only for the named dose that is due; nothing written', async () => {
+    const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'took the first two and missed the third' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items } });
+    assert.equal(text(s), EN_SENT);
+    assert.deepEqual(buttonData(s).map((b) => b[0]), ['d:rx-008-rec-a:taken_on_time']);
+    readOnly(s);
   });
-  await check('CR-070: the COMMITTED workflow ships the switch OFF: a record request is refused out loud and a "yes" writes nothing', async () => {
-    const plan = wf.nodes.find((x) => x.name === 'plan (deterministic)').parameters.jsCode;
-    assert.ok(plan.includes('const VOICE_RECORDS = false;'));
-    assert.ok(!plan.includes('const VOICE_RECORDS = true;'));
-    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken' }), { model: FIRST_TWO_THIRD });
-    assert.match(s.spoken.alexa.response.outputSpeech.text, /Recording by voice is turned off/);
-    assert.deepEqual(s.posted, []);
-    const y = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }] }));
-    assert.deepEqual(y.posted, []);
+  await check('AP-02: the voice-actions code path in Arabic (a FreeTalkIntent with locale ar-SA; the ar-SA skill cannot send one - its spoken path is RecordDoseIntent, next) -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; the header and buttons in Arabic; nothing written', async () => {
+    const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'خذيت الأولى والثانية وفاتتني الثالثة' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.93, items } });
+    assert.equal(text(s), AR_SENT);
+    assert.match(s.prompts[0].text, /^من أليكسا/);
+    assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
+    readOnly(s);
+    console.log('        -> ' + text(s));
   });
-  await check('the voice workflow\'s HTTP calls: two GETs to the read routes, the screen turn, and the two write calls - whose URL and body only confirmRecord builds; no Code node calls out', async () => {
-    const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
-    assert.equal(httpNodes.length, 5);
-    for (const n of httpNodes) {
-      if (n.name === 'backend: record the status' || n.name === 'backend: recompute') {
-        assert.equal(n.parameters.method, 'POST');
-        assert.equal(n.parameters.url, '={{ $json.url }}');
-        assert.equal(n.parameters.jsonBody, '={{ JSON.stringify($json.body) }}');
-        continue;
+  await check('AP-02 TC-AD-15 (ar-SA, spoken): «سجل الجرعة» and «خذيت الأولى والثانية وفاتتني الثالثة» are samples of the ar-SA RecordDoseIntent; that intent -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; no model call; the due dose\x27s buttons in Arabic; nothing written', async () => {
+    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
+    const rec = ar.find((i) => i.name === 'RecordDoseIntent');
+    assert.ok(rec, 'the ar-SA interaction model has a RecordDoseIntent');
+    assert.deepEqual(rec.slots, [], 'slotless: no dose is named, so no model is needed');
+    for (const sample of ['سجل الجرعة', 'خذيت دواي', 'خذيت الأولى والثانية وفاتتني الثالثة']) assert.ok(rec.samples.includes(sample), sample + ' is a RecordDoseIntent sample');
+    assert.ok(!ar.some((i) => i.name === 'FreeTalkIntent'), 'the ar-SA skill has no free talk');
+    const s = await walk(linked, body('IntentRequest', 'RecordDoseIntent', 'ar-SA'), { doses: http(200, { doses: RECDAY() }), model: { intent: 'unclear', confidence: 1 } });
+    assert.equal(s.intent.kind, 'record');
+    assert.equal(text(s), AR_SENT);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
+    assert.match(s.prompts[0].text, /^من أليكسا/);
+    assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
+    assert.deepEqual(buttonData(s), [['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']]);
+    assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
+    readOnly(s);
+    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.reply], ['record', AR_SENT]);
+    console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text);
+  });
+  await check('AP-02: every intent in both committed interaction models, walked, makes only the allowed calls and writes nothing', async () => {
+    const seen = [];
+    for (const locale of ['ar-SA', 'en-US']) {
+      const intents = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.' + locale + '.json'), 'utf8')).interactionModel.languageModel.intents;
+      assert.ok(intents.length >= 5, locale + ' model read');
+      for (const i of intents) {
+        const s = await walk(linked, body('IntentRequest', i.name, locale, i.name === 'FreeTalkIntent' ? { utterance: 'mark it taken' } : {}), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [] } });
+        readOnly(s);
+        seen.push(locale + ':' + i.name);
       }
-      if (n.parameters.method === 'POST') {
-        assert.equal(n.name, 'backend: voice turn for the screen');
-        assert.equal(n.parameters.url, "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}");
-        assert.equal(n.parameters.jsonBody, "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}");
-        continue;
-      }
-      assert.equal(n.parameters.method, 'GET', n.name);
-      assert.ok(n.parameters.url === '={{ $json.dosesUrl }}' || /\/api\/agent\/check-in-eligibility$/.test(n.parameters.url), n.name + ' -> ' + n.parameters.url);
     }
-    for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
-      assert.ok(!/helpers\.httpRequest|\bfetch\s*\(|XMLHttpRequest/.test(n.parameters.jsCode), n.name + ' makes its own network call');
-    }
-    const parse = wf.nodes.find((x) => x.name === 'alexa request (deterministic)').parameters.jsCode;
-    assert.match(parse, /dosesUrl: p\.ok \? API \+ '\/patients\/' \+ encodeURIComponent\(p\.patientId\) \+ '\/doses\?date='/);
+    assert.ok(seen.includes('ar-SA:RecordDoseIntent') && seen.includes('en-US:FreeTalkIntent'), seen.join(', '));
   });
+  await check('AP-02: the model gave no answer (outage) to "mark it taken" -> still the fixed line and the buttons, never a guess and never a write', async () => {
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: null });
+    assert.equal(s.intent.kind, 'record');
+    assert.equal(text(s), EN_SENT);
+    assert.equal(buttonData(s).length, 1);
+    readOnly(s);
+  });
+  await check('AP-02: a record request with no Telegram linked, with nothing open, or with the schedule unreachable -> it says so, sends nothing, writes nothing', async () => {
+    const say = { model: { intent: 'record', confidence: 0.95, items: [] } };
+    const noChat = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY() }), elig: http(200, []) });
+    assert.match(text(noChat), /^I can't record by voice, and your Telegram is not linked/);
+    assert.deepEqual(noChat.prompts, []);
+    const allDone = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY(W_ON) }) });
+    assert.match(text(allDone), /^I can't record by voice, and there is no open dose due now/);
+    assert.equal(allDone.spoken.alexa.response.shouldEndSession, false);
+    assert.deepEqual(allDone.prompts, []);
+    const down = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'it taken' }), { ...say, doses: http(503, { error: 'unavailable' }) });
+    assert.match(text(down), /^ما أقدر أسجّل بالصوت، وما قدرت أوصل لجدولك/);
+    assert.deepEqual(down.prompts, []);
+    for (const s of [noChat, allDone, down]) readOnly(s);
+  });
+  await check('AP-02: a CR-070 "yes" replayed with a pending list in the session -> nothing read, nothing written, no list carried on; "no" just says goodbye', async () => {
+    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }];
+    const y = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }));
+    assert.equal(y.intent.needsDoses, false);
+    assert.deepEqual(y.calls.map((c) => c.method), ['POST']); // only the screen turn
+    assert.match(text(y), /^Ask me: what is my next dose/);
+    assert.ok(!('sessionAttributes' in y.spoken.alexa));
+    assert.equal(y.spoken.screen.topic, 'unclear');
+    assert.deepEqual(y.prompts, []);
+    readOnly(y);
+    const n = await walk(linked, body('IntentRequest', 'AMAZON.NoIntent', 'en-US', { attributes: { pending } }));
+    assert.equal(n.spoken.alexa.response.shouldEndSession, true);
+    assert.deepEqual(n.calls.map((c) => c.method), ['POST']);
+  });
+
+  // ---- AP-02: the call assertion, on the committed workflow and on copies edited to break it.
+  await check('AP-02 (CR-073): agent-alexa makes exactly two GETs (doses of the day, who is eligible) and the one voice-turn POST; no call names /doses/ or /schedule/; the CR-070 write nodes are gone', async () => {
+    await assertVoiceCallsReadOnly(wf);
+    const names = wf.nodes.map((n) => n.name);
+    for (const gone of ['plan (deterministic)', 'record now?', 'one item per write (deterministic)', 'backend: record the status',
+      'recomputes (deterministic)', 'any recompute?', 'one item per recompute (deterministic)', 'backend: recompute']) assert.ok(!names.includes(gone), gone + ' is still in the workflow');
+  });
+  const CR070_WRITE = (name) => ({ parameters: { method: 'POST', url: '={{ $json.url }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.body) }}', options: {} }, id: 'b4000000-0000-4000-8000-0000000000ff', name,
+    type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [0, 0] });
+  const node = (copy, name) => copy.nodes.find((x) => x.name === name);
+  const PARSE = 'alexa request (deterministic)';
+  /** Edit one Code node's source; the edit must land, or the proof proves nothing. */
+  const replaceIn = (c, name, from, to) => { const n = node(c, name); assert.ok(n.parameters.jsCode.includes(from), name + ' no longer holds ' + from); n.parameters.jsCode = n.parameters.jsCode.replace(from, to); };
+  const DOSES_URL = "API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date";
+  const EDITS = [
+    ['re-add CR-070\'s "backend: record the status" POST', (c) => c.nodes.push(CR070_WRITE('backend: record the status')), /exactly the two GETs and the voice-turn POST/],
+    ['re-add CR-070\'s "backend: recompute" POST', (c) => c.nodes.push(CR070_WRITE('backend: recompute')), /exactly the two GETs and the voice-turn POST/],
+    ['turn the doses GET into a POST', (c) => { node(c, 'backend: doses of the day').parameters.method = 'POST'; }, /backend: doses of the day: method/],
+    ['point the eligibility GET at /schedule/recompute', (c) => { const n = node(c, 'backend: who is eligible'); n.parameters.url = n.parameters.url.replace('/check-in-eligibility', '/schedule/recompute'); }, /backend: who is eligible calls/],
+    ['build a /doses/{id}/status URL in the parse node, behind the allowed expression', (c) => replaceIn(c, PARSE, DOSES_URL, "API + '/doses/' + encodeURIComponent(p.patientId) + '/status'"), /builds a \/doses\/ or \/schedule\/ URL/],
+    ['build that URL in pieces, so only the resolved URL shows it', (c) => replaceIn(c, PARSE, DOSES_URL, "API + '/do' + 'ses/' + encodeURIComponent(p.patientId) + '/status'"), /the doses GET resolves to/],
+    ['give a Code node its own fetch', (c) => { const n = node(c, 'speak (deterministic)'); n.parameters.jsCode = "await fetch(API + '/x');\n" + n.parameters.jsCode; }, /makes its own network call/],
+    ['add an Execute Workflow node', (c) => c.nodes.push({ parameters: {}, id: 'x', name: 'record elsewhere', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1, position: [0, 0] }), /a node type that could call out/],
+    ['put the CR-070 switch back', (c) => { const n = node(c, 'speak (deterministic)'); n.parameters.jsCode = 'const VOICE_RECORDS = true;\n' + n.parameters.jsCode; }, /recording switch/],
+  ];
+  for (const [label, edit, why] of EDITS) {
+    await check('AP-02: the call assertion goes RED on a copy edited to ' + label, async () => {
+      const copy = JSON.parse(JSON.stringify(wf));
+      edit(copy);
+      await assert.rejects(assertVoiceCallsReadOnly(copy), why);
+    });
+  }
 }
 
 /** agent-webchat (CR-067), walked as its connections run. */
