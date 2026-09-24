@@ -3,20 +3,26 @@
     "source": {
       "name": "DDInter 2.0",
       "url": "https://ddinter.scbdd.com/download/",
-      "citation": "Xiong G, et al. DDInter 2.0: an enhanced drug interaction resource. Nucleic Acids Research 2025;53(D1):D1356.",
-      "retrievedAt": "2026-09-20",
+      "citation": "Tian Y, Yi J, Wang N, Wu C, Peng J, Liu S, Yang G, Cao D. DDInter 2.0: an enhanced drug interaction resource with expanded data coverage, new interaction types, and improved user interface. Nucleic Acids Research 2025;53(D1):D1356-D1362. doi:10.1093/nar/gkae726.",
+      "retrievedAt": "2026-09-24",
       "licenceNote": "Open-access academic resource. Used here for a non-commercial student capstone. Re-check terms before any real-world deployment."
     },
-    "builtAt": "2026-09-20",
-    "scope": "DEMO SLICE - only the drugs in the brand map and the demo fixtures. Rebuild with tools/build-demo-index.js. The full index is data/build/interaction-index.json.",
-    "drugsInScope": 11,
-    "pairsIndexed": 19,
+    "builtAt": "2026-09-24",
+    "scope": "DEMO SLICE - the drugs of the previous slice plus every seed ingredient (data/seed-drug-scope.json). Rebuilt with scripts/build-demo-index.js from DDInter files A, B, H.",
+    "drugsInScope": 18,
+    "pairsIndexed": 62,
     "datasetUniquePairs": 160037,
     "drugsNotFoundInSource": [
       "Carbimazole",
       "Domperidone",
       "Gliclazide"
-    ]
+    ],
+    "categoryFilesLoaded": [
+      "A",
+      "B",
+      "H"
+    ],
+    "categoryRule": "A DDInter category file lists the interactions of the drugs in that ATC category. A pair absent from the index is \"no interaction recorded\" only when at least one of its two drugs has an ATC category (drugs[k].atcCategories, WHO ATC/DDD index, data/seed-drug-scope.json) whose file is in categoryFilesLoaded. Otherwise the pair is \"cannot verify\". A drug without atcCategories is treated as not loaded."
   },
   "drugs": {
     "simvastatin": {
@@ -33,7 +39,10 @@
     },
     "levothyroxine": {
       "label": "Levothyroxine",
-      "ddinterId": "DDInter1064"
+      "ddinterId": "DDInter1064",
+      "atcCategories": [
+        "H"
+      ]
     },
     "acetaminophen": {
       "label": "Acetaminophen",
@@ -57,14 +66,139 @@
     },
     "calcium carbonate": {
       "label": "Calcium carbonate",
-      "ddinterId": "DDInter271"
+      "ddinterId": "DDInter271",
+      "atcCategories": [
+        "A"
+      ]
     },
     "amlodipine": {
       "label": "Amlodipine",
       "ddinterId": "DDInter79"
+    },
+    "metformin": {
+      "label": "Metformin",
+      "ddinterId": "DDInter1164",
+      "atcCategories": [
+        "A"
+      ]
+    },
+    "prednisolone": {
+      "label": "Prednisolone",
+      "ddinterId": "DDInter1513",
+      "atcCategories": [
+        "A",
+        "C",
+        "D",
+        "H",
+        "R",
+        "S"
+      ]
+    },
+    "ciprofloxacin": {
+      "label": "Ciprofloxacin",
+      "ddinterId": "DDInter384",
+      "atcCategories": [
+        "J",
+        "S"
+      ]
+    },
+    "warfarin": {
+      "label": "Warfarin",
+      "ddinterId": "DDInter1951",
+      "atcCategories": [
+        "B"
+      ]
+    },
+    "ibuprofen": {
+      "label": "Ibuprofen",
+      "ddinterId": "DDInter900",
+      "atcCategories": [
+        "C",
+        "G",
+        "M",
+        "R"
+      ]
+    },
+    "cholecalciferol": {
+      "label": "Cholecalciferol",
+      "ddinterId": "DDInter367",
+      "atcCategories": [
+        "A"
+      ]
+    },
+    "atorvastatin": {
+      "label": "Atorvastatin",
+      "ddinterId": "DDInter133",
+      "atcCategories": [
+        "C"
+      ]
     }
   },
   "pairs": {
+    "acetaminophen|caffeine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter263",
+        "DDInter14"
+      ],
+      "atcFile": "R"
+    },
+    "acetaminophen|chlorpheniramine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter362"
+      ],
+      "atcFile": "R"
+    },
+    "acetaminophen|clarithromycin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "acetaminophen|metformin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|simvastatin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "acetaminophen|warfarin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter14",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
     "amlodipine|calcium carbonate": {
       "level": "Moderate",
       "rowIds": [
@@ -81,6 +215,30 @@
       ],
       "atcFile": "A"
     },
+    "amlodipine|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "amlodipine|metformin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "amlodipine|prednisolone": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
     "amlodipine|simvastatin": {
       "level": "Major",
       "rowIds": [
@@ -89,67 +247,83 @@
       ],
       "atcFile": "A"
     },
-    "clarithromycin|simvastatin": {
+    "amlodipine|warfarin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter79",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "atorvastatin|clarithromycin": {
       "level": "Major",
       "rowIds": [
-        "DDInter1675",
+        "DDInter133",
         "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "atorvastatin|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter133",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "atorvastatin|metformin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter133",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "atorvastatin|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter133",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "atorvastatin|simvastatin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter133",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "atorvastatin|warfarin": {
+      "level": "Minor",
+      "rowIds": [
+        "DDInter133",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "calcium carbonate|ciprofloxacin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter271",
+        "DDInter384"
       ],
       "atcFile": "A"
     },
     "calcium carbonate|levothyroxine": {
       "level": "Moderate",
       "rowIds": [
-        "DDInter1064",
-        "DDInter271"
+        "DDInter271",
+        "DDInter1064"
       ],
       "atcFile": "A"
     },
-    "levothyroxine|simvastatin": {
+    "calcium carbonate|prednisolone": {
       "level": "Minor",
       "rowIds": [
-        "DDInter1064",
-        "DDInter1675"
-      ],
-      "atcFile": "A"
-    },
-    "ezetimibe|simvastatin": {
-      "level": "Moderate",
-      "rowIds": [
-        "DDInter1675",
-        "DDInter707"
-      ],
-      "atcFile": "A"
-    },
-    "acetaminophen|simvastatin": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter14",
-        "DDInter1675"
-      ],
-      "atcFile": "A"
-    },
-    "acetaminophen|clarithromycin": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter14",
-        "DDInter393"
-      ],
-      "atcFile": "A"
-    },
-    "clarithromycin|levothyroxine": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter1064",
-        "DDInter393"
-      ],
-      "atcFile": "A"
-    },
-    "clarithromycin|ezetimibe": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter707",
-        "DDInter393"
+        "DDInter271",
+        "DDInter1513"
       ],
       "atcFile": "A"
     },
@@ -161,6 +335,222 @@
       ],
       "atcFile": "D"
     },
+    "chlorpheniramine|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter362",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "chlorpheniramine|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter362",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "ciprofloxacin|clarithromycin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter384",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "ciprofloxacin|levothyroxine": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter384",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "ciprofloxacin|metformin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter384",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "ciprofloxacin|prednisolone": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter384",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "ciprofloxacin|simvastatin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter384",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "ciprofloxacin|warfarin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter384",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "clarithromycin|ezetimibe": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter393",
+        "DDInter707"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|ibuprofen": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter393",
+        "DDInter900"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter393",
+        "DDInter1064"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|metformin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter393",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|prednisolone": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter393",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|simvastatin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter393",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "clarithromycin|warfarin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter393",
+        "DDInter1951"
+      ],
+      "atcFile": "A"
+    },
+    "ezetimibe|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter707",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "ezetimibe|metformin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter707",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "ezetimibe|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter707",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "ezetimibe|simvastatin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter707",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "ezetimibe|warfarin": {
+      "level": "Minor",
+      "rowIds": [
+        "DDInter707",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "ibuprofen|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter900",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "ibuprofen|metformin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter900",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "ibuprofen|prednisolone": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter900",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "ibuprofen|simvastatin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter900",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "ibuprofen|warfarin": {
+      "level": "Major",
+      "rowIds": [
+        "DDInter900",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "levothyroxine|metformin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "levothyroxine|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter1064",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
     "levothyroxine|pseudoephedrine": {
       "level": "Moderate",
       "rowIds": [
@@ -169,53 +559,77 @@
       ],
       "atcFile": "H"
     },
-    "acetaminophen|levothyroxine": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter14",
-        "DDInter1064"
-      ],
-      "atcFile": "H"
-    },
-    "amlodipine|levothyroxine": {
-      "level": "Unknown",
-      "rowIds": [
-        "DDInter79",
-        "DDInter1064"
-      ],
-      "atcFile": "H"
-    },
-    "ezetimibe|levothyroxine": {
-      "level": "Unknown",
+    "levothyroxine|simvastatin": {
+      "level": "Minor",
       "rowIds": [
         "DDInter1064",
-        "DDInter707"
+        "DDInter1675"
       ],
-      "atcFile": "H"
+      "atcFile": "A"
     },
-    "chlorpheniramine|levothyroxine": {
-      "level": "Unknown",
+    "levothyroxine|warfarin": {
+      "level": "Moderate",
       "rowIds": [
         "DDInter1064",
-        "DDInter362"
+        "DDInter1951"
       ],
-      "atcFile": "H"
+      "atcFile": "B"
     },
-    "acetaminophen|caffeine": {
+    "metformin|prednisolone": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1164",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "metformin|pseudoephedrine": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1164",
+        "DDInter1545"
+      ],
+      "atcFile": "A"
+    },
+    "metformin|simvastatin": {
       "level": "Unknown",
       "rowIds": [
-        "DDInter263",
-        "DDInter14"
+        "DDInter1164",
+        "DDInter1675"
       ],
-      "atcFile": "R"
+      "atcFile": "A"
     },
-    "acetaminophen|chlorpheniramine": {
+    "metformin|warfarin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1164",
+        "DDInter1951"
+      ],
+      "atcFile": "A"
+    },
+    "prednisolone|simvastatin": {
       "level": "Unknown",
       "rowIds": [
-        "DDInter14",
-        "DDInter362"
+        "DDInter1513",
+        "DDInter1675"
       ],
-      "atcFile": "R"
+      "atcFile": "A"
+    },
+    "prednisolone|warfarin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter1513",
+        "DDInter1951"
+      ],
+      "atcFile": "A"
+    },
+    "simvastatin|warfarin": {
+      "level": "Minor",
+      "rowIds": [
+        "DDInter1675",
+        "DDInter1951"
+      ],
+      "atcFile": "A"
     }
   }
 }

@@ -45,7 +45,8 @@ const VISION_MODEL_PATH = 'gemini-3-flash-preview';
 const VISION_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + VISION_MODEL_PATH + ':generateContent';
 
 // ------------------------------------------------------------------------------ inlining
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// A Windows checkout (core.autocrlf=true) hands us CRLF; the committed workflows are LF.
+const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 /** One src file without its CommonJS wrapper: an n8n Code node has no `module` and no `require`. */
 function strip(file) {
