@@ -154,21 +154,42 @@ const ok = p && p.channel === 'telegram' && (p.subjectType === 'patient' || p.su
   typeof p.patientId === 'string' && p.patientId && typeof p.chatId === 'string' && p.chatId && kuwaitDate(p.sentAt);
 if (!ok) return [];
 
+// A callback is a button tap - a dose tap (d:) or a discontinuation-confirm tap (s: / n:none, AP-05
+// step 1). Either way it NEVER goes to the model: an unparseable callback is simply unclear, never
+// a sentence for Gemini to read.
 const tap = p.kind === 'callback' ? parseTap(p.text) : null;
+const stopTap = p.kind === 'callback' && !tap ? parseStopTap(p.text) : null;
 // A tap carries the CHECK-IN message's time, not the tap's: the tap happened now (n8n's receipt).
 const eventAt = p.kind === 'callback' ? new Date().toISOString() : p.sentAt;
 const route = (p.photoFileId || p.documentFileId) && p.subjectType === 'patient' && p.kind === 'message' ? 'extraction' : 'adherence';
+// AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads the previous day's
+// open doses. This applies to a TAP too: a tap names its own dose id, but the button carrying that
+// id can have been SENT before midnight and TAPPED after it (eventAt/p.sentAt is the tap's own
+// time, not the check-in message's), and a tap fetched by today's date alone would then never find
+// yesterday's dose id among the doses it gets back. Fetching both days here is always safe: the
+// dose is still looked up by its exact id (agents/lib/adherence.js decide()), never by date, so an
+// extra fetch can only widen the search, never attach the tap to the wrong day. dates' last entry
+// is always "today" (the reply's own Kuwait date); a first entry, when present, is the day before.
+const dates = readDates(p.sentAt);
+const date = dates[dates.length - 1];
+const prevDate = dates.length > 1 ? dates[0] : null;
 return [{ json: {
   route,
-  subjectType: p.subjectType, patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
+  subjectType: p.subjectType, subjectId: typeof p.subjectId === 'string' ? p.subjectId : null,
+  patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
   text: typeof p.text === 'string' ? p.text.slice(0, 500) : '',
-  tap, eventAt,
-  // The doses of the day the reply is about: a tap's check-in day, or the reply's own day.
-  date: kuwaitDate(p.sentAt),
-  needsModel: route === 'adherence' && p.subjectType === 'patient' && !tap && typeof p.text === 'string' && p.text.trim().length > 0,
+  tap, stopTap, eventAt,
+  // CR-092 - whether the backend's settings say check-ins are on for this patient; absent (an
+  // older relay payload, or the field genuinely unset) keeps today's plain "no open dose" reply.
+  trackingOn: typeof p.trackingOn === 'boolean' ? p.trackingOn : null,
+  date,
+  needsModel: route === 'adherence' && p.subjectType === 'patient' && p.kind !== 'callback' && typeof p.text === 'string' && p.text.trim().length > 0,
   callbackQueryId: p.callbackQueryId || null,
   photoFileId: p.photoFileId || null, documentFileId: p.documentFileId || null,
-  dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + kuwaitDate(p.sentAt),
+  dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date,
+  prevDosesUrl: prevDate ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + prevDate : null,
+  prescriptionsUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/prescriptions',
+  alertRecipientsUrl: API + '/alert-recipients?patientId=' + encodeURIComponent(p.patientId),
 } }];`;
 
 // The classifier's prompt and schema live in agents/lib/adherence.js beside the rules that trust
@@ -182,15 +203,42 @@ const DECIDE = CONFIG + '\n' + ADHERENCE + `
 const r = $('route (deterministic)').first().json;
 const fetched = $('backend: doses of the day').first().json;
 const doses = fetched.statusCode === 200 && fetched.body && Array.isArray(fetched.body.doses) ? fetched.body.doses : null;
+const fetchedRx = $('backend: active prescriptions').first().json;
+const prescriptions = fetchedRx.statusCode === 200 && fetchedRx.body && Array.isArray(fetchedRx.body.prescriptions) ? fetchedRx.body.prescriptions : null;
+
+// AP-05 step 2 - the previous day's doses, only when ROUTE asked for them; a missing or refused
+// fetch here fails CLOSED (never a silent fall-back to today's doses alone, TC-AD-12).
+let prevDoses = [];
+let prevFetchFailed = false;
+if (r.prevDosesUrl) {
+  try {
+    const pf = $('backend: doses of the previous day').first().json;
+    if (pf.statusCode === 200 && pf.body && Array.isArray(pf.body.doses)) prevDoses = pf.body.doses;
+    else prevFetchFailed = true;
+  } catch (e) { prevFetchFailed = true; }
+}
+
+// AP-05 step 3b (TC-AD-16) - re-verify an alleged caregiver against alert-recipients (rule 5) even
+// though the relay already checked; null when not applicable (a patient's own chat).
+let caregiverVerified = null;
+if (r.subjectType === 'caregiver') {
+  try {
+    const cf = $('backend: alert recipients (caregiver check)').first().json;
+    caregiverVerified = !!(cf.statusCode === 200 && cf.body && Array.isArray(cf.body.caregivers)
+      && cf.body.caregivers.some((c) => c && c.caregiverId === r.subjectId));
+  } catch (e) { caregiverVerified = false; }
+}
+
 const classified = r.needsModel ? ($input.first().json.output || $input.first().json) : null;
 
 let decision;
-if (doses === null && r.subjectType === 'patient') {
-  decision = { outcome: 'refused', writes: [], askDoses: [], dose: null, reply: REPLIES[r.language].failed,
-               reason: 'the backend did not return the doses (HTTP ' + fetched.statusCode + ')' };
+if (r.subjectType === 'patient' && (doses === null || prescriptions === null || prevFetchFailed)) {
+  decision = { outcome: 'refused', writes: [], askDoses: [], stopOptions: [], dose: null, reply: REPLIES[r.language].failed,
+               reason: 'the backend did not return what this reply needs (HTTP ' + fetched.statusCode + ')' };
 } else {
-  decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: doses || [],
-                      tap: r.tap, classification: classified });
+  decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: (doses || []).concat(prevDoses),
+                      prescriptions: prescriptions || [], tap: r.tap, stopTap: r.stopTap, classification: classified,
+                      trackingOn: r.trackingOn, caregiverVerified });
 }
 const w = decision.writes || [];
 const url = (x) => x.op === 'dose_status' ? API + '/doses/' + encodeURIComponent(x.doseId) + '/status' : API + '/schedule/recompute';
@@ -208,21 +256,49 @@ return [{ json: { ...d, result0: { statusCode: first.statusCode }, runSecond: !!
 
 const REPLY = ADHERENCE + `
 
-// What the patient reads - after the writes, from what the backend ACTUALLY answered.
+// What the patient reads - after the writes, from what the backend ACTUALLY answered. A decision
+// with no reply at all (TC-AD-16's silently-dropped, unverified caregiver) sends nothing.
 const d = $('decide (deterministic)').first().json;
 const results = [];
 try { results[0] = { statusCode: $('backend: write 1').first().json.statusCode }; } catch (e) { /* did not run */ }
 try { results[1] = { statusCode: $('backend: write 2 (recompute)').first().json.statusCode }; } catch (e) { /* did not run */ }
 const out = replyAfterWrites(d.decision, results, d.language);
-const items = [{ json: { chatId: d.chatId, text: out.reply, buttons: null, callbackQueryId: d.callbackQueryId,
-  log: { outcome: d.decision.outcome, intent: d.decision.intent, doseId: d.decision.dose ? d.decision.dose.id : null,
-         recorded: out.recorded, statuses: results.map((x) => x && x.statusCode), reason: d.decision.reason || null } } }];
-// TC-AD-12 - more than one open dose: one message per dose, each with buttons naming it.
+const items = [];
+if (out.reply !== null) {
+  items.push({ json: { chatId: d.chatId, text: out.reply, buttons: null, callbackQueryId: d.callbackQueryId,
+    log: { outcome: d.decision.outcome, intent: d.decision.intent, doseId: d.decision.dose ? d.decision.dose.id : null,
+           recorded: out.recorded, statuses: results.map((x) => x && x.statusCode), reason: d.decision.reason || null } } });
+}
+// TC-AD-12 - more than one open dose: one message per dose, each with buttons naming it, marking
+// any dose from the day before (AP-05 step 2's across-midnight ask).
 if (d.decision.outcome === 'ask_which' && d.decision.askDoses && d.decision.askDoses.length) {
-  const c = buildCheckIn({ patientId: d.patientId, chatId: d.chatId, language: d.language, doses: d.decision.askDoses });
+  const c = buildCheckIn({ patientId: d.patientId, chatId: d.chatId, language: d.language, doses: d.decision.askDoses, referenceDate: d.date });
   for (const m of c.messages.slice(1)) items.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, callbackQueryId: null } });
 }
+// AP-05 step 1 (TC-RS-03) - one "Stop <drug>?" button per active prescription, plus "none of these".
+if (d.decision.outcome === 'confirm_discontinue' && d.decision.stopOptions && d.decision.stopOptions.length) {
+  for (const m of buildStopOptions({ chatId: d.chatId, language: d.language, stopOptions: d.decision.stopOptions })) {
+    items.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, callbackQueryId: null } });
+  }
+}
 return items;`;
+
+// AP-05 step 3c - fanned out after every Telegram send node (onError: continueRegularOutput leaves
+// a failure on the item as .error instead of throwing the execution). One log item per failed send
+// in THIS batch - never a chat id, never the message text.
+function failedSendLog(sendNodeName) {
+  return `
+return ($input.all() || [])
+  .filter((item) => item && item.json && item.json.error)
+  .map((item) => ({ json: { node: ${JSON.stringify(sendNodeName)}, doseId: item.json.doseId || null,
+    error: String((item.json.error && item.json.error.message) || item.json.error) } }));`;
+}
+
+// AP-05 step 3b (TC-AD-16) - one item whenever decide() dropped an unverified caregiver, never a chat id.
+const CAREGIVER_LOG = `
+const d = $('decide (deterministic)').first().json;
+if (d.decision.outcome !== 'caregiver_unverified') return [];
+return [{ json: { patientId: d.patientId, reason: 'non_active_caregiver' } }];`;
 
 const EX_REQUEST = EXTRACTION + `
 
@@ -278,6 +354,13 @@ const inbound = {
     ifNode(IN(3), 'a prescription photo?', "={{ $json.route === 'extraction' }}", [-460, 0]),
     // ---- adherence
     api(IN(4), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [-240, 200]),
+    api(IN(32), 'backend: active prescriptions', 'GET', "={{ $('route (deterministic)').first().json.prescriptionsUrl }}", [-200, 340]),
+    // AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads yesterday's doses.
+    ifNode(IN(33), 'after midnight?', "={{ !!$('route (deterministic)').first().json.prevDosesUrl }}", [-160, 480]),
+    api(IN(34), 'backend: doses of the previous day', 'GET', "={{ $('route (deterministic)').first().json.prevDosesUrl }}", [-120, 620]),
+    // AP-05 step 3b (TC-AD-16) - re-verify an alleged caregiver against alert-recipients (rule 5).
+    ifNode(IN(35), 'a caregiver chat?', "={{ $('route (deterministic)').first().json.subjectType === 'caregiver' }}", [-80, 760]),
+    api(IN(36), 'backend: alert recipients (caregiver check)', 'GET', "={{ $('route (deterministic)').first().json.alertRecipientsUrl }}", [-40, 900]),
     ifNode(IN(5), 'needs the model?', "={{ $('route (deterministic)').first().json.needsModel }}", [-20, 200]),
     gemini(IN(6), 'Gemini (chat model)', GEMINI_MODEL, [120, 420]),
     gemini(IN(7), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [120, 560]),
@@ -322,18 +405,28 @@ const inbound = {
                     sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
                     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
       id: IN(31), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1520, -160] },
+    // ---- logs (AP-05 step 3) - each a named Code node output, never a chat id or message text.
+    code(IN(37), 'log: non-active caregiver (deterministic)', CAREGIVER_LOG, [640, 380]),
+    code(IN(38), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: reply with buttons'), [2400, 40]),
+    code(IN(39), 'log: failed Telegram send (text)', failedSendLog('Telegram: reply'), [2620, 380]),
+    code(IN(40), 'log: failed Telegram send (extraction reply)', failedSendLog('Telegram: extraction reply'), [1520, -400]),
   ],
   connections: {
     'Relay from the app (CR-063)': main('route (deterministic)'),
     'route (deterministic)': main('a prescription photo?'),
     'a prescription photo?': main('Telegram: download the file', 'backend: doses of the day'),
-    'backend: doses of the day': main('needs the model?'),
+    'backend: doses of the day': main('backend: active prescriptions'),
+    'backend: active prescriptions': main('after midnight?'),
+    'after midnight?': main('backend: doses of the previous day', 'a caregiver chat?'),
+    'backend: doses of the previous day': main('a caregiver chat?'),
+    'a caregiver chat?': main('backend: alert recipients (caregiver check)', 'needs the model?'),
+    'backend: alert recipients (caregiver check)': main('needs the model?'),
     'needs the model?': main('Gemini: classify the reply', 'decide (deterministic)'),
     'Gemini: classify the reply': main('decide (deterministic)'),
     'Gemini (chat model)': { ai_languageModel: [[{ node: 'Gemini: classify the reply', type: 'ai_languageModel', index: 0 }]] },
     'Gemini (fallback model)': { ai_languageModel: [[{ node: 'Gemini: classify the reply', type: 'ai_languageModel', index: 1 }]] },
     'Structured output': { ai_outputParser: [[{ node: 'Gemini: classify the reply', type: 'ai_outputParser', index: 0 }]] },
-    'decide (deterministic)': main('anything to write?'),
+    'decide (deterministic)': main(['anything to write?', 'log: non-active caregiver (deterministic)']),
     'anything to write?': main('backend: write 1', 'reply (deterministic)'),
     'backend: write 1': main('after write 1'),
     'after write 1': main('second write?'),
@@ -341,7 +434,8 @@ const inbound = {
     'backend: write 2 (recompute)': main('reply (deterministic)'),
     'reply (deterministic)': main('with buttons?'),
     'with buttons?': main('Telegram: reply with buttons', 'Telegram: reply'),
-    'Telegram: reply': main('was it a tap?'),
+    'Telegram: reply with buttons': main('log: failed Telegram send (buttons)'),
+    'Telegram: reply': main(['was it a tap?', 'log: failed Telegram send (text)']),
     'was it a tap?': main('Telegram: close the tap'),
     'Telegram: download the file': main('extraction: build the vision request'),
     'extraction: build the vision request': main('Gemini: read the prescription'),
@@ -350,6 +444,7 @@ const inbound = {
     'a body to save?': main('backend: save the prescription', 'extraction: reply (deterministic)'),
     'backend: save the prescription': main('extraction: reply (deterministic)'),
     'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'screen it?']),
+    'Telegram: extraction reply': main('log: failed Telegram send (extraction reply)'),
     'screen it?': main('n8n: screen the new prescription'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
@@ -366,11 +461,8 @@ if (res.statusCode !== 200 || !Array.isArray(res.body)) return [];
 const today = kuwaitDate(new Date().toISOString());
 // every_other_day: a fixed, documented parity (days since 2026-01-01 even) - never a guess per patient.
 const dayIndex = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);
-return res.body
-  .filter((e) => e && e.patientId && e.chatId)
-  .filter((e) => e.frequency !== 'every_other_day' || dayIndex % 2 === 0)
-  .map((e) => ({ json: { patientId: e.patientId, chatId: e.chatId, language: e.language === 'en' ? 'en' : 'ar', date: today,
-                         dosesUrl: API + '/patients/' + encodeURIComponent(e.patientId) + '/doses?date=' + today } }));`;
+const { plans } = planCheckIns({ eligibility: res.body, dayIndex });
+return plans.map((e) => ({ json: { ...e, date: today, dosesUrl: API + '/patients/' + encodeURIComponent(e.patientId) + '/doses?date=' + today } }));`;
 
 const CK_BUILD = ADHERENCE + `
 
@@ -383,7 +475,32 @@ $input.all().forEach((item, i) => {
   const res = item.json;
   if (!plan || res.statusCode !== 200 || !res.body || !Array.isArray(res.body.doses)) return;
   const c = buildCheckIn({ patientId: plan.patientId, chatId: plan.chatId, language: plan.language, doses: res.body.doses });
-  for (const m of c.messages) out.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } });
+  for (const m of c.messages) out.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, doseId: m.doseId || null } });
+});
+return out;`;
+
+// AP-05 step 3a (TC-AD-08) - one item per skipped patient, never a chat id: an eligibility row with
+// no chat id, the parity skip (both from planCheckIns, recomputed here so this runs even when the
+// plan is empty), a refused doses fetch, or a day with no open doses.
+const CK_LOG_SKIPS = ADHERENCE + `
+let eligible = null;
+try { const e = $('backend: who is eligible').first().json; eligible = e.statusCode === 200 && Array.isArray(e.body) ? e.body : null; } catch (e) { /* not fetched */ }
+const today = kuwaitDate(new Date().toISOString());
+const dayIndex = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);
+const { plans, skipped } = planCheckIns({ eligibility: eligible || [], dayIndex });
+const out = skipped.map((s) => ({ json: s }));
+if (eligible === null) return out; // the eligibility call itself failed - nothing plan-level to add
+let dosesResults = [];
+try { dosesResults = $('backend: doses of the day').all(); } catch (e) { /* did not run: the plan was empty */ }
+plans.forEach((plan, i) => {
+  const res = dosesResults[i] && dosesResults[i].json;
+  if (!res || res.statusCode !== 200 || !res.body || !Array.isArray(res.body.doses)) {
+    out.push({ json: { patientId: plan.patientId, reason: 'doses_fetch_refused' } });
+    return;
+  }
+  if (buildCheckIn({ patientId: plan.patientId, chatId: plan.chatId, language: plan.language, doses: res.body.doses }).skipped) {
+    out.push({ json: { patientId: plan.patientId, reason: 'no_open_doses' } });
+  }
 });
 return out;`;
 
@@ -401,15 +518,20 @@ const checkin = {
     ifNode(CK(7), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [640, 100]),
     telegramButtons(CK(8), 'Telegram: dose with buttons', [860, 20]),
     telegramText(CK(9), 'Telegram: header', [860, 180]),
+    code(CK(10), 'log: skipped patients (deterministic)', CK_LOG_SKIPS, [-20, 320]),
+    code(CK(11), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: dose with buttons'), [1080, 20]),
+    code(CK(12), 'log: failed Telegram send (header)', failedSendLog('Telegram: header'), [1080, 260]),
   ],
   connections: {
     'Daily 08:00 (Kuwait)': main('backend: who is eligible'),
     'Send now (demo)': main('backend: who is eligible'),
-    'backend: who is eligible': main('plan (deterministic)'),
+    'backend: who is eligible': main(['plan (deterministic)', 'log: skipped patients (deterministic)']),
     'plan (deterministic)': main('backend: doses of the day'),
     'backend: doses of the day': main('check-in (deterministic)'),
     'check-in (deterministic)': main('with buttons?'),
     'with buttons?': main('Telegram: dose with buttons', 'Telegram: header'),
+    'Telegram: dose with buttons': main('log: failed Telegram send (buttons)'),
+    'Telegram: header': main('log: failed Telegram send (header)'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };

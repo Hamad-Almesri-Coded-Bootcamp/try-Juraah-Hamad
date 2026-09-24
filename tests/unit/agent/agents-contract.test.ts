@@ -20,8 +20,9 @@ const dose = (id: string, prescriptionId: string, hhmm: string) => ({
   id, prescriptionId, scheduledAt: `2026-09-24T${hhmm}:00+03:00`, status: OPEN, recordedAt: null,
   genericName: 'Levothyroxine', brandName: 'Eltroxin', strengthMg: 50, strengthUnit: 'mcg', dosePerAdministration: 1, timingRelativeToFood: null,
 });
+const RX = [{ id: 'rx-008', patientId: 'pt-03', drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin' }, status: 'active', needsReview: false }];
 const decide = (intent: string, hhmm: string, doses = [dose('rx-008-20260924-0700', 'rx-008', '07:00')]) =>
-  A.decide({ subjectType: 'patient', language: 'ar', sentAt: `2026-09-24T${hhmm}:00+03:00`, doses, tap: null,
+  A.decide({ subjectType: 'patient', language: 'ar', sentAt: `2026-09-24T${hhmm}:00+03:00`, doses, prescriptions: RX, tap: null, stopTap: null,
              classification: { intent, confidence: 0.95, quote: 'q' } });
 
 describe('agents/lib/adherence.js → the backend validators', () => {
@@ -38,8 +39,13 @@ describe('agents/lib/adherence.js → the backend validators', () => {
       }
     });
   }
-  it('discontinued_by_doctor: the recompute body is accepted and carries a reason', () => {
-    const [w] = decide('discontinued_by_doctor', '08:00').writes as Write[];
+  it('AP-05 (TC-RS-03): discontinued_by_doctor never writes by itself; the recompute from a CONFIRMED stop tap is accepted and carries a reason', () => {
+    const asked = decide('discontinued_by_doctor', '08:00');
+    expect(asked.outcome).toBe('confirm_discontinue');
+    expect(asked.writes).toEqual([]);
+    const tapped = A.decide({ subjectType: 'patient', language: 'ar', sentAt: '2026-09-24T08:01:00+03:00', doses: [], prescriptions: RX,
+      tap: null, stopTap: A.parseStopTap('s:rx-008'), classification: null });
+    const [w] = tapped.writes as Write[];
     expect(parseRecomputeBody(w!.body)).toMatchObject({ ok: true, value: { reason: 'discontinued' } });
   });
 });

@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   subject: vi.fn(async (chatId: string): Promise<unknown> => {
     void chatId;
-    return { subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar' };
+    return { subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: true };
   }),
   fetch: vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
     void url; void init;
@@ -80,8 +80,31 @@ describe('relayReply', () => {
     expect(JSON.parse(String(init!.body))).toEqual({
       kind: 'message', chatId: '424242', messageId: 77, sentAt: '2026-09-22T04:15:00.000Z', text: 'خذيته',
       photoFileId: null, documentFileId: null, callbackQueryId: null,
-      channel: 'telegram', subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar',
+      channel: 'telegram', subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: true,
     });
+  });
+  it('CR-092: the relay payload carries trackingOn straight from ChatSubject (true; false; false when the patient has no settings row, which subjectForChat itself already maps to false)', async () => {
+    const { relayReply } = await import('@/lib/agent/inbound');
+    h.subject.mockResolvedValueOnce({ subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: true });
+    await relayReply(msg({ text: 'خذيته' }));
+    expect(JSON.parse(String(h.fetch.mock.calls[0]![1]!.body))).toMatchObject({ trackingOn: true });
+    h.fetch.mockClear();
+    h.subject.mockResolvedValueOnce({ subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: false });
+    await relayReply(msg({ text: 'خذيته' }));
+    expect(JSON.parse(String(h.fetch.mock.calls[0]![1]!.body))).toMatchObject({ trackingOn: false });
+    // subjectForChat (lib/data/pg/channels.ts) maps a patient with no settings row to trackingOn: false
+    // itself (`row.tracking_on === true`, so null - no row - reads false) - proved here by relaying
+    // exactly that already-mapped value, since this suite mocks subjectForChat rather than the SQL.
+    h.fetch.mockClear();
+    h.subject.mockResolvedValueOnce({ subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: false });
+    await relayReply(msg({ text: 'خذيته' }));
+    expect(JSON.parse(String(h.fetch.mock.calls[0]![1]!.body))).toMatchObject({ trackingOn: false });
+  });
+  it('inboundPayload is a pure pass-through of ChatSubject.trackingOn', async () => {
+    const { inboundPayload } = await import('@/lib/agent/inbound');
+    const reply = { kind: 'message' as const, chatId: '1', messageId: 1, sentAt: '2026-09-24T00:00:00Z', text: 'x', photoFileId: null, documentFileId: null, callbackQueryId: null };
+    expect(inboundPayload(reply, { subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: true }).trackingOn).toBe(true);
+    expect(inboundPayload(reply, { subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', trackingOn: false }).trackingOn).toBe(false);
   });
   it('an active caregiver’s chat is forwarded AS a caregiver — the agent, not the relay, refuses the adherence path', async () => {
     h.subject.mockResolvedValueOnce({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', language: 'ar' });
