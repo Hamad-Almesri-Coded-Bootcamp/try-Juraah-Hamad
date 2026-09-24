@@ -56,7 +56,7 @@ describe('agents/lib/screening.js → parseAlertBody', () => {
 });
 
 describe('agents/lib/extraction.js → parsePrescriptionBody', () => {
-  const SURE = { brandName: 0.95, strengthMg: 0.95, frequencyPerDay: 0.95, startDate: 0.95, doseTimes: 0.95 };
+  const SURE = Object.fromEntries(E.CONFIDENCE_KEYS.map((k: string) => [k, 0.95]));
   const CLEAR = {
     isPrescription: true, facilityName: 'مستشفى مبارك الكبير', sector: 'public', genericName: 'Amoxicillin', brandName: 'Amoxil',
     strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['08:00', '14:00', '20:00'],
@@ -64,7 +64,7 @@ describe('agents/lib/extraction.js → parsePrescriptionBody', () => {
   };
   for (const [label, model] of [
     ['clear', CLEAR],
-    ['flagged strength', { ...CLEAR, confidence: { ...SURE, strengthMg: 0.4 } }],
+    ['flagged strength', { ...CLEAR, confidence: { ...SURE, strength: 0.4 } }],
     ['no times written', { ...CLEAR, doseTimes: null }],
     ['alternate day, no brand', { ...CLEAR, dosingPattern: 'alternate_day', brandName: null }],
   ] as const) {

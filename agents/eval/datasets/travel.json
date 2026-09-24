@@ -1,0 +1,6 @@
+{
+  "$schema": "./travel.schema.json",
+  "set": "travel",
+  "owed": "[TO BE SUPPLIED] by anyone on the team: at least 5 photos of real foreign medicine packaging with the brand and ingredient printed on it. See README.md.",
+  "items": []
+}

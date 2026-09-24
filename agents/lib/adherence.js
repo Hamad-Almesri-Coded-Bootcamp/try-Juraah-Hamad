@@ -338,3 +338,36 @@ module.exports = {
   RECORDED_WORDS,
   MIN_CONFIDENCE,
 };
+
+/* ===== model contract ===== (agents/scripts/build.js cuts this block out of every Code node)
+ * The prompt and the output schema that the n8n node "Gemini: classify the reply"
+ * (agent-telegram-inbound) sends, kept beside INTENTS and trustClassification. agents/eval
+ * sends the same two, unchanged. */
+const CLASSIFY_PROMPT = `You classify ONE short reply from a patient about a medicine dose.
+The patient writes Kuwaiti colloquial Arabic first, then Modern Standard Arabic, then English.
+
+Return ONE intent:
+- taken_on_time - they took it on time. «أخذته» «خذيته» «تناولته» «اخذتها»
+- taken_late - they took it, but late. «أخذته متأخر» «خذيته بس متأخر شوي» «تأخرت شوي»
+- missed - they did not take it. «ما خذيته» «نسيت» «نسيت أخذه» «فاتتني»
+- ran_out - the medicine has run out. «خلص الدوا» «ما بقى عندي» «انتهى»
+- discontinued_by_doctor - a doctor told them to stop. «دكتوري قال أوقف الدواء» «الدكتور وقفه»
+- unclear - anything else, a question, or you are not sure
+
+RULES
+1. If you are not confident, return unclear. Never guess: a wrong guess changes a medical record.
+2. confidence is 0 to 1. Below 0.7 the system treats it as unclear anyway, so do not inflate it.
+3. quote is the exact words that made you decide. Copy them, do not paraphrase.
+4. You classify language only. You never decide times, doses or schedules, and you never answer a medical question.`;
+
+const CLASSIFY_SCHEMA = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['taken_on_time', 'taken_late', 'missed', 'ran_out', 'discontinued_by_doctor', 'unclear'] },
+    confidence: { type: 'number' },
+    quote: { type: 'string' },
+  },
+  required: ['intent', 'confidence', 'quote'],
+};
+
+Object.assign(module.exports, { CLASSIFY_PROMPT, CLASSIFY_SCHEMA });

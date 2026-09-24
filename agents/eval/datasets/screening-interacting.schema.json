@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jur'ah evaluation set: known interacting pairs",
+  "description": "Drug pairs that interact, each with the verified citation that says so. Each pair is screened as two active prescriptions of one patient; scored as recall (AI Agents Acceptance Criteria section 4): the pair must raise a graded interaction alert that carries a sourceCitation.",
+  "type": "object",
+  "required": ["set", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "set": { "const": "screening-interacting" },
+    "owed": { "type": "string", "description": "The owed-value marker of an empty set. Delete it once the set holds its minimum." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "drugA", "drugB", "citation", "verifiedBy"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "drugA": { "type": "string", "minLength": 2, "description": "The generic name as a prescription records it, for example Warfarin." },
+          "drugB": { "type": "string", "minLength": 2 },
+          "citation": { "type": "string", "minLength": 10, "description": "The verified source that documents the interaction." },
+          "verifiedBy": { "type": "string", "minLength": 2, "description": "Who checked the citation (a pharmacist if possible)." },
+          "expectedSeverity": { "enum": ["danger", "warning", "info"], "description": "Optional. Reported beside the result, not scored." },
+          "suppliedBy": { "type": "string", "minLength": 2 },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

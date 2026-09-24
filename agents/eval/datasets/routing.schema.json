@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jur'ah evaluation set: routing inputs",
+  "description": "Varied inputs to the Orchestrator, each with the route it must take (AI Agents Acceptance Criteria section 6). At least 3 must be the realistic confusion between a medicine box and a prescription (boxOrPrescription: true), and at least 1 must come from a caregiver.",
+  "type": "object",
+  "required": ["set", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "set": { "const": "routing" },
+    "owed": { "type": "string", "description": "The owed-value marker of an empty set. Delete it once the set holds its minimum." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "from", "kind", "expected"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "from": { "enum": ["patient", "active_caregiver", "inactive_caregiver"] },
+          "trackingOn": { "type": "boolean", "description": "For a patient: whether adherence check-ins are switched on. Default true." },
+          "kind": { "enum": ["text", "tap", "photo", "document", "start"] },
+          "text": { "type": "string", "maxLength": 500, "description": "The message, the caption of a photo or document, or the text of a start command." },
+          "file": { "type": "string", "pattern": "\\.(jpe?g|png|webp|heic|heif|pdf)$", "description": "The photo or document, relative to the data file." },
+          "expected": {
+            "enum": ["adherence", "extraction", "travel_check", "link", "clarify", "caregiver_reply", "no_agent", "tracking_off_reply"],
+            "description": "adherence: the Adherence Agent. extraction: Prescription Extraction. travel_check: Travel Check. link: the link-confirmation path, never an agent. clarify: a clarifying question. caregiver_reply: an active caregiver's short reply, never the adherence path. no_agent: nothing at all, no reply that reveals a patient exists. tracking_off_reply: tracking is off, the short explanation."
+          },
+          "boxOrPrescription": { "type": "boolean", "description": "true for a photo that could be read as a medicine box or as a prescription." },
+          "suppliedBy": { "type": "string", "minLength": 2 },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}
