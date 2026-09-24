@@ -10,18 +10,18 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 
 const h = vi.hoisted(() => ({
   audience: vi.fn(async (): Promise<'patient' | 'guest'> => 'patient'),
-  voice: vi.fn(async (after: number | null): Promise<{ latest: number; turns: unknown[] }> => ({ latest: after ?? 7, turns: [] })),
+  voice: vi.fn(async (after: number | null): Promise<{ latest: number | null; turns: unknown[]; live: boolean }> => ({ latest: after ?? 7, turns: [], live: true })),
   ask: vi.fn(async (text: string, locale: string): Promise<unknown> => { void text; void locale; return { ok: true, reply: 'جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', telegramPrompted: false }; }),
 }));
 vi.mock('@/lib/assistant', () => ({ askAssistant: h.ask, assistantAudience: h.audience, voiceTurns: h.voice }));
-const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: '/ar' }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: '/ar/app' }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: nav.push }), usePathname: () => nav.pathname }));
 
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import { copy, t } from '@/i18n';
 import { hasLatin, localizeText } from '@/i18n/localize';
 
-beforeEach(() => { h.voice.mockClear(); h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [] })); h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar'; });
+beforeEach(() => { h.voice.mockClear(); h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [], live: true })); h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar/app'; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const open = async (locale: 'ar' | 'en' = 'ar') => {
@@ -43,7 +43,7 @@ describe('AssistantLauncher', () => {
   });
 
   it('a guest (landing, sign-in, caregiver, clinic): the guest intro and app-help suggestions, no personal ones', async () => {
-    h.audience.mockResolvedValue('guest');
+    nav.pathname = '/en/care';
     render(<AssistantLauncher locale="en" />);
     await open('en');
     expect(screen.getByText(t(copy.assistant.guestIntro, 'en'))).toBeTruthy();
@@ -52,7 +52,7 @@ describe('AssistantLauncher', () => {
   });
 
   it('a guest answer is the copy catalogue’s text, in the reader’s language', async () => {
-    h.audience.mockResolvedValue('guest');
+    nav.pathname = '/ar';
     h.ask.mockResolvedValueOnce({ ok: true, guestTopic: 'guestTelegram' });
     render(<AssistantLauncher locale="ar" />);
     await open();
@@ -171,7 +171,7 @@ describe('AssistantLauncher', () => {
   });
 
   it('a signed-out guest asking how to sign in is taken to Sign in', async () => {
-    h.audience.mockResolvedValue('guest');
+    nav.pathname = '/ar';
     h.ask.mockResolvedValueOnce({ ok: true, guestTopic: 'guestSignIn', page: 'signin' });
     render(<AssistantLauncher locale="ar" />);
     await open();
@@ -182,8 +182,8 @@ describe('AssistantLauncher', () => {
 
   it('CR-069: a turn with Alexa opens the panel by itself, shows what was asked and what Alexa said, and opens its screen', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.voice.mockImplementationOnce(async () => ({ latest: 7, turns: [] })); // the starting point: nothing replayed
-    h.voice.mockImplementationOnce(async () => ({ latest: 8, turns: [{ seq: 8, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }] }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 7, turns: [], live: true })); // the starting point: nothing replayed
+    h.voice.mockImplementationOnce(async () => ({ latest: 8, turns: [{ seq: 8, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }], live: true }));
     nav.pathname = '/ar/app/safety';
     render(<AssistantLauncher locale="ar" />);
     await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
@@ -199,8 +199,8 @@ describe('AssistantLauncher', () => {
 
   it('CR-069: Alexa did not understand -> the four voice topics, worded as Alexa hears them; tapping one asks the web chat', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.voice.mockImplementationOnce(async () => ({ latest: 3, turns: [] }));
-    h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [{ seq: 4, topic: 'unclear', language: 'en', reply: 'You can ask me…', page: null }] }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 3, turns: [], live: true }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [{ seq: 4, topic: 'unclear', language: 'en', reply: 'You can ask me…', page: null }], live: true }));
     render(<AssistantLauncher locale="en" />);
     await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
     await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
@@ -215,8 +215,8 @@ describe('AssistantLauncher', () => {
   it('CR-071: an Alexa reply in the other language is declared, with its drug names and dashes normalised', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const reply = 'جرعتك الجاية Eltroxin الساعة 7 المغرب — تبي شي ثاني؟';
-    h.voice.mockImplementationOnce(async () => ({ latest: 1, turns: [] }));
-    h.voice.mockImplementationOnce(async () => ({ latest: 2, turns: [{ seq: 2, topic: 'next_dose', language: 'ar', reply, page: 'today' }] }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 1, turns: [], live: true }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 2, turns: [{ seq: 2, topic: 'next_dose', language: 'ar', reply, page: 'today' }], live: true }));
     nav.pathname = '/en/app';
     render(<AssistantLauncher locale="en" />);
     await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
@@ -238,8 +238,8 @@ describe('AssistantLauncher', () => {
     marker.setAttribute('data-no-assistant', '');
     document.body.appendChild(marker);
     try {
-      h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [] }));
-      h.voice.mockImplementationOnce(async () => ({ latest: 5, turns: [{ seq: 5, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }] }));
+      h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [], live: true }));
+      h.voice.mockImplementationOnce(async () => ({ latest: 5, turns: [{ seq: 5, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }], live: true }));
       nav.pathname = '/ar/app';
       render(<AssistantLauncher locale="ar" />);
       await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
@@ -255,37 +255,70 @@ describe('AssistantLauncher', () => {
     }
   });
 
-  it('CR-071: when the person changes (sign-out, then a guest), the conversation is cleared and asked again', async () => {
+  it('CR-071: when the person changes (sign-out, then a guest), the conversation is cleared', async () => {
     nav.pathname = '/ar/app';
     const { rerender } = render(<AssistantLauncher locale="ar" />);
     await open();
     fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'ar') }));
     const reply = localizeText('جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', 'ar');
     await waitFor(() => expect(screen.getByText(reply)).toBeTruthy());
-    expect(h.audience).toHaveBeenCalledTimes(1);
-    // Moving inside one shell does not ask again, and the conversation stays.
+    // Moving inside one shell keeps the conversation.
     nav.pathname = '/ar/app/medicines';
     rerender(<AssistantLauncher locale="ar" />);
     await new Promise((r) => setTimeout(r, 50));
-    expect(h.audience).toHaveBeenCalledTimes(1);
     expect(screen.getByText(reply)).toBeTruthy();
-    // Signed out: the landing, where the server now answers "guest".
-    h.audience.mockResolvedValue('guest');
+    // Signed out: the landing, a guest's page.
     nav.pathname = '/ar';
     rerender(<AssistantLauncher locale="ar" />);
-    await waitFor(() => expect(h.audience).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByTestId('assistant-panel')).toBeNull());
     await open();
     expect(screen.queryByText(reply)).toBeNull();
     expect(screen.getByText(t(copy.assistant.guestIntro, 'ar'))).toBeTruthy();
+    expect(h.audience).not.toHaveBeenCalled(); // the audience is the shell on screen, never a server call
   });
 
   it('CR-069: a guest (not a signed-in patient) never polls for voice turns', async () => {
-    h.audience.mockResolvedValue('guest');
+    nav.pathname = '/ar/signin';
     render(<AssistantLauncher locale="ar" />);
-    await waitFor(() => expect(h.audience).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
     expect(h.voice).not.toHaveBeenCalled();
+  });
+
+  // CR-071: Next runs a page's Server Actions one at a time, so a background one holds up the page's
+  // own (sign-in, F0's open). The launcher sends none on a guest page, and asks nobody who is talking.
+  it('CR-071: a page load sends no Server Action of the assistant’s own on a guest page, and never asks the audience', async () => {
+    for (const path of ['/ar', '/ar/signin', '/ar/invitation', '/ar/care', '/ar/clinic/review']) {
+      nav.pathname = path;
+      render(<AssistantLauncher locale="ar" />);
+      await new Promise((r) => setTimeout(r, 30));
+      cleanup();
+    }
+    expect(h.voice).not.toHaveBeenCalled();
+    expect(h.audience).not.toHaveBeenCalled();
+    expect(h.ask).not.toHaveBeenCalled();
+  });
+
+  it('CR-071: where no voice turn can ever arrive (the mock backend), the patient panel asks once and stops', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    h.voice.mockImplementation(async (after) => ({ latest: after, turns: [], live: false }));
+    render(<AssistantLauncher locale="ar" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2600 * 3); });
+    expect(h.voice).toHaveBeenCalledTimes(1);
+  });
+
+  it('CR-071: right after the patient taps or types, the next poll is skipped, so their own action never waits behind it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<AssistantLauncher locale="ar" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledTimes(1)); // the starting point
+    fireEvent.pointerDown(document.body);
+    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+    expect(h.voice).toHaveBeenCalledTimes(1); // skipped once
+    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+    await waitFor(() => expect(h.voice).toHaveBeenCalledTimes(2)); // and back to its pace
+    fireEvent.keyDown(document.body, { key: 'a' });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+    expect(h.voice).toHaveBeenCalledTimes(2);
   });
 
   it('rule 1: the panel has no control that records a dose — only the suggestions, send and close', async () => {

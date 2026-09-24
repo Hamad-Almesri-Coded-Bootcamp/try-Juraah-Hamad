@@ -6,7 +6,8 @@
  * conversation. The Sheet brings its own fixed full-viewport layer (portalled to <body>), so it
  * sits above the TabBar the same on the landing page as inside a shell (audit C2).
  *
- * Who is asking is decided on the SERVER (`assistantAudience`, `askAssistant`): a signed-in patient
+ * What a person may be told is decided on the SERVER (`askAssistant`, `voiceTurns`, both under the
+ * verified session): a signed-in patient
  * gets personal answers from the agents track; everyone else gets app help from the copy catalogue.
  *
  * READ-ONLY by construction (CLAUDE.md rule 1): the only calls are two server actions that write
@@ -32,7 +33,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { AsWritten } from '@/components/ui/AsWritten';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { askAssistant, assistantAudience, voiceTurns } from '@/lib/assistant';
+import { askAssistant, voiceTurns } from '@/lib/assistant';
 import { PAGE_PATH, type AssistantAudience, type AssistantPage, type VoiceTopic, type VoiceTurn } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
 import { localizeText } from '@/i18n/localize';
@@ -75,7 +76,6 @@ const MOVED: Record<AssistantPage, CopyKey> = {
 
 export function AssistantLauncher({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
-  const [audience, setAudience] = useState<AssistantAudience | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [draft, setDraft] = useState('');
   // Explicit, not a transition: it must stay true for the whole round trip (typing bubble, Send spinner).
@@ -95,28 +95,21 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, openPanel);
   }, []);
 
-  // Ask the server who this panel is talking to (a patient's screen follows the voice). This launcher
-  // lives in the root layout, which a sign-in, sign-out or role switch does not remount, so it asks
-  // again whenever the shell changes (the first segment after the locale: app, care, clinic, signin,
-  // gate, invitation, or none for the landing). When the answer changes, the conversation so far
-  // belonged to someone else: it is cleared and the panel closed (CR-071).
-  const shell = pathname.split('/')[2] ?? '';
-  const audienceRef = useRef<AssistantAudience | null>(null);
-  useEffect(() => {
-    let live = true;
-    const settle = (a: AssistantAudience) => {
-      if (!live) return;
-      if (audienceRef.current !== null && audienceRef.current !== a) {
-        setLines([]);
-        setDraft('');
-        setOpen(false);
-      }
-      audienceRef.current = a;
-      setAudience(a);
-    };
-    void assistantAudience().then(settle, () => settle('guest'));
-    return () => { live = false; };
-  }, [shell]);
+  // Who the panel talks to, from the shell on screen: only a signed-in patient can render the patient
+  // shell (/[locale]/app, gated by its layout), so there it is the patient; anywhere else a guest.
+  // No Server Action on page load: Next runs a page's Server Actions one at a time, and a background
+  // one held up the page's own (sign-in, F0's open) until it answered (CR-071). This only picks the
+  // intro and suggestions; what may be said is still decided on the server, under the session.
+  // The launcher lives in the root layout, which a sign-in, sign-out or role switch does not remount:
+  // when the audience changes, the conversation so far belonged to someone else, so it is cleared.
+  const audience: AssistantAudience = pathname.split('/')[2] === 'app' ? 'patient' : 'guest';
+  const [shownFor, setShownFor] = useState(audience);
+  if (shownFor !== audience) {
+    setShownFor(audience);
+    setLines([]);
+    setDraft('');
+    setOpen(false);
+  }
 
   // A page marked `data-no-assistant` (first-run setup, the invitation, the clinic) shows no assistant:
   // arriving on one closes the panel, and the voice below does not reopen it there.
@@ -157,17 +150,35 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     };
     // Also in a background tab (the browser slows its timers there): the page has already moved
     // when the patient looks at it — they talk to the Echo, not to this window.
+    // Right after the patient taps or types, the next poll is skipped: their own action (a form, a
+    // button's Server Action) then never waits behind one. A flag, not a clock (rule 9).
+    let touched = false;
+    const onInput = () => { touched = true; };
+    document.addEventListener('pointerdown', onInput, true);
+    document.addEventListener('keydown', onInput, true);
     const tick = async () => {
-      const r = await voiceTurns(lastSeq.current).catch(() => null);
-      if (live && r) {
-        const first = lastSeq.current === null;
-        lastSeq.current = r.latest;
-        if (!first && r.turns.length > 0) follow(r.turns);
+      if (touched) {
+        touched = false;
+      } else {
+        const r = await voiceTurns(lastSeq.current).catch(() => null);
+        if (!live) return;
+        // Nothing can arrive here (the mock backend, or no longer a patient): stop asking.
+        if (r && !r.live) return;
+        if (r) {
+          const first = lastSeq.current === null;
+          lastSeq.current = r.latest;
+          if (!first && r.turns.length > 0) follow(r.turns);
+        }
       }
       if (live) timer = setTimeout(() => void tick(), VOICE_POLL_MS);
     };
     void tick();
-    return () => { live = false; if (timer) clearTimeout(timer); };
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('pointerdown', onInput, true);
+      document.removeEventListener('keydown', onInput, true);
+    };
   }, [audience, locale, router, c]);
 
   const scrollToEnd = () => requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
@@ -217,7 +228,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     send(draft);
   }
 
-  const who: AssistantAudience = audience ?? 'guest';
+  const who = audience;
   const lastAsk = !pending ? lines[lines.length - 1]?.ask : undefined;
 
   return (
@@ -252,7 +263,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
               </form>
             }
           >
-            <div className="flex flex-col gap-3" data-testid="assistant-panel" data-audience={audience ?? 'unknown'}>
+            <div className="flex flex-col gap-3" data-testid="assistant-panel" data-audience={audience}>
               <ul className="flex max-h-chat flex-col gap-2 overflow-y-auto" aria-live="polite" data-testid="assistant-lines">
                 <li className="rounded-lg bg-surface-card p-3 type-body">{t(who === 'patient' ? c.intro : c.guestIntro, locale)}</li>
                 {lines.map((line, i) => {
@@ -303,7 +314,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
                   ))}
                 </div>
               )}
-              {lines.length === 0 && audience && (
+              {lines.length === 0 && (
                 <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.suggestionsLabel, locale)}>
                   {SUGGESTIONS[audience].map((key) => (
                     <Button key={key} variant="secondary" onClick={() => send(t(c[key], locale))} disabled={pending} lang={locale}>

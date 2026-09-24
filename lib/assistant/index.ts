@@ -64,18 +64,24 @@ export async function askAssistant(text: string, locale: Locale): Promise<Assist
 
 /**
  * CR-069 — the patient's Alexa turns after `after` (a seq). `after: null` asks only for the starting
- * point, so the panel never replays old turns. Anyone but a signed-in patient, the mock backend, or
- * any failure → nothing. Read-only, under the verified session (RLS: the patient's own rows only).
+ * point, so the panel never replays old turns. Read-only, under the verified session (RLS: the
+ * patient's own rows only).
+ *
+ * `live: false` — nothing can ever arrive here (the mock backend, or no signed-in patient): the panel
+ * stops asking. Next runs a page's Server Actions one at a time, so a poll that can never answer
+ * would only hold up the page's own actions (CR-071). A failure keeps `live` and answers
+ * `latest: after`: with no starting point yet it stays `null`, so the next poll asks for the starting
+ * point again instead of replaying the patient's whole history from 0.
  */
-export async function voiceTurns(after: number | null): Promise<{ latest: number; turns: VoiceTurn[] }> {
+export async function voiceTurns(after: number | null): Promise<{ latest: number | null; turns: VoiceTurn[]; live: boolean }> {
   try {
     const session = await getSession();
-    if (!patientOf(session) || !session || selectedBackend() !== 'postgres') return { latest: after ?? 0, turns: [] };
-    if (after === null || !Number.isInteger(after) || after < 0) return { latest: await latestVoiceTurnSeq(session), turns: [] };
+    if (!patientOf(session) || !session || selectedBackend() !== 'postgres') return { latest: after, turns: [], live: false };
+    if (after === null || !Number.isInteger(after) || after < 0) return { latest: await latestVoiceTurnSeq(session), turns: [], live: true };
     const rows = await voiceTurnsAfter(session, after);
     const turns = rows.map(readVoiceTurn).filter((x): x is VoiceTurn => x !== null);
-    return { latest: rows.reduce((m, r) => Math.max(m, r.seq), after), turns };
+    return { latest: rows.reduce((m, r) => Math.max(m, r.seq), after), turns, live: true };
   } catch {
-    return { latest: after ?? 0, turns: [] };
+    return { latest: after, turns: [], live: true };
   }
 }

@@ -135,8 +135,9 @@ describe('askAssistant (mock backend, seed store)', () => {
     for (const s of [{ subjectId: 'pt-03', role: 'patient' as const }, { subjectId: 'cg-01', role: 'caregiver' as const, linkedPatientId: 'pt-01' }, null]) {
       (await import('@/lib/session/cookie')).setScriptSession(s);
       const { voiceTurns } = await import('@/lib/assistant');
-      expect(await voiceTurns(null)).toEqual({ latest: 0, turns: [] });
-      expect(await voiceTurns(5)).toEqual({ latest: 5, turns: [] });
+      // live: false — the panel stops asking, so a poll never holds up the page's own actions (CR-071).
+      expect(await voiceTurns(null)).toEqual({ latest: null, turns: [], live: false });
+      expect(await voiceTurns(5)).toEqual({ latest: 5, turns: [], live: false });
     }
   });
   it('assistantAudience: patient for a patient session, guest for everyone else', async () => {
