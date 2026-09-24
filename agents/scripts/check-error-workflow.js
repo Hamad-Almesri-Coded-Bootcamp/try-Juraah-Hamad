@@ -72,9 +72,11 @@ function checkErrorWorkflow(wf) {
 function checkCommittedFile(file = FILE) {
   const raw = fs.readFileSync(file); // Buffer; throws ENOENT if the file is missing - that IS the check
   assert.ok([...raw].every((b) => b <= 0x7f), file + ': a byte above 0x7F (not ASCII)');
-  const committed = raw.toString('ascii');
+  // A Windows checkout (core.autocrlf) holds the file with CRLF; the build writes LF. Line endings are
+  // not content, so both sides are compared with LF (as drift.js and the knowledge build do).
+  const committed = raw.toString('ascii').replace(/\r\n/g, '\n');
   checkErrorWorkflow(JSON.parse(committed));
-  const fresh = serialise(buildWorkflow());
+  const fresh = serialise(buildWorkflow()).replace(/\r\n/g, '\n');
   assert.equal(committed, fresh, file + ' is not what scripts/build-error-workflow.js currently generates - rebuild it');
 }
 
