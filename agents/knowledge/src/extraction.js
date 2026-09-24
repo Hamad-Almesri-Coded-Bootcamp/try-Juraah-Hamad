@@ -19,6 +19,15 @@
  * strength (rx-008 is 50 mcg; a strength read without its unit is exactly the
  * 1000x levothyroxine error the contract warns about).
  *
+ * The caption (AP-03, CR-075/D3): a Telegram photo may carry a caption the
+ * patient typed. It is context only - the image always wins. The model names,
+ * in captionConflicts, which of the five FLAGGABLE fields the caption
+ * disagrees with the image on; each named field is left unset and flagged,
+ * exactly like a low-confidence reading (TC-EX-06). A missing answer to a
+ * caption is unknown, not agreement, so it flags all five (fail closed). With
+ * no caption at all, captionConflicts is ignored and this path never runs -
+ * the app's own extraction call is unchanged.
+ *
  * Two kinds of field:
  *   FLAGGABLE (CR-002 - the backend lets a flagged record leave them unset):
  *     brandName, strengthMg (+ strengthUnit), frequencyPerDay, startDate, doseTimes
@@ -82,6 +91,7 @@ const RESPONSE_SCHEMA = {
     routeOfAdministration: { type: 'string', nullable: true },
     specialNotes: { type: 'string', nullable: true },
     indication: { type: 'string', nullable: true },
+    captionConflicts: { type: 'array', items: { type: 'string', enum: FLAGGABLE }, nullable: true },
     confidence: {
       type: 'object',
       properties: {
@@ -110,14 +120,18 @@ const PROMPT = [
   '6. startDate is "YYYY-MM-DD" only if a start date (or the prescription date as the start) is written. Never use today.',
   '7. facilityName is the clinic or hospital printed on the prescription. sector is public only for a government (MOH) facility and private only for a private one, and only if that is clear from the prescription itself; otherwise null.',
   '8. The prescription may be in Arabic or English. Keep names as written.',
-  '9. confidence gives EVERY field a number 0-1 for how sure you are that you read it correctly - including a field you left null (how sure you are that it is not written). Do not inflate it.'
+  '9. confidence gives EVERY field a number 0-1 for how sure you are that you read it correctly - including a field you left null (how sure you are that it is not written). Do not inflate it.',
+  "10. If the patient's caption is attached, it is context only and the image wins. captionConflicts lists each of brandName, strengthMg, frequencyPerDay, startDate, doseTimes where the caption disagrees with the image, an empty list when it agrees, and null when no caption is attached."
 ].join('\n');
 
 /**
- * toPrescriptionBody({ patientId, model, source?, minConfidence? })
+ * toPrescriptionBody({ patientId, model, source?, caption?, minConfidence? })
  *   model   the vision model's JSON (RESPONSE_SCHEMA shape), or null when it could not be parsed
  *   source  optional { facilityName, sector } the caller already knows (e.g. the patient picked
  *           it in the app); when valid it wins over the model's reading
+ *   caption optional text the patient attached (Telegram only). When present, model.captionConflicts
+ *           names which FLAGGABLE fields the caption disagreed with the image on (a missing answer
+ *           flags all five); absent, it is ignored and every FLAGGABLE field reads as before.
  * ->
  *   { ok: true, body, needsReview, uncertainFields, appOutcome }
  *   { ok: false, code: 'not_a_prescription' | 'missing_required', missing: [...], appOutcome: { kind: 'unreadable' } }
@@ -154,34 +168,43 @@ function toPrescriptionBody(args) {
   if (!dosingPattern) missing.push('dosingPattern');
   if (missing.length) return { ok: false, code: 'missing_required', missing, appOutcome: unreadable };
 
+  // ---- the caption (AP-03/D3): context only, never trusted over the image. A missing answer to an
+  // attached caption is unknown, not agreement, so it flags all five FLAGGABLE fields (fail closed).
+  const captionText = str(args.caption);
+  let conflict = new Set();
+  if (captionText) {
+    const listed = Array.isArray(model.captionConflicts) ? model.captionConflicts.filter((f) => FLAGGABLE.indexOf(f) !== -1) : null;
+    conflict = new Set(listed || FLAGGABLE);
+  }
+
   // ---- FLAGGABLE
   const uncertain = [];
 
   let brandName = null;
   if (model.brandName !== null && model.brandName !== undefined) {
-    brandName = sure('brandName') ? str(model.brandName) : null;
+    brandName = sure('brandName') && !conflict.has('brandName') ? str(model.brandName) : null;
     if (!brandName) uncertain.push('brandName');
-  } else if (!sure('brandName')) {
+  } else if (!sure('brandName') || conflict.has('brandName')) {
     uncertain.push('brandName');     // not sure whether a brand is written at all
   }
 
   let strengthMg = null;
   let strengthUnit = null;
-  const s = sure('strength') ? posNum(model.strength) : null;
-  const u = sure('strengthUnit') && UNITS.indexOf(model.strengthUnit) !== -1 ? model.strengthUnit : null;
+  const s = sure('strength') && !conflict.has('strengthMg') ? posNum(model.strength) : null;
+  const u = sure('strengthUnit') && !conflict.has('strengthMg') && UNITS.indexOf(model.strengthUnit) !== -1 ? model.strengthUnit : null;
   if (s !== null && u !== null) { strengthMg = s; strengthUnit = u; } else uncertain.push('strengthMg');
 
-  let frequencyPerDay = sure('frequencyPerDay') ? posInt(model.frequencyPerDay) : null;
+  let frequencyPerDay = sure('frequencyPerDay') && !conflict.has('frequencyPerDay') ? posInt(model.frequencyPerDay) : null;
   if (frequencyPerDay === null) uncertain.push('frequencyPerDay');
 
   let doseTimes = null;
   const t = model.doseTimes;
-  const timesOk = sure('doseTimes') && Array.isArray(t) && t.length > 0 && t.every((x) => typeof x === 'string' && HHMM.test(x)) &&
+  const timesOk = sure('doseTimes') && !conflict.has('doseTimes') && Array.isArray(t) && t.length > 0 && t.every((x) => typeof x === 'string' && HHMM.test(x)) &&
     new Set(t).size === t.length;
   if (timesOk && frequencyPerDay !== null && t.length === frequencyPerDay) doseTimes = t.slice();
-  else uncertain.push('doseTimes');     // never "fixed": unset and flagged (TC-EX-05)
+  else uncertain.push('doseTimes');     // never "fixed": unset and flagged (TC-EX-05); a frequencyPerDay conflict lands here too
 
-  const startDate = sure('startDate') ? isoDate(model.startDate) : null;
+  const startDate = sure('startDate') && !conflict.has('startDate') ? isoDate(model.startDate) : null;
   if (!startDate) uncertain.push('startDate');
 
   const needsReview = uncertain.length > 0;
