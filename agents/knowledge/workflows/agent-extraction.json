@@ -177,7 +177,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const API = \"https://tryjuraaah.vercel.app/api/agent\";\nconst N8N = \"https://mohammad-aljry.app.n8n.cloud/webhook\";\nconst v = $('validate (deterministic)').first().json;\nconst w = $input.first().json;\nconst created = w.statusCode === 201 && w.body && w.body.prescription ? w.body.prescription : null;\nconst input = $('input (deterministic)').first().json;\n// TC-IX invariant: a saved, UNFLAGGED prescription goes to screening before anything else.\n// A flagged one is not screened until a reviewer confirms it (TC-IX-06).\nconst screen = !!(created && !v.result.needsReview);\nreturn [{ json: { saveStatus: w.statusCode, saveError: created ? null : (w.body || null), created,\n  screen, screeningUrl: N8N + '/jurah/screen-prescription',\n  screeningBody: screen ? { patientId: input.patientId, newPrescriptionId: created.id, language: input.language } : null } }];"
+        "jsCode": "\nconst v = $('validate (deterministic)').first().json;\nconst w = $input.first().json;\nconst created = w.statusCode === 201 && w.body && w.body.prescription ? w.body.prescription : null;\n// AP-04: the backend now screens on every path it saves or confirms a prescription (AP-10, D10) and\n// hands its outcome back in the SAME response - this workflow reads it instead of calling screening\n// itself. w.body.screening is 'screened' | 'held' | 'skipped' (lib/data/pg/agent.ts\n// insertExtractedPrescription). A saved, UNFLAGGED prescription whose outcome is neither breaks the\n// TC-IX invariant on the backend's own side: escalate rather than let it pass as final.\nconst screening = created ? (w.body.screening || null) : null;\nconst notScreened = !!(created && !v.result.needsReview && screening !== 'screened' && screening !== 'held');\nreturn [{ json: { saveStatus: w.statusCode, saveError: created ? null : (w.body || null), created,\n  screening, notScreened } }];"
       },
       "id": "c3000000-0000-4000-8000-000000000008",
       "name": "after save",
@@ -190,76 +190,14 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "c3000000-0000-4000-8000-000000000009-c",
-              "leftValue": "={{ $json.screen }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "c3000000-0000-4000-8000-000000000009",
-      "name": "screen it?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        860,
-        -160
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.screeningUrl }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.screeningBody) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "id": "c3000000-0000-4000-8000-000000000010",
-      "name": "n8n: screen the new prescription",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1080,
-        -240
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst v = $('validate (deterministic)').first().json;\nlet saved = null;\nlet screening = null;\ntry { saved = $('after save').first().json; } catch (e) { /* not saved */ }\n// The screening webhook answers 200 on RECEIPT (onReceived, like the workflow it replaced); its outcome\n// is its own execution, which fails loudly if anything is withheld. Here: was it handed over?\ntry { const s = $('n8n: screen the new prescription').first().json; screening = { handedOver: s.statusCode === 200, statusCode: s.statusCode }; } catch (e) { /* not screened */ }\nconst result = v.result;\nconst wantedSave = $('input (deterministic)').first().json.save;\nconst ok = result.ok && (!wantedSave || (saved && saved.saveStatus === 201)) && (!saved || !saved.screen || (screening && screening.handedOver === true));\n// A saved, unflagged prescription that did not reach screening breaks the TC-IX invariant: escalate.\nconst mustEscalate = !!(saved && saved.screen && !(screening && screening.handedOver === true));\nreturn [{ json: {\n  ok,\n  mustEscalate,\n  appOutcome: result.appOutcome,\n  needsReview: result.ok ? result.needsReview : null,\n  uncertainFields: result.ok ? result.uncertainFields : [],\n  code: result.ok ? null : result.code,\n  missing: result.ok ? [] : result.missing,\n  body: result.ok ? result.body : null,\n  visionStatus: v.visionStatus,\n  visionFinish: v.visionFinish,\n  saved: saved ? { statusCode: saved.saveStatus, prescriptionId: saved.created ? saved.created.id : null, error: saved.saveError } : null,\n  screening\n} }];"
+        "jsCode": "\nconst v = $('validate (deterministic)').first().json;\nlet saved = null;\ntry { saved = $('after save').first().json; } catch (e) { /* not saved */ }\nconst result = v.result;\nconst wantedSave = $('input (deterministic)').first().json.save;\n// A saved, unflagged prescription the backend itself did not screen breaks the TC-IX invariant: escalate.\nconst mustEscalate = !!(saved && saved.notScreened);\nconst ok = result.ok && (!wantedSave || (saved && saved.saveStatus === 201)) && !mustEscalate;\nreturn [{ json: {\n  ok,\n  mustEscalate,\n  appOutcome: result.appOutcome,\n  needsReview: result.ok ? result.needsReview : null,\n  uncertainFields: result.ok ? result.uncertainFields : [],\n  code: result.ok ? null : result.code,\n  missing: result.ok ? [] : result.missing,\n  body: result.ok ? result.body : null,\n  visionStatus: v.visionStatus,\n  visionFinish: v.visionFinish,\n  saved: saved ? { statusCode: saved.saveStatus, prescriptionId: saved.created ? saved.created.id : null, error: saved.saveError } : null,\n  screening: saved && saved.screening ? { outcome: saved.screening } : null\n} }];"
       },
       "id": "c3000000-0000-4000-8000-000000000011",
       "name": "answer (deterministic)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1300,
+        860,
         -80
       ]
     },
@@ -274,7 +212,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1520,
+        1080,
         -80
       ]
     },
@@ -325,21 +263,21 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1740,
+        1300,
         -80
       ]
     },
     {
       "parameters": {
         "errorType": "errorMessage",
-        "errorMessage": "={{ 'Extraction: prescription ' + ($json.saved && $json.saved.prescriptionId) + ' was saved but never reached screening' }}"
+        "errorMessage": "={{ 'Extraction: prescription ' + ($json.saved && $json.saved.prescriptionId) + ' was saved, but the backend did not screen it (' + (($json.screening && $json.screening.outcome) || 'none') + ')' }}"
       },
       "id": "c3000000-0000-4000-8000-000000000015",
       "name": "Stop: saved but not screened - a human must look",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1960,
+        1520,
         -160
       ]
     }
@@ -437,35 +375,6 @@
       ]
     },
     "after save": {
-      "main": [
-        [
-          {
-            "node": "screen it?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "screen it?": {
-      "main": [
-        [
-          {
-            "node": "n8n: screen the new prescription",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "answer (deterministic)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "n8n: screen the new prescription": {
       "main": [
         [
           {

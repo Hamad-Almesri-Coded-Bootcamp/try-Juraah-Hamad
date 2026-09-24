@@ -7,12 +7,19 @@
  *   src/*.js  -- unit-tested by test/*.test.js, and contract-tested against the backend's own
  *                validators by tests/unit/agent/knowledge-contract.test.ts
  *        v  node scripts/build.js
- *   workflows/agent-interaction-screening-ddinter.json   POST jurah/screen-prescription (drop-in: the
- *                                                        same path, body, auth AND response mode - it
- *                                                        answers 200 on receipt - as agents/workflows/
- *                                                        agent-interaction-screening.json, which it replaces)
+ *   workflows/agent-interaction-screening-ddinter.json   POST jurah/screen-prescription - the ONLY
+ *                                                        workflow on this path (AP-04/CR-074 retired
+ *                                                        the legacy agents/workflows/agent-interaction-
+ *                                                        screening.json it used to share it with).
+ *                                                        Every caller today is the backend's own
+ *                                                        requestScreening (lib/agent-webhooks/core.ts
+ *                                                        screeningPayload), after a save, an agent's
+ *                                                        save, a reviewer's confirmation or a refill
+ *                                                        (AP-10) - no n8n workflow calls it any more.
  *   workflows/agent-travel-check.json                    POST jurah/travel-check
- *   workflows/agent-extraction.json                      POST jurah/extract-prescription
+ *   workflows/agent-extraction.json                      POST jurah/extract-prescription - reads the
+ *                                                        backend's own screening outcome (AP-10's 201
+ *                                                        body); it never calls screening itself (AP-04)
  *
  * The source is INLINED into each Code node (no Execute Workflow sub-workflow to re-select by hand
  * after import - that manual step is gone). Every file is written ASCII-only (\uXXXX escapes), as
@@ -167,7 +174,9 @@ const SC = (n) => uuid('c1000000-0000-4000-8000-', n);
 
 const SC_INPUT = CONFIG + '\n' + INPUT_HELPERS + `
 
-// Same body agents/workflows/agent-telegram-inbound.json already sends: { patientId, newPrescriptionId, language }.
+// Body: { patientId, newPrescriptionId, language }. AP-04: every caller today is the backend's own
+// requestScreening (lib/agent-webhooks/core.ts screeningPayload) - after a save, an agent's save, a
+// reviewer's confirmation or a refill (AP-10, D10). No n8n workflow calls this directly any more.
 // newPrescriptionId absent -> a whole-profile DRY RUN (nothing is sent to the backend; read the result
 // in the execution's 'summary (deterministic)' node).
 const b = $input.first().json.body || {};
@@ -401,31 +410,29 @@ if (res.statusCode === 200) {
 const result = toPrescriptionBody({ patientId: input.patientId, model, source: input.source });
 return [{ json: { save: input.save && result.ok, visionStatus: res.statusCode, visionFinish: finish, result } }];`;
 
-const EX_AFTER_SAVE = CONFIG + `
+const EX_AFTER_SAVE = `
 const v = $('validate (deterministic)').first().json;
 const w = $input.first().json;
 const created = w.statusCode === 201 && w.body && w.body.prescription ? w.body.prescription : null;
-const input = $('input (deterministic)').first().json;
-// TC-IX invariant: a saved, UNFLAGGED prescription goes to screening before anything else.
-// A flagged one is not screened until a reviewer confirms it (TC-IX-06).
-const screen = !!(created && !v.result.needsReview);
+// AP-04: the backend now screens on every path it saves or confirms a prescription (AP-10, D10) and
+// hands its outcome back in the SAME response - this workflow reads it instead of calling screening
+// itself. w.body.screening is 'screened' | 'held' | 'skipped' (lib/data/pg/agent.ts
+// insertExtractedPrescription). A saved, UNFLAGGED prescription whose outcome is neither breaks the
+// TC-IX invariant on the backend's own side: escalate rather than let it pass as final.
+const screening = created ? (w.body.screening || null) : null;
+const notScreened = !!(created && !v.result.needsReview && screening !== 'screened' && screening !== 'held');
 return [{ json: { saveStatus: w.statusCode, saveError: created ? null : (w.body || null), created,
-  screen, screeningUrl: N8N + '/jurah/screen-prescription',
-  screeningBody: screen ? { patientId: input.patientId, newPrescriptionId: created.id, language: input.language } : null } }];`;
+  screening, notScreened } }];`;
 
 const EX_ANSWER = `
 const v = $('validate (deterministic)').first().json;
 let saved = null;
-let screening = null;
 try { saved = $('after save').first().json; } catch (e) { /* not saved */ }
-// The screening webhook answers 200 on RECEIPT (onReceived, like the workflow it replaced); its outcome
-// is its own execution, which fails loudly if anything is withheld. Here: was it handed over?
-try { const s = $('n8n: screen the new prescription').first().json; screening = { handedOver: s.statusCode === 200, statusCode: s.statusCode }; } catch (e) { /* not screened */ }
 const result = v.result;
 const wantedSave = $('input (deterministic)').first().json.save;
-const ok = result.ok && (!wantedSave || (saved && saved.saveStatus === 201)) && (!saved || !saved.screen || (screening && screening.handedOver === true));
-// A saved, unflagged prescription that did not reach screening breaks the TC-IX invariant: escalate.
-const mustEscalate = !!(saved && saved.screen && !(screening && screening.handedOver === true));
+// A saved, unflagged prescription the backend itself did not screen breaks the TC-IX invariant: escalate.
+const mustEscalate = !!(saved && saved.notScreened);
+const ok = result.ok && (!wantedSave || (saved && saved.saveStatus === 201)) && !mustEscalate;
 return [{ json: {
   ok,
   mustEscalate,
@@ -438,7 +445,7 @@ return [{ json: {
   visionStatus: v.visionStatus,
   visionFinish: v.visionFinish,
   saved: saved ? { statusCode: saved.saveStatus, prescriptionId: saved.created ? saved.created.id : null, error: saved.saveError } : null,
-  screening
+  screening: saved && saved.screening ? { outcome: saved.screening } : null
 } }];`;
 
 const extraction = {
@@ -452,16 +459,11 @@ const extraction = {
     ifNode(EX(6), 'save it?', '={{ $json.save }}', [200, -80]),
     api(EX(7), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [420, -160], '={{ JSON.stringify($json.result.body) }}'),
     code(EX(8), 'after save', EX_AFTER_SAVE, [640, -160]),
-    ifNode(EX(9), 'screen it?', '={{ $json.screen }}', [860, -160]),
-    { parameters: { method: 'POST', url: '={{ $json.screeningUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
-                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
-      id: EX(10), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1080, -240] },
-    code(EX(11), 'answer (deterministic)', EX_ANSWER, [1300, -80]),
-    respond(EX(12), 'Answer', [1520, -80]),
+    code(EX(11), 'answer (deterministic)', EX_ANSWER, [860, -80]),
+    respond(EX(12), 'Answer', [1080, -80]),
     respond(EX(13), 'Answer: invalid request', [-240, 120], 422),
-    ifNode(EX(14), 'escalate?', '={{ $json.mustEscalate }}', [1740, -80]),
-    stopWithError(EX(15), 'Stop: saved but not screened - a human must look', "={{ 'Extraction: prescription ' + ($json.saved && $json.saved.prescriptionId) + ' was saved but never reached screening' }}", [1960, -160])
+    ifNode(EX(14), 'escalate?', '={{ $json.mustEscalate }}', [1300, -80]),
+    stopWithError(EX(15), 'Stop: saved but not screened - a human must look', "={{ 'Extraction: prescription ' + ($json.saved && $json.saved.prescriptionId) + ' was saved, but the backend did not screen it (' + (($json.screening && $json.screening.outcome) || 'none') + ')' }}", [1520, -160])
   ],
   connections: {
     'Extract a prescription': main('input (deterministic)'),
@@ -471,9 +473,7 @@ const extraction = {
     'validate (deterministic)': main('save it?'),
     'save it?': main('backend: save the prescription', 'answer (deterministic)'),
     'backend: save the prescription': main('after save'),
-    'after save': main('screen it?'),
-    'screen it?': main('n8n: screen the new prescription', 'answer (deterministic)'),
-    'n8n: screen the new prescription': main('answer (deterministic)'),
+    'after save': main('answer (deterministic)'),
     'answer (deterministic)': main('Answer'),
     'Answer': main('escalate?'),
     'escalate?': main('Stop: saved but not screened - a human must look')

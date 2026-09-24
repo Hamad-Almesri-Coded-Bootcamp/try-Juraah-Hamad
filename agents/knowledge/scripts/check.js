@@ -102,7 +102,7 @@ async function staticChecks() {
       for (const n of http) {
         const url = String(n.parameters.url);
         if (/\/api\/agent/.test(url)) assert.ok(!/\/doses\b|\/schedule\/|\/status\b|review/i.test(url), n.name + ' calls a forbidden route: ' + url);
-        else assert.ok(url.startsWith('https://generativelanguage.googleapis.com/') || (url === '={{ $json.rxUrl }}' && n.parameters.method === 'GET') || url === '={{ $json.screeningUrl }}', n.name + ' calls an unexpected host: ' + url);
+        else assert.ok(url.startsWith('https://generativelanguage.googleapis.com/') || (url === '={{ $json.rxUrl }}' && n.parameters.method === 'GET'), n.name + ' calls an unexpected host: ' + url);
         if (n.parameters.method === 'POST' && /\/api\/agent/.test(url)) assert.ok(/\/alerts$|\/prescriptions$/.test(url), n.name + ' writes ' + url);
       }
     });
@@ -141,15 +141,19 @@ async function screeningScenarios() {
   console.log('\n######## agent-interaction-screening-ddinter');
   const wf = WF('agent-interaction-screening-ddinter');
 
-  await check('the same path, body, auth and response mode as the workflow it replaces (drop-in)', () => {
+  // AP-04/CR-074: the legacy agent-interaction-screening.json is retired, and this is the only
+  // workflow on the path - no n8n workflow calls it any more (the backend's own requestScreening
+  // does, waiting at most 8s (SCREENING_TIMEOUT_MS) for the 2xx this webhook answers on receipt).
+  await check('the only workflow on jurah/screen-prescription: POST, headerAuth, onReceived', () => {
     const hook = wf.nodes.find((n) => n.type === 'n8n-nodes-base.webhook');
+    assert.equal(hook.parameters.httpMethod, 'POST');
     assert.equal(hook.parameters.path, 'jurah/screen-prescription');
-    const old = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'workflows', 'agent-interaction-screening.json'), 'ascii'));
-    const oldHook = old.nodes.find((n) => n.type === 'n8n-nodes-base.webhook');
-    for (const k of ['httpMethod', 'path', 'authentication', 'responseMode']) assert.equal(hook.parameters[k], oldHook.parameters[k], k);
-    const inbound = fs.readFileSync(path.join(ROOT, '..', 'workflows', 'agent-telegram-inbound.json'), 'ascii');
-    assert.ok(inbound.includes("screeningUrl: N8N + '/jurah/screen-prescription'"), 'the inbound workflow still calls this path');
-    assert.ok(inbound.includes('newPrescriptionId: created.id, language: v.language'), 'the inbound workflow still sends this body');
+    assert.equal(hook.parameters.authentication, 'headerAuth');
+    assert.equal(hook.parameters.responseMode, 'onReceived');
+    const extraction = fs.readFileSync(path.join(ROOT, 'workflows', 'agent-extraction.json'), 'ascii');
+    const travel = fs.readFileSync(path.join(ROOT, 'workflows', 'agent-travel-check.json'), 'ascii');
+    assert.ok(!extraction.includes('screen-prescription'), 'agent-extraction no longer calls screening itself (AP-04)');
+    assert.ok(!travel.includes('screen-prescription'), 'agent-travel-check never called screening');
   });
 
   // F2: vitamin D3 is in the index now (no interaction with Levothyroxine) - only the graded row remains.
@@ -417,31 +421,45 @@ async function extractionScenarios() {
     assert.equal(a.json.screening, null);
   });
 
-  await check('save:true, unflagged -> POST /prescriptions 201 -> screened through jurah/screen-prescription', async () => {
+  // AP-04: this workflow no longer calls jurah/screen-prescription itself - it reads the outcome the
+  // backend's own screening already put in the SAME 201 body (AP-10 / CR-090's `screening` field).
+  await check('save:true, unflagged, backend screening \'screened\' -> ok, no escalation', async () => {
     const { r, v } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(CLEAR)));
     assert.equal(v.save, true);
-    const saved = r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1' }, doseCount: 21 }));
+    const saved = r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1' }, doseCount: 21, screening: 'screened' }));
     const [after] = await r.code('after save', saved);
-    assert.equal(after.json.screen, true);
-    assert.equal(after.json.screeningUrl, 'https://mohammad-aljry.app.n8n.cloud/webhook/jurah/screen-prescription');
-    assert.deepEqual(after.json.screeningBody, { patientId: 'pt-01', newPrescriptionId: 'rx_new1', language: 'ar' });
-    r.set('n8n: screen the new prescription', http(200, { message: 'Workflow was started' }));
-    const [a] = await r.code('answer (deterministic)', http(200, {}));
+    assert.equal(after.json.screening, 'screened');
+    assert.equal(after.json.notScreened, false);
+    const [a] = await r.code('answer (deterministic)', [{ json: after.json }]);
     assert.equal(a.json.ok, true);
     assert.equal(a.json.mustEscalate, false);
     assert.equal(a.json.saved.prescriptionId, 'rx_new1');
-    assert.deepEqual(a.json.screening, { handedOver: true, statusCode: 200 });
+    assert.deepEqual(a.json.screening, { outcome: 'screened' });
   });
 
-  await check('saved and unflagged but the screening hand-over failed -> mustEscalate (TC-IX invariant)', async () => {
+  await check('save:true, unflagged, backend screening \'held\' -> ok, no escalation (n8n did not accept it, but a specialist already holds it)', async () => {
     const { r } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(CLEAR)));
-    const [after] = await r.code('after save', r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new3' }, doseCount: 21 })));
-    assert.equal(after.json.screen, true);
-    r.set('n8n: screen the new prescription', http(404, { message: 'webhook not registered' }));
-    const [a] = await r.code('answer (deterministic)', http(404, {}));
-    assert.equal(a.json.ok, false);
-    assert.equal(a.json.mustEscalate, true);
+    const saved = r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new2' }, doseCount: 21, screening: 'held' }));
+    const [after] = await r.code('after save', saved);
+    assert.equal(after.json.notScreened, false);
+    const [a] = await r.code('answer (deterministic)', [{ json: after.json }]);
+    assert.equal(a.json.ok, true);
+    assert.equal(a.json.mustEscalate, false);
+    assert.deepEqual(a.json.screening, { outcome: 'held' });
   });
+
+  for (const s of [{ label: '\'skipped\'', body: { prescription: { id: 'rx_new3a' }, doseCount: 21, screening: 'skipped' } },
+                   { label: 'no screening field at all', body: { prescription: { id: 'rx_new3b' }, doseCount: 21 } }]) {
+    await check(`save:true, unflagged, backend screening ${s.label} -> mustEscalate, ok:false (TC-IX invariant broke on the backend's own side)`, async () => {
+      const { r } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(CLEAR)));
+      const [after] = await r.code('after save', r.set('backend: save the prescription', http(201, s.body)));
+      assert.equal(after.json.notScreened, true);
+      const [a] = await r.code('answer (deterministic)', [{ json: after.json }]);
+      assert.equal(a.json.ok, false);
+      assert.equal(a.json.mustEscalate, true);
+      assert.equal(a.json.saved.prescriptionId, s.body.prescription.id);
+    });
+  }
 
   await check('a truncated Gemini answer is never parsed, so nothing is saved', async () => {
     const { v } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(CLEAR), 'MAX_TOKENS'));
@@ -449,23 +467,25 @@ async function extractionScenarios() {
     assert.equal(v.result.code, 'not_a_prescription');
   });
 
-  await check('save:true, flagged -> saved with needsReview and NOT screened (TC-IX-06)', async () => {
+  await check('save:true, flagged -> saved with needsReview; backend screening \'skipped\' as expected (TC-IX-06), no escalation', async () => {
     const flagged = Object.assign({}, CLEAR, { doseTimes: null });
     const { r, v } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(flagged)));
     assert.equal(v.result.needsReview, true);
-    const [after] = await r.code('after save', r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new2' }, doseCount: 0 })));
-    assert.equal(after.json.screen, false);
+    const [after] = await r.code('after save', r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new4' }, doseCount: 0, screening: 'skipped' })));
+    assert.equal(after.json.notScreened, false, 'a flagged prescription is not screened until a reviewer confirms it - that is not an error here');
     const [a] = await r.code('answer (deterministic)', [{ json: after.json }]);
+    assert.equal(a.json.mustEscalate, false);
     assert.equal(a.json.appOutcome.kind, 'needs_review');
     assert.deepEqual(a.json.uncertainFields, ['doseTimes']);
   });
 
-  await check('backend refuses the save (422) -> ok:false, not screened', async () => {
+  await check('backend refuses the save (422) -> ok:false, no escalation (nothing was created to screen)', async () => {
     const { r } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png', save: true }, geminiText(JSON.stringify(CLEAR)));
     const [after] = await r.code('after save', r.set('backend: save the prescription', http(422, { error: 'constraint_violation', constraint: 'x' })));
-    assert.equal(after.json.screen, false);
+    assert.equal(after.json.notScreened, false);
     const [a] = await r.code('answer (deterministic)', [{ json: after.json }]);
     assert.equal(a.json.ok, false);
+    assert.equal(a.json.mustEscalate, false);
   });
 
   await check('not a prescription / unparseable / Gemini down -> unreadable, save never attempted', async () => {
