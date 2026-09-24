@@ -5,9 +5,9 @@ is the specification: every table, column, constraint, trigger, role, function a
 exists here under that name. `docs/backend-notes/p2-wp1.md` lists every place the SQL differs from
 it and says why.
 
-## The migrations, 0001–0011
+## The migrations, 0001–0014
 
-Eleven files. 0001–0006 are WP1's schema; 0007–0011 are later packages' additions (D-026), each applied
+Fourteen files. 0001–0006 are WP1's schema; 0007–0014 are later packages' additions (D-026), each applied
 through Path 1 below (Path 2 waits for `JURAH_DATABASE_URL`) and listed here. `list_migrations` shows them in APPLICATION order, which put
 0009 before 0008 (the two are independent); on a fresh database `migrate.ts` applies them by file name.
 
@@ -24,11 +24,29 @@ through Path 1 below (Path 2 waits for `JURAH_DATABASE_URL`) and listed here. `l
 | `0009_masked_name_lookup.sql` | P2-WP5 (D-026; numbered 0009 because WP7's brief reserves 0008). `lookup_masked_name(civil_id, session_id)` — `lookupMaskedName`'s security-definer path over `accounts` (which `jurah_app` cannot read): no session → null and no write; otherwise one `lookup_audit` row per call, the account query and the masking run on every branch, and `null` once the session has more than 10 rows in 60 s (CR-043). `invitation_masked_name(caregiver_id)` — dropped again by 0010 (D-036: the invite audit line is always neutral). Neither touches `caregivers.status`. Applied with `apply_migration` on 2026-09-22; the stored text's md5 equals the file's (`a3be7c34862033e3d1e0c1e91990fde2`; the first text, `019b0b29…`, was replaced in place the same day to mask on both branches — the stored history text was updated to the file's, see docs/backend-notes/p2-wp5.md). |
 | `0010_lookup_rate_limit_wall_clock.sql` | P2-WP5 follow-up (D-037, D-036). `lookup_masked_name` re-created so `lookup_audit.at` is stamped with `clock_timestamp()` and the 60-second window counts against `clock_timestamp()` — the one sanctioned SQL wall-clock read besides `jurah_now()`'s fallback (guard 6 allows exactly those two function bodies); under the frozen clock the eleventh lookup was otherwise refused for the session's whole life. Drops `invitation_masked_name`. Applied with `apply_migration` on 2026-09-22; the stored text's md5 equals the file's (`a7f44a1e489f7321542c9faf8045041e`). |
 | `0011_trigger_guards_null_safe.sql` | WPfinal, first integration run against the real database (D-039). `caregiver_transitions` and `prescription_clinical_fields_locked` re-created with 0004's bodies byte for byte, except that each boolean guard is wrapped in `coalesce(…, false)`. A NULL guard made `if … and not x then raise` fall through: a reviewer session could change the clinical fields of any never-flagged prescription (`field_review_status` NULL), and the owner with no session could cancel an invitation or end an active link. Applied with `apply_migration` on 2026-09-23; the stored text's md5 equals the file's (`e3b18354e05914b0e6c9baef4a742ea6`). |
+| `0012_voice_turns.sql` | AI-agents track, CR-069 (the screen follows the voice). The `voice_turns` table: one row per Alexa turn, inserted by `jurah_agent` only (`voice_turns_agent_insert`), read by the patient it belongs to only (`voice_turns_patient_select`), no UPDATE or DELETE for anyone, indexed on `(patient_id, seq)`. Its application is not recorded in this file; read `list_migrations`. |
+| `0013_voice_turns_record_topic.sql` | AI-agents track, CR-070. Re-creates `voice_turns_topic_check` so the topic list also holds `record`. Nothing else changes. Its application is not recorded in this file; read `list_migrations`. |
+| `0014_audit_insert_actor.sql` | AP-12, CR-061, DECISIONS CR-091. One RESTRICTIVE INSERT policy, `audit_insert_actor`, on `audit_events` for `jurah_app`, ANDed with 0005's `audit_insert_session`. From `jurah_app`, a row naming the actor `agent` is admitted only from the system session (`withSystem()`) and only as `prescription_discontinued` (D-025, the discontinuation the agent asks for), and a `dose_status_recorded` row only from the system session (the `doses_status_recorded_audit` trigger's system path). Every other row is admitted as before. `jurah_agent` keeps 0005's `audit_agent_insert` unchanged, so rows naming the agent keep coming from the agent role. Restrictive, so a re-apply of 0005 cannot undo it. **Not applied by merging** (the build does not migrate) and no code depends on it. md5 of the committed (LF) text: `71009e74bf6d07c88bc63d3c233ee023`. Applied by the lead: a Supabase branch first (cost approval), then production after showing the SQL; see "Applying 0014" below. |
 
 Every file is idempotent, so applying it again changes nothing. Types, roles and constraints are
 created only when absent. Functions, triggers and views use `create or replace`, and policies are
 dropped if they exist and then created. The migrations must run in order: 0005's revoke-then-grant
 also resets the view grants, and 0006 grants them again.
+
+## Applying 0014 (the lead's live step, after merge)
+
+1. On a **Supabase branch** first (`get_cost`, `confirm_cost`, then `create_branch`; CR-080 / D8).
+   Run `get_advisors` (security and performance) and keep the output: that is the "before".
+2. Show the SQL of `0014_audit_insert_actor.sql` in chat, then `apply_migration(name='0014_audit_insert_actor', query=<file contents>)`.
+3. With `JURAH_DATABASE_URL` pointing at the branch: `npm run test:integration`. The file
+   `tests/integration/enforcement/audit.test.ts` fails with one loud line until 0014 is applied,
+   then proves the refusals and every writer the seam uses; the rest of the suite is the regression
+   proof for the routes and seam functions that write audit rows (agent, channels, invitation, dose).
+4. `get_advisors` again: the "after".
+5. Production: the lead session, after showing the SQL again (the owner's instruction of
+   2026-09-24 to run the plan end to end stands in for the plan's "on Hamad's yes"), by the same
+   `apply_migration` call. Then read the stored text's md5 back and compare it with the md5 in the
+   table above.
 
 ## Path 1: the Supabase MCP connector (no connection string needed)
 
@@ -37,7 +55,7 @@ the build machine.
 
 1. For each file, in order: `apply_migration(project_id='frvubflbpujwuhsxweue', name=<file stem>, query=<file contents>)`.
    The connector records the migration with a timestamp version and `name` set to the stem, so
-   `list_migrations` shows one row per file (ten).
+   `list_migrations` shows one row per file.
 2. Seed: run `npx tsx scripts/db/seed.ts --print` and pass the output to `execute_sql`. It is one
    transaction, and its first statement truncates every table. `--body` prints the same statements
    without `begin`/`commit`, for wrapping in a function or `do` block.
