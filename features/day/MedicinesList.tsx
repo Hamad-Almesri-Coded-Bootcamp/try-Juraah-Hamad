@@ -55,6 +55,10 @@ export interface MedicinesListProps {
   /** Where "see all safety alerts" points — a second, quiet action beside "Open the alert", shown
    * only when more than one alert exists. */
   safetyHref?: string;
+  /** AP-10 / CR-089: the active prescriptions whose interaction screening has not answered yet
+   * (features/prescription/screening-state.ts, computed by the page). Each of their cards carries one
+   * quiet "being checked" line. Omitted (the caregiver's F2), no card carries it. */
+  beingCheckedIds?: ReadonlySet<string>;
   className?: string;
 }
 
@@ -81,8 +85,9 @@ function drugLine(rx: Prescription | undefined, locale: Locale): string | null {
 
 /** The lines under an active card's name (Daylight): its dose times as small pills, the supply
  * only when the pharmacy recorded a dispensing (never an invented estimate), and a quiet line when
- * the medicine is part of a serious interaction that still stands. Spans only: the card is a button. */
-function CardExtras({ rx, involved, locale }: { rx: Prescription; involved: boolean; locale: Locale }) {
+ * the medicine is part of a serious interaction that still stands, and (CR-089) a neutral line while
+ * a new medicine is still being checked against the others. Spans only: the card is a button. */
+function CardExtras({ rx, involved, checking, locale }: { rx: Prescription; involved: boolean; checking: boolean; locale: Locale }) {
   const depletion = rx.dispensing ? computeDepletion(rx) : null;
   const supply =
     depletion && depletion.remaining != null && depletion.total != null && depletion.daysRemaining != null
@@ -90,7 +95,7 @@ function CardExtras({ rx, involved, locale }: { rx: Prescription; involved: bool
       : null;
   const low = isLowSupply(supply?.days);
   const times = rx.doseTimes ?? [];
-  if (times.length === 0 && !supply && !involved) return null;
+  if (times.length === 0 && !supply && !involved && !checking) return null;
   return (
     <span className="mt-3 flex flex-col gap-3">
       {times.length > 0 && (
@@ -120,6 +125,13 @@ function CardExtras({ rx, involved, locale }: { rx: Prescription; involved: bool
           {t(copy.day.partOfSeriousInteraction, locale)}
         </span>
       )}
+      {/* CR-089: information, never an alert. Nothing has been found; neutral ink, no warning colour. */}
+      {checking && (
+        <span className="type-body-small flex items-center gap-1 text-ink-muted" data-testid="rx-being-checked">
+          <Icon name="shield" small />
+          {t(copy.prescription.rxBeingCheckedLine, locale)}
+        </span>
+      )}
     </span>
   );
 }
@@ -147,6 +159,7 @@ export function MedicinesList({
   readOnly = false,
   addHref,
   safetyHref,
+  beingCheckedIds,
   className,
 }: MedicinesListProps) {
   const active = prescriptions.filter((p) => p.status === 'active');
@@ -227,7 +240,7 @@ export function MedicinesList({
                 {active.map((rx) => {
                   const info = tracked ? nextDoseByPrescriptionId[rx.id] : undefined;
                   const href = hrefBuilder ? hrefBuilder(rx) : undefined;
-                  const extras = <CardExtras rx={rx} involved={involvedIds.has(rx.id)} locale={locale} />;
+                  const extras = <CardExtras rx={rx} involved={involvedIds.has(rx.id)} checking={beingCheckedIds?.has(rx.id) ?? false} locale={locale} />;
                   if (!href) {
                     return (
                       <PrescriptionCard key={rx.id} prescription={rx} dose={info ? { status: info.status } : undefined} doseTimeLabel={info?.timeLabel} lang={locale} className={CARD_LAYOUT}>

@@ -13,12 +13,14 @@
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { standingDangerAlerts } from '@/features/day/TodayView';
-import { getAlerts, getDoseHistory, getPrescription, getPrescriptions, getSettings } from '@/lib/data';
+import { getActivity, getAlerts, getDoseHistory, getPrescription, getPrescriptions, getSettings } from '@/lib/data';
+import { newPrescriptionsAwaitScreening } from '@/lib/agent-webhooks/state';
 import { kuwaitNow } from '@/lib/config';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
-import type { Prescription } from '@/types/contracts';
+import type { InteractionAlert, Prescription } from '@/types/contracts';
 import { PrescriptionDetailView, type PrescriptionDetailInteraction } from './PrescriptionDetailView';
+import { prescriptionsBeingChecked } from './screening-state';
 
 /** The standing danger finding (pending, or confirmed by the reviewer) this prescription is part
  * of, with the generic names of every prescription it involves — or null. Shared with F3. */
@@ -27,6 +29,16 @@ export async function interactionFor(
   alertHref: (alertId: string) => string,
 ): Promise<PrescriptionDetailInteraction | null> {
   const [alerts, prescriptions] = await Promise.all([getAlerts(rx.patientId), getPrescriptions(rx.patientId)]);
+  return interactionIn(rx, alerts, prescriptions, alertHref);
+}
+
+/** interactionFor over data already loaded (B3 loads the patient's alerts once for this and CR-089). */
+function interactionIn(
+  rx: Prescription,
+  alerts: InteractionAlert[],
+  prescriptions: Prescription[],
+  alertHref: (alertId: string) => string,
+): PrescriptionDetailInteraction | null {
   const alert = standingDangerAlerts(alerts).find((a) => a.involvedPrescriptionIds.includes(rx.id));
   if (!alert) return null;
   const nameById = new Map(prescriptions.map((p) => [p.id, p.drug.genericName] as const));
@@ -68,11 +80,18 @@ export async function PrescriptionDetail({
     );
   }
 
-  const [history, settings, interaction] = await Promise.all([
+  // CR-089: a new medicine reads "being checked" until its interaction screening answers. The audit
+  // rows it is derived from are read only where screening runs at all (not in production today).
+  const screeningLive = newPrescriptionsAwaitScreening();
+  const [history, settings, alerts, prescriptions, activity] = await Promise.all([
     getDoseHistory(prescriptionId),
     getSettings(rx.patientId),
-    interactionFor(rx, (id) => `/${locale}/app/safety/${id}`),
+    getAlerts(rx.patientId),
+    getPrescriptions(rx.patientId),
+    screeningLive ? getActivity(rx.patientId) : [],
   ]);
+  const interaction = interactionIn(rx, alerts, prescriptions, (id) => `/${locale}/app/safety/${id}`);
+  const beingChecked = prescriptionsBeingChecked({ prescriptions, alerts, activity, nowIso: kuwaitNow(), screeningLive }).has(rx.id);
 
   return (
     <PrescriptionDetailView
@@ -81,6 +100,7 @@ export async function PrescriptionDetail({
       nowIso={kuwaitNow()}
       locale={locale}
       interaction={interaction}
+      beingChecked={beingChecked}
       refillHref={rx.status === 'active' ? `/${locale}/app/more/refill?rx=${rx.id}` : null}
       // The note keys off Settings.adherenceCheckInEnabled, never off any dose's status word (rule
       // 3); each row's own pill still keys off that dose's own `tracked`.
