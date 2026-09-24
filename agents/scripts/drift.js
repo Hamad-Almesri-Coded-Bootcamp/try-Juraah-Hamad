@@ -7,7 +7,11 @@
  * ids, positions, credential ids, versionId and timestamps are dropped; node type, typeVersion,
  * parameters (Code-node source included, CRLF folded) and the execution settings are kept. The Alexa
  * skill id and device links are live-only config on purpose (the repository ships them empty) - they
- * are replaced by a marker before hashing and are never printed.
+ * are replaced by a marker before hashing and are never printed. AP-18: agent-error's Telegram node
+ * carries the same kind of live-only config - the team's real chat id, set by hand after import - so
+ * a literal (non-expression) `chatId` is masked the same way before hashing; every other workflow's
+ * Telegram nodes address `chatId` with a `={{ ... }}` expression, so this never hides drift in one of
+ * those.
  *
  *   node scripts/drift.js --snippet            print the snippet to run in the n8n page (it prints the live hashes)
  *   node scripts/drift.js --live live.json     compare the repository with those live hashes; exit 1 on any drift
@@ -28,6 +32,9 @@ const NORMALISE_SOURCE = String.raw`(function normaliseNode(n) {
   var CFG = /const ALEXA_SKILL_ID = .*;\nconst ALEXA_LINKS = .*;/;
   var p = JSON.parse(JSON.stringify(n.parameters || {}));
   if (typeof p.jsCode === 'string') p.jsCode = p.jsCode.replace(/\r\n/g, '\n').replace(CFG, '<ALEXA_CONFIG>');
+  // AP-18: a literal chatId (never one written as an '={{ ... }}' expression) is live-only config,
+  // masked the same way as the Alexa skill id and device links above.
+  if (typeof p.chatId === 'string' && p.chatId.slice(0, 2) !== '={') p.chatId = '<CHAT_ID>';
   var sort = function (v) { if (Array.isArray(v)) return v.map(sort); if (v && typeof v === 'object') { var o = {}; Object.keys(v).sort().forEach(function (k) { o[k] = sort(v[k]); }); return o; } return v; };
   return JSON.stringify(sort({ type: n.type, typeVersion: n.typeVersion, parameters: p, executeOnce: !!n.executeOnce, retryOnFail: !!n.retryOnFail, maxTries: n.maxTries || null, onError: n.onError || null }));
 })`;
