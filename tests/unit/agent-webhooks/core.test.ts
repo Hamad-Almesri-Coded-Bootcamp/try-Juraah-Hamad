@@ -72,17 +72,16 @@ describe('readDrugCheck ← agent-travel-check', () => {
   const seed = buildPrescriptions();
   const active = (id: string) => seed.filter((p) => p.patientId === id && p.status === 'active');
 
-  it('every appOutcome the real agent produces is read back unchanged - except cannot_verify, owed to PR #13/AP-11a', () => {
+  it('every appOutcome the real agent produces is read back unchanged', () => {
+    // D6/CR-078: the agent produces its own cannot_verify kind (CR-095, agents/knowledge/src/
+    // travel-check.js) and, now that PR #13/AP-11a has landed, readDrugCheck (lib/agent-webhooks/
+    // core.ts) passes it through unchanged too, so this assertion needs no exception any more - the
+    // dedicated "cannot_verify (CR-078) passes through ..." test below covers its extra-fields and
+    // non-200 cases.
     for (const patientId of ['pt-01', 'pt-02', 'pt-03']) {
       for (const text of ['KLACID', 'Euthyrox', 'ZOCOR', 'Panadol', 'UNKNOWNXYZ', '']) {
         const { appOutcome } = T.travelCheck({ patientId, visionText: text, prescriptions: active(patientId), index, brandIndex });
-        // D6/CR-078: the agent now produces its own cannot_verify kind (CR-095, agents/knowledge/src/
-        // travel-check.js). readDrugCheck does not read it yet - that is PR #13/AP-11a's own change,
-        // a separate PR against DrugCheckOutcome and this reader. Until it lands, this is the one
-        // outcome NOT read back unchanged, by design (docs/DECISIONS.md CR-095: "either merge order
-        // is safe"); the fallback itself is asserted below ("anything unexpected is could_not_identify").
-        const expected = appOutcome.kind === 'cannot_verify' ? { kind: 'could_not_identify' } : appOutcome;
-        expect(readDrugCheck(200, { ok: true, appOutcome })).toEqual(expected);
+        expect(readDrugCheck(200, { ok: true, appOutcome })).toEqual(appOutcome);
       }
     }
   });
