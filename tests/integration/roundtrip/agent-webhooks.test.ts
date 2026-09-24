@@ -6,11 +6,18 @@
  * AFTER the save committed and only for an unflagged prescription; nobody but the patient reaches an
  * agent. The stub path is covered, unchanged, by rx.test.ts / clinic.test.ts.
  *
+ * AP-10 (the last describe): screening on every other path, against the database: a reviewer's
+ * confirmation (TC-IX-06), a refill request (D10), an agent's save through POST
+ * /api/agent/prescriptions (CR-090), and the hold, audited as the agent, when n8n does not accept the
+ * job. Run it only against a Supabase TEST BRANCH (CR-080, D8): it commits prescriptions, refills
+ * and alerts. The branch costs money, so the run is owed until the cost is approved.
+ *
  * Without JURAH_DATABASE_URL tests/integration/setup.ts fails every test loudly (NOT A PASS).
  */
 import { createRequire } from 'node:module';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@/types/views';
+import { copy } from '@/i18n';
 
 const require = createRequire(import.meta.url);
 const E = require('../../../agents/knowledge/src/extraction.js');
@@ -34,9 +41,13 @@ const CLEAR = {
   dosingPattern: 'daily', durationDays: 30, startDate: '2026-09-21', confidence: SURE,
 };
 
+const KHALID: Session = { subjectId: 'acc-10', role: 'reviewer' };
+
 type Mods = {
   rx: typeof import('@/lib/data/pg/reads-rx');
   clinic: typeof import('@/lib/data/pg/reads-clinic');
+  writes: typeof import('@/lib/data/pg/writes');
+  agentRoute: typeof import('@/app/api/agent/prescriptions/route');
   cookie: typeof import('@/lib/session/cookie');
   db: typeof import('@/lib/db/client');
 };
@@ -48,9 +59,12 @@ const calls = (url: string) => fetchMock.mock.calls.filter(([u]) => u === url);
 beforeAll(async () => {
   vi.resetModules();
   for (const [k, v] of Object.entries(URLS)) vi.stubEnv(k, v);
+  vi.stubEnv('JURAH_DATA_BACKEND', 'postgres'); // the agent route answers 503 under the mock
   m = {
     rx: await import('@/lib/data/pg/reads-rx'),
     clinic: await import('@/lib/data/pg/reads-clinic'),
+    writes: await import('@/lib/data/pg/writes'),
+    agentRoute: await import('@/app/api/agent/prescriptions/route'),
     cookie: await import('@/lib/session/cookie'),
     db: await import('@/lib/db/client'),
   };
@@ -160,5 +174,95 @@ describe('C3 → Travel Check agent', () => {
     expect(await as(ABDULLAH, () => m.clinic.checkDrugPhoto('pt-01', JPEG()))).toEqual({ kind: 'could_not_identify' });
     expect(await as(SARA, () => m.clinic.checkDrugPhoto('pt-01', JPEG()))).toEqual({ kind: 'could_not_identify' });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('AP-10 · screening on every path, against the database', () => {
+  const TOKEN = () => (process.env.JURAH_AGENT_TOKEN ?? '').trim();
+  const agentPost = (body: unknown) =>
+    new Request('http://localhost:3000/api/agent/prescriptions', {
+      method: 'POST', headers: { authorization: `Bearer ${TOKEN()}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+    });
+  /** n8n accepts the job; the row it is about must already be COMMITTED when it is asked. */
+  function acceptScreening(check: (id: string) => Promise<boolean>): { committed: () => boolean } {
+    let committed = false;
+    fetchMock.mockImplementation(async (url: string, init: { body: string }) => {
+      if (url !== URLS.JURAH_AGENT_SCREENING_URL) return reply(404, null);
+      committed = await check(JSON.parse(String(init.body)).newPrescriptionId);
+      return reply(200, { message: 'Workflow was started' });
+    });
+    return { committed: () => committed };
+  }
+
+  it('TC-IX-06: a reviewer confirming a flagged prescription screens it after the commit, in the patient\'s language', async () => {
+    const seen = acceptScreening(async (id) => {
+      const [row] = await m.db.getSql()`select needs_review, field_review_status::text as s from prescriptions where id = ${id}`;
+      return row?.needs_review === false && row?.s === 'confirmed';
+    });
+    const confirmed = await as(KHALID, () => m.writes.confirmPrescriptionFields('rx-006', { drug: { genericName: '(unreadable)', brandName: 'Panadol', strengthMg: 500 }, frequencyPerDay: 1, startDate: '2026-09-20', doseTimes: ['09:00'] }, 'تم التأكيد'));
+    expect(confirmed.fieldReviewStatus).toBe('confirmed');
+    const screen = calls(URLS.JURAH_AGENT_SCREENING_URL);
+    expect(screen).toHaveLength(1);
+    expect(JSON.parse(String(screen[0]![1].body))).toEqual({ patientId: 'pt-02', newPrescriptionId: 'rx-006', language: 'ar' });
+    expect(seen.committed()).toBe(true);
+  });
+
+  it('D10: a refill request re-screens that prescription after the request committed', async () => {
+    const count = async (id: string) => (await m.db.getSql()`select count(*)::int as n from refill_requests where prescription_id = ${id}`)[0]!.n as number;
+    const before = await count('rx-001');
+    const seen = acceptScreening(async (id) => (await count(id)) === before + 1);
+    const refill = await as(HAMAD, () => m.writes.requestRefill('pt-01', 'rx-001'));
+    expect(refill.id).toMatch(/^rf_/);
+    const screen = calls(URLS.JURAH_AGENT_SCREENING_URL);
+    expect(screen).toHaveLength(1);
+    expect(JSON.parse(String(screen[0]![1].body))).toEqual({ patientId: 'pt-01', newPrescriptionId: 'rx-001', language: 'ar' });
+    expect(seen.committed()).toBe(true);
+  });
+
+  it('a request n8n does not accept is HELD: one pending warning on that prescription, empty citation, raised by the agent', async () => {
+    fetchMock.mockImplementation(async (url: string) => (url === URLS.JURAH_AGENT_SCREENING_URL ? reply(502, null) : reply(404, null)));
+    const refill = await as(HAMAD, () => m.writes.requestRefill('pt-01', 'rx-003'));
+    expect(refill.id).toMatch(/^rf_/); // the refill stands whatever n8n answers
+    expect(calls(URLS.JURAH_AGENT_SCREENING_URL)).toHaveLength(1);
+    const holds = await m.db.getSql()`
+      select id, source_citation, description from interaction_alerts
+       where patient_id = 'pt-01' and involved_prescription_ids = array['rx-003']::text[]
+         and severity = 'warning' and review_status = 'pending_medical_review'`;
+    expect(holds).toHaveLength(1);
+    expect(holds[0]).toMatchObject({ source_citation: '', description: copy.safety.screeningHeldTemplate.ar.replace('{drug}', 'Metformin') });
+    const [audit] = await m.db.getSql()`select actor_role::text as actor from audit_events where type = 'alert_raised' and related_id = ${String(holds[0]!.id)}`;
+    expect(audit).toEqual({ actor: 'agent' });
+    // …and it is in the reviewer's queue.
+    const queue = await as(KHALID, () => m.clinic.getReviewQueue());
+    expect(queue.map((q) => q.alertId)).toContain(String(holds[0]!.id));
+  });
+
+  it('CR-090: POST /api/agent/prescriptions screens an unflagged save itself and says so; a flagged one is not screened yet', async () => {
+    if (!TOKEN()) throw new Error('JURAH_AGENT_TOKEN is not set: the agent route refuses everyone; NOT A PASS');
+    m.cookie.setScriptSession(null);
+    const seen = acceptScreening(async (id) => {
+      const [row] = await m.db.getSql()`select id from prescriptions where id = ${id}`;
+      return !!row;
+    });
+    const prescription = {
+      source: { facilityName: 'Mubarak Al-Kabeer Hospital pharmacy', sector: 'public' }, drug: { genericName: 'Amoxicillin', strengthMg: 500, strengthUnit: 'mg' },
+      dosePerAdministration: 1, frequencyPerDay: 3, durationDays: 7, dosingPattern: 'daily', startDate: '2026-09-21', doseTimes: ['08:00', '14:00', '20:00'],
+    };
+    const ok = await m.agentRoute.POST(agentPost({ patientId: 'pt-01', needsReview: false, prescription }));
+    expect(ok.status).toBe(201);
+    const j = (await ok.json()) as { prescription: { id: string }; screening: string };
+    expect(j.screening).toBe('screened');
+    const screen = calls(URLS.JURAH_AGENT_SCREENING_URL);
+    expect(screen).toHaveLength(1);
+    expect(JSON.parse(String(screen[0]![1].body))).toEqual({ patientId: 'pt-01', newPrescriptionId: j.prescription.id, language: 'ar' });
+    expect(seen.committed()).toBe(true);
+
+    fetchMock.mockClear();
+    const { startDate: _sd, ...unsure } = prescription;
+    void _sd;
+    const flagged = await m.agentRoute.POST(agentPost({ patientId: 'pt-01', needsReview: true, uncertainFields: ['startDate'], prescription: unsure }));
+    expect(flagged.status).toBe(201);
+    expect(((await flagged.json()) as { screening: string }).screening).toBe('skipped');
+    expect(calls(URLS.JURAH_AGENT_SCREENING_URL)).toHaveLength(0);
   });
 });

@@ -131,4 +131,14 @@ export const safety = {
     en: 'No verified medical source is available for this alert yet.',
     placeholder: true,
   },
+
+  // AP-10 / F3 — the hold: the description of the `warning` / `pending_medical_review` alert the
+  // backend raises on a prescription whose screening request n8n did not accept
+  // (lib/data/pg/screening.ts). Stored once, in the patient's language; `{drug}` is the
+  // prescription's generic name as written. It reaches the reviewer's queue and the Safety list.
+  screeningHeldTemplate: {
+    ar: 'لم نتمكن من إكمال فحص {drug} مع أدويتك الأخرى، لذلك سيراجعه مختص طبي قبل الاعتماد عليه.',
+    en: 'We could not finish checking {drug} against your other medicines, so a medical reviewer will look at it before it is relied on.',
+    placeholder: true,
+  },
 } satisfies Record<string, CopyEntry>;

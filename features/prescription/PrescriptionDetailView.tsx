@@ -5,7 +5,8 @@
  *
  * Leads with its answer: the medicine (large monogram, brand first then generic, sector and
  * facility), then a link when it is part of a serious interaction that still stands, the
- * needs-review line, how much and when (three facts), supply left (only with a dispensing record:
+ * needs-review line or (CR-089) the being-checked notice, how much and when (three facts), supply
+ * left (only with a dispensing record:
  * never an invented estimate), every contract field in one card (the empty ones named in one
  * closing line) and the dose history, windowed.
  *
@@ -47,6 +48,10 @@ export interface PrescriptionDetailViewProps {
   locale: Locale;
   /** The standing danger finding this medicine is part of, if any (CR-069(g)). */
   interaction?: PrescriptionDetailInteraction | null;
+  /** AP-10 / CR-089: its interaction screening has not answered yet (features/prescription/
+   * screening-state.ts). One info notice where the needs-review note would sit; the two never meet,
+   * since a flagged medicine is not screened until its reviewer confirms it. F3 omits it. */
+  beingChecked?: boolean;
   /** Where "Request a refill" goes. `null` renders no refill action (F3, or a stopped course). */
   refillHref?: string | null;
   /** The tracking-off line, in the caller's own voice; `null` when tracking is on. */
@@ -63,7 +68,7 @@ function Fact({ icon, value, label }: { icon: IconName; value: ReactNode; label:
   );
 }
 
-export function PrescriptionDetailView({ rx, history, nowIso, locale, interaction, refillHref = null, trackingOffNote }: PrescriptionDetailViewProps) {
+export function PrescriptionDetailView({ rx, history, nowIso, locale, interaction, beingChecked = false, refillHref = null, trackingOffNote }: PrescriptionDetailViewProps) {
   const { primary, generic } = medicineNames(rx.drug, locale);
   const strength = formatStrength(rx.drug, locale);
   // No `dispensing` → no ring, no estimate, no invented number (computeDepletion itself returns
@@ -134,6 +139,12 @@ export function PrescriptionDetailView({ rx, history, nowIso, locale, interactio
       )}
 
       {rx.needsReview && <InlineNotice tone="info" title={t(copy.prescription.rxNeedsReviewNote, locale)} />}
+
+      {beingChecked && !rx.needsReview && (
+        <InlineNotice tone="info" title={t(copy.prescription.rxBeingCheckedTitle, locale)}>
+          {t(copy.prescription.rxBeingCheckedBody, locale)}
+        </InlineNotice>
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="jr-group-title">{t(copy.prescription.b3TakingTitle, locale)}</h2>

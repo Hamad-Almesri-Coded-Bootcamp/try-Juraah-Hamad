@@ -47,6 +47,20 @@ export const prescription = {
     en: 'A medical reviewer still needs to confirm some details on this prescription.',
     placeholder: true,
   },
+  // AP-10 / CR-089 — "being checked" (D12): a new, unflagged prescription whose interaction screening
+  // has not answered yet (features/prescription/screening-state.ts). B2's card line and B3's notice.
+  // Information, never an alert: nothing has been found, and nothing is asked of the patient.
+  rxBeingCheckedLine: { ar: 'قيد الفحص مع أدويتك الأخرى', en: 'Being checked against your other medicines', placeholder: true },
+  rxBeingCheckedTitle: {
+    ar: 'نفحص هذا الدواء مع أدويتك الأخرى',
+    en: 'We are checking this medicine against your other medicines',
+    placeholder: true,
+  },
+  rxBeingCheckedBody: {
+    ar: 'يستغرق ذلك عادةً بضع دقائق. إن وجدنا ما يستدعي انتباهك فستجده في قسم السلامة.',
+    en: 'This usually takes a few minutes. If we find anything that needs your attention, you will see it under Safety.',
+    placeholder: true,
+  },
 
   // B3 (Daylight) — the three facts under the header, the details card and its one line naming every
   // field that holds no value (each field is still named, none dropped: "every contract field").

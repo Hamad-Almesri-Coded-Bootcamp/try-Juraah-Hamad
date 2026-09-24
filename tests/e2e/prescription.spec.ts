@@ -209,9 +209,12 @@ for (const [locale, dir] of LOCALES) {
         testInfo.project.name !== 'desktop-1440' || locale !== 'en',
         'runs once only — savePrescriptionDraft is irreversible against the shared mock store (D-002)',
       );
+      // Four more pages (B2 and B3 in both languages, each with an axe pass) than the save itself.
+      test.setTimeout(240_000);
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/medicines`);
       const before = await page.locator('.wsf-rx').count();
+      const checkingBefore = await page.getByTestId('rx-being-checked').count();
 
       await page.goto(`/${locale}/app/medicines/add`);
       await choosePhoto(page, 150);
@@ -219,6 +222,34 @@ for (const [locale, dir] of LOCALES) {
       await (await hydrated(page.getByRole('button', { name: t(copy.prescription.b4ConfirmButton, locale), exact: true }))).click();
       await expect(page).toHaveURL(new RegExp(`/${locale}/app/medicines$`), { timeout: 15000 });
       await expect(page.locator('.wsf-rx')).toHaveCount(before + 1, { timeout: 15000 });
+
+      // AP-10 / CR-089: the new medicine reads "being checked" until its interaction screening
+      // answers (the mock backend stands for a configured one that has not answered yet). Counted
+      // before/after, like the cards: a re-run against the same server adds one more.
+      await expect(page.getByTestId('rx-being-checked')).toHaveCount(checkingBefore + 1);
+      // The screens it appears on, at 390 px in both languages: B2's card line, then B3's notice.
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const l of ['ar', 'en'] as const) {
+        await page.goto(`/${l}/app/medicines`);
+        const line = page.getByTestId('rx-being-checked').last();
+        await expect(line).toHaveText(t(copy.prescription.rxBeingCheckedLine, l));
+        await line.scrollIntoViewIfNeeded();
+        await noOverflowAndAxeClean(page);
+        await page.screenshot({ path: testInfo.outputPath(`ap10-b2-being-checked-390-${l}.png`) });
+        await (await hydrated(page.locator('.wsf-rx', { has: page.getByTestId('rx-being-checked') }).last())).click();
+        await expect(page).toHaveURL(new RegExp(`/${l}/app/medicines/rx-`), { timeout: 15000 });
+        const notice = page.getByRole('status').filter({ hasText: t(copy.prescription.rxBeingCheckedTitle, l) });
+        await expect(notice).toBeVisible();
+        await expect(notice).toContainText(t(copy.prescription.rxBeingCheckedBody, l));
+        await noOverflowAndAxeClean(page);
+        await page.screenshot({ path: testInfo.outputPath(`ap10-b3-being-checked-390-${l}.png`) });
+      }
+    });
+
+    test('a seed prescription never reads "being checked" (CR-089)', async ({ page, context, baseURL }) => {
+      await addSession(context, baseURL, 'hamad');
+      await page.goto(`/${locale}/app/medicines/rx-001`);
+      await expect(page.getByText(t(copy.prescription.rxBeingCheckedTitle, locale), { exact: true })).toHaveCount(0);
     });
 
     test('needs_review outcome: uncertain fields visibly marked, same confirm path', async ({ page, context, baseURL }) => {
