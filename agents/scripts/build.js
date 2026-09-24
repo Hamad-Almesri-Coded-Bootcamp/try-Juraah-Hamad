@@ -57,6 +57,10 @@ function inline(file) {
     src + '\n/* ===== end generated ===== */';
 }
 const ADHERENCE = inline('lib/adherence.js');
+// AP-11: no model-contract marker (PHOTO_PROMPT/PHOTO_SCHEMA are built into the vision request by
+// plain Code, like agents/knowledge/src/extraction.js's PROMPT/RESPONSE_SCHEMA - there is no chain
+// node here to carry them instead), so this inlines whole, after ADHERENCE (it reads REPLIES).
+const ORCHESTRATOR = inline('lib/orchestrator.js');
 const SCREENING = inline('lib/screening.js');
 // AP-03/D3: the Telegram copy is now built on the drug-knowledge core (agents/knowledge/src/extraction.js),
 // which agents/lib/extraction.js requires and re-exports; both are inlined here, core first.
@@ -118,6 +122,21 @@ function telegramButtons(id, name, position) {
   };
 }
 
+/** AP-11: the Orchestrator's own "is it a prescription or a medicine box?" - exactly two buttons,
+ * never three. The three-button helper above is untouched. */
+function telegramTwoButtons(id, name, position) {
+  const button = (i) => ({ text: '={{ $json.buttons[' + i + '].text }}', additionalFields: { callback_data: '={{ $json.buttons[' + i + '].data }}' } });
+  return {
+    parameters: {
+      chatId: '={{ $json.chatId }}', text: '={{ $json.text }}',
+      replyMarkup: 'inlineKeyboard',
+      inlineKeyboard: { rows: [{ row: { buttons: [button(0), button(1)] } }] },
+      additionalFields: { appendAttribution: false },
+    },
+    id, name, type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position, onError: 'continueRegularOutput',
+  };
+}
+
 const gemini = (id, name, model, position) => ({
   parameters: { modelName: model, options: { temperature: 0 } },
   retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
@@ -145,7 +164,7 @@ const CONFIG = "const API = " + JSON.stringify(API_BASE) + ";\nconst N8N = " + J
 // =============================================================== 1. agent-telegram-inbound
 const IN = (n) => uuid('b1000000-0000-4000-8000-', n);
 
-const ROUTE = CONFIG + '\n' + ADHERENCE + `
+const ROUTE = CONFIG + '\n' + ADHERENCE + '\n' + ORCHESTRATOR + `
 
 // The relay (CR-063) already resolved WHO this chat is, server-side, and only forwards a patient's
 // or an ACTIVE caregiver's chat. Re-check the shape anyway: fail closed on anything unexpected.
@@ -157,9 +176,37 @@ if (!ok) return [];
 const tap = p.kind === 'callback' ? parseTap(p.text) : null;
 // A tap carries the CHECK-IN message's time, not the tap's: the tap happened now (n8n's receipt).
 const eventAt = p.kind === 'callback' ? new Date().toISOString() : p.sentAt;
-const route = (p.photoFileId || p.documentFileId) && p.subjectType === 'patient' && p.kind === 'message' ? 'extraction' : 'adherence';
+
+// AP-11 - the Orchestrator decides the route; it never decides a dose, a time or a drug (D23).
+const store = $getWorkflowStaticData('global');
+const routeOpts = { store, now: Date.now() };
+const route = routeInbound(p, routeOpts);
+if (route === null) return [];
+
+// A resumed or:rx / or:box tap names no file of its own - the remembered one (never trusted from
+// the tap's own text) takes its place, so the EXISTING download nodes pick it up unchanged.
+let photoFileId = p.photoFileId || null;
+let documentFileId = p.documentFileId || null;
+if (route === 'extraction' || route === 'travel') {
+  const resumed = routeOpts.resumedFile;
+  photoFileId = resumed && resumed.kind === 'photo' ? resumed.fileId : null;
+  documentFileId = resumed && resumed.kind === 'document' ? resumed.fileId : null;
+}
+// 'reply' at THIS stage (before any download) is only ever a caregiver's own message, or an
+// or:rx/or:box tap that is missing or has expired; 'other'/'unsure'/a file problem are decided
+// later, only after the photo is downloaded and classified.
+let reason = null;
+let caregiverKind = null;
+if (route === 'reply') {
+  if (p.subjectType !== 'patient') {
+    reason = 'caregiver';
+    caregiverKind = p.photoFileId ? 'photo' : (p.documentFileId ? 'document' : 'text');
+  } else {
+    reason = 'photo_expired';
+  }
+}
 return [{ json: {
-  route,
+  route, reason, caregiverKind, messageId: p.messageId || null,
   subjectType: p.subjectType, patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
   text: typeof p.text === 'string' ? p.text.slice(0, 500) : '',
   tap, eventAt,
@@ -167,7 +214,7 @@ return [{ json: {
   date: kuwaitDate(p.sentAt),
   needsModel: route === 'adherence' && p.subjectType === 'patient' && !tap && typeof p.text === 'string' && p.text.trim().length > 0,
   callbackQueryId: p.callbackQueryId || null,
-  photoFileId: p.photoFileId || null, documentFileId: p.documentFileId || null,
+  photoFileId, documentFileId,
   dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + kuwaitDate(p.sentAt),
 } }];`;
 
@@ -269,6 +316,82 @@ return [{ json: { chatId: v.chatId, text, buttons: null,
   screeningBody: screen ? { patientId: v.patientId, newPrescriptionId: created.id, language: v.language } : null,
   log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode } } }];`;
 
+// ---- AP-11: the Orchestrator's own photo branch (a real router: one narrow vision question, then
+// a fixed set of deterministic outcomes - never a model deciding a route on its own say-so).
+const ORCH_ASK = ORCHESTRATOR + `
+
+// Downloaded once, whether the message was a photo or a document (routeInbound could not tell
+// which without this). A PDF or anything unsupported is decided from its mime type alone - never
+// asked to the model (Travel Check reads images only, so a PDF can only be a prescription).
+const r = $('route (deterministic)').first().json;
+const bin = $input.first().binary || {};
+const key = Object.keys(bin)[0];
+const buffer = key ? await this.helpers.getBinaryDataBuffer(0, key) : null;
+const mime = key ? (bin[key].mimeType || 'application/octet-stream') : '';
+const q = photoQuestion(mime, buffer);
+if (!q.ok) return [{ json: { ...r, visionBody: null, mimeShortcut: null, fileProblem: q.reason } }];
+return [{ json: { ...r, visionBody: q.visionBody, mimeShortcut: q.mimeShortcut, fileProblem: null } }];`;
+
+const ORCH_DECIDE = ORCHESTRATOR + `
+
+// THE DETERMINISTIC LAYER for the photo question. A PDF or a file problem is already decided
+// (photoQuestion said so, above) and never reads the model's answer at all; everything else goes
+// through decidePhoto's own floor (MIN_ROUTE_CONFIDENCE) - never a guess below it.
+const a = $('orchestrator: ask what the photo is').first().json;
+const res = $input.first().json;
+let decided;
+if (a.mimeShortcut) decided = { kind: a.mimeShortcut, confidence: 1, claimed: a.mimeShortcut, guardrail: null };
+else if (a.fileProblem) decided = { kind: 'unsure', confidence: 0, claimed: null, guardrail: a.fileProblem };
+else decided = decidePhoto(res);
+// An unsure photo (never a file problem - there is nothing to resume against) is remembered ONCE,
+// keyed by the ORIGINAL message id, so a later tap can resume it. Never the file id (it never
+// appears in a callback), never the caption, never the chat id (rule 6/7).
+if (decided.kind === 'unsure' && !a.fileProblem && a.messageId) {
+  rememberPhoto($getWorkflowStaticData('global'), a.patientId, a.messageId, a.photoFileId || a.documentFileId,
+    a.photoFileId ? 'photo' : 'document', Date.now());
+}
+let reason = null;
+if (decided.kind === 'other') reason = 'other';
+else if (decided.kind === 'unsure') reason = a.fileProblem ? 'file_problem' : 'unsure';
+return [{ json: { ...a, decidedKind: decided.kind, reason } }];`;
+
+const ORCH_REPLY = ADHERENCE + '\n' + ORCHESTRATOR + `
+
+// Fed by either of two nodes (a caregiver or an expired tap, straight from route (deterministic);
+// or other/unsure/a file problem, from decide (deterministic)) - both carry the same core fields,
+// so this reads $input rather than a named node.
+const j = $input.first().json;
+const built = orchestratorReply({ reason: j.reason, kind: j.caregiverKind, language: j.language, messageId: j.messageId });
+return [{ json: { chatId: j.chatId, text: built.text, buttons: built.buttons, callbackQueryId: j.callbackQueryId,
+  log: { route: 'reply', reason: j.reason, patientId: j.patientId } } }];`;
+
+const ORCH_TRAVEL_REQUEST = ORCHESTRATOR + '\n' + CONFIG + `
+
+// The candidate for Travel Check - freshly classified as a medicine box, or a resumed or:box tap.
+// Re-downloaded here rather than threaded through from classification (extraction does the same
+// for a re-confirmed prescription): one clear source of the bytes that are actually sent.
+const r = $('route (deterministic)').first().json;
+const bin = $input.first().binary || {};
+const key = Object.keys(bin)[0];
+const travelUrl = N8N + '/jurah/travel-check';
+if (!key) return [{ json: { ...r, travelUrl, travelBody: null, fileProblem: 'file_not_downloaded' } }];
+const buffer = await this.helpers.getBinaryDataBuffer(0, key);
+const mime = bin[key].mimeType || 'image/jpeg';
+return [{ json: { ...r, travelUrl, fileProblem: null,
+  travelBody: travelBody({ patientId: r.patientId, imageBase64: buffer.toString('base64'), mimeType: mime, language: r.language }) } }];`;
+
+const ORCH_TRAVEL_REPLY = ORCHESTRATOR + `
+
+// THE DETERMINISTIC LAYER for Travel Check's answer: one fixed line, chosen by verdict alone -
+// never a direct instruction, never an all-clear when the call itself did not go cleanly.
+const r = $('orchestrator: build the travel request').first().json;
+const res = $input.first().json;
+const text = r.fileProblem ? ORCH_TEXT[r.language === 'en' ? 'en' : 'ar'].file_problem
+  : travelReply({ statusCode: res.statusCode, body: res.body, language: r.language });
+return [{ json: { chatId: r.chatId, text, buttons: null, callbackQueryId: r.callbackQueryId,
+  log: { route: 'travel', patientId: r.patientId, statusCode: res.statusCode,
+         verdict: res.body && res.body.verdict, alertId: res.body && res.body.alertId, error: (res.body && res.body.error) || r.fileProblem } } }];`;
+
 const inbound = {
   name: 'agent-telegram-inbound',
   nodes: [
@@ -322,11 +445,62 @@ const inbound = {
                     sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
                     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
       id: IN(31), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1520, -160] },
+    // ---- AP-11: the Orchestrator (a real router: prescription | medicine_package | other | unsure)
+    ifNode(IN(32), 'photo?', "={{ $json.route === 'photo' }}", [-460, -420]),
+    ifNode(IN(33), 'medicine box?', "={{ $json.route === 'travel' }}", [-460, -560]),
+    ifNode(IN(34), 'fixed reply?', "={{ $json.route === 'reply' }}", [-460, -680]),
+    { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
+      id: IN(35), name: 'orchestrator: download the photo', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [-240, -420],
+      onError: 'continueRegularOutput' },
+    code(IN(36), 'orchestrator: ask what the photo is', ORCH_ASK, [-20, -420]),
+    { parameters: { method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/' + VISION_MODEL_PATH + ':generateContent',
+                    authentication: 'predefinedCredentialType', nodeCredentialType: 'googlePalmApi',
+                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.visionBody) }}',
+                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
+      id: IN(37), name: 'Gemini: what is this photo?', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [200, -420],
+      retryOnFail: true, maxTries: 2, waitBetweenTries: 2000 },
+    code(IN(38), 'orchestrator: decide (deterministic)', ORCH_DECIDE, [420, -420]),
+    ifNode(IN(39), 'a prescription (photo)?', "={{ $json.decidedKind === 'prescription' }}", [640, -420]),
+    ifNode(IN(40), 'a medicine box (photo)?', "={{ $json.decidedKind === 'medicine_package' }}", [640, -560]),
+    { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
+      id: IN(41), name: 'Telegram: download for travel check', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [860, -560],
+      onError: 'continueRegularOutput' },
+    code(IN(42), 'orchestrator: build the travel request', ORCH_TRAVEL_REQUEST, [1080, -560]),
+    { parameters: { method: 'POST', url: '={{ $json.travelUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.travelBody) }}',
+                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 60000 } },
+      id: IN(43), name: 'n8n: travel check', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1300, -560] },
+    code(IN(44), 'orchestrator: travel reply (deterministic)', ORCH_TRAVEL_REPLY, [1520, -560]),
+    telegramText(IN(45), 'Telegram: travel reply', [1740, -560]),
+    code(IN(46), 'orchestrator: reply (deterministic)', ORCH_REPLY, [860, -680]),
+    ifNode(IN(47), 'with two buttons?', '={{ Array.isArray($json.buttons) }}', [1080, -680]),
+    telegramTwoButtons(IN(48), 'Telegram: orchestrator choice', [1300, -760]),
+    telegramText(IN(49), 'Telegram: orchestrator text', [1300, -600]),
+    ifNode(IN(50), 'an orchestrator tap?', '={{ !!$json.callbackQueryId }}', [1520, -680]),
+    { parameters: { resource: 'callback', queryId: '={{ $json.callbackQueryId }}', additionalFields: {} },
+      id: IN(51), name: 'Telegram: close the photo tap', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [1740, -680],
+      onError: 'continueRegularOutput', executeOnce: true },
   ],
   connections: {
     'Relay from the app (CR-063)': main('route (deterministic)'),
     'route (deterministic)': main('a prescription photo?'),
-    'a prescription photo?': main('Telegram: download the file', 'backend: doses of the day'),
+    'a prescription photo?': main('Telegram: download the file', 'photo?'),
+    'photo?': main('orchestrator: download the photo', 'medicine box?'),
+    'medicine box?': main('Telegram: download for travel check', 'fixed reply?'),
+    'fixed reply?': main('orchestrator: reply (deterministic)', 'backend: doses of the day'),
+    'orchestrator: download the photo': main('orchestrator: ask what the photo is'),
+    'orchestrator: ask what the photo is': main('Gemini: what is this photo?'),
+    'Gemini: what is this photo?': main('orchestrator: decide (deterministic)'),
+    'orchestrator: decide (deterministic)': main('a prescription (photo)?'),
+    'a prescription (photo)?': main('Telegram: download the file', 'a medicine box (photo)?'),
+    'a medicine box (photo)?': main('Telegram: download for travel check', 'orchestrator: reply (deterministic)'),
+    'Telegram: download for travel check': main('orchestrator: build the travel request'),
+    'orchestrator: build the travel request': main('n8n: travel check'),
+    'n8n: travel check': main('orchestrator: travel reply (deterministic)'),
+    'orchestrator: travel reply (deterministic)': main(['Telegram: travel reply', 'an orchestrator tap?']),
+    'orchestrator: reply (deterministic)': main(['with two buttons?', 'an orchestrator tap?']),
+    'with two buttons?': main('Telegram: orchestrator choice', 'Telegram: orchestrator text'),
+    'an orchestrator tap?': main('Telegram: close the photo tap'),
     'backend: doses of the day': main('needs the model?'),
     'needs the model?': main('Gemini: classify the reply', 'decide (deterministic)'),
     'Gemini: classify the reply': main('decide (deterministic)'),

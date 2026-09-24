@@ -48,7 +48,7 @@ async function staticChecks() {
     });
     await check(name + ': every Code node compiles', () => {
       for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
-        try { new AsyncFunction('$input', '$', n.parameters.jsCode); } catch (e) { throw new Error(n.name + ': ' + e.message); }
+        try { new AsyncFunction('$input', '$', '$getWorkflowStaticData', n.parameters.jsCode); } catch (e) { throw new Error(n.name + ': ' + e.message); }
       }
     });
     await check(name + ': no /webhook-test/, no secret, no credential blob', () => {
@@ -70,15 +70,19 @@ function runner(wf) {
     if (!(name in out)) throw new Error('Referenced node is unexecuted: ' + name);
     return { first: () => out[name][0], all: () => out[name] };
   };
+  // AP-11: one in-memory object per scenario (per runner(wf) call), standing in for n8n's own
+  // $getWorkflowStaticData('global') - the Orchestrator's pending-photo store.
+  const staticData = {};
+  const getStaticData = () => staticData;
   return {
-    out,
+    out, staticData,
     set(name, items) { out[name] = items; return items; },
     async code(name, input, binary) {
       const n = byName[name];
       assert.ok(n && n.type === 'n8n-nodes-base.code', 'no Code node ' + name);
       const $input = { first: () => input[0], all: () => input };
       const ctx = { helpers: { getBinaryDataBuffer: async () => binary } };
-      const result = await new AsyncFunction('$input', '$', n.parameters.jsCode).call(ctx, $input, ref);
+      const result = await new AsyncFunction('$input', '$', '$getWorkflowStaticData', n.parameters.jsCode).call(ctx, $input, ref, getStaticData);
       out[name] = result;
       return result;
     },
@@ -165,13 +169,8 @@ async function scenarios() {
     const s = await inbound({ payload: relay({ text: 'خذيته' }), model: { error: '429' } });
     assert.equal(s.calls.length, 0);
   });
-  await check('TC-AD-14: «أبوي خذ الدوا» from an ACTIVE caregiver -> no model, no write, "only the patient"', async () => {
-    const s = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }) });
-    assert.equal(s.routed.needsModel, false);
-    assert.equal(s.calls.length, 0);
-    assert.match(s.replies[0].text, /المريض بنفسه/);
-    console.log('        -> ' + s.replies[0].text);
-  });
+  // TC-AD-14 (a caregiver's text) is re-pointed below, in the Orchestrator section: AP-11 moves a
+  // caregiver's message (of any kind) off this adherence path entirely (route === 'reply').
   await check('TC-AD-07: a tap d:rx-009-20260924-1300:taken_late -> that dose, no model call', async () => {
     const s = await inbound({ payload: relay({ kind: 'callback', text: 'd:rx-009-20260924-1300:taken_late', callbackQueryId: 'cbq-1', sentAt: '2026-09-24T08:00:00+03:00' }) });
     assert.equal(s.routed.needsModel, false);
@@ -202,12 +201,22 @@ async function scenarios() {
     }
   });
 
-  console.log('\n######## agent-telegram-inbound (extraction)');
-  await check('a prescription photo -> routed to extraction; the vision reply becomes a body; 201 -> screening requested', async () => {
+  console.log('\n######## agent-telegram-inbound (extraction, via the Orchestrator\'s photo branch - AP-11)');
+  const geminiPhoto = (kind, confidence) => http(200, { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ kind, confidence }) }] } }] });
+  /** route -> the photo branch -> classified as `kind` -> the IF chain re-downloads for the agent
+   * that owns it. Returns the runner so the caller continues exactly as the old direct-route test did. */
+  async function photoClassifiedAs(kind, confidence, payload, mime = 'image/jpeg', buffer = Buffer.from('fake-jpeg-bytes')) {
     const wf = WF('agent-telegram-inbound');
     const r = runner(wf);
-    const [routed] = await r.code('route (deterministic)', relay({ text: 'وصفتي', photoFileId: 'AgAC-large' }));
-    assert.equal(routed.json.route, 'extraction');
+    const [routed] = await r.code('route (deterministic)', payload);
+    assert.equal(routed.json.route, 'photo');
+    await r.code('orchestrator: ask what the photo is', [{ json: {}, binary: { data: { mimeType: mime } } }], buffer);
+    const [decided] = await r.code('orchestrator: decide (deterministic)', geminiPhoto(kind, confidence));
+    assert.equal(decided.json.decidedKind, kind);
+    return { r, decided: decided.json };
+  }
+  await check('a prescription photo -> the Orchestrator classifies it (0.92), THEN routed to extraction; the vision reply becomes a body; 201 -> screening requested', async () => {
+    const { r } = await photoClassifiedAs('prescription', 0.92, relay({ text: 'وصفتي', photoFileId: 'AgAC-large' }));
     const [req] = await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('fake-jpeg-bytes'));
     assert.equal(req.json.visionBody.contents[0].parts[1].inlineData.mimeType, 'image/jpeg');
     assert.equal(req.json.visionBody.generationConfig.responseMimeType, 'application/json');
@@ -230,9 +239,8 @@ async function scenarios() {
     assert.match(reply.json.screeningUrl, /\/webhook\/jurah\/screen-prescription$/);
     console.log('        -> ' + reply.json.text);
   });
-  await check('TC-EX-04: a medicine box photo -> isPrescription false -> nothing saved, never screened', async () => {
-    const r = runner(WF('agent-telegram-inbound'));
-    await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-box' }));
+  await check('TC-EX-04: the orchestrator says prescription (0.95); extraction itself says isPrescription false -> nothing saved, never screened', async () => {
+    const { r } = await photoClassifiedAs('prescription', 0.95, relay({ photoFileId: 'AgAC-box' }), 'image/png');
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/png' } } }], Buffer.from('x'));
     const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: '{"isPrescription":false}' }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.body, null);
@@ -241,8 +249,7 @@ async function scenarios() {
     assert.match(reply.json.text, /ما تبين إنها وصفة/);
   });
   await check('a flagged extraction is saved for the reviewer and NOT screened yet (TC-IX-06)', async () => {
-    const r = runner(WF('agent-telegram-inbound'));
-    await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-blurry' }));
+    const { r } = await photoClassifiedAs('prescription', 0.9, relay({ photoFileId: 'AgAC-blurry' }));
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('x'));
     const reading = { isPrescription: true, facilityName: 'عيادة الياسمين', sector: 'private', genericName: 'Ciprofloxacin', dosePerAdministration: 1,
       frequencyPerDay: 2, dosingPattern: 'daily', durationDays: 5,
@@ -254,6 +261,108 @@ async function scenarios() {
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
     assert.equal(reply.json.screen, false);
     assert.match(reply.json.text, /بيراجعها مختص طبي/);
+  });
+
+  console.log('\n######## agent-telegram-inbound (the Orchestrator itself - AP-11)');
+  await check('a medicine box photo (0.9) builds the travel body {patientId, imageBase64, mimeType, language} and turns Travel Check\'s own answer into ONE fixed line, chosen by verdict alone', async () => {
+    const { r } = await photoClassifiedAs('medicine_package', 0.9, relay({ patientId: 'pt-03', photoFileId: 'AgAC-box2' }));
+    const [req] = await r.code('orchestrator: build the travel request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('box-bytes'));
+    assert.match(req.json.travelUrl, /\/webhook\/jurah\/travel-check$/);
+    assert.deepEqual(req.json.travelBody, { patientId: 'pt-03', imageBase64: Buffer.from('box-bytes').toString('base64'), mimeType: 'image/jpeg', language: 'ar' });
+
+    const answer = (over) => http(200, { ok: true, error: null, mustEscalate: false, appOutcome: { kind: 'could_not_identify' }, verdict: null, message: null, alertId: null, result: {}, ...over });
+    let [reply] = await r.code('orchestrator: travel reply (deterministic)', answer({ verdict: 'interaction_found', alertId: 'al-1' }));
+    assert.match(reply.json.text, /مراجعة طبية/);
+    [reply] = await r.code('orchestrator: travel reply (deterministic)', answer({ verdict: 'cannot_verify' }));
+    assert.match(reply.json.text, /ما قدرنا نتأكد من هذا الدواء/);
+    [reply] = await r.code('orchestrator: travel reply (deterministic)', http(500, { error: 'internal' }));
+    assert.match(reply.json.text, /صار خلل/);
+    // a danger the backend refused to accept: ok:false, mustEscalate - never a false all-clear
+    [reply] = await r.code('orchestrator: travel reply (deterministic)', answer({ ok: false, mustEscalate: true, error: 'backend_refused_alert_422', verdict: 'interaction_found' }));
+    assert.match(reply.json.text, /صار خلل/);
+    console.log('        -> danger: ' + (await r.code('orchestrator: travel reply (deterministic)', answer({ verdict: 'interaction_found', alertId: 'al-2' })))[0].json.text);
+  });
+  await check('a photo classified other -> the fixed explanation, with no further download or model call', async () => {
+    const { decided } = await photoClassifiedAs('other', 0.95, relay({ photoFileId: 'AgAC-other' }));
+    assert.equal(decided.reason, 'other');
+    const wf = WF('agent-telegram-inbound');
+    const r2 = runner(wf);
+    const [reply] = await r2.code('orchestrator: reply (deterministic)', [{ json: decided }]);
+    assert.match(reply.json.text, /ما تبين إنها وصفة طبية ولا علبة دواء/);
+    assert.equal(reply.json.buttons, null);
+  });
+  await check('AP-11: an unsure photo (0.55) asks with two buttons, each callback under 64 bytes, keyed by the message id; or:box resumes it for Travel Check with the SAME file id; a second tap has expired', async () => {
+    const payload = relay({ patientId: 'pt-05', messageId: 777, photoFileId: 'AgAC-unsure' });
+    const { r, decided } = await photoClassifiedAs('unsure', 0.55, payload);
+    assert.equal(decided.reason, 'unsure');
+    const [ask] = await r.code('orchestrator: reply (deterministic)', [{ json: decided }]);
+    assert.equal(ask.json.buttons.length, 2);
+    for (const b of ask.json.buttons) assert.ok(b.data.length <= 64, b.data);
+    assert.deepEqual(ask.json.buttons.map((b) => b.data), ['or:rx:777', 'or:box:777']);
+    assert.ok(r.staticData.orchestratorPending['pt-05:777'], 'the photo was remembered, keyed by patient id + message id');
+    assert.equal(r.staticData.orchestratorPending['pt-05:777'].fileId, 'AgAC-unsure');
+
+    const [routed2] = await r.code('route (deterministic)', relay({ patientId: 'pt-05', kind: 'callback', text: 'or:box:777', callbackQueryId: 'cbq-or-1' }));
+    assert.equal(routed2.json.route, 'travel');
+    assert.equal(routed2.json.photoFileId, 'AgAC-unsure');
+    assert.equal(routed2.json.documentFileId, null);
+
+    const [routed3] = await r.code('route (deterministic)', relay({ patientId: 'pt-05', kind: 'callback', text: 'or:box:777', callbackQueryId: 'cbq-or-2' }));
+    assert.equal(routed3.json.route, 'reply');
+    assert.equal(routed3.json.reason, 'photo_expired');
+  });
+  await check('AP-11: a PDF sent as a document is decided prescription from its mime type alone, never asked to the model', async () => {
+    const { r } = await photoClassifiedAs('prescription', 1, relay({ patientId: 'pt-03', documentFileId: 'BQAC-pdf' }), 'application/pdf', Buffer.from('%PDF-1.4 fake'));
+    assert.equal(r.out['orchestrator: ask what the photo is'][0].json.mimeShortcut, 'prescription');
+  });
+  await check('AP-11 TC-AD-14 (re-pointed): an ACTIVE caregiver\'s text, tap, photo and document all get a fixed reply via the Orchestrator - no doses GET, no model call, no write, no download, nothing remembered', async () => {
+    for (const over of [
+      { text: 'أبوي خذ الدوا' },
+      { kind: 'callback', text: 'd:rx-1:taken_on_time', callbackQueryId: 'cbq-cg-1' },
+      { photoFileId: 'AgAC-cg' },
+      { documentFileId: 'BQAC-cg' },
+    ]) {
+      const r = runner(WF('agent-telegram-inbound'));
+      const [routed] = await r.code('route (deterministic)', relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', ...over }));
+      assert.equal(routed.json.route, 'reply');
+      assert.equal(routed.json.reason, 'caregiver');
+      const [reply] = await r.code('orchestrator: reply (deterministic)', [{ json: routed.json }]);
+      assert.match(reply.json.text, /المريض بنفسه/);
+      assert.equal(reply.json.buttons, null);
+      assert.deepEqual(r.staticData, {}, 'a caregiver message is never remembered, whatever it sends');
+    }
+  });
+  await check('AP-11 (static, by graph walk): from "route (deterministic)", the caregiver/reply path calls no backend and downloads no file; no photo-branch node names /doses/ or /schedule/', () => {
+    const wf = WF('agent-telegram-inbound');
+    const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+    const reachableFrom = (start, stopAt) => {
+      const seen = new Set();
+      const stack = [start];
+      while (stack.length) {
+        const name = stack.pop();
+        if (seen.has(name) || stopAt.has(name)) continue;
+        seen.add(name);
+        for (const kind of Object.values(wf.connections[name] || {})) for (const branch of kind) for (const c of branch) stack.push(c.node);
+      }
+      return seen;
+    };
+    const replyPath = reachableFrom('orchestrator: reply (deterministic)', new Set());
+    assert.ok(replyPath.has('Telegram: close the photo tap'), 'sanity: the reply path was actually walked');
+    for (const name of replyPath) {
+      const n = byName[name];
+      assert.notEqual(n.type, 'n8n-nodes-base.httpRequest', name + ' calls the backend from the caregiver/reply path');
+      if (n.type === 'n8n-nodes-base.telegram') assert.notEqual(n.parameters.resource, 'file', name + ' downloads a file from the caregiver/reply path');
+    }
+    const photoLane = reachableFrom('photo?', new Set(['Telegram: download the file', 'backend: doses of the day']));
+    assert.ok(photoLane.has('n8n: travel check'), 'sanity: the photo lane was actually walked');
+    // A quote immediately before the path, exactly like the Alexa call-assertion above: catches an
+    // actual string-literal URL, never a prose mention of the adherence API surface in a doc comment
+    // (agents/lib/adherence.js's own header, inlined here too since orchestratorReply needs REPLIES).
+    for (const name of photoLane) {
+      const n = byName[name];
+      const text = n.type === 'n8n-nodes-base.code' ? n.parameters.jsCode : JSON.stringify(n.parameters || {});
+      assert.ok(!/['"`]\/(doses|schedule)\//.test(text), name + ' names a /doses/ or /schedule/ URL');
+    }
   });
 
   console.log('\n######## agent-checkin-daily');
