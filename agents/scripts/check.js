@@ -214,8 +214,13 @@ async function scenarios() {
     const reading = { isPrescription: true, facilityName: 'مستشفى العدان', sector: 'public', genericName: 'Amoxicillin', brandName: 'Amoxil',
       strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['08:00', '14:00', '20:00'],
       dosingPattern: 'daily', durationDays: 7, startDate: '2026-09-24',
-      confidence: { brandName: 0.95, strengthMg: 0.95, frequencyPerDay: 0.95, startDate: 0.9, doseTimes: 0.9 } };
-    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] } }] }));
+      // the relay carries the caption 'وصفتي' (AP-03/D3/CR-075): an attached caption needs its own
+      // captionConflicts answer or every FLAGGABLE field is flagged (fail closed, TC-EX-06) - here it agrees on all five
+      captionConflicts: [],
+      // every CONFIDENCE_KEYS field the core checks needs its own number - a missing one is not sure (G7)
+      confidence: { facilityName: 0.95, sector: 0.95, genericName: 0.95, brandName: 0.95, strength: 0.95, strengthUnit: 0.95,
+        dosePerAdministration: 0.95, frequencyPerDay: 0.95, doseTimes: 0.9, dosingPattern: 0.95, durationDays: 0.95, startDate: 0.9 } };
+    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.result.ok, true);
     assert.equal(v.json.body.patientId, 'pt-03');
     r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1' }, doseCount: 21 }));
@@ -229,7 +234,7 @@ async function scenarios() {
     const r = runner(WF('agent-telegram-inbound'));
     await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-box' }));
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/png' } } }], Buffer.from('x'));
-    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: '{"isPrescription":false}' }] } }] }));
+    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: '{"isPrescription":false}' }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.body, null);
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
     assert.equal(reply.json.screen, false);
@@ -240,8 +245,10 @@ async function scenarios() {
     await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-blurry' }));
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('x'));
     const reading = { isPrescription: true, facilityName: 'عيادة الياسمين', sector: 'private', genericName: 'Ciprofloxacin', dosePerAdministration: 1,
-      frequencyPerDay: 2, dosingPattern: 'daily', durationDays: 5, confidence: {} };
-    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] } }] }));
+      frequencyPerDay: 2, dosingPattern: 'daily', durationDays: 5,
+      // REQUIRED fields sure; brandName/strength/doseTimes/startDate left without confidence on purpose - flagged, not fixed (G7)
+      confidence: { facilityName: 0.95, sector: 0.95, genericName: 0.95, dosePerAdministration: 0.95, dosingPattern: 0.95, durationDays: 0.95 } };
+    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.body.needsReview, true);
     r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new2' }, doseCount: 0 }));
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);

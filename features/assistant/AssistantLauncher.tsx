@@ -22,10 +22,12 @@
  * nowhere and asks back with the same tappable topics instead of guessing. Every chip only SENDS a
  * question; none records anything.
  *
- * CR-069 — the screen follows the voice. For a signed-in patient the panel polls `voiceTurns` every
- * few seconds, also in a background tab; each turn the patient has with Alexa opens the panel, shows
- * what was asked and what Alexa said, and opens the screen it is about. When Alexa did not
- * understand, the panel shows the four voice topics — tap one, or say it to the Echo.
+ * CR-069, amended by CR-102 — the screen follows the voice. For a signed-in patient the launcher
+ * polls `voiceTurns` every few seconds, also in a background tab; each turn the patient has with
+ * Alexa moves the page to the screen it is about, and does nothing else: it never opens, closes or
+ * writes into the panel, and shows no popup in its place. A panel the patient opened stays exactly
+ * as it was, with the new page behind it. A turn with no screen (Alexa did not understand, or the
+ * conversation ended) moves nothing.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,7 +36,7 @@ import { AsWritten } from '@/components/ui/AsWritten';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { askAssistant, voiceTurns } from '@/lib/assistant';
-import { PAGE_PATH, type AssistantAudience, type AssistantPage, type VoiceTopic, type VoiceTurn } from '@/lib/assistant/core';
+import { PAGE_PATH, type AssistantAudience, type AssistantPage, type VoiceTurn } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
 import { localizeText } from '@/i18n/localize';
 import { directionFor } from '@/i18n/locale';
@@ -47,7 +49,7 @@ type CopyKey = keyof typeof copy.assistant;
  * reply is in (CR-071): Alexa answers in the Echo's language, which need not be the page's, so a
  * reply in the other language is declared (`lang` + `dir`), never shown unmarked.
  */
-type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' | 'clarifyVoice'; lang?: Locale };
+type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify'; lang?: Locale };
 
 const SUGGESTIONS: Record<AssistantAudience, readonly (keyof typeof copy.assistant)[]> = {
   patient: ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestSafety'],
@@ -60,13 +62,6 @@ const CLARIFY: Record<AssistantAudience, readonly CopyKey[]> = {
   guest: ['guestSuggestWhat', 'guestSuggestSignIn', 'guestSuggestTelegram'],
 };
 
-/** Said to the Echo: the four things Alexa understands, worded exactly as its interaction model's samples. */
-const CLARIFY_VOICE: readonly CopyKey[] = ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestForgot'];
-/** What the patient asked Alexa, in the screen's language (Alexa sends the topic, not the words). */
-const VOICE_ASKED: Partial<Record<VoiceTopic, CopyKey>> = {
-  launch: 'voiceAskedLaunch', next_dose: 'suggestNext', dose_amount: 'suggestAmount', today: 'suggestToday', forgot: 'suggestForgot',
-  record: 'voiceAskedRecord',
-};
 const VOICE_POLL_MS = 2500;
 
 const MOVED: Record<AssistantPage, CopyKey> = {
@@ -120,7 +115,8 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     return () => cancelAnimationFrame(frame);
   }, [pathname]);
 
-  // CR-069: follow the patient's Alexa turns. The first answer is only the starting point.
+  // CR-069 / CR-102: follow the patient's Alexa turns by moving the page. The first answer is only the
+  // starting point.
   const pathRef = useRef(pathname);
   useEffect(() => { pathRef.current = pathname; }, [pathname]);
   const lastSeq = useRef<number | null>(null);
@@ -129,24 +125,16 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     lastSeq.current = null; // a new patient session starts from its own latest turn, never replays one
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // CR-102: the page move only. Nothing here touches the panel (open, lines, chips): a closed panel
+    // stays closed, an open one keeps what it shows. The move is the router's own navigation, so the
+    // new page's focus and screen-reader announcement are exactly what any page change gets.
     const follow = (turns: VoiceTurn[]) => {
       // The turns are already counted (lastSeq moved on), so they are dropped here, not replayed later.
       if (document.querySelector('[data-no-assistant]')) return;
-      const next: Line[] = [];
       let page: AssistantPage | null = null;
-      for (const turn of turns) {
-        const asked = VOICE_ASKED[turn.topic];
-        if (asked) next.push({ from: 'you', text: t(c[asked], locale), note: t(c.voiceSaid, locale) });
-        next.push({ from: 'assistant', text: localizeText(turn.reply, turn.language), lang: turn.language, note: t(c.voiceAnswered, locale) });
-        if (turn.topic === 'unclear') next.push({ from: 'assistant', text: t(c.clarifyVoiceAsk, locale), ask: 'clarifyVoice' });
-        if (turn.topic === 'bye') next.push({ from: 'assistant', text: t(c.voiceEnded, locale) });
-        page = turn.page ?? page;
-      }
-      setOpen(true);
-      setLines((prev) => [...prev, ...next]);
+      for (const turn of turns) page = turn.page ?? page;
       const target = page ? `/${locale}${PAGE_PATH[page]}` : null;
       if (target && pathRef.current !== target) router.push(target);
-      requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
     };
     // Also in a background tab (the browser slows its timers there): the page has already moved
     // when the patient looks at it — they talk to the Echo, not to this window.
@@ -179,7 +167,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
       document.removeEventListener('pointerdown', onInput, true);
       document.removeEventListener('keydown', onInput, true);
     };
-  }, [audience, locale, router, c]);
+  }, [audience, locale, router]);
 
   const scrollToEnd = () => requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
 
@@ -294,15 +282,6 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
                 <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.confirmLabel, locale)} data-testid="assistant-confirm">
                   <Button variant="secondary" onClick={() => answerConfirm(true)} lang={locale}>{t(c.confirmYes, locale)}</Button>
                   <Button variant="secondary" onClick={() => answerConfirm(false)} lang={locale}>{t(c.confirmNo, locale)}</Button>
-                </div>
-              )}
-              {lastAsk === 'clarifyVoice' && (
-                <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.clarifyLabel, locale)} data-testid="assistant-clarify-voice">
-                  {CLARIFY_VOICE.map((key) => (
-                    <Button key={key} variant="secondary" onClick={() => send(t(c[key], locale))} lang={locale}>
-                      {t(c[key], locale)}
-                    </Button>
-                  ))}
                 </div>
               )}
               {lastAsk === 'clarify' && (
