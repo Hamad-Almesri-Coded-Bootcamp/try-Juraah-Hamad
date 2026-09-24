@@ -1,0 +1,75 @@
+{
+  "name": "agent-error",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b6000000-0000-4000-8000-000000000001",
+      "name": "On error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ===== generated from agents/lib/error-alert.js - do not edit here; edit the source and rebuild ===== */\n/**\n * AP-18 (docs/AGENTS-POLISH-PLAN.md 7.3, step 1) - the plain-text message the error workflow's Code\n * node builds for the team's Telegram chat, once ANY Jur'ah workflow fails (agents/scripts/build-\n * error-workflow.js wires this in behind an n8n Error Trigger). THE DETERMINISTIC LAYER: nothing here\n * is a model call, and nothing here is patient data.\n *\n * Reads ONLY workflow.name, execution.lastNodeExecuted and execution.url - n8n's own Error Trigger\n * shape - plus the Kuwait-time string the Code node passes in as `nowIso`. That string comes from\n * n8n's own `$now` (every Jur'ah workflow's `settings.timezone` is 'Asia/Kuwait', so `$now.toISO()`\n * is already Kuwait-local - no locale library, one direct read of the clock, the same rule every\n * other agents/lib module follows for time).\n *\n * NEVER reads the execution's own `error` object (its `message`, `description` or `stack`) or any\n * other data the failed run carried. An HTTP error body, a thrown message or a stack trace can hold a\n * patient's name, a Civil ID, a chat id or a Telegram/push link token - exactly the failed run's OWN\n * data, which is why it is never trusted onward (CLAUDE.md rules 6/7, applied here to a Telegram\n * message instead of a screen). A human who needs the real error opens `execution.url` in n8n itself.\n */\n\nconst FALLBACK = '(not given)';\nconst MAX_FIELD_LEN = 200;\n\n/** A field-shaped string: trimmed and length-capped. Anything else (missing, not a string, blank) is\n * the fixed fallback - never blank, never thrown from, never a stray object dumped into a chat. */\nfunction field(value) {\n  if (typeof value !== 'string') return FALLBACK;\n  const trimmed = value.trim();\n  if (!trimmed) return FALLBACK;\n  return trimmed.length > MAX_FIELD_LEN ? trimmed.slice(0, MAX_FIELD_LEN) + '...' : trimmed;\n}\n\n/**\n * payload: the Error Trigger node's own item json - n8n's shape is\n *   { execution: { id, url, lastNodeExecuted, mode, error: { ... } }, workflow: { id, name }, trigger: { ... } }\n * - of which only workflow.name, execution.lastNodeExecuted and execution.url are ever read; the\n * execution's `error` sub-object is deliberately never named in this file, comments included.\n * nowIso: the Kuwait-local timestamp string the Code node computed (see the file header).\n * Never throws: a malformed, partial or entirely missing payload still returns a usable, honest,\n * ASCII-only message (plain English for the team - CLAUDE.md's Fusha-Arabic copy rule is for the\n * app's own screens, not an internal ops alert).\n */\nfunction errorAlertText(payload, nowIso) {\n  const p = payload && typeof payload === 'object' ? payload : {};\n  const workflow = p.workflow && typeof p.workflow === 'object' ? p.workflow : {};\n  const execution = p.execution && typeof p.execution === 'object' ? p.execution : {};\n  const name = field(workflow.name);\n  const node = field(execution.lastNodeExecuted);\n  const url = field(execution.url);\n  const time = field(nowIso);\n  return [\n    'Jur\\'ah workflow failed: ' + name,\n    'Node: ' + node,\n    'Time (Kuwait): ' + time,\n    'Execution: ' + url,\n  ].join('\\n');\n}\n/* ===== end generated ===== */\n\nconst payload = $input.first().json;\n// Every Jur'ah workflow's settings.timezone is 'Asia/Kuwait' (agents/scripts/build.js), so n8n's own\n// $now is already Kuwait-local: one direct read of the clock, no locale library, no new Date().\nconst nowIso = $now.toISO();\nreturn [{ json: { text: errorAlertText(payload, nowIso) } }];"
+      },
+      "id": "b6000000-0000-4000-8000-000000000002",
+      "name": "message (deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "[TO BE SUPPLIED]",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b6000000-0000-4000-8000-000000000003",
+      "name": "Telegram: notify the team",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -20,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "On error": {
+      "main": [
+        [
+          {
+            "node": "message (deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "message (deterministic)": {
+      "main": [
+        [
+          {
+            "node": "Telegram: notify the team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kuwait"
+  }
+}

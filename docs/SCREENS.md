@@ -136,7 +136,7 @@ Two modules, both typed, both `async`, both implemented by WP1. `Phase 2 — Bac
 
 **Prescriptions and doses** — `getPrescriptions(patientId): Promise<Prescription[]>` (active and past) · `getPrescription(prescriptionId)` · `getDosesForDay(patientId, isoDate): Promise<DoseWithPrescription[]>` · `getDoseHistory(prescriptionId): Promise<Dose[]>` · `getRecentDoses(patientId, days): Promise<DoseWithPrescription[]>` · `submitPrescriptionImage(patientId, image: Blob): Promise<ExtractionOutcome>` (`confident` · `needs_review` · `unreadable`) · `savePrescriptionDraft(patientId, draftId): Promise<Prescription>`.
 
-**Safety** — `getAlerts(patientId): Promise<InteractionAlert[]>` · `getAlert(alertId)` · `checkDrugPhoto(patientId, image: Blob): Promise<DrugCheckOutcome>` (`identified` with verdict and optional alertId · `could_not_identify`).
+**Safety** — `getAlerts(patientId): Promise<InteractionAlert[]>` · `getAlert(alertId)` · `checkDrugPhoto(patientId, image: Blob): Promise<DrugCheckOutcome>` (`identified` with verdict and optional alertId · `could_not_identify` · `cannot_verify`, CR-078: recognised but not screenable against the whole profile, "we cannot verify this medicine; ask your pharmacist").
 
 **Supply** — `getRefillOverview(patientId): Promise<RefillLine[]>` (per active rx: remaining, total, `daysRemaining | null`, `routedTo`) · `requestRefill(patientId, prescriptionId): Promise<RefillRequest>` · `getRefillRequests(patientId)`.
 

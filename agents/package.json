@@ -6,8 +6,8 @@
   "description": "Jur'ah - the AI agents track: n8n workflows against the Phase 2 backend's /api/agent/** routes",
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
-    "build": "node scripts/build.js",
-    "check": "node scripts/check.js",
+    "build": "node scripts/build.js && node scripts/build-error-workflow.js",
+    "check": "node scripts/check.js && node scripts/check-error-workflow.js",
     "verify": "npm run test && npm run build && npm run check",
     "drift": "node scripts/drift.js"
   },

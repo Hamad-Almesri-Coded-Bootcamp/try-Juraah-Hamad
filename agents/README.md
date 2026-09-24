@@ -125,4 +125,5 @@ Setup (the Amazon account the Echo is registered to):
 
 Known demo limits: Alexa's request **signature** is not verified (the skill id, a 150-second
 timestamp window and the userId link are); certification would need it. There is no OAuth account
-linking — one device is linked by hand.
+linking — one device is linked by hand. The signature gap and the two build options for closing it
+are CR-104 (`docs/DECISIONS.md`) and `docs/backend-notes/ap-18.md`.
