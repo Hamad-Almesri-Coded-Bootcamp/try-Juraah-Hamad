@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getSession } from '@/lib/session';
-import { getAlerts, getDosesForDay, getPrescriptions, getSettings } from '@/lib/data';
+import { getActivity, getAlerts, getDosesForDay, getPrescriptions, getSettings } from '@/lib/data';
+import { newPrescriptionsAwaitScreening } from '@/lib/agent-webhooks/state';
+import { prescriptionsBeingChecked } from '@/features/prescription/screening-state';
 import { AppBar } from '@/components/ui/AppBar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
@@ -66,12 +68,17 @@ export default async function MedicinesPage({
   const patientId = session.subjectId;
   const action = <LanguageSwitch locale={locale} role="patient" subjectId={patientId} />;
 
-  const [prescriptions, alerts, settings, todaysDoses] = await Promise.all([
+  // CR-089: a new prescription reads "being checked" until its interaction screening answers. The
+  // audit rows it is derived from are read only where screening runs at all (not in production today).
+  const screeningLive = newPrescriptionsAwaitScreening();
+  const [prescriptions, alerts, settings, todaysDoses, activity] = await Promise.all([
     getPrescriptions(patientId),
     getAlerts(patientId),
     getSettings(patientId),
     getDosesForDay(patientId, kuwaitToday()),
+    screeningLive ? getActivity(patientId) : [],
   ]);
+  const beingCheckedIds = prescriptionsBeingChecked({ prescriptions, alerts, activity, nowIso: kuwaitNow(), screeningLive });
 
   const nextDoseByPrescriptionId: Record<string, NextDoseInfo | undefined> = {};
   for (const rx of prescriptions) {
@@ -93,6 +100,7 @@ export default async function MedicinesPage({
         alertHrefBuilder={(alert) => `/${locale}/app/safety/${alert.id}`}
         addHref={`/${locale}/app/medicines/add`}
         safetyHref={`/${locale}/app/safety`}
+        beingCheckedIds={beingCheckedIds}
       />
     </div>
   );

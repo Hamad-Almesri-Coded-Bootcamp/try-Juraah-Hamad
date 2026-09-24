@@ -14,14 +14,16 @@ const h = vi.hoisted(() => ({
   ask: vi.fn(async (text: string, locale: string): Promise<unknown> => { void text; void locale; return { ok: true, reply: 'جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', telegramPrompted: false }; }),
 }));
 vi.mock('@/lib/assistant', () => ({ askAssistant: h.ask, assistantAudience: h.audience, voiceTurns: h.voice }));
-const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: '/ar/app' }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: nav.push }), usePathname: () => nav.pathname }));
+// One router for every render, as Next's useRouter() gives: a new object per render would restart the
+// voice poll's effect (it depends on the router) on every re-render, which the real app never does.
+const nav = vi.hoisted(() => { const push = vi.fn(); return { push, pathname: '/ar/app', router: { push } }; });
+vi.mock('next/navigation', () => ({ useRouter: () => nav.router, usePathname: () => nav.pathname }));
 
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import { copy, t } from '@/i18n';
 import { hasLatin, localizeText } from '@/i18n/localize';
 
-beforeEach(() => { h.voice.mockClear(); h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [], live: true })); h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar/app'; });
+beforeEach(() => { h.voice.mockReset(); h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [], live: true })); h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar/app'; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const open = async (locale: 'ar' | 'en' = 'ar') => {
@@ -180,56 +182,100 @@ describe('AssistantLauncher', () => {
     expect(nav.push).toHaveBeenCalledWith('/ar/signin');
   });
 
-  it('CR-069: a turn with Alexa opens the panel by itself, shows what was asked and what Alexa said, and opens its screen', async () => {
+  // CR-102 (amends CR-069): a turn with Alexa moves the page, and nothing else. The panel never opens,
+  // closes or gains a line for it; the move uses the page's language, whatever the Echo's.
+  const turnsThen = (turn: Record<string, unknown>, start = 7) => {
+    h.voice.mockImplementationOnce(async () => ({ latest: start, turns: [], live: true })); // the starting point: nothing replayed
+    h.voice.mockImplementationOnce(async () => ({ latest: start + 1, turns: [{ seq: start + 1, ...turn }], live: true }));
+  };
+  const nextPoll = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(2600); }); };
+
+  it('CR-102: a turn with Alexa about today moves the page to «اليوم» and does NOT open the chat', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.voice.mockImplementationOnce(async () => ({ latest: 7, turns: [], live: true })); // the starting point: nothing replayed
-    h.voice.mockImplementationOnce(async () => ({ latest: 8, turns: [{ seq: 8, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }], live: true }));
+    turnsThen({ topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' });
     nav.pathname = '/ar/app/safety';
     render(<AssistantLauncher locale="ar" />);
     await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
-    expect(screen.queryByTestId('assistant-panel')).toBeNull();
-    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
-    await waitFor(() => expect(screen.getByText('عندك اليوم 3 جرعات…')).toBeTruthy());
+    await nextPoll();
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/ar/app'));
     expect(h.voice).toHaveBeenCalledWith(7); // the next poll asks for turns AFTER the starting point
-    expect(screen.getByTestId('assistant-panel')).toBeTruthy();
-    expect(screen.getByText(t(copy.assistant.suggestToday, 'ar'))).toBeTruthy();
-    expect(screen.getByText(t(copy.assistant.voiceSaid, 'ar'))).toBeTruthy();
-    expect(nav.push).toHaveBeenCalledWith('/ar/app');
+    expect(nav.push).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('sheet-layer')).toBeNull();
+    expect(screen.queryByTestId('assistant-panel')).toBeNull();
+    expect(screen.queryByText('عندك اليوم 3 جرعات…')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('CR-069: Alexa did not understand -> the four voice topics, worded as Alexa hears them; tapping one asks the web chat', async () => {
+  it('CR-102: a record request by voice moves the page to Activity, and «نسيت دواي» too; the chat stays closed', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.voice.mockImplementationOnce(async () => ({ latest: 3, turns: [], live: true }));
-    h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [{ seq: 4, topic: 'unclear', language: 'en', reply: 'You can ask me…', page: null }], live: true }));
-    render(<AssistantLauncher locale="en" />);
-    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
-    await waitFor(() => expect(screen.getByText(t(copy.assistant.clarifyVoiceAsk, 'en'))).toBeTruthy());
-    const chips = [...screen.getByTestId('assistant-clarify-voice').querySelectorAll('button')].map((b) => b.textContent);
-    expect(chips).toEqual(['What is my next dose?', 'How much do I take?', 'What are my medicines today?', 'I forgot my medicine']);
-    expect(nav.push).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'I forgot my medicine' }));
-    expect(h.ask).toHaveBeenLastCalledWith('I forgot my medicine', 'en');
-  });
-
-  it('CR-071: an Alexa reply in the other language is declared, with its drug names and dashes normalised', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const reply = 'جرعتك الجاية Eltroxin الساعة 7 المغرب — تبي شي ثاني؟';
-    h.voice.mockImplementationOnce(async () => ({ latest: 1, turns: [], live: true }));
-    h.voice.mockImplementationOnce(async () => ({ latest: 2, turns: [{ seq: 2, topic: 'next_dose', language: 'ar', reply, page: 'today' }], live: true }));
+    turnsThen({ topic: 'record', language: 'en', reply: 'I can’t record by voice; I’ve sent the buttons to your Telegram.', page: 'activity' });
     nav.pathname = '/en/app';
     render(<AssistantLauncher locale="en" />);
     await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
-    const shown = localizeText(reply, 'ar');
-    await waitFor(() => expect(screen.getByText(shown)).toBeTruthy());
-    const li = screen.getByText(shown).closest('li')!;
-    expect(li.getAttribute('lang')).toBe('ar');
-    expect(li.getAttribute('dir')).toBe('rtl');
-    expect(hasLatin(shown)).toBe(false); // Eltroxin reads in Arabic script
-    expect(li.textContent).not.toMatch(/[—–]/);
-    // The page's own words on that line keep the page's language.
-    expect(screen.getByText(t(copy.assistant.voiceAnswered, 'en')).getAttribute('lang')).toBe('en');
+    await nextPoll();
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/en/app/more/activity'));
+    expect(screen.queryByTestId('assistant-panel')).toBeNull();
+    cleanup();
+    nav.push.mockClear();
+    h.voice.mockReset();
+    h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [], live: true }));
+    turnsThen({ topic: 'forgot', language: 'ar', reply: 'فاتتك جرعة Eltroxin…', page: 'activity' }, 20);
+    nav.pathname = '/ar/app';
+    render(<AssistantLauncher locale="ar" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+    await nextPoll();
+    expect(h.voice).toHaveBeenCalledWith(20);
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/ar/app/more/activity'));
+    expect(screen.queryByTestId('assistant-panel')).toBeNull();
+  });
+
+  it('CR-102: an Arabic turn on the English page moves to the English page (the page keeps its language); the chat stays closed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    turnsThen({ topic: 'next_dose', language: 'ar', reply: 'جرعتك الجاية Eltroxin الساعة 7 المغرب — تبي شي ثاني؟', page: 'today' }, 1);
+    nav.pathname = '/en/app/more/help';
+    render(<AssistantLauncher locale="en" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+    await nextPoll();
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/en/app'));
+    expect(screen.queryByTestId('assistant-panel')).toBeNull();
+  });
+
+  it('CR-102: Alexa did not understand, or the conversation ended: nothing moves and nothing opens', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    h.voice.mockImplementationOnce(async () => ({ latest: 3, turns: [], live: true }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 5, turns: [
+      { seq: 4, topic: 'unclear', language: 'en', reply: 'You can ask me…', page: null },
+      { seq: 5, topic: 'bye', language: 'en', reply: 'Goodbye, take care.', page: null },
+    ], live: true }));
+    render(<AssistantLauncher locale="en" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+    await nextPoll();
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(3));
+    await nextPoll();
+    expect(h.voice).toHaveBeenCalledWith(5); // counted, so never replayed later
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('assistant-panel')).toBeNull();
+    expect(screen.queryByText('You can ask me…')).toBeNull();
+  });
+
+  it('CR-102: a chat the patient opened stays exactly as it was: open, the same lines, no voice line and no chips; the page moves behind it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    nav.pathname = '/ar/app/safety';
+    render(<AssistantLauncher locale="ar" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null)); // starting point: latest 7
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'ar') }));
+    await waitFor(() => expect(screen.getByText(localizeText('جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', 'ar'))).toBeTruthy());
+    const before = screen.getByTestId('assistant-lines').innerHTML;
+    const groupsBefore = screen.queryAllByRole('group').length;
+    h.voice.mockImplementationOnce(async () => ({ latest: 8, turns: [{ seq: 8, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }], live: true }));
+    await nextPoll(); // the poll right after the tap is skipped (CR-071)
+    await nextPoll();
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith('/ar/app'));
+    expect(screen.getByTestId('assistant-panel')).toBeTruthy();
+    expect(screen.getByTestId('assistant-lines').innerHTML).toBe(before);
+    expect(screen.queryAllByRole('group').length).toBe(groupsBefore);
+    expect(screen.queryByText('عندك اليوم 3 جرعات…')).toBeNull();
   });
 
   it('CR-071: on a page marked data-no-assistant (first-run setup, the invitation) a voice turn neither opens the panel nor moves', async () => {

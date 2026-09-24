@@ -1,8 +1,9 @@
 /**
  * CR-066 — the seam's calls to the drug-knowledge agents (n8n, agents/knowledge). Server-only I/O,
- * imported by lib/data/pg alone. NOT a 'use server' module on purpose: none of these may become a
- * server action a browser could call with any patient id. The caller has already checked the
- * VERIFIED session (the patient's own) before it gets here.
+ * imported by lib/data/pg alone (and by ./state.ts, which tells a screen only WHETHER screening
+ * runs). NOT a 'use server' module on purpose: none of these may become a server action a browser
+ * could call with any patient id. The caller has already checked the VERIFIED session (the
+ * patient's own) before it gets here.
  *
  * Each function returns null when its URL is not configured — the caller then keeps the CR-049 stub.
  * Once configured, a failure (timeout, non-2xx, a shape the app does not accept) is the conservative
@@ -73,10 +74,15 @@ export async function askExtraction(
 }
 
 /**
- * After a saved prescription has COMMITTED (the agent reads it back through /api/agent). Best
- * effort by design: the save already succeeded and must not be undone by n8n being down; a missed
- * screening is visible in n8n's execution list, and the reviewer's queue is unaffected. Returns
- * whether n8n accepted the job (for the caller's tests; never shown).
+ * AP-10 — hands one prescription to the Interaction Screening agent, AFTER the write that made it
+ * screenable has COMMITTED (the agent reads it back through /api/agent). AWAITED by its one caller,
+ * lib/data/pg/screening.ts screenOrHold, never fire-and-forget: on a serverless function a promise
+ * left running after the response is not guaranteed to finish, so a detached call could be lost
+ * without a trace. The wait is bounded by SCREENING_TIMEOUT_MS and covers only n8n ACCEPTING the job
+ * (the workflow answers on receipt); the result arrives later, as alerts through /api/agent/alerts.
+ * Returns whether n8n accepted it. false (down, a timeout, a non-2xx) makes the
+ * caller HOLD the prescription for a specialist, so a job n8n did not accept is never silently lost.
+ * The save itself has already committed and stands whatever n8n answers.
  */
 export async function requestScreening(patientId: string, prescriptionId: string, language: AgentLanguage): Promise<boolean> {
   if (!screeningConfigured()) return false;
