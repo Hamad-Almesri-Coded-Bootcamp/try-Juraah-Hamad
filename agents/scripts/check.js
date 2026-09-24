@@ -338,7 +338,20 @@ async function scenarios() {
   });
 
   console.log('\n######## agent-telegram-inbound (extraction)');
-  await check('a prescription photo -> routed to extraction; the vision reply becomes a body; 201 -> screening requested', async () => {
+  // AP-04: this workflow no longer calls jurah/screen-prescription itself - the backend already
+  // screened (or held) the prescription before its 201 answered (AP-10/CR-090), and hands the
+  // outcome back in the SAME body. clearReading() is a photo the core reads with full confidence.
+  const clearReading = () => ({ isPrescription: true, facilityName: 'مستشفى العدان', sector: 'public', genericName: 'Amoxicillin', brandName: 'Amoxil',
+    strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['08:00', '14:00', '20:00'],
+    dosingPattern: 'daily', durationDays: 7, startDate: '2026-09-24',
+    // the relay carries the caption 'وصفتي' (AP-03/D3/CR-075): an attached caption needs its own
+    // captionConflicts answer or every FLAGGABLE field is flagged (fail closed, TC-EX-06) - here it agrees on all five
+    captionConflicts: [],
+    // every CONFIDENCE_KEYS field the core checks needs its own number - a missing one is not sure (G7)
+    confidence: { facilityName: 0.95, sector: 0.95, genericName: 0.95, brandName: 0.95, strength: 0.95, strengthUnit: 0.95,
+      dosePerAdministration: 0.95, frequencyPerDay: 0.95, doseTimes: 0.9, dosingPattern: 0.95, durationDays: 0.95, startDate: 0.9 } });
+
+  await check('a prescription photo -> routed to extraction; the vision reply becomes a body; save 201, backend screening \'screened\' -> notScreened false', async () => {
     const wf = WF('agent-telegram-inbound');
     const r = runner(wf);
     const [routed] = await r.code('route (deterministic)', relay({ text: 'وصفتي', photoFileId: 'AgAC-large' }));
@@ -346,36 +359,49 @@ async function scenarios() {
     const [req] = await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('fake-jpeg-bytes'));
     assert.equal(req.json.visionBody.contents[0].parts[1].inlineData.mimeType, 'image/jpeg');
     assert.equal(req.json.visionBody.generationConfig.responseMimeType, 'application/json');
-    const reading = { isPrescription: true, facilityName: 'مستشفى العدان', sector: 'public', genericName: 'Amoxicillin', brandName: 'Amoxil',
-      strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['08:00', '14:00', '20:00'],
-      dosingPattern: 'daily', durationDays: 7, startDate: '2026-09-24',
-      // the relay carries the caption 'وصفتي' (AP-03/D3/CR-075): an attached caption needs its own
-      // captionConflicts answer or every FLAGGABLE field is flagged (fail closed, TC-EX-06) - here it agrees on all five
-      captionConflicts: [],
-      // every CONFIDENCE_KEYS field the core checks needs its own number - a missing one is not sure (G7)
-      confidence: { facilityName: 0.95, sector: 0.95, genericName: 0.95, brandName: 0.95, strength: 0.95, strengthUnit: 0.95,
-        dosePerAdministration: 0.95, frequencyPerDay: 0.95, doseTimes: 0.9, dosingPattern: 0.95, durationDays: 0.95, startDate: 0.9 } };
-    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] }, finishReason: 'STOP' }] }));
+    const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(clearReading()) }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.result.ok, true);
     assert.equal(v.json.body.patientId, 'pt-03');
-    r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1' }, doseCount: 21 }));
+    r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1' }, doseCount: 21, screening: 'screened' }));
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
-    assert.equal(reply.json.screen, true);
-    assert.deepEqual(reply.json.screeningBody, { patientId: 'pt-03', newPrescriptionId: 'rx_new1', language: 'ar' });
-    assert.match(reply.json.screeningUrl, /\/webhook\/jurah\/screen-prescription$/);
+    assert.equal(reply.json.notScreened, false);
+    assert.equal(reply.json.screening, 'screened');
+    assert.equal(reply.json.prescriptionId, 'rx_new1');
     console.log('        -> ' + reply.json.text);
   });
-  await check('TC-EX-04: a medicine box photo -> isPrescription false -> nothing saved, never screened', async () => {
+  await check('save 201, unflagged, backend screening \'held\' -> notScreened false (n8n did not accept it, but a specialist already holds it)', async () => {
+    const r = runner(WF('agent-telegram-inbound'));
+    await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-large2' }));
+    await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('x'));
+    await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(clearReading()) }] }, finishReason: 'STOP' }] }));
+    r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new1b' }, doseCount: 21, screening: 'held' }));
+    const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
+    assert.equal(reply.json.notScreened, false);
+    assert.equal(reply.json.screening, 'held');
+  });
+  for (const s of [{ label: '\'skipped\'', extra: { screening: 'skipped' } }, { label: 'no screening field at all', extra: {} }]) {
+    await check(`save 201, unflagged, backend screening ${s.label} -> notScreened true (TC-IX invariant broke on the backend's own side; Stop and Error follows)`, async () => {
+      const r = runner(WF('agent-telegram-inbound'));
+      await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-large3' }));
+      await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('x'));
+      await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(clearReading()) }] }, finishReason: 'STOP' }] }));
+      r.set('backend: save the prescription', http(201, Object.assign({ prescription: { id: 'rx_new1c' }, doseCount: 21 }, s.extra)));
+      const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
+      assert.equal(reply.json.notScreened, true);
+      assert.equal(reply.json.prescriptionId, 'rx_new1c');
+    });
+  }
+  await check('TC-EX-04: a medicine box photo -> isPrescription false -> nothing saved, notScreened false (nothing was created to screen)', async () => {
     const r = runner(WF('agent-telegram-inbound'));
     await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-box' }));
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/png' } } }], Buffer.from('x'));
     const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: '{"isPrescription":false}' }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.body, null);
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
-    assert.equal(reply.json.screen, false);
+    assert.equal(reply.json.notScreened, false);
     assert.match(reply.json.text, /ما تبين إنها وصفة/);
   });
-  await check('a flagged extraction is saved for the reviewer and NOT screened yet (TC-IX-06)', async () => {
+  await check('a flagged extraction is saved for the reviewer; backend screening \'skipped\' as expected (TC-IX-06) -> notScreened false', async () => {
     const r = runner(WF('agent-telegram-inbound'));
     await r.code('route (deterministic)', relay({ photoFileId: 'AgAC-blurry' }));
     await r.code('extraction: build the vision request', [{ json: {}, binary: { data: { mimeType: 'image/jpeg' } } }], Buffer.from('x'));
@@ -385,9 +411,9 @@ async function scenarios() {
       confidence: { facilityName: 0.95, sector: 0.95, genericName: 0.95, dosePerAdministration: 0.95, dosingPattern: 0.95, durationDays: 0.95 } };
     const [v] = await r.code('extraction: validate (deterministic)', http(200, { candidates: [{ content: { parts: [{ text: JSON.stringify(reading) }] }, finishReason: 'STOP' }] }));
     assert.equal(v.json.body.needsReview, true);
-    r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new2' }, doseCount: 0 }));
+    r.set('backend: save the prescription', http(201, { prescription: { id: 'rx_new2' }, doseCount: 0, screening: 'skipped' }));
     const [reply] = await r.code('extraction: reply (deterministic)', [{ json: {} }]);
-    assert.equal(reply.json.screen, false);
+    assert.equal(reply.json.notScreened, false);
     assert.match(reply.json.text, /بيراجعها مختص طبي/);
   });
 
@@ -885,8 +911,47 @@ async function webchatScenarios() {
   });
 }
 
+// --------------------------------------------------------------- AP-04: one screening on the path
+/** AP-04/CR-074: only the DDInter workflow (agents/knowledge) may sit on jurah/screen-prescription,
+ * and no OTHER node anywhere may even name that path - a hand-off n8n has forgotten to remove reads
+ * exactly like this (an HTTP node whose URL is built from the literal path string). Both workflow
+ * directories are read; either one yielding no committed file is a failure, never a silent pass. */
+async function oneScreeningCheck() {
+  console.log('\n######## AP-04: exactly one workflow on jurah/screen-prescription');
+  await check('exactly one webhook on the path (agent-interaction-screening-ddinter); no other node calls or names it; agents/workflows holds exactly the generated set', () => {
+    const dirs = [
+      { dir: path.join(ROOT, 'workflows'), label: 'agents/workflows' },
+      { dir: path.join(ROOT, 'knowledge', 'workflows'), label: 'agents/knowledge/workflows' },
+    ];
+    const files = [];
+    for (const { dir, label } of dirs) {
+      assert.ok(fs.existsSync(dir), label + ' does not exist');
+      const names = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+      assert.ok(names.length > 0, label + ' has no committed workflow file - a missing input is a failure, never a pass');
+      for (const f of names) files.push({ label, name: f.replace(/\.json$/, ''), wf: JSON.parse(fs.readFileSync(path.join(dir, f), 'ascii')) });
+    }
+    const topLevelNames = files.filter((f) => f.label === 'agents/workflows').map((f) => f.name).sort();
+    assert.deepEqual(topLevelNames, [...NAMES, 'agent-error'].sort(), 'agents/workflows holds exactly the generated workflows plus agent-error');
+
+    const onPath = [];
+    const stillCalling = [];  // an HTTP node still built to POST the webhook itself (a hand-off nobody removed)
+    const otherMentions = []; // any OTHER node whose own text still names the literal path at all
+    for (const f of files) {
+      for (const n of f.wf.nodes) {
+        if (n.type === 'n8n-nodes-base.webhook' && n.parameters && n.parameters.path === 'jurah/screen-prescription') { onPath.push(f.name + ': ' + n.name); continue; }
+        if (n.type === 'n8n-nodes-base.httpRequest' && n.parameters && n.parameters.url === '={{ $json.screeningUrl }}') stillCalling.push(f.name + ': ' + n.name);
+        if (JSON.stringify(n.parameters || {}).indexOf('screen-prescription') !== -1) otherMentions.push(f.name + ': ' + n.name);
+      }
+    }
+    assert.deepEqual(onPath, ['agent-interaction-screening-ddinter: Screen a new prescription'], 'exactly one webhook is on the path, and it is the DDInter one');
+    assert.deepEqual(stillCalling, [], 'a workflow still POSTs to jurah/screen-prescription itself, bypassing the backend (AP-04): ' + stillCalling.join(', '));
+    assert.deepEqual(otherMentions, [], 'no other node may even name jurah/screen-prescription: ' + otherMentions.join(', '));
+  });
+}
+
 (async () => {
   await staticChecks();
+  await oneScreeningCheck();
   await scenarios();
   await alexaScenarios();
   await webchatScenarios();

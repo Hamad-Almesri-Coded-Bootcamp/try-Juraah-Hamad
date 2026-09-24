@@ -99,6 +99,14 @@ function ifNode(id, name, expression, position) {
   };
 }
 
+/** Fails the n8n execution AFTER the caller already has its answer, so it shows in the execution
+ * list and triggers the instance's error workflow - identical to agents/knowledge/scripts/build.js's
+ * own helper. This is how a "saved but not screened" miss reaches a human. */
+const stopWithError = (id, name, message, position) => ({
+  parameters: { errorType: 'errorMessage', errorMessage: message },
+  id, name, type: 'n8n-nodes-base.stopAndError', typeVersion: 1, position,
+});
+
 function telegramText(id, name, position) {
   return {
     parameters: { chatId: '={{ $json.chatId }}', text: '={{ $json.text }}', additionalFields: { appendAttribution: false } },
@@ -333,19 +341,26 @@ const res = $input.first().json;
 const result = extractFromTelegram({ patientId: r.patientId, res, caption: r.caption, fileProblem: r.visionBody ? null : (r.fileProblem || 'no_file') });
 return [{ json: { ...r, visionBody: undefined, result, body: result.ok ? result.body : null, visionStatus: res.statusCode } }];`;
 
-const EX_REPLY = EXTRACTION + '\n' + CONFIG + `
+const EX_REPLY = EXTRACTION + `
 
 const v = $('extraction: validate (deterministic)').first().json;
 let statusCode = null;
 let created = null;
-try { const w = $('backend: save the prescription').first().json; statusCode = w.statusCode; created = w.body && w.body.prescription; } catch (e) { /* not saved */ }
+let screening = null;
+try {
+  const w = $('backend: save the prescription').first().json;
+  statusCode = w.statusCode;
+  created = w.body && w.body.prescription;
+  screening = w.body && w.body.screening ? w.body.screening : null;
+} catch (e) { /* not saved */ }
 const text = extractionReply({ result: v.result, statusCode, language: v.language });
-// TC-IX invariant: a saved, unflagged prescription goes to screening before anything else.
-const screen = !!(created && statusCode === 201 && !v.result.needsReview);
-return [{ json: { chatId: v.chatId, text, buttons: null,
-  screen, screeningUrl: N8N + '/jurah/screen-prescription',
-  screeningBody: screen ? { patientId: v.patientId, newPrescriptionId: created.id, language: v.language } : null,
-  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode } } }];`;
+// AP-04: the backend screens on every path now (AP-10, D10) and hands the outcome back in the SAME
+// 201 body ('screening': 'screened' | 'held' | 'skipped') - this workflow reads it instead of
+// calling screening itself. A saved, unflagged prescription whose outcome is neither breaks the
+// TC-IX invariant on the backend's own side: escalate rather than let the reply stand as final.
+const notScreened = !!(created && statusCode === 201 && !v.result.needsReview && screening !== 'screened' && screening !== 'held');
+return [{ json: { chatId: v.chatId, text, buttons: null, notScreened, screening, prescriptionId: created ? created.id : null,
+  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode, screening } } }];`;
 
 const inbound = {
   name: 'agent-telegram-inbound',
@@ -402,11 +417,9 @@ const inbound = {
     api(IN(27), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [860, -320], '={{ JSON.stringify($json.body) }}'),
     code(IN(28), 'extraction: reply (deterministic)', EX_REPLY, [1080, -240]),
     telegramText(IN(29), 'Telegram: extraction reply', [1300, -320]),
-    ifNode(IN(30), 'screen it?', '={{ $json.screen }}', [1300, -160]),
-    { parameters: { method: 'POST', url: '={{ $json.screeningUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
-                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
-      id: IN(31), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1520, -160] },
+    ifNode(IN(30), 'saved but not screened?', '={{ $json.notScreened }}', [1520, -160]),
+    stopWithError(IN(31), 'Stop: saved but not screened - a human must look',
+      "={{ 'Telegram extraction: prescription ' + ($json.prescriptionId || '(unknown)') + ' was saved, but the backend did not screen it (' + ($json.screening || 'none') + ')' }}", [1740, -160]),
     // ---- logs (AP-05 step 3) - each a named Code node output, never a chat id or message text.
     code(IN(37), 'log: non-active caregiver (deterministic)', CAREGIVER_LOG, [640, 380]),
     code(IN(38), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: reply with buttons'), [2400, 40]),
@@ -445,9 +458,9 @@ const inbound = {
     'extraction: validate (deterministic)': main('a body to save?'),
     'a body to save?': main('backend: save the prescription', 'extraction: reply (deterministic)'),
     'backend: save the prescription': main('extraction: reply (deterministic)'),
-    'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'screen it?']),
+    'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'saved but not screened?']),
     'Telegram: extraction reply': main('log: failed Telegram send (extraction reply)'),
-    'screen it?': main('n8n: screen the new prescription'),
+    'saved but not screened?': main('Stop: saved but not screened - a human must look'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
