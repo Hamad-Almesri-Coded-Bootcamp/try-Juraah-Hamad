@@ -17,7 +17,12 @@ export default async function NotFound() {
   const label = !session?.role ? t(copy.shell.backHome, locale) : isClinic ? t(copy.shell.backToQueue, locale) : t(copy.shell.backToToday, locale);
 
   return (
-    <main id="main-content" className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
+    // A clinic role never sees the patient assistant, here as in the clinic layout (CR-071).
+    <main
+      id="main-content"
+      className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5"
+      data-no-assistant={isClinic ? '' : undefined}
+    >
       <EmptyState
         icon="search"
         title={t(copy.shell.notFoundTitle, locale)}

@@ -126,3 +126,33 @@ A "modern" pass that swapped these for trend colours or a display face would mak
 
 **Summary: 3 critical · 9 major · 4 minor** (by bucket: 4 code, 7 owner, 5 already logged)
 **Verdict:** reads as an unfinished admin template, not as slop. The components are right, but the composition isn't. V3, V8, V9 and V10 can be fixed today without a decision. V1, V2, V4 and V5 are what would make the product feel modern, and they need the owner's yes on the boards.
+
+---
+
+## Outcome (2026-09-24, CR-071)
+
+The owner approved the v2 "Daylight" mock and asked for it on every screen, with Fusha Arabic, هويتي, one language per locale, text that reads as a person wrote it, and no em dashes. It is built on branch `visual-redesign` and recorded in `docs/DECISIONS.md` under CR-071.
+
+**Checks on the final commit.**
+
+- `npm run verify`: exit 0 (1,123 unit tests, and a production build of 74 pages).
+- `npm run guards`: all passed.
+- `tests/e2e/language-purity.spec.ts`: 41 of 41 routes pass in both locales at 390px. The same spec against the commit before the redesign (`ff86837`): 37 failed.
+- Full e2e on the mock backend: 964 passed and 29 failed in one run. The 29 share the in-memory store and depend on test order; all 29 passed on a fresh server with `--last-failed --workers=1`.
+- G1's runtime proof (no dose-status control in the list): 3 of 3.
+
+**Against the real database.** A production build of the branch was pointed at the live Supabase database and rendered at 390px in both locales:
+
+- the public pages;
+- every patient screen as Hamad, Fatima and Sara;
+- the invitation;
+- every clinic screen as the reviewer and the admin.
+
+The patient screens show the live rows. For example, Hamad's Today shows the six doses from the database. The server logged no errors. The branch changes no file in `lib/`, `supabase/` or `types/`, so the data layer and the database policies are the ones already deployed.
+
+Two screens could not be opened there, both because of live data, not the code:
+
+- **The caregiver screens (F2 to F5).** On the live database, Hamad withdrew Abdullah's (cg-01) and Sara's (cg-02) access on 2026-09-21. No active caregiver is left, and the sessions policy (`session_row_ok`, 0007) correctly refuses a caregiver session for a withdrawn link. To demo the caregiver shell there, invite a caregiver and accept the invitation again. The mock backend renders these screens, and the e2e suite covers them.
+- **G2 for ia-001.** That alert has already been reviewed on the live database, so the reviewer's queue is empty and G2 shows "not found". This is correct.
+
+That run also found one problem: a reviewer who reached "not found" saw the patient assistant. It is fixed (`app/[locale]/not-found.tsx`).

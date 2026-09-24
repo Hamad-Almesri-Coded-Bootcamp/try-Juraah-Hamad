@@ -756,7 +756,7 @@ Each fix below needed no decision: it makes the build do what a binding document
 - M19: D1's per-row buttons and E5's Telegram button are secondary.
 - m7: B4 says "Unclear in the photo" once.
 
-### CR-071 · The "Daylight" redesign, Fusha Arabic and one language per locale — `APPROVED BY THE OWNER` 2026-09-24 (in chat; being built on branch `visual-redesign`)
+### CR-071 · The "Daylight" redesign, Fusha Arabic and one language per locale — `APPROVED BY THE OWNER` 2026-09-24 (in chat) · `BUILT` 2026-09-24 (branch `visual-redesign`, merged into `main`)
 **What the owner decided.** Reviewing `docs/audits/2026-09-24-hallmark-visual-audit.md` and the v2 "Daylight" mock (canvas "Jur'ah redesign mock", page v2), the owner said:
 - Keep the twelve colours and redesign everything else, then apply v2 to every screen, with smooth motion.
 - Write the Arabic in Fusha.
@@ -819,9 +819,9 @@ Transliterations for the owner to correct:
 - **Foundation (lead).**
   - `styles/daylight.css` is imported after the system's files in the `components` layer. The project's own component stylesheets (`components/ui/styles/*.css`) are now imported into that same layer from `app/globals.css`, instead of from each component. Imported from the components, they were unlayered, and unlayered CSS beats every layer.
   - Readex Pro is loaded beside IBM Plex (400 to 700).
-  - Route changes cross-fade: one `<ViewTransition>` in the root layout, off under reduced motion.
+  - Page changes cross-fade with the CSS `@view-transition { navigation: auto; }` rule, and each page's content fades in (`daylight.css`, off under reduced motion). React's `<ViewTransition>` was tried first and removed: it threw "Transition was aborted" whenever a server action redirected.
   - The patient and caregiver shells have loading skeletons.
-  - Internal links in the shared components are `next/link`, so navigation no longer reloads the page.
+  - Internal links in the shared components are `next/link`, so navigation no longer reloads the page. The one exception is `DoseRow`, which stays a plain link: `next/link` attaches a click handler, and G1's runtime proof requires none in the dose list.
   - The shell reads the path in the browser (`TabBar` `currentTabFor`, `ShellAside`, `ClinicRoleBanner`). App Router layouts do not re-render on an in-app navigation, so the server-computed current tab, dock visibility and clinic role label went stale after any client-side navigation. This was already true of the existing `router.push` buttons.
   - New primitives: `DayDial`, `WeekStrip`, `Monogram`, `ProgressRing`, `SkyHeader`, `features/day/TodayView.tsx`. The bell and person glyphs are added to `design/icons.json`.
   - The assistant is a pill in the app bar (`AssistantButton` inside `LanguageSwitch`). Pages marked `data-no-assistant` (F0, A2, the clinic) show neither it nor the floating launcher.
@@ -839,6 +839,7 @@ Transliterations for the owner to correct:
 - **Proof.**
   - `tests/unit/i18n/localize.test.ts` (15 tests) covers every seed value in both directions.
   - `tests/e2e/language-purity.spec.ts` checks 41 routes × 2 locales. Run against the pre-redesign commit (`ff86837`): 37 failed, 4 passed. The green run on this branch is recorded in the audit report.
+  - The branch was also run against the real database; the results are in `docs/audits/2026-09-24-hallmark-visual-audit.md`, *Outcome*. On the live data, no caregiver is active (Abdullah's and Sara's access was withdrawn on 2026-09-21), so the caregiver shell cannot be demonstrated there until an invitation is sent and accepted again.
 - **For the owner to decide.**
   - **(i) CR-010 against CR-071.** CR-010 lets X1 show the literal role and type codes beside their labels. With "no Latin in Arabic", those codes now show only in the English locale.
   - **(ii) X1's footer.** It says the log shows no medicine or dose details, but stored messages do (for example "Levothyroxine dose recorded: taken on time"). The spec and the seed disagree; nothing was changed.
