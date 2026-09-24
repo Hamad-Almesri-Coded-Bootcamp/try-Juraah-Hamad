@@ -16,9 +16,11 @@
  *
  * Exact-match lookup on a normalised pair key cannot do that. It either finds
  * the pair or it does not, and "does not" is an answer we are happy to give -
- * but ONLY when both drugs are covered by the index. "Not covered" is a
- * different answer ("cannot verify", TC-IX-03) and is never reported as
- * "no interaction".
+ * but ONLY when both drugs are covered by the index AND one of them is in a
+ * DDInter category file that was loaded (a category file lists the interactions
+ * of the drugs in that ATC category; see absenceIsConclusive). "Not covered" and
+ * "not checkable" are different answers ("cannot verify", TC-IX-03) and are
+ * never reported as "no interaction".
  * ------------------------------------------------------------------------- */
 
 const { candidateKeys, pairKey } = require('./normalise');
@@ -40,12 +42,47 @@ function isCovered(name, index) {
 }
 
 /**
+ * The DDInter category files this index was built from (meta.categoryFilesLoaded). An index
+ * without that record proves no absence at all: every absent pair is then "cannot verify".
+ */
+function categoryFilesLoaded(index) {
+  const c = index && index.meta && index.meta.categoryFilesLoaded;
+  return Array.isArray(c) ? c.filter((x) => typeof x === 'string' && /^[A-Z]$/.test(x)) : [];
+}
+
+/**
+ * The loaded category files that list every interaction of this indexed drug: its ATC top-level
+ * categories (drugs[k].atcCategories) that are also loaded. A drug with no recorded categories
+ * is unknown, and unknown is treated as not loaded (fail closed).
+ */
+function loadedCategoriesOf(key, index) {
+  const d = index.drugs.get(key);
+  const cats = d && Array.isArray(d.atcCategories) ? d.atcCategories : [];
+  const loaded = categoryFilesLoaded(index);
+  return cats.filter((c) => loaded.indexOf(c) !== -1);
+}
+
+/**
+ * Can the absence of this pair from the index be read as "DDInter records no interaction"?
+ * Only if one of the two drugs is in a loaded category: that file lists all of its interactions,
+ * so a missing row is a real "none recorded". With both drugs outside the loaded categories, the
+ * one file that would list the pair was never read.
+ */
+function absenceIsConclusive(keyA, keyB, index) {
+  return loadedCategoriesOf(keyA, index).length > 0 || loadedCategoriesOf(keyB, index).length > 0;
+}
+
+/**
  * Look up one order-insensitive pair.
  * Returns { found: false, reason } or { found: true, level, severity, ... }.
  *
- *   reason 'drug_not_in_index'  - we cannot say anything about this pair
- *   reason 'same_ingredient'    - duplicate therapy, handled by the caller
- *   reason 'no_pair_in_source'  - both covered, no row: "none found in our data"
+ *   reason 'drug_not_in_index'   - we cannot say anything about this pair
+ *   reason 'same_ingredient'     - duplicate therapy, handled by the caller
+ *   reason 'pair_not_checkable'  - both covered, no row, but neither drug is in a loaded category
+ *                                  file: the file that would list the pair was not loaded, so
+ *                                  "cannot verify" - never "no interaction"
+ *   reason 'no_pair_in_source'   - both covered, no row, and one drug's category file is loaded:
+ *                                  "none found in our data"
  */
 function lookupPair(nameA, nameB, index) {
   const keyA = isCovered(nameA, index);
@@ -62,7 +99,12 @@ function lookupPair(nameA, nameB, index) {
 
   const pk = pairKey(keyA, keyB);
   const row = index.pairs.get(pk);
-  if (!row) return { found: false, reason: 'no_pair_in_source', pairKey: pk, keyA, keyB };
+  if (!row) {
+    if (!absenceIsConclusive(keyA, keyB, index)) {
+      return { found: false, reason: 'pair_not_checkable', pairKey: pk, keyA, keyB, categoryFilesLoaded: categoryFilesLoaded(index) };
+    }
+    return { found: false, reason: 'no_pair_in_source', pairKey: pk, keyA, keyB };
+  }
 
   return {
     found: true,
@@ -78,4 +120,4 @@ function lookupPair(nameA, nameB, index) {
   };
 }
 
-module.exports = { loadIndex, isCovered, lookupPair };
+module.exports = { loadIndex, isCovered, categoryFilesLoaded, loadedCategoriesOf, absenceIsConclusive, lookupPair };
