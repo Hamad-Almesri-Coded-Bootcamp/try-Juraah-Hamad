@@ -106,11 +106,17 @@ export const PG_QUERIES_CHANNELS = {
   // reads no caregiver name (0008). Who a chat belongs to: the CONNECTED link with that chat id that is also its
   // subject's LATEST link (the same "latest" rule as eligibility), and — for a caregiver — only while
   // the invitation is `active`. A disconnected, superseded, unknown or non-active chat is no row.
+  // CR-092 (AP-05) - the relay payload also carries whether check-ins are on for this patient, so
+  // the agent side can say so instead of "no dose"; a patient with no settings row reads null, and
+  // subjectForChat below maps that (and false) to trackingOn: false. Fixed at generation, unrelated
+  // to a dose's own `tracked` column (rule 3).
   subjectForChat: `
     select l.subject_type::text as subject_type, l.subject_id,
            case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end as patient_id,
            (select s.language::text from settings s
-             where s.patient_id = case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end) as language
+             where s.patient_id = case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end) as language,
+           (select s.adherence_check_in_enabled from settings s
+             where s.patient_id = case when l.subject_type = 'patient' then l.subject_id else c.linked_patient_id end) as tracking_on
       from messaging_links l
       left join caregivers c on l.subject_type = 'caregiver' and c.id = l.subject_id
      where l.chat_id = $1 and l.status = 'connected'
@@ -423,6 +429,8 @@ export interface ChatSubject {
   /** The patient itself, or the patient an ACTIVE caregiver is linked to. */
   patientId: string;
   language: 'ar' | 'en';
+  /** CR-092 (AP-05) - settings.adherence_check_in_enabled for that patient; no settings row reads false. */
+  trackingOn: boolean;
 }
 
 /** null ⇔ no connected, latest link has this chat id — or it is a caregiver's whose invitation is not active. */
@@ -435,6 +443,7 @@ export async function subjectForChat(chatId: string): Promise<ChatSubject | null
       subjectId: String(row.subject_id),
       patientId: String(row.patient_id),
       language: String(row.language) === 'en' ? 'en' : 'ar',
+      trackingOn: row.tracking_on === true,
     };
   });
 }
