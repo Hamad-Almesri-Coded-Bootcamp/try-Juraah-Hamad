@@ -11,6 +11,10 @@ loadLocalEnv();
 // reuses whatever already listens on :3100; stop a server started with the other backend first.)
 const BACKEND = (process.env.JURAH_DATABASE_URL ?? '').trim() !== '' ? 'postgres' : 'mock';
 
+// Parallel worktrees each run their own server: E2E_PORT picks it (3100 when unset, as before), so one
+// worktree's run never reuses another worktree's server.
+const PORT = Number((process.env.E2E_PORT ?? '').trim() || 3100);
+
 // Verification 9, 11 and 12 run here: the 390 / 834 / 1440 × rtl / ltr matrix and the role walks.
 // WPfinal (D-039): against the Postgres backend a page render costs 4–7 s from Kuwait to the ap-south-1
 // pooler (~370 ms per seam call), where Phase 1's mock rendered in ~0.1 s. The default 5 s `expect`
@@ -25,15 +29,16 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
-  use: { baseURL: 'http://localhost:3100', trace: 'retain-on-failure' },
+  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   projects: [
     { name: 'phone-390', use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } } },
     { name: 'tablet-834', use: { ...devices['Desktop Chrome'], viewport: { width: 834, height: 1194 } } },
     { name: 'desktop-1440', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
-    command: `JURAH_DATA_BACKEND=${BACKEND} npx next dev -p 3100`,
-    url: 'http://localhost:3100/ar',
+    // The backend reaches the server through env below; a `VAR=value command` prefix does not run under cmd.exe.
+    command: `npx next dev -p ${PORT}`,
+    url: `http://localhost:${PORT}/ar`,
     reuseExistingServer: true,
     timeout: 120_000,
     env: {
