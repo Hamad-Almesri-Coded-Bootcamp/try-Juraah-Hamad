@@ -40,20 +40,24 @@ const VISION_MODEL_PATH = 'gemini-3-flash-preview';
 // ------------------------------------------------------------------------------ helpers
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
-/** Strip the CommonJS wrapper: an n8n Code node has no `module`. */
+/** Strip the CommonJS wrapper: an n8n Code node has no `module` and no `require`. */
 function inline(file) {
   const src = read(file)
     // A Windows checkout (core.autocrlf=true) hands us CRLF; the committed workflows are LF.
     .replace(/\r\n/g, '\n')
     .replace(/^'use strict';\s*/m, '')
+    .replace(/^const \{[^}]*\} = require\('[^']+'\);\n/gm, '')
     .replace(/module\.exports\s*=\s*\{[\s\S]*?\};\s*$/m, '')
     .trimEnd();
+  if (/\brequire\(/.test(src)) throw new Error(file + ': a require survived inlining');
   return '/* ===== generated from agents/' + file + ' - do not edit here; edit the source and rebuild ===== */\n' +
     src + '\n/* ===== end generated ===== */';
 }
 const ADHERENCE = inline('lib/adherence.js');
 const SCREENING = inline('lib/screening.js');
-const EXTRACTION = inline('lib/extraction.js');
+// AP-03/D3: the Telegram copy is now built on the drug-knowledge core (agents/knowledge/src/extraction.js),
+// which agents/lib/extraction.js requires and re-exports; both are inlined here, core first.
+const EXTRACTION = inline('knowledge/src/extraction.js') + '\n\n' + inline('lib/extraction.js');
 const VOICE = inline('lib/voice.js');
 const VOICE_ACTIONS = inline('lib/voice-actions.js');
 const WEBCHAT = inline('lib/webchat.js');
@@ -241,33 +245,33 @@ return items;`;
 
 const EX_REQUEST = EXTRACTION + `
 
-// The image goes to the model; the model's reading comes back through toPrescriptionBody.
+// The image goes to the model; the model's reading comes back through extractFromTelegram. The
+// caption travels alongside (context only for the model AND for the deterministic core below -
+// the image always wins, TC-EX-06); a file problem is named and short-circuits validation.
 const r = $('route (deterministic)').first().json;
 const bin = $input.first().binary || {};
 const key = Object.keys(bin)[0];
-if (!key) return [{ json: { ...r, visionBody: null, reason: 'the file could not be downloaded' } }];
+if (!key) return [{ json: { ...r, visionBody: null, caption: r.text || null, fileProblem: 'file_not_downloaded' } }];
 const buffer = await this.helpers.getBinaryDataBuffer(0, key);
 const mime = bin[key].mimeType || 'image/jpeg';
 if (!/^(image\\/(jpeg|png|webp|heic|heif)|application\\/pdf)$/.test(mime) || buffer.length > 15 * 1024 * 1024) {
-  return [{ json: { ...r, visionBody: null, reason: 'unsupported file (' + mime + ', ' + buffer.length + ' bytes)' } }];
+  return [{ json: { ...r, visionBody: null, caption: r.text || null, fileProblem: 'unsupported_file' } }];
 }
 const caption = r.text ? '\\nThe patient\\'s caption (context only - the image wins): ' + r.text : '';
 return [{ json: { ...r, visionBody: {
   contents: [{ role: 'user', parts: [{ text: PROMPT + caption }, { inlineData: { mimeType: mime, data: buffer.toString('base64') } }] }],
   generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
-} } }];`;
+}, caption: r.text || null, fileProblem: null } }];`;
 
 const EX_VALIDATE = EXTRACTION + `
 
 // THE DETERMINISTIC LAYER for extraction: the model's reading becomes a body, a flag, or a refusal.
+// A model error or truncated answer is 'unreadable' with its reason named - never 'not_a_prescription'
+// (AP-03): extractFromTelegram reads the raw Gemini response itself (readVision) and only reaches
+// toPrescriptionBody with an actually-parsed, finished answer.
 const r = $('extraction: build the vision request').first().json;
 const res = $input.first().json;
-let model = null;
-try {
-  const text = res.body.candidates[0].content.parts.map((x) => x.text || '').join('');
-  model = JSON.parse(text);
-} catch (e) { model = null; }
-const result = r.visionBody && res.statusCode === 200 ? toPrescriptionBody({ patientId: r.patientId, model }) : { ok: false, code: 'not_a_prescription', missing: [] };
+const result = extractFromTelegram({ patientId: r.patientId, res, caption: r.caption, fileProblem: r.visionBody ? null : (r.fileProblem || 'no_file') });
 return [{ json: { ...r, visionBody: undefined, result, body: result.ok ? result.body : null, visionStatus: res.statusCode } }];`;
 
 const EX_REPLY = EXTRACTION + '\n' + CONFIG + `
@@ -282,7 +286,7 @@ const screen = !!(created && statusCode === 201 && !v.result.needsReview);
 return [{ json: { chatId: v.chatId, text, buttons: null,
   screen, screeningUrl: N8N + '/jurah/screen-prescription',
   screeningBody: screen ? { patientId: v.patientId, newPrescriptionId: created.id, language: v.language } : null,
-  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], statusCode } } }];`;
+  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode } } }];`;
 
 const inbound = {
   name: 'agent-telegram-inbound',

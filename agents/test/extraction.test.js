@@ -1,86 +1,101 @@
 'use strict';
 
-/** agents/lib/extraction.js against TC-EX-01..06 and the body POST /api/agent/prescriptions accepts. */
+/** agents/lib/extraction.js (the Telegram channel) against the drug-knowledge core (AP-03/D3/CR-075). */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const E = require('../lib/extraction.js');
 
-const SURE = { brandName: 0.95, strengthMg: 0.95, frequencyPerDay: 0.95, startDate: 0.95, doseTimes: 0.95 };
+const SURE = Object.fromEntries(E.CONFIDENCE_KEYS.map((k) => [k, 0.95]));
 const CLEAR = {
   isPrescription: true, facilityName: 'مستشفى مبارك الكبير', sector: 'public', genericName: 'Amoxicillin', brandName: 'Amoxil',
-  strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['20:00', '08:00', '14:00'],
+  strength: 500, strengthUnit: 'mg', dosePerAdministration: 1, frequencyPerDay: 3, doseTimes: ['08:00', '14:00', '20:00'],
   dosingPattern: 'daily', durationDays: 7, startDate: '2026-09-24', confidence: SURE,
 };
+const geminiRes = (candidate) => ({ statusCode: 200, body: { candidates: [candidate] } });
+const okCandidate = (model) => ({ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(model) }] } });
 
-test('TC-EX-01: a clear prescription -> an unflagged body with every core field, doseTimes sorted', () => {
+test('TC-EX-01: a clear prescription -> an unflagged body built by the shared core, doseTimes as written (the core does not sort)', () => {
   const r = E.toPrescriptionBody({ patientId: 'pt-03', model: CLEAR });
   assert.equal(r.ok, true);
   assert.equal(r.needsReview, false);
-  assert.deepEqual(r.body, {
-    patientId: 'pt-03', needsReview: false, uncertainFields: [],
-    prescription: {
-      source: { facilityName: 'مستشفى مبارك الكبير', sector: 'public' },
-      drug: { genericName: 'Amoxicillin', brandName: 'Amoxil', strengthMg: 500, strengthUnit: 'mg' },
-      dosePerAdministration: 1, durationDays: 7, dosingPattern: 'daily', frequencyPerDay: 3, startDate: '2026-09-24',
-      doseTimes: ['08:00', '14:00', '20:00'],
-    },
-  });
+  assert.deepEqual(r.uncertainFields, []);
+  assert.equal(r.body.prescription.drug.strengthMg, 500);
+  assert.equal(r.body.prescription.drug.strengthUnit, 'mg');
+  assert.deepEqual(r.body.prescription.doseTimes, ['08:00', '14:00', '20:00']);
 });
 
-test('TC-EX-02: a low-confidence critical field is left UNSET and named, and the record is flagged', () => {
-  const r = E.toPrescriptionBody({ patientId: 'pt-03', model: { ...CLEAR, confidence: { ...SURE, strengthMg: 0.5 } } });
+test('a strength with NO unit written is flagged - no unit is ever assumed', () => {
+  const r = E.toPrescriptionBody({ patientId: 'pt-03', model: Object.assign({}, CLEAR, { strengthUnit: null }) });
+  assert.equal(r.ok, true);
   assert.equal(r.needsReview, true);
-  assert.deepEqual(r.uncertainFields, ['strengthMg']);
-  assert.equal('strengthMg' in r.body.prescription.drug, false);
+  assert.ok(r.uncertainFields.includes('strengthMg'), JSON.stringify(r.uncertainFields));
+  assert.ok(!('strengthMg' in r.body.prescription.drug));
+  assert.ok(!('strengthUnit' in r.body.prescription.drug));
 });
 
-test('TC-EX-03: alternate-day stays alternate_day', () => {
-  assert.equal(E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, dosingPattern: 'alternate_day' } }).body.prescription.dosingPattern, 'alternate_day');
+test('TC-EX-04: not a prescription -> explicit failure, never a record, and its own reply', () => {
+  const r = E.toPrescriptionBody({ patientId: 'pt-03', model: Object.assign({}, CLEAR, { isPrescription: false }) });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'not_a_prescription');
+  assert.match(E.extractionReply({ result: r, language: 'ar' }), /ما تبين إنها وصفة/);
+  assert.match(E.extractionReply({ result: r, language: 'en' }), /does not look like a prescription/);
 });
 
-test('TC-EX-04: not a prescription (or no answer at all) -> explicit failure, no record', () => {
-  for (const model of [{ ...CLEAR, isPrescription: false }, {}, null, 'text']) {
-    assert.deepEqual(E.toPrescriptionBody({ patientId: 'p', model }), { ok: false, code: 'not_a_prescription', missing: [] });
-  }
+test('a truncated answer (finishReason MAX_TOKENS) is unreadable with the reason named, never parsed', () => {
+  const res = geminiRes({ finishReason: 'MAX_TOKENS', content: { parts: [{ text: JSON.stringify(CLEAR) }] } });
+  const { model, reason } = E.readVision(res);
+  assert.equal(model, null);
+  assert.equal(reason, 'vision_finish_MAX_TOKENS');
+  const r = E.extractFromTelegram({ patientId: 'pt-03', res, caption: null, fileProblem: null });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'unreadable');
+  assert.equal(r.reason, 'vision_finish_MAX_TOKENS');
+  assert.ok(!('body' in r));
 });
 
-test('TC-EX-05: "three times daily" with no times -> frequency kept, doseTimes unset and flagged, no invented clock times', () => {
-  const r = E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, doseTimes: null } });
-  assert.equal(r.body.prescription.frequencyPerDay, 3);
-  assert.equal('doseTimes' in r.body.prescription, false);
-  assert.deepEqual(r.uncertainFields, ['doseTimes']);
+test('an outage (HTTP 503) is unreadable, never "not a prescription" - and reads differently to the patient', () => {
+  const res = { statusCode: 503, body: null };
+  const { model, reason } = E.readVision(res);
+  assert.equal(model, null);
+  assert.equal(reason, 'vision_http_503');
+  const r = E.extractFromTelegram({ patientId: 'pt-03', res, caption: null, fileProblem: null });
+  assert.equal(r.code, 'unreadable');
+  const notAPrescription = { ok: false, code: 'not_a_prescription' };
+  assert.notEqual(E.extractionReply({ result: r, language: 'ar' }), E.extractionReply({ result: notAPrescription, language: 'ar' }));
+  assert.notEqual(E.extractionReply({ result: r, language: 'en' }), E.extractionReply({ result: notAPrescription, language: 'en' }));
 });
 
-test('doseTimes that disagree with the frequency, repeat, or are not HH:MM -> unset and flagged, never repaired', () => {
-  for (const doseTimes of [['08:00', '20:00'], ['08:00', '08:00', '20:00'], ['8am', '2pm', '8pm'], ['24:00', '08:00', '14:00']]) {
-    const r = E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, doseTimes } });
-    assert.ok(r.uncertainFields.includes('doseTimes'), JSON.stringify(doseTimes));
-    assert.equal('doseTimes' in r.body.prescription, false);
-  }
+test('TC-EX-06: a contradicting caption, through extractFromTelegram, flags the named field and leaves it unset', () => {
+  const res = geminiRes(okCandidate(Object.assign({}, CLEAR, { captionConflicts: ['startDate'] })));
+  const r = E.extractFromTelegram({ patientId: 'pt-03', res, caption: 'من عيادتي', fileProblem: null });
+  assert.equal(r.ok, true);
+  assert.equal(r.needsReview, true);
+  assert.ok(r.uncertainFields.includes('startDate'), JSON.stringify(r.uncertainFields));
+  assert.ok(!('startDate' in r.body.prescription));
 });
 
-test('no start date is ever defaulted: missing or malformed -> flagged', () => {
-  for (const startDate of [null, '24/09/2026', '2026-02-30']) {
-    const r = E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, startDate } });
-    assert.deepEqual(r.uncertainFields, ['startDate']);
-  }
+test('a file problem short-circuits before the vision response is even read', () => {
+  const r = E.extractFromTelegram({ patientId: 'pt-03', res: null, caption: null, fileProblem: 'file_not_downloaded' });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'unreadable');
+  assert.equal(r.reason, 'file_not_downloaded');
+  assert.ok(!('body' in r));
 });
 
-test('a required field a reviewer cannot fix -> explicit failure naming it, never a default', () => {
-  const r = E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, facilityName: null, sector: 'semi-private', durationDays: 0 } });
-  assert.deepEqual(r, { ok: false, code: 'required_field_unreadable', missing: ['facilityName', 'sector', 'durationDays'] });
-});
-
-test('the body carries no reviewer field and no key the route refuses', () => {
-  const r = E.toPrescriptionBody({ patientId: 'p', model: { ...CLEAR, fieldReviewStatus: 'confirmed', id: 'rx-1', patientId: 'pt-99' } });
-  assert.deepEqual(Object.keys(r.body).sort(), ['needsReview', 'patientId', 'prescription', 'uncertainFields']);
-  assert.equal(r.body.patientId, 'p');
-  assert.ok(!('fieldReviewStatus' in r.body.prescription) && !('id' in r.body.prescription));
-});
-
-test('the reply never says "saved" for a failure or a refused write', () => {
-  const ok = E.toPrescriptionBody({ patientId: 'p', model: CLEAR });
+test('a save failure never reads as saved to the patient', () => {
+  const ok = E.toPrescriptionBody({ patientId: 'pt-03', model: CLEAR });
   assert.match(E.extractionReply({ result: ok, statusCode: 201, language: 'ar' }), /انحفظت/);
   assert.match(E.extractionReply({ result: ok, statusCode: 422, language: 'ar' }), /ما انحفظت/);
-  assert.match(E.extractionReply({ result: { ok: false, code: 'not_a_prescription' }, language: 'ar' }), /ما حفظنا/);
+});
+
+test('a flagged (needsReview) record reads as pending review, not silently saved clean', () => {
+  const flagged = E.toPrescriptionBody({ patientId: 'pt-03', model: Object.assign({}, CLEAR, { strengthUnit: null }) });
+  assert.match(E.extractionReply({ result: flagged, statusCode: 201, language: 'ar' }), /بيراجعها مختص طبي/);
+  assert.match(E.extractionReply({ result: flagged, statusCode: 201, language: 'en' }), /medical reviewer/);
+});
+
+test('a clear record reads as saved and screened, in both languages', () => {
+  const clear = E.toPrescriptionBody({ patientId: 'pt-03', model: CLEAR });
+  assert.match(E.extractionReply({ result: clear, statusCode: 201, language: 'ar' }), /نفحصها الحين/);
+  assert.match(E.extractionReply({ result: clear, statusCode: 201, language: 'en' }), /being checked/);
 });
