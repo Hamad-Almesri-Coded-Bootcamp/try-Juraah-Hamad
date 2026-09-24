@@ -1,14 +1,16 @@
 'use strict';
 
 /**
- * agents/lib/voice-actions.js - CR-070. Fixtures: pt-03's three tracked doses on 2026-09-24
- * (07:00 Eltroxin, 13:00 and 21:00 Calcium + D3). The model only names doses; everything else -
- * which dose, whether it can be recorded, what is written - is decided here and tested here.
+ * agents/lib/voice-actions.js - free talk (CR-070) and the record request that records nothing
+ * (CR-073, AP-02). Fixtures: pt-03's three tracked doses on 2026-09-24 (07:00 Eltroxin, 13:00 and
+ * 21:00 Calcium + D3). The model only names doses; which buttons go to Telegram and every word
+ * Alexa says are decided here and tested here. Nothing here can produce a write.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const A = require('../lib/voice-actions.js');
-const V = require('../lib/voice.js');
 
 const OPEN = ['upcoming'][0];
 // Dose words by reference, never as an object literal (guard 4 / G1 scans for status: '<word>').
@@ -22,82 +24,124 @@ const dose = (id, rx, hhmm, status = OPEN) => ({
 });
 const DAY = () => [dose('rx-009-0924-2100', 'rx-009', '21:00'), dose('rx-008-0924-0700', 'rx-008', '07:00'), dose('rx-009-0924-1300', 'rx-009', '13:00')];
 const at = (hhmm) => '2026-09-24T' + hhmm + ':00+03:00';
-const API = 'https://app.example/api/agent';
-const plan = (items, nowHHMM, language = 'en', doses = DAY()) => A.planRecord({ items, doses, nowIso: at(nowHHMM), language, spokenTime: V.spokenTime });
+const ids = (doses) => doses.map((d) => d.id);
+const prompt = (items, nowHHMM, doses = DAY()) => ids(A.recordPromptDoses({ items, doses, nowIso: at(nowHHMM) }));
+const reply = (over) => A.recordReply({ items: [], doses: DAY(), nowIso: at('22:00'), language: 'en', hasChat: true, ...over });
 
-test('trustFreeTalk: only a listed intent above 0.7; record keeps only well-formed items; record with none is unclear', () => {
+const EN_SENT = 'I can\'t record by voice; I\'ve sent the buttons to your Telegram. Please confirm there yourself.';
+const AR_SENT = 'ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام. أكّد منها بنفسك.';
+
+test('trustFreeTalk: only a listed intent above 0.7; record keeps only well-formed items', () => {
   assert.deepEqual(A.trustFreeTalk({ intent: 'today', confidence: 0.9 }), { kind: 'TodayDosesIntent', items: [] });
   assert.deepEqual(A.trustFreeTalk({ intent: 'today', confidence: 0.5 }), { kind: 'AMAZON.FallbackIntent', items: [] });
-  assert.deepEqual(A.trustFreeTalk({ intent: 'delete_everything', confidence: 1 }), { kind: 'AMAZON.FallbackIntent', items: [] });
+  assert.deepEqual(A.trustFreeTalk({ intent: 'record', confidence: 0.5, items: [{ position: 1, status: W_ON }] }), { kind: 'AMAZON.FallbackIntent', items: [] });
   const r = A.trustFreeTalk({ intent: 'record', confidence: 0.95, items: [
     { position: 1, status: W_ON }, { position: 2, status: 'raise_dose' }, { position: 99, status: W_MISS }, { time: '21:00', status: W_MISS }, {},
   ] });
   assert.equal(r.kind, 'record');
   assert.deepEqual(r.items, [{ position: 1, time: null, medicine: null, status: W_ON }, { position: null, time: '21:00', medicine: null, status: W_MISS }]);
-  assert.deepEqual(A.trustFreeTalk({ intent: 'record', confidence: 0.95, items: [{ status: W_MISS }] }), { kind: 'AMAZON.FallbackIntent', items: [] });
-  assert.deepEqual(A.trustFreeTalk(null), { kind: 'AMAZON.FallbackIntent', items: [] });
+  // Items only ever come with a record request.
+  assert.deepEqual(A.trustFreeTalk({ intent: 'today', confidence: 0.9, items: [{ position: 1, status: W_ON }] }).items, []);
 });
 
-test('"mark the first two taken and the third missed" at 22:00: positions count today in time order; read back, nothing written', () => {
-  const r = plan([{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }], '22:00');
-  assert.deepEqual(r.pending, [
-    { doseId: 'rx-008-0924-0700', prescriptionId: 'rx-008', status: W_ON },
-    { doseId: 'rx-009-0924-1300', prescriptionId: 'rx-009', status: W_ON },
-    { doseId: 'rx-009-0924-2100', prescriptionId: 'rx-009', status: W_MISS },
-  ]);
-  assert.match(r.speech, /^I will record: Eltroxin at 7 in the morning taken, Calcium carbonate \+ vitamin D3 at 1 in the afternoon taken, Calcium carbonate \+ vitamin D3 at 9 in the evening missed\. Shall I\? Say yes, or no\.$/);
+test('AP-02: "mark it taken" names no dose and is still a record request (nothing is written from it)', () => {
+  assert.deepEqual(A.trustFreeTalk({ intent: 'record', confidence: 0.95, items: [] }), { kind: 'record', items: [] });
+  assert.deepEqual(A.trustFreeTalk({ intent: 'record', confidence: 0.95, items: [{ status: W_MISS }] }), { kind: 'record', items: [] });
 });
 
-test('a dose not due yet (more than an hour ahead) or already recorded is named and skipped - never written', () => {
-  const r = plan([{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }], '09:00');
-  assert.deepEqual(r.pending.map((p) => p.doseId), ['rx-008-0924-0700']);
-  assert.match(r.speech, /I could not record: Calcium carbonate \+ vitamin D3 at 1 in the afternoon - not due yet, Calcium carbonate \+ vitamin D3 at 9 in the evening - not due yet\./);
-  const done = DAY(); done[1] = dose('rx-008-0924-0700', 'rx-008', '07:00', 'taken_on_time');
-  const r2 = plan([{ position: 1, status: W_MISS }], '09:00', 'en', done);
-  assert.deepEqual(r2.pending, []);
-  assert.match(r2.speech, /^I could not record anything: Eltroxin at 7 in the morning - already recorded\.$/);
+test('AP-02: the model gave no usable answer -> a sentence that says what the patient did is a record request; anything else is unclear', () => {
+  for (const c of [null, {}, { error: '429' }, { intent: 'delete_everything', confidence: 1 }]) {
+    assert.deepEqual(A.trustFreeTalk(c, 'it taken'), { kind: 'record', items: [] }, JSON.stringify(c));
+    assert.deepEqual(A.trustFreeTalk(c, 'I missed the evening one'), { kind: 'record', items: [] });
+    assert.deepEqual(A.trustFreeTalk(c, 'what is the weather'), { kind: 'AMAZON.FallbackIntent', items: [] });
+    assert.deepEqual(A.trustFreeTalk(c), { kind: 'AMAZON.FallbackIntent', items: [] });
+  }
+  // A model that answered, even "unclear", is believed: the fallback is for an outage only.
+  assert.deepEqual(A.trustFreeTalk({ intent: 'unclear', confidence: 0.9 }, 'I took it'), { kind: 'AMAZON.FallbackIntent', items: [] });
 });
 
-test('by medicine name and by time; "my calcium" with two calcium doses picks the one that is open and due, else refuses as ambiguous', () => {
-  assert.deepEqual(plan([{ medicine: 'eltroxin', status: W_LATE }], '09:00').pending.map((p) => [p.doseId, p.status]), [['rx-008-0924-0700', 'taken_late']]);
-  assert.deepEqual(plan([{ time: '13:00', status: W_ON }], '13:10').pending.map((p) => p.doseId), ['rx-009-0924-1300']);
-  const doneMorning = DAY(); doneMorning[2] = dose('rx-009-0924-1300', 'rx-009', '13:00', 'taken_on_time');
-  assert.deepEqual(plan([{ medicine: 'calcium', status: W_MISS }], '22:00', 'en', doneMorning).pending.map((p) => p.doseId), ['rx-009-0924-2100']);
-  assert.match(plan([{ medicine: 'calcium', status: W_ON }], '22:00').speech, /more than one dose matches/);
-  assert.match(plan([{ medicine: 'aspirin', status: W_ON }], '22:00').speech, /could not find the dose you meant/);
+test('resolveItem: position counts today in time order; by time; by name; "my calcium" picks the open one, else ambiguous', () => {
+  assert.equal(A.resolveItem({ position: 1 }, DAY()).dose.id, 'rx-008-0924-0700');
+  assert.equal(A.resolveItem({ position: 3 }, DAY()).dose.id, 'rx-009-0924-2100');
+  assert.equal(A.resolveItem({ position: 4 }, DAY()).reason, 'notFound');
+  assert.equal(A.resolveItem({ time: '13:00' }, DAY()).dose.id, 'rx-009-0924-1300');
+  assert.equal(A.resolveItem({ medicine: 'eltroxin' }, DAY()).dose.id, 'rx-008-0924-0700');
+  assert.equal(A.resolveItem({ medicine: 'calcium' }, DAY()).reason, 'ambiguous');
+  const doneMorning = DAY(); doneMorning[2] = dose('rx-009-0924-1300', 'rx-009', '13:00', W_ON);
+  assert.equal(A.resolveItem({ medicine: 'calcium' }, doneMorning).dose.id, 'rx-009-0924-2100');
+  assert.equal(A.resolveItem({ medicine: 'aspirin' }, DAY()).reason, 'notFound');
 });
 
-test('Arabic wording, and the schedule could not be read -> no speech here (the caller says it failed), nothing pending', () => {
-  assert.match(plan([{ position: 1, status: W_ON }], '09:00', 'ar').speech, /^بسجّل: Eltroxin الساعة 7 الصبح أخذتها\. تأكد؟ قول نعم، أو لا\.$/);
-  assert.deepEqual(A.planRecord({ items: [{ position: 1, status: W_MISS }], doses: null, nowIso: at('09:00'), language: 'en', spokenTime: V.spokenTime }), { speech: null, pending: [] });
+test('AP-02 TC-AD-15: "I took the first two and missed the third" at 22:00 -> the buttons of those three doses, in time order', () => {
+  assert.deepEqual(prompt([{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }], '22:00'),
+    ['rx-008-0924-0700', 'rx-009-0924-1300', 'rx-009-0924-2100']);
 });
 
-test('"yes": the pending list from Alexa\'s session is re-checked against FRESH doses; writes are the Telegram path\'s own two calls', () => {
-  const pending = [
-    { doseId: 'rx-008-0924-0700', prescriptionId: 'rx-008', status: W_ON },
-    { doseId: 'rx-009-0924-2100', prescriptionId: 'rx-009', status: W_MISS },
-    { doseId: 'rx-009-0924-1300', prescriptionId: 'rx-008', status: W_ON }, // prescription does not match -> skipped
-    { doseId: '../../etc', prescriptionId: 'rx-008', status: W_ON }, // malformed -> dropped
-    { doseId: 'rx-008-0924-0700', prescriptionId: 'rx-008', status: 'raise_dose' }, // not a status -> dropped
-  ];
-  const r = A.confirmRecord({ pending, doses: DAY(), nowIso: at('22:00'), api: API, recordedAtIso: '2026-09-24T19:00:00.000Z' });
-  assert.deepEqual(r.writes.map((w) => [w.url, w.body, w.recompute]), [
-    [API + '/doses/rx-008-0924-0700/status', { status: W_ON, recordedAt: '2026-09-24T19:00:00.000Z', source: 'adherence_agent' }, null],
-    [API + '/doses/rx-009-0924-2100/status', { status: W_MISS, recordedAt: '2026-09-24T19:00:00.000Z', source: 'adherence_agent' },
-      { url: API + '/schedule/recompute', body: { prescriptionId: 'rx-009', reason: 'reported_miss', missedDoseId: 'rx-009-0924-2100' } }],
-  ]);
-  assert.deepEqual(r.skipped, ['rx-009-0924-1300']);
-  // Recorded in the meantime (e.g. from Telegram) -> not written twice.
-  const fresh = DAY(); fresh[1] = dose('rx-008-0924-0700', 'rx-008', '07:00', 'taken_late');
-  assert.deepEqual(A.confirmRecord({ pending: pending.slice(0, 1), doses: fresh, nowIso: at('22:00'), api: API, recordedAtIso: 'x' }).writes, []);
-  assert.deepEqual(A.cleanPending('nope'), []);
+test('AP-02: the buttons are only for doses still open and due (up to an hour ahead); a named dose that is neither gets none', () => {
+  // 09:00: the 13:00 and 21:00 doses are not due, so only the first one's buttons go.
+  assert.deepEqual(prompt([{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }], '09:00'), ['rx-008-0924-0700']);
+  assert.deepEqual(prompt([{ time: '13:00', status: W_ON }], '12:10'), ['rx-009-0924-1300']);
+  // Named, but not due: nothing, and never some other dose instead.
+  assert.deepEqual(prompt([{ time: '21:00', status: W_ON }], '09:00'), []);
+  // Named, but already recorded: nothing.
+  const done = DAY(); done[1] = dose('rx-008-0924-0700', 'rx-008', '07:00', W_LATE);
+  assert.deepEqual(prompt([{ medicine: 'eltroxin', status: W_ON }], '09:00', done), []);
 });
 
-test('after the writes: says what was recorded and, honestly, what was not', () => {
-  const writes = [{ doseId: 'rx-008-0924-0700', status: W_ON }, { doseId: 'rx-009-0924-2100', status: W_MISS }];
-  assert.equal(A.recordedSpeech({ writes, results: [200, 409], doses: DAY(), language: 'en', spokenTime: V.spokenTime }),
-    'Done. I recorded: Eltroxin at 7 in the morning taken. I could not record: Calcium carbonate + vitamin D3 at 9 in the evening missed.');
-  assert.match(A.recordedSpeech({ writes: [], results: [], doses: DAY(), language: 'en', spokenTime: V.spokenTime }), /nothing for me to record/);
+test('AP-02: no dose named, or none that resolves ("mark it taken") -> every open dose that is due', () => {
+  assert.deepEqual(prompt([], '13:30'), ['rx-008-0924-0700', 'rx-009-0924-1300']);
+  assert.deepEqual(prompt([{ medicine: 'aspirin', status: W_ON }], '13:30'), ['rx-008-0924-0700', 'rx-009-0924-1300']);
+  assert.deepEqual(prompt([{ medicine: 'calcium', status: W_ON }], '22:00'), ['rx-008-0924-0700', 'rx-009-0924-1300', 'rx-009-0924-2100']); // ambiguous
+  assert.deepEqual(prompt([], '06:00'), ['rx-008-0924-0700']); // within the hour
+  assert.deepEqual(prompt([], '05:00'), []);
+  assert.deepEqual(A.recordPromptDoses({ items: [], doses: null, nowIso: at('09:00') }), []);
+});
+
+test('AP-02 TC-AD-15: a record request -> the fixed line "I can\'t record by voice; I\'ve sent the buttons to your Telegram", in English and in Arabic', () => {
+  const en = reply({});
+  assert.equal(en.speech, EN_SENT);
+  assert.equal(en.endSession, true);
+  assert.deepEqual(ids(en.promptDoses), ['rx-008-0924-0700', 'rx-009-0924-1300', 'rx-009-0924-2100']);
+  const ar = reply({ language: 'ar' });
+  assert.equal(ar.speech, AR_SENT);
+  assert.deepEqual(ids(ar.promptDoses), ids(en.promptDoses));
+});
+
+test('AP-02: no Telegram linked, nothing open and due, or the schedule unreachable -> it says so and nothing is sent', () => {
+  const noChat = reply({ hasChat: false });
+  assert.match(noChat.speech, /^I can't record by voice, and your Telegram is not linked/);
+  assert.deepEqual(noChat.promptDoses, []);
+  assert.match(reply({ hasChat: false, language: 'ar' }).speech, /^ما أقدر أسجّل بالصوت، وتيليقرام مو مربوط عندك/);
+  const early = reply({ nowIso: at('05:00') });
+  assert.match(early.speech, /^I can't record by voice, and there is no open dose due now, so I sent nothing to your Telegram\. Anything else\?$/);
+  assert.equal(early.endSession, false);
+  assert.deepEqual(early.promptDoses, []);
+  const down = reply({ doses: null, language: 'ar' });
+  assert.match(down.speech, /^ما أقدر أسجّل بالصوت، وما قدرت أوصل لجدولك/);
+  assert.deepEqual(down.promptDoses, []);
+});
+
+test('AP-02 TC-AD-14: the reply carries no write - only words and which doses get buttons in the patient\'s own chat', () => {
+  for (const r of [reply({}), reply({ hasChat: false }), reply({ doses: null }), reply({ nowIso: at('05:00') })]) {
+    assert.deepEqual(Object.keys(r).sort(), ['endSession', 'promptDoses', 'speech']);
+  }
+});
+
+test('AP-02: the CR-070 write path is gone from the module - no write function, no route, no switch', () => {
+  for (const gone of ['planRecord', 'confirmRecord', 'cleanPending', 'recordedSpeech']) assert.equal(A[gone], undefined, gone);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'voice-actions.js'), 'utf8');
+  assert.doesNotMatch(src, /['"`]\/(doses|schedule)\//, 'a /doses/ or /schedule/ URL is built here');
+  assert.doesNotMatch(src, /VOICE_RECORDS|adherence_agent|recordedAt/);
+});
+
+test('the voice copy has no em dash, and each language speaks only its own', () => {
+  for (const [lang, lines] of Object.entries(A.ACT)) {
+    for (const [k, v] of Object.entries(lines)) {
+      assert.ok(!v.includes(String.fromCharCode(0x2014)), lang + '.' + k + ' has an em dash');
+      if (lang === 'en') assert.doesNotMatch(v, /[؀-ۿ]/, 'en.' + k);
+      else assert.doesNotMatch(v.replace(/[؀-ۿ]/g, ''), /[A-Za-z]/, 'ar.' + k);
+    }
+  }
 });
 
 test('quickFreeTalk: a plain question skips the model (Alexa waits at most 8 s); anything about what the patient DID goes to the model', () => {

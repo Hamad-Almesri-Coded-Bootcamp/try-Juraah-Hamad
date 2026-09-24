@@ -1,23 +1,20 @@
 'use strict';
 
 /**
- * Jur'ah - CR-070, free talk and dose actions by voice (the AI-agents track's call for the demo).
+ * Jur'ah - free talk with Alexa (the agents track's CR-070), and what voice does with a request
+ * to record a dose (CR-073).
  *
  * Free talk: whatever the patient says after "Alexa, ask medicine helper ..." arrives as one
  * AMAZON.SearchQuery slot; Gemini reads the SENTENCE and returns an intent - and, for "record",
- * which of TODAY's doses the patient named and what they said about each. Gemini decides nothing
- * else: every dose is matched, checked and worded HERE, from the backend's data.
+ * which of TODAY's doses the patient named. Gemini decides nothing else: every dose is matched
+ * and every word is chosen HERE, from the backend's data.
  *
- * Recording (ONLY when the workflow's VOICE_RECORDS switch is on - the repository ships it OFF,
- * because TC-AD-14/15 and CLAUDE.md rule 1 say a dose status comes only from the patient's own
- * chat; the live demo node turns it on):
- *   1. planRecord  - each named dose must resolve to exactly one of today's doses, be OPEN
- *                    ('upcoming') and due (no more than an hour ahead); Alexa reads the list back and
- *                    asks for "yes". Nothing is written on this turn.
- *   2. confirmRecord - on "yes", the SAME list (carried in Alexa's session attributes) is checked
- *                    again against fresh doses; only what still passes is written, through the same
- *                    agent route the Telegram buttons use, and a miss is recomputed as they are.
- * Unknown means refuse: an unresolved, ambiguous, recorded or not-yet-due dose is named and skipped.
+ * VOICE RECORDS NOTHING (CR-073 reverses CR-070's recording; CLAUDE.md rule 1, TC-AD-14/15). An Echo
+ * sits in a room and cannot tell the patient from anyone else in it, and a dose status comes only
+ * from the patient's own Telegram chat. A record request ("mark it taken", "I took the first two and
+ * missed the third") is answered with one fixed line - voice cannot record, the buttons are in
+ * Telegram - and the three buttons of the doses the patient meant are sent to the patient's own
+ * chat, where one tap records through the adherence path. This file builds no URL and no write body.
  * Jur'ah gives no medical advice; nothing here says "take it now".
  */
 
@@ -32,23 +29,24 @@ const KIND_FOR_FREE = {
   help: 'AMAZON.HelpIntent', unclear: 'AMAZON.FallbackIntent', record: 'record',
 };
 const MAX_ITEMS = 10;
+/** Words that say what the patient DID with a dose. Used only when the model gave no answer at all. */
+const RECORD_TALK = /\b(took|taken|missed|skipped|mark|record|log)\b/;
 
+/** What Alexa says to a record request. The first line is the fixed CR-073 answer. */
 const ACT = {
   ar: {
-    word: { taken_on_time: 'أخذتها', taken_late: 'أخذتها متأخر', missed: 'فاتتك' },
-    plan: 'بسجّل: ', confirm: ' تأكد؟ قول نعم، أو لا.',
-    none: 'ما قدرت أسجّل شي: ', notFound: 'ما لقيت الجرعة اللي قصدتها', ambiguous: 'أكثر من جرعة تطابق كلامك',
-    recorded: 'مسجّلة من قبل', notDue: 'وقتها لسه ما جا', done: 'تم. سجّلت: ', failed: 'ما قدرت أسجّل: ',
-    cancelled: 'تمام، ما سجّلت شي.', off: 'التسجيل بالصوت مو مفعّل. أرسل لك الأزرار في تيليقرام بدالها؟',
-    at: ' ', sep: '، ', end: '.', nothingPending: 'ما عندي شي أسجّله. قول مثلاً: سجّل أول جرعة أخذتها.',
+    sent: 'ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام. أكّد منها بنفسك.',
+    noChat: 'ما أقدر أسجّل بالصوت، وتيليقرام مو مربوط عندك، فسجّلها من محادثتك لما تربطها.',
+    nothingOpen: 'ما أقدر أسجّل بالصوت، وما عندك جرعة باقية جا وقتها عشان أرسل أزرارها في تيليقرام.',
+    failed: 'ما أقدر أسجّل بالصوت، وما قدرت أوصل لجدولك الحين عشان أرسل لك الأزرار. حاول بعد شوي، أو شوف التطبيق.',
+    askMore: ' تبي شي ثاني؟',
   },
   en: {
-    word: { taken_on_time: 'taken', taken_late: 'taken late', missed: 'missed' },
-    plan: 'I will record: ', confirm: ' Shall I? Say yes, or no.',
-    none: 'I could not record anything: ', notFound: 'I could not find the dose you meant', ambiguous: 'more than one dose matches what you said',
-    recorded: 'already recorded', notDue: 'not due yet', done: 'Done. I recorded: ', failed: 'I could not record: ',
-    cancelled: 'Okay, I did not record anything.', off: 'Recording by voice is turned off.',
-    at: ' at ', sep: ', ', end: '.', nothingPending: 'There is nothing for me to record. Say, for example: mark the first dose taken.',
+    sent: 'I can\'t record by voice; I\'ve sent the buttons to your Telegram. Please confirm there yourself.',
+    noChat: 'I can\'t record by voice, and your Telegram is not linked, so record it from your chat once it is.',
+    nothingOpen: 'I can\'t record by voice, and there is no open dose due now, so I sent nothing to your Telegram.',
+    failed: 'I can\'t record by voice, and I could not reach your schedule to send the buttons. Please try again shortly, or check the app.',
+    askMore: ' Anything else?',
   },
 };
 
@@ -56,7 +54,6 @@ function kwHHMM(iso) {
   const k = new Date(new Date(iso).getTime() + 3 * HOUR_MS_A);
   return String(k.getUTCHours()).padStart(2, '0') + ':' + String(k.getUTCMinutes()).padStart(2, '0');
 }
-function medNameA(d) { return d.brandName || d.genericName || ''; }
 const byTimeA = (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt);
 const L = (language) => ACT[language === 'en' ? 'en' : 'ar'];
 
@@ -70,13 +67,22 @@ function cleanItem(x) {
   return { position, time, medicine, status: x.status };
 }
 
-/** G11 for free talk: the model's output is trusted only inside the lists and above the floor. */
-function trustFreeTalk(classification) {
+/**
+ * G11 for free talk: the model's output is trusted only inside the lists and above the floor.
+ * A record request needs no named dose ("mark it taken"): nothing is written from it, and with no
+ * dose named the buttons go to every open dose that is due. If the model gave no answer at all
+ * (an outage, a timeout), a sentence that plainly says what the patient did is still a record
+ * request, so it gets the fixed answer instead of the help text.
+ */
+function trustFreeTalk(classification, text) {
   const c = classification && typeof classification === 'object' ? classification : {};
-  const intent = FREE_INTENTS.includes(c.intent) && Number(c.confidence) >= FREE_MIN_CONFIDENCE ? c.intent : 'unclear';
-  const items = Array.isArray(c.items) ? c.items.slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean) : [];
-  if (intent === 'record' && items.length === 0) return { kind: KIND_FOR_FREE.unclear, items: [] };
-  return { kind: KIND_FOR_FREE[intent], items: intent === 'record' ? items : [] };
+  if (!FREE_INTENTS.includes(c.intent)) {
+    const t = String(text || '').toLowerCase();
+    return RECORD_TALK.test(t) ? { kind: KIND_FOR_FREE.record, items: [] } : { kind: KIND_FOR_FREE.unclear, items: [] };
+  }
+  const intent = Number(c.confidence) >= FREE_MIN_CONFIDENCE ? c.intent : 'unclear';
+  const items = intent === 'record' && Array.isArray(c.items) ? c.items.slice(0, MAX_ITEMS).map(cleanItem).filter(Boolean) : [];
+  return { kind: KIND_FOR_FREE[intent], items };
 }
 
 /**
@@ -105,7 +111,7 @@ function resolveItem(item, doses) {
     const m = item.medicine.toLowerCase();
     const named = (item.time ? hits : all).filter((d) => [d.brandName, d.genericName].some((n) => n && (n.toLowerCase().includes(m) || m.includes(n.toLowerCase()))));
     hits = named;
-    // "my calcium" with two calcium doses today: the one due now (open and not in the future) wins, else ambiguous.
+    // "my calcium" with two calcium doses today: the open one wins, else ambiguous.
     if (hits.length > 1) {
       const openDue = hits.filter((d) => d.status === OPEN_A);
       if (openDue.length === 1) hits = openDue;
@@ -116,92 +122,42 @@ function resolveItem(item, doses) {
   return { dose: hits[0] };
 }
 
-/** Why a dose cannot be recorded now, or null. */
-function blockOf(dose, nowIso) {
-  if (dose.status !== OPEN_A) return 'recorded';
-  if (Date.parse(dose.scheduledAt) > Date.parse(nowIso) + HOUR_MS_A) return 'notDue';
-  return null;
-}
-
-function describe(dose, status, language, spokenTime) {
-  const S = L(language);
-  return medNameA(dose) + (spokenTime ? S.at + spokenTime(dose.scheduledAt, language) : '') + (status ? ' ' + S.word[status] : '');
+/** Open, and due: its time has come, or comes within the hour. */
+function openAndDue(dose, nowIso) {
+  return dose.status === OPEN_A && Date.parse(dose.scheduledAt) <= Date.parse(nowIso) + HOUR_MS_A;
 }
 
 /**
- * Turn 1. items + today's doses -> { speech, pending, endSession:false }. Writes nothing.
- * `spokenTime` is voice.js's, passed in so both files word a time the same way.
+ * Which doses' buttons go to the patient's Telegram for a record request. The doses the patient
+ * named, each resolved to exactly one of today's doses, and only those still open and due; if the
+ * patient named none that resolves ("mark it taken"), every open dose that is due. In time order.
  */
-function planRecord({ items, doses, nowIso, language, spokenTime }) {
-  const S = L(language);
-  if (!Array.isArray(doses)) return { speech: null, pending: [] }; // the caller answers "could not reach your schedule"
-  const pending = [];
-  const refused = [];
-  for (const item of items) {
+function recordPromptDoses({ items, doses, nowIso }) {
+  if (!Array.isArray(doses)) return [];
+  const named = [];
+  for (const item of Array.isArray(items) ? items : []) {
     const r = resolveItem(item, doses);
-    if (!r.dose) { refused.push(S[r.reason]); continue; }
-    const block = blockOf(r.dose, nowIso);
-    if (block) { refused.push(describe(r.dose, null, language, spokenTime) + ' - ' + S[block]); continue; }
-    if (pending.some((p) => p.doseId === r.dose.id)) continue;
-    pending.push({ doseId: r.dose.id, prescriptionId: r.dose.prescriptionId, status: item.status });
+    if (r.dose && !named.some((d) => d.id === r.dose.id)) named.push(r.dose);
   }
-  const byId = Object.fromEntries(doses.map((d) => [d.id, d]));
-  const refusedText = refused.length ? ' ' + S.failed + refused.join(S.sep) + S.end : '';
-  if (pending.length === 0) return { speech: S.none + refused.join(S.sep) + S.end, pending: [] };
-  const list = pending.map((p) => describe(byId[p.doseId], p.status, language, spokenTime)).join(S.sep);
-  return { speech: S.plan + list + S.end + refusedText + S.confirm, pending };
-}
-
-/** A pending list as it came back in Alexa's session attributes -> a clean list (never trusted as-is). */
-function cleanPending(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw.slice(0, MAX_ITEMS).filter((p) => p && typeof p === 'object'
-    && typeof p.doseId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(p.doseId)
-    && typeof p.prescriptionId === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(p.prescriptionId)
-    && RECORD_WORDS.includes(p.status)).map((p) => ({ doseId: p.doseId, prescriptionId: p.prescriptionId, status: p.status }));
+  const chosen = named.length ? named : doses;
+  return chosen.filter((d) => openAndDue(d, nowIso)).sort(byTimeA);
 }
 
 /**
- * Turn 2 ("yes"). The pending list, checked AGAIN against fresh doses -> the writes, each exactly
- * the Telegram path's two calls: the status, and a recompute for a miss.
+ * A record request -> { speech, endSession, promptDoses }. Nothing is written: the speech is the fixed
+ * line, and promptDoses are the doses whose buttons the workflow sends to the patient's own chat.
+ * `doses` is null when the backend could not be read.
  */
-function confirmRecord({ pending, doses, nowIso, api, recordedAtIso }) {
-  if (!Array.isArray(doses)) return { writes: [], skipped: cleanPending(pending).map((p) => p.doseId) };
-  const byId = Object.fromEntries(doses.map((d) => [d.id, d]));
-  const writes = [];
-  const skipped = [];
-  for (const p of cleanPending(pending)) {
-    const d = byId[p.doseId];
-    if (!d || d.prescriptionId !== p.prescriptionId || blockOf(d, nowIso)) { skipped.push(p.doseId); continue; }
-    writes.push({
-      doseId: d.id, status: p.status,
-      url: api + '/doses/' + encodeURIComponent(d.id) + '/status',
-      body: { status: p.status, recordedAt: recordedAtIso, source: 'adherence_agent' },
-      recompute: p.status === 'missed' ? { url: api + '/schedule/recompute', body: { prescriptionId: d.prescriptionId, reason: 'reported_miss', missedDoseId: d.id } } : null,
-    });
-  }
-  return { writes, skipped };
-}
-
-/** What Alexa says after the writes: what was recorded, and honestly what was not. */
-function recordedSpeech({ writes, results, doses, language, spokenTime }) {
+function recordReply({ items, doses, nowIso, language, hasChat }) {
   const S = L(language);
-  const byId = Object.fromEntries((doses || []).map((d) => [d.id, d]));
-  const ok = [];
-  const bad = [];
-  writes.forEach((w, i) => {
-    const code = results[i];
-    const line = describe(byId[w.doseId] || { brandName: w.doseId }, w.status, language, byId[w.doseId] ? spokenTime : null);
-    (code === 200 ? ok : bad).push(line);
-  });
-  const parts = [];
-  if (ok.length) parts.push(S.done + ok.join(S.sep) + S.end);
-  if (bad.length) parts.push(S.failed + bad.join(S.sep) + S.end);
-  if (!parts.length) parts.push(S.nothingPending);
-  return parts.join(' ');
+  if (!Array.isArray(doses)) return { speech: S.failed, endSession: true, promptDoses: [] };
+  if (!hasChat) return { speech: S.noChat, endSession: true, promptDoses: [] };
+  const promptDoses = recordPromptDoses({ items, doses, nowIso });
+  if (promptDoses.length === 0) return { speech: S.nothingOpen + S.askMore, endSession: false, promptDoses: [] };
+  return { speech: S.sent, endSession: true, promptDoses };
 }
 
 module.exports = {
-  trustFreeTalk, quickFreeTalk, planRecord, cleanPending, confirmRecord, recordedSpeech, resolveItem,
+  trustFreeTalk, quickFreeTalk, resolveItem, recordPromptDoses, recordReply,
   RECORD_WORDS, FREE_INTENTS, FREE_MIN_CONFIDENCE, ACT,
 };
