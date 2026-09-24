@@ -5,19 +5,27 @@
  *
  * Gemini picks ONE intent from WEBCHAT_INTENTS (and a confidence); this file writes every word the
  * patient reads, from data only:
- *   - dose questions      -> the patient's TRACKED doses of today (GET /api/agent/patients/{id}/doses),
- *                            worded by agents/lib/voice.js so voice and chat never disagree;
+ *   - dose questions      -> the patient's TRACKED doses of today (GET /api/agent/patients/{id}/doses).
+ *                            The SAME dose voice.js (Alexa) would pick - next = the first open dose
+ *                            after now, amount = the one due within an hour else next, forgot = every
+ *                            open dose at or before now - but in the chat's OWN written Fusha
+ *                            (CR-079/D7: the app's register, never Alexa's spoken Kuwaiti lines), so
+ *                            the two channels never disagree about WHICH dose, only about how they
+ *                            say it;
  *   - safety questions    -> ONLY the alerts already in the patient's file (read by the app under the
  *                            patient's own session and passed in) - never a new judgement, never
- *                            "it is safe";
+ *                            "it is safe"; a stored description is quoted only when its own script
+ *                            matches the reply language, so an English reply never quotes an Arabic
+ *                            sentence back (D7: one language per locale);
  *   - app help            -> fixed text.
  *
  * The chat NEVER records a dose (CLAUDE.md rule 1). "I took it" / "I forgot" name the dose and send
  * its three buttons to the patient's OWN Telegram chat; the tap there records it through the
  * adherence path. CR-068 proposes recording from the chat itself; it is not built.
  *
- * Plain CommonJS, inlined into the n8n Code node after agents/lib/voice.js (whose voiceReply,
- * spokenTime and spokenAmount it uses).
+ * Plain CommonJS, inlined into the n8n Code node after agents/lib/voice.js. Every name below is
+ * distinct from voice.js's and adherence.js's own (all three share one scope once inlined), so this
+ * file can word its dose answers on its own without editing either of them.
  */
 
 const WEBCHAT_INTENTS = [
@@ -28,41 +36,65 @@ const WEBCHAT_MIN_CONFIDENCE = 0.7;
 const WEBCHAT_HOUR_MS = 3600 * 1000;
 const WEBCHAT_OPEN = ['upcoming'][0];
 
-/** Chat intent -> the voice intent that already answers it from the doses. */
-const VOICE_FOR = { next_dose: 'NextDoseIntent', dose_amount: 'DoseAmountIntent', today: 'TodayDosesIntent', forgot: 'ForgotDoseIntent' };
+/** The four intents whose answer needs today's doses (kept beside took_it in needsDoses). */
+const DOSE_INTENTS = ['next_dose', 'dose_amount', 'today', 'forgot'];
 
 const CHAT = {
   ar: {
-    tookIt: 'ما أقدر أسجّل الجرعة من هنا — التسجيل يصير من محادثتك في تيليقرام فقط. ',
-    tookItPrompt: 'أرسلت لك أزرار الجرعة في تيليقرام، اضغط «أخذته» هناك.',
-    tookItNoDose: 'ما لقيت جرعة مفتوحة وقتها الحين.',
-    noChat: 'تيليقرام مو مربوط عندك، تقدر تربطه من «المزيد ← الإشعارات والمراسلة».',
-    safetyNone: 'ما فيه تنبيهات تعارض في ملفك الحين. هذا مو تأكيد بالسلامة — لأي سؤال عن أدويتك اسأل الصيدلاني أو طبيبك.',
-    safetyHead: 'هذي التنبيهات الموجودة في ملفك:',
-    pending: 'بانتظار مراجعة طبية',
-    reviewed: 'راجعها مختص',
-    cleared: 'فُحصت',
-    safetyTail: 'التفاصيل في «السلامة». جرعة ما تقدّم استشارة طبية — اسأل الصيدلاني أو طبيبك.',
-    helpTelegram: 'لربط تيليقرام: «المزيد ← الإشعارات والمراسلة ← افتح تيليقرام»، ثم اضغط Start في البوت. بعدها توصلك رسالة كل صباح بجرعاتك.',
-    helpRefill: 'لإعادة الصرف: «المزيد ← تجديد الوصفات»، واختر الدواء. الطلب يروح للجهة اللي صرفت الوصفة.',
-    helpGeneral: 'أقدر أجاوبك عن: جرعتك الجاية، كم تاخذ، أدويتك اليوم، تنبيهات السلامة في ملفك، وربط تيليقرام. ما أقدّم استشارة طبية.',
-    unclear: 'ما فهمت عليك تمام 🙏 جرّب: «شنو جرعتي الجاية؟» أو «كم آخذ؟» أو «شنو أدويتي اليوم؟».',
-    failed: 'ما قدرت أوصل لجدولك الحين. حاول بعد شوي.',
+    tookIt: 'لا يمكنني تسجيل الجرعة من هنا، فالتسجيل يتم فقط من محادثتك في تيليجرام. ',
+    tookItPrompt: 'أرسلتُ لك أزرار هذه الجرعة في تيليجرام، فاضغط زر «أخذته ✅» هناك.',
+    tookItNoDose: 'لا توجد جرعة مفتوحة في وقتها الآن.',
+    noChat: 'تيليجرام غير مرتبط بحسابك، ويمكنك ربطه من «المزيد» ثم «الإشعارات والرسائل».',
+    none: 'لا توجد لديك جرعات مسجّلة في جدولك اليوم.',
+    noneLeft: 'لا توجد لديك جرعات متبقية اليوم.',
+    statusUpcoming: 'قادمة',
+    statusTakenOnTime: 'أُخذت في موعدها',
+    statusTakenLate: 'أُخذت متأخرة',
+    statusMissed: 'فائتة',
+    forgotNone: 'لم أجد جرعة تجاوزت وقتها ولم تُسجَّل بعد.',
+    forgotTail: ' لم يُسجَّل شيء بعد. أرسلنا الأزرار في تيليجرام، فاضغط الزر المناسب هناك. إذا كان لديك سؤال عن الجرعة الفائتة فاسأل الصيدلي.',
+    forgotNoChat: ' لم يُسجَّل شيء بعد، وتيليجرام غير مرتبط بحسابك، فسجِّلها من محادثتك بعد ربطها. إذا كان لديك سؤال عن الجرعة الفائتة فاسأل الصيدلي.',
+    safetyNone: 'لا توجد تنبيهات تعارض في ملفك حاليًا. هذا ليس تأكيدًا بالسلامة، فلأي سؤال عن أدويتك اسأل الصيدلي أو طبيبك.',
+    safetyHead: 'هذه التنبيهات الموجودة في ملفك:',
+    pending: 'بانتظار المراجعة الطبية',
+    reviewed: 'راجعه مختص طبي',
+    cleared: 'فُحص تلقائيًا',
+    severityDanger: 'تعارض خطير',
+    severityWarning: 'استشر طبيبك',
+    severityInfo: 'للعلم',
+    safetyTail: 'التفاصيل الكاملة في صفحة «السلامة». لا يقدّم تطبيق جرعة استشارة طبية، فاسأل الصيدلي أو طبيبك.',
+    helpTelegram: 'لربط تيليجرام: افتح «المزيد» ثم «الإشعارات والرسائل»، واضغط «افتح تيليجرام». اضغط «ابدأ» في المحادثة، وبعدها نستطيع مراسلتك بشأن جرعاتك.',
+    helpRefill: 'لإعادة الصرف: افتح «المزيد» ثم «تجديد الوصفات»، واختر الدواء. يصل طلبك إلى الجهة التي صرفت الوصفة.',
+    helpGeneral: 'يمكنني الإجابة عن: جرعتك القادمة، الكمية التي تأخذها، أدويتك اليوم، تنبيهات السلامة في ملفك، وكيفية ربط تيليجرام. لا أقدّم استشارة طبية.',
+    unclear: 'لم أفهم قصدك تمامًا 🙏 جرّب: «متى الجرعة القادمة؟» أو «كم آخذ؟» أو «ماذا في جدول أدويتي اليوم؟».',
+    failed: 'لم أتمكن من الوصول إلى جدولك الآن. حاول مرة أخرى بعد قليل.',
   },
   en: {
-    tookIt: 'I can\'t record a dose from here - doses are recorded only from your Telegram chat. ',
-    tookItPrompt: 'I sent the dose\'s buttons to your Telegram; tap "Taken" there.',
+    tookIt: 'I can\'t record a dose from here; doses are recorded only from your Telegram chat. ',
+    tookItPrompt: 'I sent this dose\'s buttons to your Telegram; tap "Taken" there.',
     tookItNoDose: 'There is no dose open right now.',
-    noChat: 'Your Telegram is not linked; you can link it from More → Notifications & messaging.',
-    safetyNone: 'There are no interaction alerts in your file right now. This is not a safety clearance - ask your pharmacist or doctor about your medicines.',
+    noChat: 'Your Telegram is not linked; you can link it from More, then Notifications and messages.',
+    none: 'There are no doses on your schedule today.',
+    noneLeft: 'You have no doses left today.',
+    statusUpcoming: 'Upcoming',
+    statusTakenOnTime: 'Taken on time',
+    statusTakenLate: 'Taken late',
+    statusMissed: 'Missed',
+    forgotNone: 'I could not find a dose past its time that has not been recorded yet.',
+    forgotTail: ' Nothing has been recorded yet. We sent the buttons to your Telegram chat; tap the right one there. If you have a question about the missed dose, ask your pharmacist.',
+    forgotNoChat: ' Nothing has been recorded yet, and your Telegram is not linked, so record it from your chat once it is linked. If you have a question about the missed dose, ask your pharmacist.',
+    safetyNone: 'There are no interaction alerts in your file right now. This is not a safety clearance; ask your pharmacist or doctor about your medicines.',
     safetyHead: 'These are the alerts in your file:',
     pending: 'awaiting medical review',
     reviewed: 'reviewed by a specialist',
-    cleared: 'checked',
-    safetyTail: 'Details are under Safety. Jur\'ah gives no medical advice - ask your pharmacist or doctor.',
-    helpTelegram: 'To link Telegram: More → Notifications & messaging → Open Telegram, then press Start in the bot. You will get your doses every morning.',
-    helpRefill: 'To request a refill: More → Refills, then pick the medicine. The request goes to the place that dispensed it.',
-    helpGeneral: 'I can answer: your next dose, how much to take, today\'s medicines, the safety alerts in your file, and linking Telegram. I give no medical advice.',
+    cleared: 'checked automatically',
+    severityDanger: 'Serious interaction',
+    severityWarning: 'Check with your doctor',
+    severityInfo: 'For your information',
+    safetyTail: 'Full details are under Safety. Jur\'ah gives no medical advice; ask your pharmacist or doctor.',
+    helpTelegram: 'To link Telegram: open More, then Notifications and messages, and tap Open Telegram. Press Start in the chat, and we will be able to message you about your doses.',
+    helpRefill: 'To request a refill: open More, then Refills, and pick the medicine. Your request goes to the place that dispensed it.',
+    helpGeneral: 'I can answer: your next dose, how much you take, today\'s medicines, the safety alerts in your file, and how to link Telegram. I give no medical advice.',
     unclear: 'Sorry, I did not catch that 🙏 Try: "What is my next dose?", "How much do I take?" or "What are my medicines today?".',
     failed: 'I could not reach your schedule right now. Please try again shortly.',
   },
@@ -78,7 +110,7 @@ function trustWebchatIntent(classification) {
 }
 
 function needsDoses(intent) {
-  return Object.prototype.hasOwnProperty.call(VOICE_FOR, intent) || intent === 'took_it';
+  return DOSE_INTENTS.includes(intent) || intent === 'took_it';
 }
 
 /** Only these two answers can send Telegram buttons, so only they need the patient's chat. */
@@ -119,6 +151,61 @@ function quickIntent(text) {
   return hits[0];
 }
 
+const WEBCHAT_ARABIC = /[؀-ۿ]/;
+
+/** Kuwait wall-clock parts of an ISO time (UTC+3, no DST) - a private copy of voice.js's kwParts,
+ *  named apart from it on purpose (both files share one scope once inlined). */
+function chatParts(iso) {
+  const k = new Date(new Date(iso).getTime() + 3 * WEBCHAT_HOUR_MS);
+  return { h: k.getUTCHours(), m: k.getUTCMinutes() };
+}
+
+/**
+ * "الساعة 7 صباحًا" / "7 in the morning" - the chat's OWN written time, never Alexa's spoken
+ * "الصبح"/"بالليل" (CR-079/D7). English is unchanged from voice.js's spoken words: they were never
+ * a dialect problem, only the Arabic day-part words and the spelled-out minutes were.
+ */
+function chatTime(iso, language) {
+  const { h, m } = chatParts(iso);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mm = m ? ':' + String(m).padStart(2, '0') : '';
+  if (language === 'en') {
+    const part = h < 12 ? 'in the morning' : h < 17 ? 'in the afternoon' : 'in the evening';
+    return h12 + mm + ' ' + part;
+  }
+  const part = h >= 4 && h < 12 ? 'صباحًا' : h >= 12 && h < 15 ? 'ظهرًا' : h >= 15 && h < 18 ? 'عصرًا' : h >= 18 && h < 20 ? 'مساءً' : 'ليلًا';
+  return 'الساعة ' + h12 + mm + ' ' + part;
+}
+
+function medNameChat(d) { return d.brandName || d.genericName || ''; }
+
+const CHAT_UNIT_AR = { mg: 'مليغرام', mcg: 'مايكروغرام', g: 'غرام', ml: 'مل', IU: 'وحدة دولية' };
+const CHAT_UNIT_EN = { mg: 'milligrams', mcg: 'micrograms', g: 'grams', ml: 'millilitres', IU: 'international units' };
+
+/** The amount AS PRESCRIBED - never converted, never advised. Same values as voice.js's
+ *  spokenAmount (there was never a dialect problem in "quantity" or "strength"); a private copy so
+ *  this file owns its own wording end to end. */
+function chatAmount(d, language) {
+  const unit = d.strengthUnit || 'mg';
+  const strength = d.strengthMg != null ? d.strengthMg + ' ' + (language === 'en' ? CHAT_UNIT_EN[unit] || unit : CHAT_UNIT_AR[unit] || unit) : null;
+  const count = d.dosePerAdministration != null ? d.dosePerAdministration : null;
+  if (language === 'en') return [count != null ? count + ' dose' + (count === 1 ? '' : 's') : null, strength ? 'strength ' + strength : null].filter(Boolean).join(', ');
+  return [count != null ? 'الكمية ' + count : null, strength ? 'تركيز ' + strength : null].filter(Boolean).join('، ');
+}
+
+/** "جرعة واحدة" / "جرعتان" / "3 جرعات" / "11 جرعة" - Arabic count agreement for how many DOSE
+ *  EVENTS are on today's schedule (never used for the "quantity per administration" above, a
+ *  different idea that chatAmount already words without a bare noun). */
+function chatDoseCount(n, language) {
+  if (language === 'en') return n + ' dose' + (n === 1 ? '' : 's');
+  if (n === 1) return 'جرعة واحدة';
+  if (n === 2) return 'جرعتان';
+  if (n >= 3 && n <= 10) return n + ' جرعات';
+  return n + ' جرعة';
+}
+
+const byTimeChat = (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt);
+
 /**
  * The whole answer. `doses` = today's tracked doses (null = the backend failed); `alerts` = the
  * patient's alerts as the app read them ({severity, description, reviewStatus}); `hasChat` = the
@@ -137,7 +224,16 @@ function webchatReply({ intent, language, doses, alerts, nowIso, hasChat }) {
     const list = (Array.isArray(alerts) ? alerts : []).filter((a) => a && a.description);
     if (list.length === 0) return out(C.safetyNone);
     const state = (a) => (a.reviewStatus === 'pending_medical_review' ? C.pending : a.reviewStatus === 'reviewed' ? C.reviewed : C.cleared);
-    return out(C.safetyHead + '\n' + list.map((a) => '• ' + String(a.description).slice(0, 300) + ' (' + state(a) + ')').join('\n') + '\n' + C.safetyTail);
+    const severityWord = (a) => (a.severity === 'danger' ? C.severityDanger : a.severity === 'warning' ? C.severityWarning : C.severityInfo);
+    // One language per locale (CR-079/D7): a stored description is quoted only when its OWN script
+    // matches the reply language - an English reply must never echo a stored Arabic sentence back.
+    // When it does not match, this names the alert's OWN severity and review state, both already
+    // decided by the deterministic screening layer - never a new judgement, and never "safe" (D23).
+    const line = (a) => {
+      const quotable = WEBCHAT_ARABIC.test(String(a.description)) === (l === 'ar');
+      return '• ' + (quotable ? String(a.description).slice(0, 300) : severityWord(a)) + ' (' + state(a) + ')';
+    };
+    return out(C.safetyHead + '\n' + list.map(line).join('\n') + '\n' + C.safetyTail);
   }
   if (!needsDoses(intent)) return out(C.unclear);
   if (!Array.isArray(doses)) return out(C.failed);
@@ -150,13 +246,56 @@ function webchatReply({ intent, language, doses, alerts, nowIso, hasChat }) {
     return out(C.tookIt + C.tookItPrompt, open);
   }
 
-  // next_dose, dose_amount, today, forgot: the same words Alexa speaks, from the same function.
-  const v = voiceReply({ kind: VOICE_FOR[intent], language: l, doses, nowIso, hasChat });
-  const reply = v.speech.replace(/ (تبي شي ثاني؟|Anything else\?)$/, '');
-  return out(reply, v.promptDoses || []);
+  // next_dose, dose_amount, today, forgot: the SAME dose selection as voice.js's voiceReply (agents/
+  // lib/voice.js), reimplemented here so this file needs nothing from it at runtime - only the words
+  // are the chat's own written Fusha, never Alexa's spoken Kuwaiti lines (CR-079/D7).
+  const all = doses.slice().sort(byTimeChat);
+  const open = all.filter((d) => d.status === WEBCHAT_OPEN);
+  const t = Date.parse(nowIso);
+  const next = open.find((d) => Date.parse(d.scheduledAt) > t) || null;
+
+  if (intent === 'today') {
+    if (all.length === 0) return out(C.none);
+    const comma = l === 'en' ? ', ' : '، ';
+    const word = (d) => (d.status === WEBCHAT_OPEN ? C.statusUpcoming : d.status === 'taken_on_time' ? C.statusTakenOnTime : d.status === 'taken_late' ? C.statusTakenLate : C.statusMissed);
+    const lines = all.map((d) => chatTime(d.scheduledAt, l) + ' ' + medNameChat(d) + comma + word(d));
+    const head = l === 'en' ? 'Today you have ' + chatDoseCount(all.length, l) + ': ' : 'لديك اليوم ' + chatDoseCount(all.length, l) + ': ';
+    return out(head + lines.join('. ') + '.');
+  }
+
+  if (intent === 'next_dose') {
+    if (!next) return out(C.noneLeft);
+    const say = l === 'en'
+      ? 'Your next dose is ' + medNameChat(next) + ' at ' + chatTime(next.scheduledAt, l) + '. ' + chatAmount(next, l) + '.'
+      : 'جرعتك القادمة ' + medNameChat(next) + ' ' + chatTime(next.scheduledAt, l) + '. ' + chatAmount(next, l) + '.';
+    return out(say);
+  }
+
+  if (intent === 'dose_amount') {
+    // The dose due now (up to an hour early) or else the next one - read as prescribed.
+    const due = open.filter((d) => Date.parse(d.scheduledAt) <= t + WEBCHAT_HOUR_MS).sort(byTimeChat).pop() || next;
+    if (!due) return out(C.noneLeft);
+    const say = l === 'en'
+      ? 'As prescribed, ' + medNameChat(due) + ' at ' + chatTime(due.scheduledAt, l) + ': ' + chatAmount(due, l) + '.'
+      : 'حسب وصفتك، ' + medNameChat(due) + ' ' + chatTime(due.scheduledAt, l) + ': ' + chatAmount(due, l) + '.';
+    return out(say);
+  }
+
+  // forgot - which dose(s) passed unrecorded; ALL of them go to the patient's own Telegram chat.
+  const passed = open.filter((d) => Date.parse(d.scheduledAt) <= t);
+  const nextLine = next
+    ? (l === 'en' ? ' Your next dose is ' + medNameChat(next) + ' at ' + chatTime(next.scheduledAt, l) + '.'
+                  : ' جرعتك القادمة ' + medNameChat(next) + ' ' + chatTime(next.scheduledAt, l) + '.')
+    : '';
+  if (passed.length === 0) return out(C.forgotNone + nextLine);
+  const last = passed[passed.length - 1];
+  const which = l === 'en'
+    ? 'The dose that passed its time is ' + medNameChat(last) + ' at ' + chatTime(last.scheduledAt, l) + '.'
+    : 'الجرعة التي تجاوزت وقتها ' + medNameChat(last) + ' ' + chatTime(last.scheduledAt, l) + '.';
+  return out(which + nextLine + (hasChat ? C.forgotTail : C.forgotNoChat), hasChat ? passed : []);
 }
 
-module.exports = { webchatReply, trustWebchatIntent, needsDoses, needsChat, quickIntent, WEBCHAT_INTENTS, WEBCHAT_MIN_CONFIDENCE };
+module.exports = { webchatReply, trustWebchatIntent, needsDoses, needsChat, quickIntent, chatTime, chatAmount, WEBCHAT_INTENTS, WEBCHAT_MIN_CONFIDENCE };
 
 /* ===== model contract ===== (agents/scripts/build.js cuts this block out of every Code node)
  * The prompt and the output schema that the n8n node "Gemini: classify the question"

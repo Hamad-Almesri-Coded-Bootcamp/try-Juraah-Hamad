@@ -474,8 +474,13 @@ async function alexaScenarios() {
     const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
     const enToday = en.find((i) => i.name === 'TodayDosesIntent').samples;
     const arToday = ar.find((i) => i.name === 'TodayDosesIntent').samples;
+    const arNext = ar.find((i) => i.name === 'NextDoseIntent').samples;
     for (const s of ['what are my medicines today', 'what medicines do I take today', 'what are my meds today', 'which medicines today']) assert.ok(enToday.includes(s), 'en-US TodayDosesIntent sample: ' + s);
     for (const s of ['شنو أدويتي اليوم', 'وش أدويتي اليوم']) assert.ok(arToday.includes(s), 'ar-SA TodayDosesIntent sample: ' + s);
+    // CR-071 (viii): the two Fusha samples, alongside the dialect ones above - no «؟» in a slot sample.
+    assert.ok(arToday.includes('ماذا في جدول أدويتي اليوم'), 'ar-SA TodayDosesIntent Fusha sample (CR-071 viii)');
+    assert.ok(arNext.includes('متى الجرعة القادمة'), 'ar-SA NextDoseIntent Fusha sample (CR-071 viii)');
+    for (const s of ['ماذا في جدول أدويتي اليوم', 'متى الجرعة القادمة']) assert.ok(!s.includes('؟'), 'no «؟» in an Alexa slot sample: ' + s);
     // Spoken as a sample (TodayDosesIntent), or caught by free talk's "what {utterance}" carrier - both the same answer.
     const bySample = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'en-US'));
     const byFree = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'are my medicines today' }), { model: { intent: 'record', confidence: 0.99, items: [] } });
@@ -663,7 +668,7 @@ async function webchatScenarios() {
   await check('«شنو جرعتي الجاية» -> the next OPEN dose from the backend, in Arabic', async () => {
     const s = await walk(req({ text: 'شنو جرعتي الجاية' }), { intent: 'next_dose', confidence: 0.95 });
     assert.match(s.intent.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
-    assert.match(s.answer.reply, /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
+    assert.match(s.answer.reply, /^جرعتك القادمة Calcium carbonate \+ vitamin D3 الساعة 11:55 ليلًا/);
     assert.deepEqual(s.prompts, []);
     assert.equal(s.intent.viaModel, false, 'a suggestion must not wait for Gemini');
     assert.equal(s.intent.needsChat, false, 'a next-dose answer must not look up Telegram');
@@ -673,11 +678,11 @@ async function webchatScenarios() {
     const s = await walk(req({ text: 'بعد كم ساعة لازم آخذ الحبة الثانية' }), { intent: 'next_dose', confidence: 0.9 });
     assert.equal(s.intent.viaModel, true);
     assert.equal(s.intent.intent, 'next_dose');
-    assert.match(s.answer.reply, /^جرعتك الجاية/);
+    assert.match(s.answer.reply, /^جرعتك القادمة/);
   });
   await check('«أخذته» -> nothing recorded; the open dose’s buttons go to the patient’s OWN Telegram', async () => {
     const s = await walk(req({ text: 'أخذته' }), { intent: 'took_it', confidence: 0.97 });
-    assert.match(s.answer.reply, /ما أقدر أسجّل الجرعة من هنا/);
+    assert.match(s.answer.reply, /لا يمكنني تسجيل الجرعة من هنا/);
     assert.equal(s.intent.needsChat, true, 'only forgot / took it look up Telegram');
     assert.equal(s.prompts[0].chatId, '5550001');
     assert.deepEqual(s.prompts[1].buttons.map((b) => b.data)[0], 'd:rx-008-x-0005:taken_on_time');
@@ -688,13 +693,13 @@ async function webchatScenarios() {
     const s = await walk(req({ text: 'فيه تعارض بين أدويتي؟', alerts }), { intent: 'safety', confidence: 0.9 });
     assert.equal(s.intent.needsDoses, false);
     assert.match(s.answer.reply, /الكالسيوم قد يقلل امتصاص/);
-    assert.match(s.answer.reply, /اسأل الصيدلاني/);
+    assert.match(s.answer.reply, /اسأل الصيدلي/);
   });
   await check('the model failed or is unsure -> unclear with examples, nothing read, nothing sent', async () => {
     for (const model of [{ error: '429' }, { intent: 'next_dose', confidence: 0.5 }, { intent: 'record_dose', confidence: 1 }]) {
       const s = await walk(req({ text: 'ايه' }), model);
       assert.equal(s.intent.intent, 'unclear');
-      assert.match(s.answer.reply, /ما فهمت عليك/);
+      assert.match(s.answer.reply, /لم أفهم قصدك/);
       assert.deepEqual(s.prompts, []);
     }
   });
