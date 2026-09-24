@@ -15,6 +15,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 
+/**
+ * One fixed clock for the whole run. Every scenario and every Code node (they run in this realm, via
+ * AsyncFunction) reads "now" from here, so no run depends on the real time of day. Before this, a run
+ * that crossed Kuwait midnight computed "today" before it and walked the scenario after it, and the
+ * "next open dose" scenarios failed. CHECK_NOW sits on the fixture day (2026-09-24), in the afternoon.
+ * Only a no-argument `new Date()` and `Date.now()` are frozen; any explicit date is unchanged.
+ */
+const CHECK_NOW = '2026-09-24T15:00:00+03:00';
+{
+  const RealDate = Date;
+  const fixedMs = RealDate.parse(CHECK_NOW);
+  class FrozenDate extends RealDate {
+    constructor(...args) { if (args.length === 0) super(fixedMs); else super(...args); }
+    static now() { return fixedMs; }
+  }
+  globalThis.Date = FrozenDate;
+}
+
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
 const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa', 'agent-webchat'];
