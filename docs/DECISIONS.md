@@ -868,3 +868,48 @@ Transliterations for the owner to correct:
 
 ### CR-070 · Free talk with Alexa, and recording doses by voice — `BUILT`, switch **OFF in the repository**, **ON in the live demo node** (decided by the AI-agents track, Mohammad, 2026-09-24, without the owner's review)
 **What conflicts.** Recording a dose status by voice goes against **TC-AD-15** ("no attempt to collect an answer through any non-chat channel"), **TC-AD-14** ("only the patient can confirm a dose… not negotiable" — an Echo cannot tell the patient from anyone in the room) and **CLAUDE.md rule 1**. This entry exists so the owner sees it and can turn it off in one line. **What is built.** (1) *Free talk*: a `FreeTalkIntent` (one `AMAZON.SearchQuery` slot behind carrier words; en-US, fallback sensitivity LOW) sends the sentence to Gemini, which returns an intent and, for `record`, the doses the patient named (position, time or medicine) with what they said about each. A plain question is answered without the model (`quickFreeTalk`; Alexa waits at most 8 s, so the voice Gemini nodes try once). (2) *Actions*, in `agents/lib/voice-actions.js`, all deterministic: each named dose must resolve to exactly one of today's doses, be `upcoming` and due (at most an hour ahead); Alexa reads the list back and asks for "yes"; the list travels in Alexa's own session attributes and is re-checked against fresh doses on "yes"; only then is each status written through the same agent route the Telegram buttons use (`source: adherence_agent`), and a miss is recomputed as they are. Ambiguous, recorded, not-due or unknown doses are named and skipped. **The switch.** `const VOICE_RECORDS = false;` in the `plan (deterministic)` node — the committed workflow ships it false (`agents/scripts/check.js` asserts it and walks both states); the live n8n node has it true. Setting it back to false in n8n turns voice back into read-and-prompt only. Migration `0013` adds the `record` topic so the screen follows to Activity.
+
+---
+
+## Gate A · the owner's decisions for the agents polish (docs/AGENTS-POLISH-PLAN.md § 6)
+
+Answered 2026-09-24 by **Mohammad, on Hamad's delegation** ("he gave me the permission to do all from here"), in the lead session. D1 was put on its own; D2 to D13 take the plan's recommended answer. Each entry names the work package it unblocks.
+
+### CR-073 · D1 · Voice records no dose status — `DECIDED: off, write path removed`
+The agents entry CR-070 (voice recording behind `VOICE_RECORDS`) is reversed. Rule 1 and TC-AD-14/15 stand as written: a dose status comes only from the patient's own Telegram chat. AP-02 deletes the write branch and the switch from `agent-alexa`; a request to record is answered "I can't record by voice; I've sent the buttons to your Telegram", and the buttons are sent. Runtime proof: J12 (no `dose_status_recorded` row after "mark it taken"). Unblocks AP-02.
+
+### CR-074 · D2 · One Interaction Screening: the DDInter workflow — `DECIDED`
+`agents/knowledge` (`agent-interaction-screening-ddinter`) is the one screening on `jurah/screen-prescription`; the legacy `agents/lib/screening.js` and its workflow are retired (unpublished first, then removed from the generator). Unblocks AP-04, after AP-06 and AP-07.
+
+### CR-075 · D3 · One Extraction core: `agents/knowledge/src/extraction.js` — `DECIDED`
+Both paths (Telegram and the app) use the drug-knowledge extraction core; the Telegram copy keeps only its channel parts (caption, size limit, reply). Unblocks AP-03.
+
+### CR-076 · D4 · CR-068: the web assistant records nothing — `DECIDED: no`
+Rule 1 is kept; "I took it" in the web assistant keeps sending that dose's buttons to the patient's Telegram. CR-068 is closed as not built.
+
+### CR-077 · D5 · TC-IX-02: keep the one `info` `auto_cleared` "screened" marker — `DECIDED: keep, logged as a deliberate reading`
+A clean screen keeps raising one `info` / `auto_cleared` alert (the seed's `ia-003` shape). The specification says "no alert"; this is recorded as a deliberate reading, because AP-10 needs a durable "this prescription was screened" marker. Unblocks AP-10.
+
+### CR-078 · D6 · CR-066: add `cannot_verify` to `DrugCheckOutcome` — `DECIDED`
+The app gets its own "we cannot verify this" outcome for a drug photo, with its own copy, instead of mapping it to "could not identify". Unblocks AP-11 (and the app side of Travel Check).
+
+### CR-079 · D7 · Register of agent replies — `DECIDED: Fusha in text the app shows; dialect stays in Telegram and on Alexa`
+Every agent string the app displays (web chat replies, the voice panel) follows the app's language rules (Fusha, no em dashes, one language per locale). Telegram and Alexa keep the Kuwaiti register. Unblocks AP-17.
+
+### CR-080 · D8 · Where live tests write — `DECIDED: a Supabase branch for integration runs; production with the two D-041 demo patients for the journeys, reset afterwards`
+Integration runs use a Supabase branch (after `get_cost` / `confirm_cost`). The journeys J1 to J13 run on production against the two D-041 demo patients only, and are reset by a recorded procedure afterwards. Seed patients are not written. Unblocks AP-13, AP-14.
+
+### CR-081 · D9 · D-035: an agent may overwrite a recorded status — `DECIDED: keep overwrite`
+Every write stays audited by the trigger. Unblocks AP-05.
+
+### CR-082 · D10 · "A refill passes through screening" — `DECIDED: re-screen the prescription's pairs when a refill is requested`
+Unblocks AP-10.
+
+### CR-083 · D11 · The Telegram link token lives only in a server redirect — `DECIDED: yes`
+The token appears only in the `Location` header of a server redirect to `t.me/<bot>?start=<token>`; the page never holds it (rule 7). Unblocks AP-09.
+
+### CR-084 · D12 · A "being checked" state on a new prescription — `DECIDED: build it`
+Until screening answers, a new prescription shows as being checked. The owner's delegate approves the state in place of a new wireframe board; it is built inside the existing design system (tokens, components, `docs/UX Principles.md`), and its screens are recorded in `docs/backend-notes/ap-10.md`. Unblocks AP-10.
+
+### CR-085 · D13 · The real bot handle, and the webhook — `DECIDED: the handle is the one Telegram reports for the configured bot token (getMe); the webhook stays registered to the app`
+The owed handle is not typed anywhere: the server reads it from Telegram for the token it already holds, and the `@jurah_bot` placeholder remains only as the simulated fallback. The bot's webhook has pointed at the app since 2026-09-23 (the operator's handoff); AP-13 re-reads it with `getWebhookInfo`. Unblocks AP-09, AP-13.
