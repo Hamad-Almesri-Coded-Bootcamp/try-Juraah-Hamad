@@ -19,6 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: copy.shell.appName[l],
     description: copy.shell.appDescription[l],
     manifest: '/manifest.webmanifest',
+    // The tab icon and the iOS home-screen icon: the day mark on navy (CR-072).
+    icons: { icon: '/icons/icon.svg', apple: '/icons/apple-touch-icon.png' },
     appleWebApp: { capable: true, title: copy.shell.appName[l], statusBarStyle: 'default' },
   };
 }

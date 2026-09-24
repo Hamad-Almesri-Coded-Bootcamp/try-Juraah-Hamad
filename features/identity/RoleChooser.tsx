@@ -4,6 +4,7 @@ import { useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { chooseRole } from '@/lib/session';
 import { homePathFor } from '@/features/shell/tabs';
+import { Brand } from '@/components/ui/Brand';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
@@ -44,7 +45,7 @@ export function RoleChooser({ options, locale, actions }: { options: RoleOption[
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex min-h-hit-lg items-center gap-2 px-3 pt-2 tablet:px-5 tablet:pt-4">
-        <span className="jr-wordmark flex-1">{t(copy.shell.appName, locale)}</span>
+        <Brand name={t(copy.shell.appName, locale)} className="jr-wordmark flex-1" />
         {actions}
       </header>
 

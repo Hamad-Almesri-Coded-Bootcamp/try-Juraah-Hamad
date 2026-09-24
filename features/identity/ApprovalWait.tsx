@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Brand } from '@/components/ui/Brand';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -91,7 +92,7 @@ export function ApprovalWait({ seconds, state, onLapse, onRetry, onCancel, local
       aria-labelledby={headingId}
     >
       <div className="jr-sky__top">
-        <span className="jr-display flex-1 text-h2 font-bold">{t(copy.shell.appName, locale)}</span>
+        <Brand name={t(copy.shell.appName, locale)} className="jr-display flex-1 text-h2 font-bold" />
         {actions}
       </div>
 

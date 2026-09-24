@@ -1,4 +1,5 @@
 import { copy, t } from '@/i18n';
+import { Brand } from '@/components/ui/Brand';
 import type { Locale } from '@/i18n/locale';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { HeaderSignInIcon } from './HeaderSignInIcon';
@@ -19,7 +20,7 @@ export function LandingHeader({ locale, cta }: { locale: Locale; cta: LandingCta
   const label = cta.signedIn ? t(copy.landing.ctaContinue, locale) : t(copy.landing.ctaSignIn, locale);
   return (
     <header className="flex min-h-hit-lg items-center gap-2">
-      <span className="jr-display flex-1 text-h2 font-bold">{t(copy.shell.appName, locale)}</span>
+      <Brand name={t(copy.shell.appName, locale)} className="jr-display flex-1 text-h2 font-bold" />
       <LanguageSwitch locale={locale} />
       <HeaderSignInIcon href={cta.href} label={label} className="@[600px]:hidden" />
       <SignInCta {...cta} locale={locale} variant="secondary" compact className="hidden @[600px]:inline-flex" />

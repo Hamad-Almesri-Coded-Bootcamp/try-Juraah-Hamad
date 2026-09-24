@@ -511,6 +511,25 @@ body:has([data-assistant-trigger]) [data-testid='assistant-launcher'] { display:
   color: var(--navy);
 }
 
+/* Brand (CR-072): the day mark before the name. The mark follows the name's type size, never
+   smaller than 2rem: below 32px its ring and two doses start to read as a refresh icon. */
+.jr-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34em;
+  min-inline-size: 0;
+}
+.jr-brand__name { min-inline-size: 0; }
+.jr-daymark {
+  flex: none;
+  inline-size: max(1.3em, 2rem);
+  block-size: max(1.3em, 2rem);
+}
+.jr-daymark__track { stroke: var(--border-strong); }
+.jr-daymark__dose { fill: var(--navy); }
+.jr-sky .jr-daymark__track { stroke: var(--glass-line); }
+.jr-sky .jr-daymark__dose { fill: var(--on-fill); }
+
 /* ---------- Sheet: rises from the edge, the scrim fades ---------- */
 
 @keyframes jr-fade { from { opacity: 0; } to { opacity: 1; } }

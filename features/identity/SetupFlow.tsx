@@ -3,6 +3,7 @@
 import { Suspense, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { updateSettings, completeOnboarding, requestPushPermission, startMessagingLink } from '@/lib/data';
+import { Brand } from '@/components/ui/Brand';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ChoiceGroup } from '@/components/ui/ChoiceGroup';
@@ -41,7 +42,7 @@ function clampStep(value: string | null): number {
 function SetupBar({ locale, patientId }: { locale: Locale; patientId?: string }) {
   return (
     <header className="flex min-h-hit-lg items-center gap-2 px-3 pt-2 tablet:px-5 tablet:pt-4">
-      <span className="jr-wordmark flex-1">{t(copy.shell.appName, locale)}</span>
+      <Brand name={t(copy.shell.appName, locale)} className="jr-wordmark flex-1" />
       <LanguageSwitch locale={locale} role={patientId ? 'patient' : undefined} subjectId={patientId} assistant={false} />
     </header>
   );

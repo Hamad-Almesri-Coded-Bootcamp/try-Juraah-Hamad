@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Brand } from '@/components/ui/Brand';
 import { TabBar, type TabBarItems } from '@/components/ui/TabBar';
 import { ShellAside } from './ShellAside';
 
@@ -48,8 +49,9 @@ export function AppShell({
   items?: TabBarItems;
   value: string;
   label: string;
-  /** Shown at the top of the rail from 834px up — the product wordmark, or the clinic's variant. */
-  wordmark: ReactNode;
+  /** Shown at the top of the rail from 834px up, after the day mark: the product's name, or the
+   * clinic's variant, as catalogue text (CR-072). */
+  wordmark: string;
   railOnly?: boolean;
   /** Where the dock shows on phones, read in the browser (ShellAside); `railOnly` is the first paint. */
   tabRootPaths?: readonly string[];
@@ -75,7 +77,7 @@ export function AppShell({
       </div>
       <ShellAside railOnly={railOnly} tabRootPaths={tabRootPaths} tabRootPrefixes={tabRootPrefixes}>
         <div className={`${railBlock} px-5 pt-5 pb-3`}>
-          <span className="jr-wordmark">{wordmark}</span>
+          <Brand name={wordmark} className="jr-wordmark" />
         </div>
         {items ? <TabBar items={items} value={value} layout="auto" label={label} /> : <div className={railBlock} />}
         {railFooter ? <div className={`${railChrome} jr-rail-footer tablet:flex flex-col gap-2 p-3`}>{railFooter}</div> : <div className={railBlock} />}

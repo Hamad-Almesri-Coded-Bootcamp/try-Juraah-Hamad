@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/session';
 import { HAWIATI_COUNTDOWN_SECONDS } from '@/lib/config';
+import { Brand } from '@/components/ui/Brand';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { TextField } from '@/components/ui/TextField';
@@ -145,7 +146,7 @@ export function SignInForm({ locale, actions }: { locale: Locale; actions?: Reac
           {actions}
         </div>
         <div className="flex flex-col gap-1 pt-4 tablet:pt-2">
-          <span className="jr-display text-display desktop:text-[3.5rem] desktop:leading-[4.25rem]">{t(copy.shell.appName, locale)}</span>
+          <Brand name={t(copy.shell.appName, locale)} className="jr-display text-display desktop:text-[3.5rem] desktop:leading-[4.25rem]" />
           <span className="jr-sky__subtitle">{t(copy.identity.signInTitle, locale)}</span>
         </div>
         <p className="jr-sky__eyebrow type-body-small m-0 flex items-center gap-2">

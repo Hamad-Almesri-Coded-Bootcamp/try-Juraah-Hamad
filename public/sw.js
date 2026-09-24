@@ -38,7 +38,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: typeof payload.body === 'string' ? payload.body : '',
     data: { url: typeof payload.url === 'string' ? payload.url : '/' },
-    icon: '/icons/icon.svg',
+    // A PNG: Android draws no SVG notification icon. The day mark on navy (CR-072).
+    icon: '/icons/icon-192.png',
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
