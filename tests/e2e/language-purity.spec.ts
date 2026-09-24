@@ -10,7 +10,12 @@
  * Allowed on purpose, and nothing else:
  * - the language switch, which names the other language in its own script (العربية / English);
  * - the owner's loud placeholder `[TO BE SUPPLIED]` (owed values are never filled with a plausible fake);
- * - a handle a person must type exactly (`@jurah_bot`) and the programme's acronym on the landing footer.
+ * - a handle a person must type exactly (`@jurah_bot`) and the programme's acronym on the landing footer;
+ * - text a PERSON wrote at runtime (a reviewer's reason, a name a patient typed, a drug read from a new
+ *   photo), which Phase 1 cannot translate: the app shows it as written and declares its language on
+ *   the element (`components/ui/AsWritten.tsx`, `lang` + `dir`). Only a run inside an element whose
+ *   `lang` is explicitly the OTHER locale is skipped; every unmarked string is still checked. The seed
+ *   and the app's own sentences are always translated (tests/unit/i18n/localize.test.ts).
  */
 import { test, expect, type BrowserContext } from '@playwright/test';
 import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
@@ -84,6 +89,9 @@ async function visibleTexts(page: import('@playwright/test').Page): Promise<stri
       if (!text) continue;
       const el = node.parentElement;
       if (!el || el.closest('script, style, noscript, [aria-hidden="true"], .wsf-sr, .sr-only, nextjs-portal')) continue;
+      // Quoted data a person wrote, declared in the other language by AsWritten: shown as written.
+      const declared = el.closest('[lang]')?.getAttribute('lang');
+      if (declared && declared !== document.documentElement.lang) continue;
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       const r = el.getBoundingClientRect();

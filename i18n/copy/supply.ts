@@ -13,6 +13,7 @@ export const supply = {
   // C3 — Travel / photo drug check (`/[locale]/app/safety/check`)
   // ---------------------------------------------------------------------------------------------
   c3PhotoLabel: { ar: 'صورة العلبة', en: 'Photo of the packet', placeholder: true },
+  c3TakePhoto: { ar: 'التقط صورة للعلبة', en: 'Take a photo of the packet', placeholder: true },
   c3CaptureTitle: { ar: 'صوّر علبة الدواء', en: 'Take a photo of the packet', placeholder: true },
   c3CaptureBody: {
     ar: 'نقرأ اسم الدواء من الصورة ونقارنه بكل أدويتك الحالية قبل أن تتناوله.',

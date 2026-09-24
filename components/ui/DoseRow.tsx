@@ -4,6 +4,7 @@ import { Monogram } from './Monogram';
 import { StatusPill, type DoseStatus } from './StatusPill';
 import type { Locale } from '@/i18n';
 import { localizeDrugName } from '@/i18n/localize';
+import { AsWritten } from './AsWritten';
 
 export interface DoseRowProps {
   dose: {
@@ -50,10 +51,16 @@ export function DoseRow({ dose, drug, amountLabel, timeLabel, href, onOpen, lang
       <Monogram name={!drug.brandName && drug.genericName === '(unreadable)' ? '(unreadable)' : primary} />
       <span className="jr-dose-row__body">
         <span className="jr-dose-row__name type-body-strong">
-          <span className="jr-dose-row__brand">{primary}</span>
+          <span className="jr-dose-row__brand">
+            <AsWritten text={primary} locale={lang} />
+          </span>
         </span>
         <span className="jr-dose-row__amount type-body-small">
-          {brand ? <span className="jr-dose-row__generic">{generic} · </span> : null}
+          {brand ? (
+            <span className="jr-dose-row__generic">
+              <AsWritten text={generic} locale={lang} /> ·{' '}
+            </span>
+          ) : null}
           {amountLabel}
         </span>
         {showPill ? (

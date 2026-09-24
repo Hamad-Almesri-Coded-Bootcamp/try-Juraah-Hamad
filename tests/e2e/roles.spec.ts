@@ -50,6 +50,11 @@ const CAREGIVER_TO_PATIENT_COUNTERPART: Record<string, string> = {
   '/care/more/help': '/app/more/help',
 };
 
+/** A wrong-role or no-session visit lands on the gate (A0), whose own skeleton streams before its
+ * redirect resolves on the client — on a cold dev server that hop alone measured 3–8s (a probe run
+ * against this build: /care/more/help → /ar/gate at 9.3s, → /ar/app at 17.4s), past the default 5s. */
+const REDIRECT = { timeout: 30_000 } as const;
+
 async function addSession(context: BrowserContext, baseURL: string | undefined, who: keyof typeof TEST_SESSIONS) {
   await context.addCookies([sessionCookieFor(who, new URL(baseURL ?? 'http://localhost:3100'))]);
 }
@@ -61,6 +66,7 @@ async function addPendingInvitationOnly(context: BrowserContext, baseURL: string
 
 test.describe('roles — every route reachable in its own shell, redirected from the others', () => {
   test('patient (حمد): every patient route loads; caregiver/clinic routes redirect back into /app', async ({ page, context, baseURL }) => {
+    test.setTimeout(420_000); // ~30 routes, each a cold dev-server compile on first visit (the caregiver walk took 4.5m once)
     await addSession(context, baseURL, 'hamad');
     for (const route of PATIENT_ROUTES) {
       const res = await page.goto(`/ar${route}`);
@@ -80,11 +86,12 @@ test.describe('roles — every route reachable in its own shell, redirected from
       // loading.tsx skeleton has streamed (never a blank screen) — `goto()` can resolve at that
       // intermediate `/gate` response before the redirect script runs, so this asserts on the
       // auto-retrying `toHaveURL` rather than a single `page.url()` snapshot.
-      await expect(page, route).toHaveURL(/\/ar\/app(\/|$)/);
+      await expect(page, route).toHaveURL(/\/ar\/app(\/|$)/, REDIRECT);
     }
   });
 
   test('caregiver (عبدالله): every caregiver route loads; patient/clinic routes redirect back into /care', async ({ page, context, baseURL }) => {
+    test.setTimeout(420_000); // ~30 routes, each a cold dev-server compile on first visit (the caregiver walk took 4.5m once)
     await addSession(context, baseURL, 'abdullah');
     for (const route of CAREGIVER_ROUTES) {
       const res = await page.goto(`/ar${route}`);
@@ -93,7 +100,7 @@ test.describe('roles — every route reachable in its own shell, redirected from
     }
     for (const route of [...PATIENT_ROUTES, ...REVIEWER_ROUTES, ...ADMIN_ROUTES]) {
       await page.goto(`/ar${route}`);
-      await expect(page, route).toHaveURL(/\/ar\/care(\/|$)/);
+      await expect(page, route).toHaveURL(/\/ar\/care(\/|$)/, REDIRECT);
     }
   });
 
@@ -105,25 +112,27 @@ test.describe('roles — every route reachable in its own shell, redirected from
   });
 
   test('ناصر (pending invitation only, cg-03): reaches /ar/invitation and nothing else', async ({ page, context, baseURL }) => {
+    test.setTimeout(180_000); // seven gate redirects in one test
     await addPendingInvitationOnly(context, baseURL, 'cg-03');
     await page.goto('/ar/invitation');
     expect(page.url()).toContain('/ar/invitation');
 
     for (const route of ['/app', '/care', '/clinic/review', '/clinic/audit', '/gate', '/signin', '/']) {
       await page.goto(`/ar${route}`);
-      await expect(page, route).toHaveURL(/\/ar\/invitation(\?|$)/);
+      await expect(page, route).toHaveURL(/\/ar\/invitation(\?|$)/, REDIRECT);
     }
   });
 
   test('د. خالد as reviewer cannot open /clinic/audit; as admin cannot open /clinic/review', async ({ page, context, baseURL }) => {
+    test.setTimeout(90_000); // two gate redirects
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/ar/clinic/audit');
-    await expect(page).toHaveURL(/\/ar\/clinic\/review(\/|$)/);
+    await expect(page).toHaveURL(/\/ar\/clinic\/review(\/|$)/, REDIRECT);
 
     await context.clearCookies();
     await addSession(context, baseURL, 'khalid_admin');
     await page.goto('/ar/clinic/review');
-    await expect(page).toHaveURL(/\/ar\/clinic\/audit(\/|$)/);
+    await expect(page).toHaveURL(/\/ar\/clinic\/audit(\/|$)/, REDIRECT);
   });
 
   test('م. دانة (admin only) never sees a Review destination', async ({ page, context, baseURL }) => {
@@ -133,10 +142,11 @@ test.describe('roles — every route reachable in its own shell, redirected from
   });
 
   test('no session: /app → /signin; /clinic/review → /clinic', async ({ page }) => {
+    test.setTimeout(90_000); // two redirects
     await page.goto('/ar/app');
-    await expect(page).toHaveURL(/\/ar\/signin(\/|$)/);
+    await expect(page).toHaveURL(/\/ar\/signin(\/|$)/, REDIRECT);
     await page.goto('/ar/clinic/review');
-    await expect(page).toHaveURL(/\/ar\/clinic(\/|$)/);
+    await expect(page).toHaveURL(/\/ar\/clinic(\/|$)/, REDIRECT);
     expect(page.url()).not.toContain('/clinic/review');
   });
 

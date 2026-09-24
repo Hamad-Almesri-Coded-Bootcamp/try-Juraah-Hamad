@@ -18,6 +18,7 @@ import { formatDayLabel, formatTime } from '@/i18n/format';
 import { localizeText } from '@/i18n/localize';
 import type { Locale } from '@/i18n/locale';
 import type { AuditEvent } from '@/types/contracts';
+import { AsWritten } from '@/components/ui/AsWritten';
 
 /** Consecutive events of the same Kuwait calendar day, in the order given (newest first). The day is
  * the ISO instant's own date part: every stored instant carries the Kuwait offset (+03:00). */
@@ -61,7 +62,7 @@ export function ActivityFeed({
               return (
                 <ActivityRow
                   key={event.id}
-                  title={message || t(copy.vocabulary[EVENT_LABEL_KEY[event.type]], locale)}
+                  title={message ? <AsWritten text={message} locale={locale} /> : t(copy.vocabulary[EVENT_LABEL_KEY[event.type]], locale)}
                   timeLabel={actor ? `${time} · ${actor}` : time}
                   href={hrefFor(event)}
                 />

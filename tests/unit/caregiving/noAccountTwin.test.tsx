@@ -4,12 +4,16 @@
  * "yes") or not (the flow skips confirmation and proceeds identically — G9). Drives `InviteSheet`
  * through both real paths against the mock store and diffs the rendered "created" panel's markup.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { InviteSheet } from '@/features/caregiving/InviteSheet';
 import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
+
+// Whole-screen renders: the first one in this file transforms a large tree, and under a parallel
+// run (verify beside running servers) it has taken 24s. The assertions are unchanged.
+vi.setConfig({ testTimeout: 20_000 });
 
 afterEach(() => {
   cleanup();

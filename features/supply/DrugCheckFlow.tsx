@@ -90,6 +90,7 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
           title={t(copy.supply.c3CaptureTitle, locale)}
           body={t(copy.supply.c3CaptureBody, locale)}
           photoLabel={t(copy.supply.c3PhotoLabel, locale)}
+          takeLabel={t(copy.supply.c3TakePhoto, locale)}
           photo={photo}
           onPhoto={handlePhotoChange}
           locale={locale}

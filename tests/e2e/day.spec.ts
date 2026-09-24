@@ -11,9 +11,16 @@
  * second one for a real patient would be an invented seed value (CLAUDE.md, never); it is exercised
  * instead in `tests/unit/day/MedicinesList.test.tsx`, logged in `docs/backend-notes/wp4c.md` §7.
  */
-import { test, expect, type BrowserContext } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy, t } from '@/i18n';
+import { localizeDrugName } from '@/i18n/localize';
+
+// Every run shares one `next dev` process with the other spec files (and, on the owner's machine,
+// other worktrees' servers): a first visit compiles its route, and a photo read, an axe pass and a
+// second navigation can together outlast the 30s default. The per-assertion timeouts are unchanged.
+test.describe.configure({ timeout: 90_000 });
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -31,6 +38,19 @@ async function noOverflowAndAxeClean(page: import('@playwright/test').Page) {
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} node(s)`)).toEqual([]);
 }
 
+/**
+ * Resolves once React has hydrated this element (it then carries React's `__reactProps$…` key, the
+ * same key `g1-today-tracking-off.spec.ts` reads). A click or a file chosen before that lands on
+ * server HTML with no handler and is silently dropped; under a loaded dev server hydration can lag
+ * well past the default timeout. Waiting here never weakens what is asserted after it.
+ */
+async function hydrated(locator: Locator): Promise<Locator> {
+  await expect
+    .poll(() => locator.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps$'))), { timeout: 20000 })
+    .toBe(true);
+  return locator;
+}
+
 for (const [locale, dir] of LOCALES) {
   test.describe(`B1 — Today (${locale})`, () => {
     test('tracking off (حمد, the default): six rows, no pills, one plain line to turn tracking on', async ({ page, context, baseURL }) => {
@@ -41,36 +61,41 @@ for (const [locale, dir] of LOCALES) {
       const list = page.getByTestId('dose-list');
       await expect(list.getByTestId('dose-row')).toHaveCount(6);
       await expect(list.getByTestId('status-pill')).toHaveCount(0);
-      await expect(page.getByText(/شغّلها|Turn it on/)).toBeVisible();
+      // One plain line, gain-framed, with its one way to turn tracking on (a navigation to Settings,
+      // outside the dose list: the list itself never holds a control, G1).
+      await expect(page.getByText(t(copy.day.trackingOffNotice, locale), { exact: true })).toHaveCount(1);
+      await expect(page.getByText(t(copy.day.trackingOffNotice, locale), { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: t(copy.day.turnTrackingOn, locale), exact: true })).toBeVisible();
+      await expect(list.getByRole('button')).toHaveCount(0);
       await noOverflowAndAxeClean(page);
     });
 
     test('a tracked day with mixed statuses, including a missed dose (سارة, 19 Sept)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'sara_patient');
       await page.goto(`/${locale}/app?day=2026-09-19`);
-      const pill = page.getByTestId('status-pill').filter({ hasText: /فائتة|Missed/ });
+      const pill = page.getByTestId('status-pill').filter({ hasText: t(copy.vocabulary.missed, locale) });
       await expect(pill).toBeVisible();
     });
 
     test('a tracked day with an on-time and a late dose (سارة, 20 Sept)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'sara_patient');
       await page.goto(`/${locale}/app?day=2026-09-20`);
-      await expect(page.getByTestId('status-pill').filter({ hasText: /أُخذت في وقتها|Taken on time/ }).first()).toBeVisible();
-      await expect(page.getByTestId('status-pill').filter({ hasText: /أُخذت متأخرة|Taken late/ })).toBeVisible();
+      await expect(page.getByTestId('status-pill').filter({ hasText: t(copy.vocabulary.taken_on_time, locale) }).first()).toBeVisible();
+      await expect(page.getByTestId('status-pill').filter({ hasText: t(copy.vocabulary.taken_late, locale) })).toBeVisible();
     });
 
     test('an empty day (فاطمة, 21 Sept — her alternate-day cadence skips it)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'fatima');
       await page.goto(`/${locale}/app`);
       await expect(page.getByTestId('dose-list').getByTestId('dose-row')).toHaveCount(0);
-      await expect(page.getByText(/ما فيه جرعات مجدولة|No doses scheduled/)).toBeVisible();
+      await expect(page.getByText(t(copy.day.emptyDayTitle, locale), { exact: true })).toBeVisible();
     });
 
     test('a patient with no active prescription at all yet gets a distinct empty message (بدر)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'badr');
       await page.goto(`/${locale}/app`);
       await expect(page.getByTestId('dose-list').getByTestId('dose-row')).toHaveCount(0);
-      await expect(page.getByText(/ما عندك وصفات نشطة بعد|No active prescriptions yet/)).toBeVisible();
+      await expect(page.getByText(t(copy.day.emptyNoPrescriptionsTitle, locale), { exact: true })).toBeVisible();
     });
 
     test('a future day one tap forward shows the duration boundary (rx-002 ends 25 Sept)', async ({ page, context, baseURL }) => {
@@ -78,7 +103,13 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app?day=2026-09-26`);
       const list = page.getByTestId('dose-list');
       await expect(list.getByTestId('dose-row')).toHaveCount(3); // Metformin×2, Warfarin×1 — Ibuprofen (rx-002) has ended
-      await expect(list.getByText('Ibuprofen')).toHaveCount(0);
+      // In the reader's language (CR-071: drug names are Arabic in Arabic), so the absence check can
+      // match on either screen: a Latin-only 'Ibuprofen' could never appear in Arabic and would pass
+      // vacuously. The present drugs are asserted too, so the names are known to render at all.
+      await expect(list.getByText(localizeDrugName('Ibuprofen', locale))).toHaveCount(0);
+      await expect(list.getByText(localizeDrugName('Brufen', locale))).toHaveCount(0);
+      await expect(list.getByText(localizeDrugName('Metformin', locale))).toHaveCount(2);
+      await expect(list.getByText(localizeDrugName('Warfarin', locale))).toHaveCount(1);
     });
 
     test('day navigation both ways, and an always-available return to today', async ({ page, context, baseURL }) => {
@@ -88,18 +119,19 @@ for (const [locale, dir] of LOCALES) {
       // same `next dev` process, docs/briefs/WP4c.md) hydration can lag past the default 5s.
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app`);
-      await page.getByRole('link', { name: /اليوم التالي|Next day/ }).click();
+      // Previous/next are links beside the day dial (the week strip only reaches the current week).
+      await page.getByRole('link', { name: t(copy.day.nextDay, locale), exact: true }).click();
       await expect(page).toHaveURL(/day=2026-09-22/, { timeout: 15000 });
-      // "Return to today" is a client-side `router.push` button: a click that lands before the new
-      // document has hydrated is dropped (React replays nothing outside a Suspense boundary), and
-      // `toHaveURL` above resolves the moment the URL changes — long before hydration. Wait for the
-      // network to settle (client chunks loaded) so the click reaches a live handler. This raced
-      // before the responsive pass too: it failed identically against the untouched HEAD tree on a
-      // freshly started dev server (docs/VERIFICATION.md, "Responsive pass — results").
+      // CR-071: "Return to today" is now a real link (navigation only), shown on any day but today.
+      // Waiting for the network to settle still guards the click against a document that has not
+      // hydrated yet (docs/VERIFICATION.md, "Responsive pass — results").
       await page.waitForLoadState('networkidle');
-      await page.getByRole('button', { name: /ارجع لليوم|Return to today/ }).click();
+      const returnToToday = page.getByRole('link', { name: t(copy.day.returnToToday, locale), exact: true });
+      await expect(returnToToday).toHaveAttribute('href', `/${locale}/app`);
+      await returnToToday.click();
       await expect(page).toHaveURL(new RegExp(`/${locale}/app$`), { timeout: 15000 });
-      await page.getByRole('link', { name: /اليوم السابق|Previous day/ }).click();
+      await expect(returnToToday).toHaveCount(0); // today itself needs no way back
+      await page.getByRole('link', { name: t(copy.day.previousDay, locale), exact: true }).click();
       await expect(page).toHaveURL(/day=2026-09-20/, { timeout: 15000 });
     });
 
@@ -107,14 +139,15 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'sara_patient');
       await page.goto(`/${locale}/app`);
       await expect(page.locator('[role="dialog"]')).toHaveCount(0);
-      const link = page.getByRole('button', { name: /مراجعة الطلب|Review the request/ });
+      const link = page.getByRole('button', { name: t(copy.shell.pendingInvitationNoticeValue, locale), exact: true });
       // فاطمة's invitation to سارة (cg-08) is a `pending` row in the shared, mutable mock store
       // (D-002: "mutations survive for the life of the dev server process"). A longer timeout here
       // guards against the same shared-dev-server contention noted above; it does not paper over a
       // stale `cg-08` — if another suite has genuinely mutated it, this still fails, correctly.
       await expect(link).toBeVisible({ timeout: 15000 });
-      await link.click();
-      await expect(page).toHaveURL(/\/invitation\?id=/);
+      await (await hydrated(link)).click();
+      // The first visit compiles F0's route on a dev server; under load that alone can outlast 15s.
+      await expect(page).toHaveURL(/\/invitation\?id=/, { timeout: 30000 });
     });
 
     test('row tap opens the prescription detail and nothing else', async ({ page, context, baseURL }) => {
@@ -139,14 +172,15 @@ for (const [locale, dir] of LOCALES) {
       // `.wsf-state--error`, not the bare `role="alert"` — Next's own route announcer also carries
       // that role (`#__next-route-announcer__`), which makes a plain role query ambiguous.
       await expect(page.locator('.wsf-state--error')).toBeVisible();
-      await page.getByRole('button', { name: /إعادة المحاولة|Try again/ }).click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app$`));
+      await (await hydrated(page.getByRole('button', { name: /إعادة المحاولة|Try again/ }))).click();
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app$`), { timeout: 15000 });
     });
 
     test('failed-refresh (LastKnown) — never an empty screen', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app?view=offline`);
-      await expect(page.getByText(/آخر تحديث|As of/)).toBeVisible();
+      await expect(page.getByText(t(copy.shell.lastKnownTitle, locale), { exact: true })).toBeVisible();
+      await expect(page.getByText(t(copy.vocabulary.asOf, locale)).first()).toBeVisible();
       await expect(page.getByTestId('dose-list').getByTestId('dose-row')).toHaveCount(6);
     });
   });
@@ -171,14 +205,14 @@ for (const [locale, dir] of LOCALES) {
     test('empty state offers add/scan (بدر has no prescriptions at all)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'badr');
       await page.goto(`/${locale}/app/medicines`);
-      await expect(page.getByRole('button', { name: /أضف وصفة بالصورة|Add a prescription by photo/ })).toBeVisible();
+      await expect(page.getByRole('button', { name: t(copy.day.addPrescriptionAction, locale), exact: true })).toBeVisible();
     });
 
     test('card tap opens the prescription detail', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/medicines`);
-      await page.locator('.wsf-rx').first().click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app/medicines/rx-`));
+      await (await hydrated(page.locator('.wsf-rx').first())).click();
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app/medicines/rx-`), { timeout: 15000 });
     });
 
     test('loading state', async ({ page, context, baseURL }) => {
@@ -191,8 +225,8 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/medicines?view=error`);
       await expect(page.locator('.wsf-state--error')).toBeVisible();
-      await page.getByRole('button', { name: /إعادة المحاولة|Try again/ }).click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app/medicines$`));
+      await (await hydrated(page.getByRole('button', { name: /إعادة المحاولة|Try again/ }))).click();
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app/medicines$`), { timeout: 15000 });
     });
   });
 }

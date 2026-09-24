@@ -40,6 +40,7 @@ import { localizeDrugName, localizeFacility, localizeText } from '@/i18n/localiz
 import { TO_BE_SUPPLIED } from '@/lib/config';
 import type { Locale } from '@/i18n/locale';
 import type { InteractionAlert as InteractionAlertRecord, Prescription } from '@/types/contracts';
+import { AsWritten } from '@/components/ui/AsWritten';
 
 const DECISION_COPY = {
   confirmed: copy.safety.c2DecisionConfirmed,
@@ -285,7 +286,7 @@ export function AlertDetail({ alert, prescriptions, locale, prescriptionHrefBuil
               value={alert.reviewedAt ? `${formatDate(alert.reviewedAt.slice(0, 10), locale)} · ${formatTime(alert.reviewedAt.slice(11, 16), locale)}` : null}
               lang={locale}
             />
-            <DetailRow label={t(copy.safety.c2NoteLabel, locale)} value={alert.reviewerNote ? localizeText(alert.reviewerNote, locale) : null} lang={locale} />
+            <DetailRow label={t(copy.safety.c2NoteLabel, locale)} value={alert.reviewerNote ? <AsWritten text={localizeText(alert.reviewerNote, locale)} locale={locale} /> : null} lang={locale} />
           </div>
         </section>
       )}

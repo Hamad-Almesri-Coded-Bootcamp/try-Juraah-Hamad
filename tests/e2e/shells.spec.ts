@@ -10,6 +10,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy } from '@/i18n';
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -199,7 +200,8 @@ test.describe('D-012 — one rail column: the clinic sign-out sits inside the ra
 test('D-013 — an unknown URL renders H1 in the locale layout, never Next\'s default page', async ({ page }) => {
   await page.goto('/ar/this-route-does-not-exist');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.getByText('ما لقينا هذي الصفحة')).toBeVisible();
+  await expect(page.getByText(copy.shell.notFoundTitle.ar)).toBeVisible();
   await expect(page.getByText('This page could not be found')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /رجوع للصفحة الرئيسية/ })).toBeVisible();
+  // No session: the one way back is the landing page.
+  await expect(page.getByRole('button', { name: copy.shell.backHome.ar })).toBeVisible();
 });

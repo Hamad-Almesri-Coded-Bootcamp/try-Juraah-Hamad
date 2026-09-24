@@ -38,6 +38,7 @@ import { localizeText } from '@/i18n/localize';
 import type { Locale } from '@/i18n/locale';
 import type { Prescription } from '@/types/contracts';
 import { parseFieldDraft, type FieldDraft, type FieldDraftError } from './format';
+import { AsWritten } from '@/components/ui/AsWritten';
 
 type SheetKind = 'confirm' | 'return' | null;
 
@@ -145,7 +146,7 @@ export function FlaggedPrescriptionDetail({ prescription, locale, backHref }: { 
       <div className="flex w-full max-w-content flex-col gap-5 px-3 pb-5 pt-2 tablet:px-5">
         {record}
         <InlineNotice tone="info" title={t(copy.clinic.g3sReturnReasonLabel, locale)}>
-          {localizeText(prescription.fieldReviewNote, locale)}
+          <AsWritten text={localizeText(prescription.fieldReviewNote, locale)} locale={locale} />
         </InlineNotice>
         {prescription.fieldReviewedAt ? (
           <div className="jr-group px-4">

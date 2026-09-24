@@ -14,8 +14,20 @@
  */
 import { test, expect, type BrowserContext } from '@playwright/test';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy } from '../../i18n';
+import { localizeDrugName, localizeFirstName } from '../../i18n/localize';
 
 const LOCALES = ['ar', 'en'] as const;
+type TestLocale = (typeof LOCALES)[number];
+
+// CR-071: each locale shows only its own language, so the drug names a reviewer reads are the
+// localised ones (وارفارين in Arabic, Warfarin in English), and the pair is joined with " × ".
+// Every "is it still pending?" probe below keys on these, never on the stored Latin name: a probe
+// in the wrong script is always false, which silently sends a test down its "already done" branch.
+const IA001_PAIR = (locale: TestLocale) => `${localizeDrugName('Warfarin', locale)} × ${localizeDrugName('Ibuprofen', locale)}`;
+// rx-006's genericName is literally "(unreadable)", which reads as words ("اسم غير واضح").
+const RX006_NAME = (locale: TestLocale) => localizeDrugName('(unreadable)', locale);
+const RX007_NAME = (locale: TestLocale) => localizeDrugName('Ciprofloxacin', locale);
 
 async function addSession(context: BrowserContext, baseURL: string | undefined, who: keyof typeof TEST_SESSIONS) {
   await context.addCookies([sessionCookieFor(who, new URL(baseURL ?? 'http://localhost:3100'))]);
@@ -25,26 +37,31 @@ async function addSession(context: BrowserContext, baseURL: string | undefined, 
 // X0 — clinic entry & role chooser
 // ---------------------------------------------------------------------------------------------
 test.describe('X0 — clinic entry', () => {
+  // Each walk is a sign-in, the simulated ~2.1s Hawiati countdown and one or two redirects through
+  // cold dev-compiled routes; under a loaded dev server that chain alone can outrun the default 30s.
+  // Waiting longer never weakens what is asserted at the end of it.
+  test.describe.configure({ timeout: 90_000 });
+
   test('an invalid Civil ID is refused with a specific error, input kept', async ({ page }) => {
-    await page.goto('/ar/clinic');
-    await page.getByLabel('الرقم المدني').fill('000000000000');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page.getByText('غير موجود في القائمة التجريبية')).toBeVisible();
-    await expect(page.getByLabel('الرقم المدني')).toHaveValue('000000000000');
+    await page.goto('/ar/clinic', { waitUntil: 'networkidle' }); // the form's action is a client function: submit only once hydrated
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('000000000000');
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page.getByText(copy.identity.invalidIdError.ar)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel(copy.identity.civilIdLabel.ar)).toHaveValue('000000000000');
   });
 
   test('X0’s refusal wording for an accountless ID equals A1’s no_claims wording, byte for byte', async ({ page }) => {
-    await page.goto('/ar/clinic');
-    await page.getByLabel('الرقم المدني').fill('277091900873'); // no account at all — writes no session cookie
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page.getByTestId('clinic-refused')).toBeVisible({ timeout: 10_000 });
+    await page.goto('/ar/clinic', { waitUntil: 'networkidle' });
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('277091900873'); // no account at all — writes no session cookie
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page.getByTestId('clinic-refused')).toBeVisible({ timeout: 30_000 });
     const accountlessText = await page.getByTestId('clinic-refused').innerText();
 
     // A1's own no_claims copy — byte-identical (rule 6), never a hint that either ID exists.
-    await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('277091900873');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page.getByTestId('no-claims')).toBeVisible({ timeout: 10_000 });
+    await page.goto('/ar/signin', { waitUntil: 'networkidle' });
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('277091900873');
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page.getByTestId('no-claims')).toBeVisible({ timeout: 30_000 });
     const a1Text = await page.getByTestId('no-claims').innerText();
     expect(a1Text).toContain(accountlessText.split('\n')[0]); // the title line, at minimum, matches
   });
@@ -56,24 +73,24 @@ test.describe('X0 — clinic entry', () => {
   // shell, not a refusal. This test documents the REAL, current behaviour rather than asserting the
   // unreachable intended one, so a regression here is caught honestly.
   test('(CR-039) a patient-only ID is currently NOT refused at X0 — it lands in حمد’s own patient shell', async ({ page }) => {
-    await page.goto('/ar/clinic');
-    await page.getByLabel('الرقم المدني').fill('255031200187'); // حمد — patient only, never a clinic role
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page).toHaveURL(/\/ar\/app(\?|$)/, { timeout: 10_000 });
+    await page.goto('/ar/clinic', { waitUntil: 'networkidle' });
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('255031200187'); // حمد — patient only, never a clinic role
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page).toHaveURL(/\/ar\/app(\?|$)/, { timeout: 30_000 });
   });
 
   test('د. خالد (dual clinic role) reaches the chooser; م. دانة (admin only) goes straight to the audit log with no chooser', async ({ page }) => {
-    await page.goto('/ar/clinic');
-    await page.getByLabel('الرقم المدني').fill('280012000961');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/choose(\?|$)/, { timeout: 10_000 });
-    await expect(page.getByText('المراجعة الطبية')).toBeVisible();
-    await expect(page.getByText('إدارة النظام')).toBeVisible();
+    await page.goto('/ar/clinic', { waitUntil: 'networkidle' });
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('280012000961');
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/choose(\?|$)/, { timeout: 30_000 });
+    await expect(page.getByText(copy.clinic.x0ChooserReviewerTitle.ar, { exact: true })).toBeVisible();
+    await expect(page.getByText(copy.clinic.x0ChooserAdminTitle.ar, { exact: true })).toBeVisible();
 
-    await page.goto('/ar/clinic');
-    await page.getByLabel('الرقم المدني').fill('293080700148');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/audit(\/|$)/, { timeout: 10_000 });
+    await page.goto('/ar/clinic', { waitUntil: 'networkidle' });
+    await page.getByLabel(copy.identity.civilIdLabel.ar).fill('293080700148');
+    await page.getByRole('button', { name: copy.identity.continueLabel.ar }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/audit(\/|$)/, { timeout: 30_000 });
   });
 
   test('the landing page never links to the clinic route', async ({ page }) => {
@@ -85,41 +102,52 @@ test.describe('X0 — clinic entry', () => {
 // ---------------------------------------------------------------------------------------------
 // G1s / G3s — the reviewer queues, read-only content states first (before either mutating test)
 // ---------------------------------------------------------------------------------------------
-// CR-036: the waiting-time word each locale renders, whatever bucket ia-001's ~46h actually lands
-// in (minutes/hours/days) — this checks the FORMAT ("since N <unit>"), not a hardcoded count, so it
-// never depends on exactly when the suite runs relative to REFERENCE_NOW's frozen value.
-const WAITED_PATTERN: Record<(typeof LOCALES)[number], RegExp> = {
-  ar: /منذ [٠-٩\d]+ (دقيقة|ساعة|يوم)/,
-  en: /waiting \d+ (minutes|hours|days)/,
-};
+// CR-036: the waiting-time words each locale renders, whatever bucket ia-001's ~46h actually lands
+// in (minutes/hours/days) — this checks the FORMAT, not a hardcoded count, so it never depends on
+// exactly when the suite runs relative to REFERENCE_NOW's frozen value. Built from every g1sWaited*
+// entry in the catalogue: an Arabic count agrees with its noun, so the dual ("منذ يومين") carries no
+// digit at all, and English uses the singular for one ("waiting 1 day").
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function waitedPattern(locale: TestLocale): RegExp {
+  const forms = Object.entries(copy.clinic)
+    .filter(([key]) => key.startsWith('g1sWaited'))
+    .map(([, entry]) => escapeRe(entry[locale]).replace(escapeRe('{count}'), locale === 'ar' ? '[٠-٩\\d]+' : '\\d+'));
+  return new RegExp(`(${forms.join('|')})`);
+}
 
 test.describe('G1s — reviewer queue, interaction findings', () => {
   for (const locale of LOCALES) {
     test(`shows ia-001 (حمد, danger, Warfarin + Ibuprofen) with its waiting time, unless already reviewed — ${locale}`, async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'khalid_reviewer');
       await page.goto(`/${locale}/clinic/review`);
-      const stillPending = await page.getByText('Warfarin').first().isVisible().catch(() => false);
-      if (stillPending) {
-        await expect(page.getByText('Warfarin + Ibuprofen')).toBeVisible();
+      const item = page.getByRole('link', { name: IA001_PAIR(locale) });
+      const empty = page.getByText(copy.clinic.g1sEmptyTitle[locale]);
+      // Exactly one of the two states is on screen: wait for it, then branch on which one it is.
+      await expect(item.or(empty)).toBeVisible();
+      if (await item.isVisible()) {
+        await expect(item).toContainText(copy.vocabulary.severityDanger[locale]);
+        await expect(item).toContainText(localizeFirstName('حمد', locale));
         // CR-036 — waitedMinutes, precomputed by getReviewQueue, formatted (never derived) here.
-        await expect(page.getByText(WAITED_PATTERN[locale])).toBeVisible();
+        await expect(item).toContainText(waitedPattern(locale));
       } else {
-        // Already committed by an earlier run/project (G2s's own test, below) — the empty state.
-        await expect(page.getByText('Warfarin + Ibuprofen')).toHaveCount(0);
+        // Already committed earlier in this run (G2s's own test, below, on an earlier viewport project).
+        await expect(page.getByText(IA001_PAIR(locale))).toHaveCount(0);
       }
     });
   }
 
   test('the segmented switch moves to G3s in place, and back', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'khalid_reviewer');
-    await page.goto('/ar/clinic/review');
+    // The switch navigates from a client handler: a click before hydration is dropped.
+    await page.goto('/ar/clinic/review', { waitUntil: 'networkidle' });
     // Clicks the visible <label> text, not the underlying `role=radio` input: ChoiceGroup's own
     // anatomy (docs/design-system/bundle.css) makes the real `<input>` visually hidden and
     // positioned under its label, so a real user (and this test) interacts with the label.
-    await page.getByText('تأكيد حقول', { exact: false }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields(\/|$)/);
-    await page.getByText('تعارضات', { exact: false }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review$/);
+    await page.getByText(copy.clinic.fieldsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields(\/|$)/, { timeout: 15_000 });
+    await page.waitForLoadState('networkidle');
+    await page.getByText(copy.clinic.findingsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review$/, { timeout: 15_000 });
   });
 });
 
@@ -127,14 +155,23 @@ test.describe('G3s — reviewer queue, field confirmation', () => {
   test('shows rx-006 ((unreadable), فاطمة) with its uncertain fields, unless already actioned', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/ar/clinic/review/fields');
-    // CR-037: (unreadable) now also appears in the quiet "returned" section once rx-006 has been
-    // actioned by the mutating test below, so "still pending" is checked against the PENDING
-    // section's own empty-state title, never against the drug name alone (ambiguous once returned).
-    const stillPending = !(await page.getByText('ما فيه وصفات تنتظر تأكيد').isVisible().catch(() => false));
-    if (stillPending) {
-      await expect(page.getByText('(unreadable)').first()).toBeVisible();
-      await expect(page.getByText('فاطمة', { exact: false }).first()).toBeVisible();
+    // CR-037: rx-006 also appears in the quiet "returned" section once the mutating test below has
+    // returned it, so "still pending" is read from the PENDING section itself, never from the name.
+    const pendingSection = page.getByRole('region', { name: copy.clinic.g3sPendingHeading.ar, exact: true });
+    const empty = page.getByText(copy.clinic.g3sEmptyTitle.ar);
+    await expect(pendingSection.or(empty)).toBeVisible();
+    if (await pendingSection.isVisible()) {
+      const row = pendingSection.getByRole('link', { name: RX006_NAME('ar') });
+      await expect(row).toBeVisible();
+      await expect(row).toContainText('فاطمة');
+      // Every field the photo left out (the seed states none of the four) is named as not read clearly.
+      await expect(row).toContainText(copy.clinic.g3sUncertainFieldsTemplate.ar.replace('{fields}', '').trim());
+      for (const field of ['g3sFieldStrength', 'g3sFieldFrequency', 'g3sFieldStartDate', 'g3sFieldDoseTimes'] as const) {
+        await expect(row).toContainText(copy.clinic[field].ar);
+      }
     }
+    // Either way, the stored literal "(unreadable)" never reaches the screen as if it were a name.
+    await expect(page.getByText('(unreadable)')).toHaveCount(0);
   });
 
   // CR-037 — rx-007 (Ciprofloxacin, فاطمة) is `returned` in the seed itself, never mutated by this
@@ -142,17 +179,20 @@ test.describe('G3s — reviewer queue, field confirmation', () => {
   test('shows rx-007 (Ciprofloxacin, فاطمة) as a quiet "returned to clinic" history row', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/ar/clinic/review/fields');
-    await expect(page.getByText('وصفات أُرجعت للعيادة')).toBeVisible();
-    await expect(page.getByText('Ciprofloxacin', { exact: false }).first()).toBeVisible();
-    await expect(page.getByText('أُرجعت للعيادة', { exact: false }).first()).toBeVisible();
+    const returned = page.getByRole('region', { name: copy.clinic.g3sReturnedHeading.ar, exact: true });
+    await expect(returned).toBeVisible();
+    const row = returned.getByRole('link', { name: RX007_NAME('ar') });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('فاطمة');
+    await expect(row).toContainText(copy.clinic.g3sReturnedRowStatus.ar);
 
     // Opens the SAME detail route G3s's own confirm/return flow uses, read-only for an already
     // -returned record (no confirm/return button, the recorded reason shown instead).
-    await page.getByText('Ciprofloxacin', { exact: false }).first().click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields\/rx-007$/);
+    await row.click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields\/rx-007$/, { timeout: 15_000 });
     await expect(page.getByText('الجرعة المكتوبة تتعارض مع المدة', { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'إرجاع للعيادة' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'تأكيد القيم' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: copy.clinic.g3sReturnButton.ar })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: copy.clinic.g3sConfirmButton.ar })).toHaveCount(0);
   });
 });
 
@@ -165,14 +205,15 @@ test('G2s at 1280 — decision beside the read-only patient context, with the qu
   await addSession(context, baseURL, 'khalid_reviewer');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/ar/clinic/review');
-  const stillPending = await page.getByText('Warfarin + Ibuprofen').first().isVisible().catch(() => false);
-  test.skip(!stillPending, 'ia-001 already committed by an earlier run against this dev server');
+  const item = page.getByRole('link', { name: IA001_PAIR('ar') });
+  await expect(item.or(page.getByText(copy.clinic.g1sEmptyTitle.ar))).toBeVisible();
+  test.skip(!(await item.isVisible()), 'ia-001 already committed earlier in this run (an earlier viewport project)');
   await page.goto('/ar/clinic/review/ia-001');
-  const decision = page.getByRole('heading', { name: 'القرار' });
-  const patientContext = page.getByRole('heading', { name: /سياق المريض/ });
+  const decision = page.getByRole('heading', { name: copy.clinic.g2sDecisionHeading.ar, exact: true });
+  const patientContext = page.getByRole('heading', { name: copy.clinic.g2sContextHeading.ar });
   const [d, c] = await Promise.all([decision.boundingBox(), patientContext.boundingBox()]);
   expect(d && c && Math.abs(d.x - c.x) > 100, 'decision and context in two columns').toBeTruthy();
-  const pane = page.getByRole('complementary', { name: 'قوائم المراجعة' });
+  const pane = page.getByRole('complementary', { name: copy.clinic.reviewerQueuesTitle.ar });
   await expect(pane).toBeVisible();
   // The open item is marked, not linked; nothing in the pane writes anything.
   await expect(pane.locator('[aria-current="page"]')).toHaveCount(1);
@@ -187,38 +228,41 @@ test('G2s at 1280 — decision beside the read-only patient context, with the qu
 test('G2s — confirm ia-001 → back to G1s, item gone → audit log gains alert_reviewed', async ({ page, context, baseURL }) => {
   await addSession(context, baseURL, 'khalid_reviewer');
   await page.goto('/ar/clinic/review');
-  const stillPending = await page.getByText('Warfarin + Ibuprofen').isVisible().catch(() => false);
+  const item = page.getByRole('link', { name: IA001_PAIR('ar') });
+  await expect(item.or(page.getByText(copy.clinic.g1sEmptyTitle.ar))).toBeVisible();
 
-  if (stillPending) {
-    await page.getByText('Warfarin + Ibuprofen').click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review\/ia-001$/);
-    await expect(page.getByText('ما توفر مصدر طبي مؤكد', { exact: false })).toBeVisible(); // sourceCitation TO_BE_SUPPLIED → the honest line, never invented
+  if (await item.isVisible()) {
+    await item.click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review\/ia-001$/, { timeout: 15_000 });
+    // sourceCitation TO_BE_SUPPLIED → the honest line, never an invented citation.
+    await expect(page.getByText(copy.safety.c2SourceUnverified.ar)).toBeVisible();
     // The decision buttons open a client-side Sheet: a click that lands before the new document has
     // hydrated is dropped and no dialog ever appears (the same race as day.spec.ts's "return to
     // today" — see docs/VERIFICATION.md, "Responsive pass — results"). Let the client chunks settle
     // first so the click reaches a live handler.
     await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: 'تأكيد الخطر' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', { name: 'تأكيد' }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review$/, { timeout: 10_000 });
+    await page.getByRole('button', { name: copy.clinic.g2sConfirmButton.ar, exact: true }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: copy.clinic.g2sSheetConfirmLabel.ar, exact: true }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review$/, { timeout: 15_000 });
   }
 
-  // Either way, the item is gone from G1s now.
+  // Either way, the item is gone from G1s now, and the queue says so.
   await page.goto('/ar/clinic/review');
-  await expect(page.getByText('Warfarin + Ibuprofen')).toHaveCount(0);
-  await expect(page.getByText('ما فيه تنبيهات تنتظر')).toBeVisible();
+  await expect(page.getByText(copy.clinic.g1sEmptyTitle.ar)).toBeVisible();
+  await expect(page.getByText(IA001_PAIR('ar'))).toHaveCount(0);
 
   // The audit log (through the published API, via the admin role — no direct store poke) gained
-  // an alert_reviewed row for ia-001.
+  // an alert_reviewed row for ia-001. The row's own audit MESSAGE, as the reader sees it: the stored
+  // "مراجعة تنبيه — تأكيد" (lib/data/mock-impl.ts) is localised on display (i18n/localize.ts, CR-071)
+  // and names no drug, which tells it apart from the seed's own ia-002 review row.
   await context.clearCookies();
   await addSession(context, baseURL, 'khalid_admin');
   await page.goto('/ar/clinic/audit?type=alert_reviewed');
-  // The row's own audit MESSAGE, not the (ambiguous) event-type label — "مراجعة تنبيه" alone also
-  // matches the (hidden, closed) event-type <select>'s own <option> text.
-  // Same dual-layout visibility caveat as the "(agent)" assertion below: pick the copy that is
+  // Dual layout (list at phone/tablet, table at desktop, one CSS-hidden): `:visible` picks the copy
   // actually on screen for this viewport, not whichever one DOM order returns first.
-  await expect(page.locator('.jr-activity-row__desc:visible, .jr-activity-row__cell--muted:visible', { hasText: 'مراجعة تنبيه — تأكيد' }).first()).toBeVisible();
+  await expect(page.locator('.jr-activity-row__desc:visible, .jr-activity-row__cell--muted:visible', { hasText: 'مراجعة تنبيه: تأكيد الخطر' }).first()).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -226,48 +270,63 @@ test('G2s — confirm ia-001 → back to G1s, item gone → audit log gains aler
 // ---------------------------------------------------------------------------------------------
 test('G3s — return rx-006 to the clinic with a reason', async ({ page, context, baseURL }) => {
   await addSession(context, baseURL, 'khalid_reviewer');
-  // Checked against the DETAIL route directly, not the list: CR-037 means "(unreadable)" alone no
+  // Checked against the DETAIL route directly, not the list: CR-037 means rx-006's name alone no
   // longer tells pending and returned apart on the list page (an already-returned rx-006 still shows
-  // there, in its own quiet history section) — the presence of the return action is unambiguous.
+  // there, in its own quiet history section) — the return action, or the returned view's own
+  // sentence, is unambiguous.
   await page.goto('/ar/clinic/review/fields/rx-006');
-  const stillPending = await page.getByRole('button', { name: 'إرجاع للعيادة' }).isVisible().catch(() => false);
+  const returnButton = page.getByRole('button', { name: copy.clinic.g3sReturnButton.ar, exact: true });
+  await expect(returnButton.or(page.getByText(copy.clinic.g3sReturnedBody.ar))).toBeVisible();
 
-  if (stillPending) {
-    // getByLabel alone is ambiguous here: the surrounding <section> shares the same aria-label as
-    // the TextField it contains, so this scopes to the actual input (getByRole('textbox')).
-    await page.getByRole('textbox', { name: 'سبب الإرجاع' }).fill('الكتابة غير واضحة، يرجى إعادة إصدار الوصفة');
-    await page.getByRole('button', { name: 'إرجاع للعيادة' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', { name: 'إرجاع' }).click();
-    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields$/, { timeout: 10_000 });
+  if (await returnButton.isVisible()) {
+    await page.waitForLoadState('networkidle'); // the Sheet opens from a client handler
+    await page.getByRole('textbox', { name: copy.clinic.g3sReturnReasonLabel.ar }).fill('الكتابة غير واضحة، يرجى إعادة إصدار الوصفة');
+    await returnButton.click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: copy.clinic.g3sSheetReturnLabel.ar, exact: true }).click();
+    await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields$/, { timeout: 15_000 });
   }
 
-  // Either way: rx-006 no longer sits in the pending queue, and its own detail page (still legally
-  // reachable — `getFlaggedPrescription` only requires `needsReview`, which a return never clears)
-  // now reads as returned, read-only, with the recorded reason and no edit controls.
+  // Either way: rx-006 no longer sits in the pending queue but in the returned history, and its own
+  // detail page (still legally reachable — `getFlaggedPrescription` only requires `needsReview`,
+  // which a return never clears) now reads as returned, read-only, with the recorded reason and no
+  // edit controls.
   await page.goto('/ar/clinic/review/fields');
-  await expect(page.getByText('ما فيه وصفات تنتظر تأكيد')).toBeVisible(); // rx-006 was the only pending item
+  await expect(page.getByText(copy.clinic.g3sEmptyTitle.ar)).toBeVisible(); // rx-006 was the only pending item
+  await expect(page.getByRole('region', { name: copy.clinic.g3sReturnedHeading.ar, exact: true }).getByRole('link', { name: RX006_NAME('ar') })).toBeVisible();
   await page.goto('/ar/clinic/review/fields/rx-006');
   await expect(page.getByText('الكتابة غير واضحة', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'إرجاع للعيادة' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'تأكيد القيم' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: copy.clinic.g3sReturnButton.ar })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: copy.clinic.g3sConfirmButton.ar })).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------------------------
 // X1 — the system audit log, the demo's proof moment
 // ---------------------------------------------------------------------------------------------
+const ROWS = '.jr-activity-row:visible, .jr-activity-row--table:visible'; // list at phone/tablet, table at desktop
+
 test.describe('X1 — system audit log', () => {
   for (const locale of LOCALES) {
     test(`the proof moment: filtered to dose-status writes, exactly 5 rows, every actor agent/system — ${locale}`, async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'dana');
-      await page.goto(`/${locale}/clinic/audit`);
-      await page.getByLabel(locale === 'ar' ? 'نوع الحدث' : 'Event type').selectOption('dose_status_recorded');
-      await expect(page).toHaveURL(/type=dose_status_recorded/);
-      await expect(page.getByTestId('proof-moment-notice')).toBeVisible();
-      const noticeText = await page.getByTestId('proof-moment-notice').innerText();
-      // Arabic uses Arabic-Indic digits (٥), never Western ones (i18n/format.ts) — assert the digit
-      // this locale actually renders, not a hardcoded "5".
-      expect(noticeText).toMatch(locale === 'ar' ? /٥/ : /5/);
+      // The filter writes the URL from a client handler: a change before hydration is dropped.
+      await page.goto(`/${locale}/clinic/audit`, { waitUntil: 'networkidle' });
+      await page.getByLabel(copy.clinic.x1FilterTypeLabel[locale]).selectOption('dose_status_recorded');
+      await expect(page).toHaveURL(/type=dose_status_recorded/, { timeout: 15_000 });
+      const notice = page.getByTestId('proof-moment-notice');
+      await expect(notice).toBeVisible();
+      // The "all from the assistant or the system" sentence, with the count in this locale's own
+      // digits (Arabic-Indic ٥ in Arabic, i18n/format.ts), never the "mixed" or "filtered" sentence.
+      await expect(notice).toContainText(copy.clinic.x1ProofNoticeBodyTemplate[locale].replace('{count}', locale === 'ar' ? '٥' : '5'));
+      // Exactly five rows on screen, every one by the adherence assistant or the system, none by a person.
+      const rows = page.locator(ROWS);
+      await expect(rows).toHaveCount(5);
+      const v = copy.vocabulary;
+      await expect(rows.filter({ hasText: new RegExp(`${v.actor_agent[locale]}|${v.actor_system[locale]}`) })).toHaveCount(5);
+      for (const human of [v.actor_patient, v.actor_caregiver, v.actor_reviewer, v.actor_admin]) {
+        await expect(rows.filter({ hasText: human[locale] })).toHaveCount(0);
+      }
       // No literal "patient"/"caregiver"/"reviewer"/"admin" role string anywhere on this filtered view.
       for (const role of ['patient', 'caregiver', 'reviewer', 'admin']) {
         await expect(page.locator('#main-content').getByText(new RegExp(`\\(${role}\\)`))).toHaveCount(0);
@@ -275,13 +334,21 @@ test.describe('X1 — system audit log', () => {
     });
   }
 
-  test('the literal actor.role string appears beside its human label (CR-010’s G9 exception, X1 only)', async ({ page, context, baseURL }) => {
+  // CR-010's G9 exception (the literal actor.role beside its human label, X1 only) under CR-071's
+  // one-language rule (owner, 2026-09-24; DECISIONS.md CR-071 "For the owner to decide" (i)): the
+  // code is Latin, so it shows in the English locale only and never on the Arabic screen.
+  test('the literal actor.role string appears beside its human label in English only (CR-010 under CR-071)', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'dana');
+    await page.goto('/en/clinic/audit?type=dose_status_recorded');
+    const code = page.locator('.jr-activity-row__code:visible', { hasText: '(agent)' }).first();
+    await expect(code).toBeVisible();
+    await expect(code.locator('xpath=..')).toContainText(copy.vocabulary.actor_agent.en);
+
     await page.goto('/ar/clinic/audit?type=dose_status_recorded');
-    // AuditLogView renders both a list layout (phone/tablet) and a table layout (desktop), one of
-    // them CSS-hidden per viewport — `:visible` picks whichever copy is actually on screen, since
-    // `.first()` alone would return the hidden one's node in DOM order at desktop width.
-    await expect(page.locator('.jr-activity-row__code:visible', { hasText: 'agent' }).first()).toBeVisible();
+    await expect(page.locator(ROWS)).toHaveCount(5); // the rows are there…
+    await expect(page.locator('.jr-activity-row__meta:visible, .jr-activity-row__actor:visible', { hasText: copy.vocabulary.actor_agent.ar }).first()).toBeVisible();
+    await expect(page.locator('.jr-activity-row__code')).toHaveCount(0); // …with the human label only
+    await expect(page.locator('#main-content').getByText(/\((agent|system|patient|caregiver|reviewer|admin)\)/)).toHaveCount(0);
   });
 
   // CR-038 — the patient-reference slot shows the masked name `getAuditLog` now computes
@@ -289,8 +356,8 @@ test.describe('X1 — system audit log', () => {
   test('the patient-reference slot shows حمد’s masked name (CR-038), never his full name or Civil ID', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'dana');
     await page.goto('/ar/clinic/audit?type=alert_raised');
-    // Same dual-layout visibility caveat as the "(agent)" assertion above: `:visible` picks whichever
-    // of the list/table copies is actually on screen for this viewport.
+    // Same dual-layout visibility caveat as above: `:visible` picks whichever of the list/table
+    // copies is actually on screen for this viewport.
     await expect(page.locator('.jr-activity-row__meta:visible, .jr-activity-row__cell:visible', { hasText: 'حمد س*** المطيري' }).first()).toBeVisible();
     await expect(page.getByText('حمد سالم المطيري')).toHaveCount(0); // the full, unmasked name
     await expect(page.getByText('255031200187')).toHaveCount(0); // his Civil ID, never printed
@@ -299,7 +366,8 @@ test.describe('X1 — system audit log', () => {
   test('an empty filter combination shows the empty state, not an error', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'dana');
     await page.goto('/ar/clinic/audit?type=dose_status_recorded&actor=patient');
-    await expect(page.getByText('ما فيه نتائج مطابقة')).toBeVisible();
+    await expect(page.getByText(copy.clinic.x1EmptyTitle.ar)).toBeVisible();
+    await expect(page.locator('#main-content').getByRole('alert')).toHaveCount(0);
   });
 
   test('append-only / metadata-only scope note is present, and no medication/alert/dose detail leaks in', async ({ page, context, baseURL }) => {
@@ -324,10 +392,11 @@ test.describe('G7 — loading and error states (X0, G1s, G3s, X1)', () => {
   test('X0 — ?view=loading shows a skeleton, ?view=error shows the shared error state with retry', async ({ page }) => {
     await page.goto('/ar/clinic?view=loading');
     await expect(page.getByRole('status')).toBeVisible();
-    await page.goto('/ar/clinic?view=error');
+    await page.goto('/ar/clinic?view=error', { waitUntil: 'networkidle' }); // retry navigates from a client handler
     await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
-    await expect(page.getByText('صار خطأ عندنا')).toBeVisible();
-    await page.getByRole('button', { name: 'إعادة المحاولة' }).click();
+    await expect(page.getByText(copy.shell.errorTitle.ar)).toBeVisible();
+    await expect(page.getByText(copy.clinic.clinicErrorBody.ar)).toBeVisible();
+    await page.getByRole('button', { name: copy.shell.retry.ar }).click();
     await expect(page).toHaveURL(/\/ar\/clinic$/);
   });
 
@@ -335,9 +404,9 @@ test.describe('G7 — loading and error states (X0, G1s, G3s, X1)', () => {
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/ar/clinic/review?view=loading');
     await expect(page.getByRole('status')).toBeVisible();
-    await page.goto('/ar/clinic/review?view=error');
+    await page.goto('/ar/clinic/review?view=error', { waitUntil: 'networkidle' });
     await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
-    await page.getByRole('button', { name: 'إعادة المحاولة' }).click();
+    await page.getByRole('button', { name: copy.shell.retry.ar }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review$/);
   });
 
@@ -345,9 +414,9 @@ test.describe('G7 — loading and error states (X0, G1s, G3s, X1)', () => {
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/ar/clinic/review/fields?view=loading');
     await expect(page.getByRole('status')).toBeVisible();
-    await page.goto('/ar/clinic/review/fields?view=error');
+    await page.goto('/ar/clinic/review/fields?view=error', { waitUntil: 'networkidle' });
     await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
-    await page.getByRole('button', { name: 'إعادة المحاولة' }).click();
+    await page.getByRole('button', { name: copy.shell.retry.ar }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields$/);
   });
 
@@ -355,9 +424,9 @@ test.describe('G7 — loading and error states (X0, G1s, G3s, X1)', () => {
     await addSession(context, baseURL, 'dana');
     await page.goto('/ar/clinic/audit?view=loading');
     await expect(page.getByRole('status')).toBeVisible();
-    await page.goto('/ar/clinic/audit?view=error');
+    await page.goto('/ar/clinic/audit?view=error', { waitUntil: 'networkidle' });
     await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
-    await page.getByRole('button', { name: 'إعادة المحاولة' }).click();
+    await page.getByRole('button', { name: copy.shell.retry.ar }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/audit$/);
   });
 });

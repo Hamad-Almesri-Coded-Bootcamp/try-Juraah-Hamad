@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { ViewTransition } from 'react';
 import { notFound } from 'next/navigation';
 import { LOCALES, directionFor, isLocale, copy, t } from '@/i18n';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
@@ -53,9 +52,10 @@ export default async function LocaleLayout({
         >
           {t(copy.shell.skipToContent, locale)}
         </a>
-        {/* Route changes cross-fade (CR-071 "smooth"): every App Router navigation is a transition, so this
-            one boundary animates each page swap. Unsupported browsers simply swap; reduced motion disables it. */}
-        <ViewTransition>{children}</ViewTransition>
+        {/* Route changes are smooth without React's ViewTransition (CR-071): a page's content fades in on
+            arrival (daylight.css `jr-enter`) and a full page load cross-fades (`@view-transition`). The
+            React boundary threw "Transition was aborted" on every server redirect (sign-in, the gate). */}
+        {children}
         {/* CR-067: the assistant on every page; the server decides patient answers vs app help. */}
         <AssistantLauncher locale={locale} />
         <RegisterServiceWorker />

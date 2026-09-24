@@ -14,8 +14,13 @@
 import { test, expect, type BrowserContext } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy } from '../../i18n';
+import { formatNumber } from '../../i18n/format';
 
 const LOCALES = ['ar', 'en'] as const;
+// Expected wording comes from the copy catalogue (CR-071 rewrote every Arabic string in Fusha), so the
+// next copy edit changes what the test reads, never what it protects.
+const id = copy.identity;
 
 async function addSession(context: BrowserContext, baseURL: string | undefined, who: keyof typeof TEST_SESSIONS) {
   await context.addCookies([sessionCookieFor(who, new URL(baseURL ?? 'http://localhost:3100'))]);
@@ -92,63 +97,64 @@ test.describe('A1 — sign-in', () => {
   // get their own message in the field on submit — by button or by Enter — and nothing is cleared.
   test('empty: continue stays enabled and says what to do, on click or Enter', async ({ page }) => {
     await page.goto('/ar/signin');
-    const continueButton = page.getByRole('button', { name: 'متابعة' });
+    const continueButton = page.getByRole('button', { name: id.continueLabel.ar });
+    const civilId = page.getByLabel(id.civilIdLabel.ar);
     await expect(continueButton).toBeEnabled();
     await continueButton.click();
-    await expect(page.getByText('اكتب رقمك المدني')).toBeVisible();
-    await page.getByLabel('الرقم المدني').fill('123');
-    await page.getByLabel('الرقم المدني').press('Enter');
-    await expect(page.getByText('الرقم المدني ١٢ رقم')).toBeVisible();
-    await expect(page.getByLabel('الرقم المدني')).toHaveValue('123');
+    await expect(page.getByText(id.civilIdRequiredError.ar)).toBeVisible();
+    await civilId.fill('123');
+    await civilId.press('Enter');
+    await expect(page.getByText(id.civilIdLengthError.ar)).toBeVisible();
+    await expect(civilId).toHaveValue('123');
     await expect(page).toHaveURL(/\/ar\/signin$/);
   });
 
   test('invalid ID: a specific error, the input kept', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('111111111111');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page.getByText('هذا الرقم غير موجود في القائمة التجريبية لهذه النسخة')).toBeVisible();
-    await expect(page.getByLabel('الرقم المدني')).toHaveValue('111111111111');
+    await page.getByLabel(id.civilIdLabel.ar).fill('111111111111');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
+    await expect(page.getByText(id.invalidIdError.ar)).toBeVisible();
+    await expect(page.getByLabel(id.civilIdLabel.ar)).toHaveValue('111111111111');
   });
 
   test('countdown becomes visible for a valid ID before it resolves', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('255031200187'); // حمد
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('255031200187'); // حمد
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page.getByRole('progressbar')).toBeVisible();
     await expect(page).toHaveURL(/\/ar\/app(\/|$)/, { timeout: 10_000 });
   });
 
   test('a single-role ID (حمد) reaches its shell home directly', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('255031200187');
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('255031200187');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/app(\/|$)/, { timeout: 10_000 });
   });
 
   test('a dual-role ID (سارة) reaches the role chooser, never a shell directly', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('290022500654');
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('290022500654');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/signin\/choose(\?|$)/, { timeout: 10_000 });
   });
 
   test('a pending-invitation-only ID (ناصر) reaches F0 and nothing else', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('288110300229');
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('288110300229');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/invitation(\?|$)/, { timeout: 10_000 });
   });
 
   test('no_claims — byte-identical wording for منى (an account, no role) and a Civil ID with no account', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('292043000517'); // منى
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('292043000517'); // منى
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     const firstText = await page.getByTestId('no-claims').innerText();
 
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('277091900873'); // no account
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('277091900873'); // no account
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     const secondText = await page.getByTestId('no-claims').innerText();
 
     expect(firstText).toBe(secondText);
@@ -156,9 +162,17 @@ test.describe('A1 — sign-in', () => {
 
   test('a revoked-access ID (طلال) also resolves as no_claims, identically', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('298052000731');
-    await page.getByRole('button', { name: 'متابعة' }).click();
-    await expect(page.getByText('ما حد ربطك بملفه')).toBeVisible();
+    await page.getByLabel(id.civilIdLabel.ar).fill('298052000731'); // طلال — his access was revoked
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
+    const revokedText = await page.getByTestId('no-claims').innerText();
+    await expect(page.getByTestId('no-claims').getByText(id.noClaimsTitle.ar)).toBeVisible();
+    await expect(page.getByTestId('no-claims').getByText(id.noClaimsCardTitle.ar)).toBeVisible();
+
+    // "Identically": byte for byte the words a Civil ID with no account at all gets (rule 6 / G9).
+    await page.goto('/ar/signin');
+    await page.getByLabel(id.civilIdLabel.ar).fill('277091900873'); // no account
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
+    expect(await page.getByTestId('no-claims').innerText()).toBe(revokedText);
   });
 });
 
@@ -174,21 +188,21 @@ test.describe('A1b — role chooser (سارة)', () => {
 
   test('two equal cards; choosing "my medicines" opens the patient shell', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('290022500654');
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('290022500654');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/signin\/choose(\?|$)/, { timeout: 10_000 });
-    await expect(page.getByRole('button', { name: 'افتح ملفي' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /افتح ملف /, exact: false })).toBeVisible();
-    await page.getByRole('button', { name: 'افتح ملفي' }).click();
+    await expect(page.getByRole('button', { name: id.roleChooserOwnButton.ar })).toBeVisible();
+    await expect(page.getByRole('button', { name: id.roleChooserCaregiverButtonTemplate.ar.replace('{name}', 'حمد') })).toBeVisible();
+    await page.getByRole('button', { name: id.roleChooserOwnButton.ar }).click();
     await expect(page).toHaveURL(/\/ar\/app(\/|$)/);
   });
 
   test('choosing the caregiver record opens the caregiver shell, without signing out', async ({ page }) => {
     await page.goto('/ar/signin');
-    await page.getByLabel('الرقم المدني').fill('290022500654');
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByLabel(id.civilIdLabel.ar).fill('290022500654');
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/signin\/choose(\?|$)/, { timeout: 10_000 });
-    await page.getByRole('button', { name: /افتح ملف حمد/ }).click();
+    await page.getByRole('button', { name: id.roleChooserCaregiverButtonTemplate.ar.replace('{name}', 'حمد') }).click();
     await expect(page).toHaveURL(/\/ar\/care(\/|$)/);
   });
 });
@@ -207,7 +221,35 @@ test.describe('A2 — first-run setup (بدر)', () => {
   test('abandoning returns to the same step — a bookmarked step URL resumes there, not at step 1', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'badr');
     await page.goto('/ar/app/setup?step=2');
-    await expect(page.getByText('ودّك تدعو مقدّم رعاية؟')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(id.inviteStepTitle.ar);
+  });
+
+  // Read-only (nothing is clicked), so it runs on every project before the one test that finishes
+  // بدر's flow. Equal choices are drawn equal (UX §2/§13, audit M2; CR-071): the three reminder
+  // offers are three cards with three buttons of one variant and one size, "Later" among them, and
+  // inviting a caregiver and "not now" are the same size too — declining is never the smaller path.
+  test('equal choices drawn equal: the three reminder offers, and invite beside "not now"', async ({ page, context, baseURL }) => {
+    await addSession(context, baseURL, 'badr');
+    await page.goto('/ar/app/setup?step=1');
+    const offers = [id.browserOfferButton.ar, id.telegramOfferButton.ar, id.laterOfferButton.ar].map((name) =>
+      page.getByRole('button', { name, exact: true }),
+    );
+    const offerBoxes = await Promise.all(offers.map(async (b) => (await b.boundingBox())!));
+    for (const box of offerBoxes.slice(1)) {
+      expect(box.width).toBeCloseTo(offerBoxes[0]!.width, 0);
+      expect(box.height).toBeCloseTo(offerBoxes[0]!.height, 0);
+    }
+    // None of the three is the screen's primary: the same class list on all three.
+    const classes = await Promise.all(offers.map((b) => b.getAttribute('class')));
+    expect(new Set(classes).size).toBe(1);
+
+    await page.goto('/ar/app/setup?step=2');
+    const invite = page.getByRole('button', { name: id.inviteOpenLabel.ar, exact: true });
+    const notNow = page.getByRole('button', { name: id.skipInviteLabel.ar, exact: true });
+    const [a, b] = [(await invite.boundingBox())!, (await notNow.boundingBox())!];
+    expect(a.width).toBeCloseTo(b.width, 0);
+    expect(a.height).toBeCloseTo(b.height, 0);
+    expect(await invite.getAttribute('class')).toBe(await notNow.getAttribute('class'));
   });
 
   test('setup never runs twice: a completed patient visiting /app/setup is sent to Today', async ({ page, context, baseURL }) => {
@@ -220,26 +262,27 @@ test.describe('A2 — first-run setup (بدر)', () => {
     test.skip(testInfo.project.name !== 'desktop-1440', 'runs once only — completeOnboarding is irreversible against the shared mock store (D-002), and every project reuses the same dev server');
     await addSession(context, baseURL, 'badr');
     await page.goto('/ar/app/setup');
-    // StepIndicator's "Step X of Y" caption renders plain Western-numeral digits in both
-    // languages (components/ui/README/StepIndicator.md — no numeral formatter exists yet).
-    await expect(page.getByText('الخطوة 1 من 4')).toBeVisible();
+    // StepIndicator's "Step X of Y" caption, in the reader's digits (Arabic-Indic in Arabic, CR-071).
+    const stepCaption = (n: number) => `${copy.vocabulary.stepOf.ar} ${formatNumber(n, 'ar')} ${copy.vocabulary.of.ar} ${formatNumber(4, 'ar')}`;
+    await expect(page.getByText(stepCaption(1))).toBeVisible();
 
     // Step 1 — language (required; a default is already selected).
-    await page.getByRole('button', { name: 'متابعة' }).click();
+    await page.getByRole('button', { name: id.continueLabel.ar }).click();
     await expect(page).toHaveURL(/step=1/);
+    await expect(page.getByText(stepCaption(2))).toBeVisible();
 
     // Step 2 — notification offer: "later" is an ordinary choice, not a small link.
-    await expect(page.getByRole('button', { name: 'فعّل إشعارات المتصفح' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'اربط تيليقرام' })).toBeVisible();
-    await page.getByRole('button', { name: 'بعدين' }).click();
+    await expect(page.getByRole('button', { name: id.browserOfferButton.ar })).toBeVisible();
+    await expect(page.getByRole('button', { name: id.telegramOfferButton.ar })).toBeVisible();
+    await page.getByRole('button', { name: id.laterOfferButton.ar, exact: true }).click();
     await expect(page).toHaveURL(/step=2/);
 
-    // Step 3 — optional caregiver invite (placeholder frame per the cross-bundle contract).
-    await page.getByRole('button', { name: 'تخطي الآن' }).click();
+    // Step 3 — optional caregiver invite; "not now" moves on without inviting anyone.
+    await page.getByRole('button', { name: id.skipInviteLabel.ar }).click();
     await expect(page).toHaveURL(/step=3/);
 
     // Step 4 — closing explainer, finish.
-    await page.getByRole('button', { name: 'ابدأ استخدام جرعة' }).click();
+    await page.getByRole('button', { name: id.finishSetupLabel.ar }).click();
     await expect(page).toHaveURL(/\/ar\/app(\?|$)/);
     // No error, no warning banner on arrival — scoped to the app's own content: Next's route
     // announcer (`<next-route-announcer role="alert">`) appears outside it after a client-side
@@ -262,29 +305,33 @@ test.describe('A3 — profile (حمد)', () => {
   test('name in full, the simulated-Hawiati identity line, notification states neutral, caregiver count, sign out', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'hamad');
     await page.goto('/ar/app/more/profile');
-    await expect(page.getByText('حمد سالم المطيري')).toBeVisible();
-    await expect(page.getByText('تم الدخول عبر هويّاتي (محاكاة)')).toBeVisible();
-    await expect(page.getByRole('link', { name: /مقدّمو الرعاية/ })).toHaveAttribute('href', /\/app\/more\/caregivers$/);
-    await expect(page.getByRole('button', { name: 'تسجيل الخروج' })).toBeVisible();
+    await expect(page.getByTestId('profile-identity').getByText('حمد سالم المطيري')).toBeVisible(); // the seed's name, in full
+    await expect(page.getByText(id.identityLineValue.ar)).toBeVisible();
+    // Both notification states are plain values in neutral rows, each opening E5 (never a warning).
+    await expect(page.getByRole('link', { name: new RegExp(id.browserNotifLabel.ar) })).toHaveAttribute('href', /\/app\/more\/notifications$/);
+    await expect(page.getByRole('link', { name: new RegExp(id.chatLabel.ar) })).toHaveAttribute('href', /\/app\/more\/notifications$/);
+    await expect(page.locator('#main-content').getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: new RegExp(id.caregiverCountLabel.ar) })).toHaveAttribute('href', /\/app\/more\/caregivers$/);
+    await expect(page.getByRole('button', { name: copy.shell.signOut.ar })).toBeVisible();
   });
 
   test('editing the contact phone', async ({ page, context, baseURL }, testInfo) => {
     await addSession(context, baseURL, 'hamad');
     await page.goto('/ar/app/more/profile');
-    const phone = page.getByLabel('رقم التواصل');
+    const phone = page.getByLabel(id.phoneLabel.ar);
     // The mock store is shared across the three viewport projects in one run: a value an earlier
     // project already saved would defeat the editor's dirty-check (no change → no save button),
     // so each project writes its own number.
     const perProject = { 'phone-390': '99012345', 'tablet-834': '99012346', 'desktop-1440': '99012347' } as const;
     await phone.fill(perProject[testInfo.project.name as keyof typeof perProject] ?? '99012349');
-    await page.getByRole('button', { name: 'حفظ' }).click();
-    await expect(page.getByRole('button', { name: 'حفظ' })).toHaveCount(0);
+    await page.getByRole('button', { name: id.phoneSaveLabel.ar }).click();
+    await expect(page.getByRole('button', { name: id.phoneSaveLabel.ar })).toHaveCount(0);
   });
 
   test('sign out clears the session and returns to the landing page with no way back', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'hamad');
     await page.goto('/ar/app/more/profile');
-    await page.getByRole('button', { name: 'تسجيل الخروج' }).click();
+    await page.getByRole('button', { name: copy.shell.signOut.ar }).click();
     await expect(page).toHaveURL(/\/ar\/?$/);
     await page.goBack();
     await expect(page).not.toHaveURL(/\/app/);

@@ -14,6 +14,10 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { copy, t } from '@/i18n';
 
+// Whole-screen renders: the first one in this file transforms a large tree, and under a parallel
+// run (verify beside running servers) it has taken 24s. The assertions are unchanged.
+vi.setConfig({ testTimeout: 20_000 });
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => '/ar',

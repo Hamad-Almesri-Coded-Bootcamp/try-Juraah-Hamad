@@ -13,9 +13,16 @@
  * `tests/e2e/identity.spec.ts`'s own `completeOnboarding` guard) and asserts a before/after delta
  * rather than an absolute count, exactly like `tests/e2e/prescription.spec.ts`'s B4 tests.
  */
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy, t } from '@/i18n';
+import { localizeDrugName, localizeFacility } from '@/i18n/localize';
+
+// Every run shares one `next dev` process with the other spec files (and, on the owner's machine,
+// other worktrees' servers): a first visit compiles its route, and a photo read, an axe pass and a
+// second navigation can together outlast the 30s default. The per-assertion timeouts are unchanged.
+test.describe.configure({ timeout: 90_000 });
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -33,8 +40,21 @@ async function noOverflowAndAxeClean(page: Page) {
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} node(s)`)).toEqual([]);
 }
 
+/**
+ * Resolves once React has hydrated this element (it then carries React's `__reactProps$…` key, the
+ * same key `g1-today-tracking-off.spec.ts` reads). A click or a file chosen before that lands on
+ * server HTML with no handler and is silently dropped; under a loaded dev server hydration can lag
+ * well past the default timeout. Waiting here never weakens what is asserted after it.
+ */
+async function hydrated(locator: Locator): Promise<Locator> {
+  await expect
+    .poll(() => locator.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps$'))), { timeout: 20000 })
+    .toBe(true);
+  return locator;
+}
+
 async function choosePhoto(page: Page, bytes: number) {
-  const input = page.locator('input[type="file"]').first();
+  const input = await hydrated(page.locator('input[type="file"]').first());
   await input.setInputFiles({ name: 'packet.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(bytes) });
 }
 
@@ -44,8 +64,8 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/safety/check`);
       await expect(page.locator('html')).toHaveAttribute('dir', dir);
-      await expect(page.getByText(/صورة العلبة|Photo of the packet/)).toBeVisible();
-      await expect(page.getByRole('link', { name: /رجوع للسلامة|Back to Safety/ })).toBeVisible();
+      await expect(page.getByText(t(copy.supply.c3PhotoLabel, locale), { exact: true }).first()).toBeVisible();
+      await expect(page.getByRole('link', { name: t(copy.safety.c1BackLabel, locale), exact: true })).toBeVisible();
       await noOverflowAndAxeClean(page);
     });
 
@@ -58,15 +78,31 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/safety/check`);
       await choosePhoto(page, 200);
 
-      // .first(): "Warfarin" names the DetailRow value and the InteractionAlert's own title.
-      await expect(page.getByText('Warfarin').first()).toBeVisible();
-      await expect(page.getByText(/تعارض خطير|Serious interaction/)).toBeVisible();
-      // Nothing here fabricates a citation, a reviewer note or a decision — that is C2's job alone.
-      await expect(page.getByText(/مؤكد|مراجع|Reviewed by|Risk confirmed/)).toHaveCount(0);
+      // .first(): the drug name (in the reader's language, CR-071) names the result card and the
+      // InteractionAlert's own title.
+      await expect(page.getByText(localizeDrugName('Warfarin', locale), { exact: true }).first()).toBeVisible({ timeout: 20000 });
+      await expect(page.getByText(t(copy.vocabulary.severityDanger, locale), { exact: true })).toBeVisible();
+      // CR-071 (as built): the summary now says who is checking the finding — the linked alert's own
+      // review state in the fixed vocabulary (ia-001 is pending). What stays C2's alone is never
+      // fabricated here: no citation, no reviewer, no reviewer's note, no decision.
+      await expect(page.getByText(t(copy.vocabulary.pending_medical_review, locale), { exact: true })).toBeVisible();
+      for (const c2Only of [
+        copy.safety.c2ReviewHeading,
+        copy.safety.c2DecisionLabel,
+        copy.safety.c2DecisionConfirmed,
+        copy.safety.c2DecisionCleared,
+        copy.safety.c2ReviewerLabel,
+        copy.safety.c2NoteLabel,
+        copy.safety.c2SourceHeading,
+        copy.safety.c2SourceUnverified,
+      ]) {
+        await expect(page.getByText(t(c2Only, locale), { exact: true })).toHaveCount(0);
+      }
+      await expect(page.getByText('[TO BE SUPPLIED]')).toHaveCount(0);
       await noOverflowAndAxeClean(page);
 
-      await page.getByRole('button', { name: /افتح تفاصيل التعارض|Open interaction details/ }).click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app/safety/ia-001$`));
+      await (await hydrated(page.getByRole('button', { name: t(copy.supply.c3OpenInteractionButton, locale), exact: true }))).click();
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app/safety/ia-001$`), { timeout: 15000 });
     });
 
     test('identified, no interaction (سارة, Levothyroxine): reassures, no InteractionAlert', async ({ page, context, baseURL }) => {
@@ -74,8 +110,10 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/safety/check`);
       await choosePhoto(page, 200);
 
-      await expect(page.getByText(/ما فيه تعارض|No interaction found/)).toBeVisible();
+      await expect(page.getByText(t(copy.supply.c3NoInteractionTitle, locale), { exact: true })).toBeVisible({ timeout: 20000 });
+      await expect(page.getByText(localizeDrugName('Levothyroxine', locale), { exact: true }).first()).toBeVisible();
       await expect(page.getByRole('region')).toHaveCount(0); // InteractionAlert's own role
+      await expect(page.locator('.wsf-alert')).toHaveCount(0); // …and its class, named or not
     });
 
     test('could-not-identify (0-byte photo): an explicit honest state, retry and a way back', async ({ page, context, baseURL }) => {
@@ -83,15 +121,18 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/safety/check`);
       await choosePhoto(page, 0);
 
+      await expect(page.getByText(t(copy.supply.c3CouldNotIdentifyTitle, locale), { exact: true })).toBeVisible({ timeout: 20000 });
       // .first(): Next.js's own route announcer also carries role="alert".
       await expect(page.getByRole('alert').first()).toBeVisible();
-      await expect(page.getByText(/ما قدرنا نتعرف على هذا الدواء|We could not identify this medication/)).toBeVisible();
-      await expect(page.getByRole('button', { name: /حاول بصورة ثانية|Try another photo/ })).toBeVisible();
-      await expect(page.getByRole('link', { name: /رجوع للسلامة|Back to Safety/ })).toBeVisible();
+      const retry = page.getByRole('button', { name: t(copy.supply.c3CouldNotIdentifyRetryLabel, locale), exact: true });
+      await expect(retry).toBeVisible();
+      // Two ways back to Safety: the AppBar's back link and the quiet button under the error.
+      await expect(page.getByRole('link', { name: t(copy.safety.c1BackLabel, locale), exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: t(copy.safety.c1BackLabel, locale), exact: true })).toBeVisible();
       await noOverflowAndAxeClean(page);
 
-      await page.getByRole('button', { name: /حاول بصورة ثانية|Try another photo/ }).click();
-      await expect(page.getByText(/صورة العلبة|Photo of the packet/)).toBeVisible();
+      await (await hydrated(retry)).click();
+      await expect(page.getByText(t(copy.supply.c3PhotoLabel, locale), { exact: true }).first()).toBeVisible();
     });
   });
 
@@ -105,9 +146,22 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/more/refill`);
       await expect(page.locator('html')).toHaveAttribute('dir', dir);
 
-      await expect(page.getByRole('button', { name: /طلب تجديد|Request a refill/ })).toHaveCount(2);
-      await expect(page.getByText(/تم طلب التجديد|Refill requested/)).toBeVisible();
-      await expect(page.getByText(/الصيدلية الحكومية|public pharmacy/).first()).toBeVisible();
+      // Each seeded line by its own card (brand + facility), so the check holds even after
+      // prescription.spec.ts's one B4 save (desktop-1440/en) has added a facility-less Brufen line for
+      // حمد earlier in the same run. Seed: rx-001 Marevan and rx-002 Brufen (Al-Nukhba) offer a
+      // request; rx-003 Glucophage carries the seeded pending one (public, so the public pharmacy).
+      const requestButton = { name: t(copy.supply.d1RequestButtonLabel, locale), exact: true } as const;
+      const lines = page.getByTestId('refill-line');
+      const marevan = lines.filter({ hasText: localizeDrugName('Marevan', locale) });
+      const brufen = lines.filter({ hasText: localizeDrugName('Brufen', locale) }).filter({ hasText: localizeFacility('عيادة النخبة الطبية', locale) });
+      const glucophage = lines.filter({ hasText: localizeDrugName('Glucophage', locale) });
+      await expect(marevan.getByRole('button', requestButton)).toHaveCount(1);
+      await expect(brufen.getByRole('button', requestButton)).toHaveCount(1);
+      await expect(glucophage.getByText(t(copy.supply.d1AlreadyRequestedTitle, locale), { exact: true })).toBeVisible();
+      await expect(glucophage.getByText(t(copy.supply.d1DestinationPublic, locale))).toBeVisible();
+      await expect(glucophage.getByRole('button', requestButton)).toHaveCount(0);
+      // Only the one requested line lacks the action: every other active line still offers it.
+      await expect(page.getByRole('button', requestButton)).toHaveCount((await lines.count()) - 1);
       await noOverflowAndAxeClean(page);
     });
 
@@ -115,8 +169,8 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/refill`);
       const list = page.getByTestId('refill-requests');
-      await expect(list.getByText(/قيد الموافقة|Pending approval/)).toBeVisible();
-      await expect(list.getByText(/تمت الموافقة|Approved/)).toBeVisible();
+      await expect(list.getByText(t(copy.supply.d1StatusRequested, locale), { exact: true })).toBeVisible();
+      await expect(list.getByText(t(copy.supply.d1StatusApproved, locale), { exact: true })).toBeVisible();
     });
 
     test('no dispensing data (سارة, rx-009) means no depletion estimate — never a fabricated number', async ({ page, context, baseURL }) => {
@@ -129,30 +183,34 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'sara_patient');
       await page.goto(`/${locale}/app/more/refill`);
 
-      const buttons = page.getByRole('button', { name: /طلب تجديد|Request a refill/ });
+      const buttons = page.getByRole('button', { name: t(copy.supply.d1RequestButtonLabel, locale), exact: true });
       await expect(buttons).toHaveCount(2);
 
-      await buttons.first().click();
-      await expect(page.getByText(/الصيدلية الحكومية|the public pharmacy/)).toBeVisible();
+      await (await hydrated(buttons.first())).click();
+      await expect(page.getByText(t(copy.supply.d1DestinationPublic, locale), { exact: true })).toBeVisible();
       await noOverflowAndAxeClean(page);
-      await page.getByRole('button', { name: /إلغاء|Cancel/ }).click();
+      await page.getByRole('button', { name: t(copy.supply.d1ConfirmCancelButton, locale), exact: true }).click();
 
       await buttons.nth(1).click();
-      await expect(page.getByText(/صيدلية القطاع الخاص|the private pharmacy/)).toBeVisible();
-      await page.getByRole('button', { name: /إلغاء|Cancel/ }).click();
+      await expect(page.getByText(t(copy.supply.d1DestinationPrivate, locale), { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: t(copy.supply.d1ConfirmCancelButton, locale), exact: true }).click();
     });
 
     test('?rx= from B3 highlights that line', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/refill?rx=rx-002`);
-      await expect(page.locator('.bg-navy-tint').getByText('Ibuprofen')).toBeVisible();
+      // CR-071: the highlight is a navy ring around that line's card (was a navy-tint fill). Exactly
+      // one line carries it, and it is rx-002's (Brufen · Ibuprofen, in the reader's language).
+      const highlighted = page.locator('.ring-navy').getByTestId('refill-line');
+      await expect(highlighted).toHaveCount(1);
+      await expect(highlighted.getByText(localizeDrugName('Ibuprofen', locale), { exact: true })).toBeVisible();
     });
 
     test('G7 — empty state: a patient with no active prescriptions (بدر)', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'badr');
       await page.goto(`/${locale}/app/more/refill`);
-      await expect(page.getByText(/ما فيه وصفات نشطة للتجديد|No active prescriptions to refill/)).toBeVisible();
-      await expect(page.getByRole('button', { name: /طلب تجديد|Request a refill/ })).toHaveCount(0);
+      await expect(page.getByText(t(copy.supply.d1EmptyTitle, locale), { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: t(copy.supply.d1RequestButtonLabel, locale) })).toHaveCount(0);
     });
 
     test('G7 — loading state (dev-only ?view= flag)', async ({ page, context, baseURL }) => {
@@ -173,7 +231,7 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/refill`);
       await page.getByRole('link', { name: /رجوع|Back/ }).click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app/more$`));
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app/more$`), { timeout: 15000 });
     });
 
     test('requesting a refill: the line switches to "requested" + destination, and My requests gains the row (desktop-1440 only — mutates the shared store)', async ({
@@ -194,16 +252,22 @@ for (const [locale, dir] of LOCALES) {
 
       const requestsBefore = await page.getByTestId('refill-requests').locator('.jr-menu-row').count();
 
-      // rx-002 (Ibuprofen, private) carries no prior request — the one line safe to mutate here.
-      const ibuprofenCard = page.getByTestId('refill-line').filter({ hasText: 'Ibuprofen' });
-      await ibuprofenCard.getByRole('button', { name: /طلب تجديد|Request a refill/ }).click();
-      await expect(page.getByText(/تأكيد طلب التجديد|Confirm the refill request/)).toBeVisible();
-      await expect(page.getByText(/صيدلية القطاع الخاص|the private pharmacy/)).toBeVisible();
+      // rx-002 (Ibuprofen, private) carries no prior request — the one line safe to mutate here. Found
+      // by its facility too: prescription.spec.ts's one B4 save adds a second, facility-less Brufen line.
+      const ibuprofenCard = page
+        .getByTestId('refill-line')
+        .filter({ hasText: localizeDrugName('Ibuprofen', locale) })
+        .filter({ hasText: localizeFacility('عيادة النخبة الطبية', locale) });
+      const requestButton = { name: t(copy.supply.d1RequestButtonLabel, locale), exact: true } as const;
+      const sheetTitle = page.getByText(t(copy.supply.d1ConfirmSheetTitle, locale), { exact: true });
+      await (await hydrated(ibuprofenCard.getByRole('button', requestButton))).click();
+      await expect(sheetTitle).toBeVisible();
+      await expect(page.getByText(t(copy.supply.d1DestinationPrivate, locale), { exact: true })).toBeVisible();
 
-      await page.getByRole('button', { name: /إرسال الطلب|Send the request/ }).click();
-      await expect(page.getByText(/تأكيد طلب التجديد|Confirm the refill request/)).toHaveCount(0);
-      await expect(ibuprofenCard.getByRole('button', { name: /طلب تجديد|Request a refill/ })).toHaveCount(0);
-      await expect(ibuprofenCard.getByText(/تم طلب التجديد|Refill requested/)).toBeVisible();
+      await page.getByRole('button', { name: t(copy.supply.d1ConfirmSendButton, locale), exact: true }).click();
+      await expect(sheetTitle).toHaveCount(0, { timeout: 15000 });
+      await expect(ibuprofenCard.getByRole('button', requestButton)).toHaveCount(0, { timeout: 15000 });
+      await expect(ibuprofenCard.getByText(t(copy.supply.d1AlreadyRequestedTitle, locale), { exact: true })).toBeVisible();
 
       await expect(page.getByTestId('refill-requests').locator('.jr-menu-row')).toHaveCount(requestsBefore + 1);
     });

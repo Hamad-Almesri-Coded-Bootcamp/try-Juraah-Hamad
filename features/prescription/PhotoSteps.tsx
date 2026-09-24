@@ -17,6 +17,7 @@ export function CaptureCard({
   title,
   body,
   photoLabel,
+  takeLabel,
   photo,
   onPhoto,
   locale,
@@ -25,6 +26,8 @@ export function CaptureCard({
   title: ReactNode;
   body: ReactNode;
   photoLabel: string;
+  /** The camera button's words, when the photo is not of a prescription (C3: the medicine packet). */
+  takeLabel?: string;
   photo: File | null;
   onPhoto: (file: File | null) => void;
   locale: Locale;
@@ -38,7 +41,7 @@ export function CaptureCard({
           <p className="type-body m-0 text-ink-muted">{body}</p>
         </div>
       </div>
-      <PhotoInput value={photo} onChange={onPhoto} label={photoLabel} lang={locale} />
+      <PhotoInput value={photo} onChange={onPhoto} label={photoLabel} takeLabel={takeLabel} lang={locale} />
     </section>
   );
 }

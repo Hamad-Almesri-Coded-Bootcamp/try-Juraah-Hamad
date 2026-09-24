@@ -7,6 +7,7 @@ import { Monogram } from './Monogram';
 import { localizeDrugName, localizeFacility } from '@/i18n/localize';
 import type { Locale } from '@/i18n';
 import { formatStrength, isStrengthUnit, type StrengthUnit } from '@/i18n/format';
+import { AsWritten } from './AsWritten';
 
 /** The subset of Prescription that PrescriptionCard reads, narrowed locally per index.d.ts. */
 export interface PrescriptionSummary {
@@ -63,10 +64,14 @@ export function PrescriptionCard({
       <Monogram name={!drug.brandName && drug.genericName === '(unreadable)' ? '(unreadable)' : primaryName} />
       <span className="wsf-rx__body">
         <span className="wsf-rx__name type-body-strong">
-          {primaryName}
+          <AsWritten text={primaryName} locale={lang} />
           {strengthText ? <span> {strengthText}</span> : null}
         </span>
-        {showGenericLine ? <span className="wsf-rx__generic type-body-small">{generic}</span> : null}
+        {showGenericLine ? (
+          <span className="wsf-rx__generic type-body-small">
+            <AsWritten text={generic} locale={lang} />
+          </span>
+        ) : null}
         <span className="wsf-rx__meta">
           <SectorChip sector={source.sector} lang={lang} />
           <span className="type-body-small">{localizeFacility(source.facilityName, lang)}</span>

@@ -16,10 +16,16 @@
  * `disconnectMessaging` round trip — are written once each, hardcoded to one locale, and guarded to
  * a single project (`desktop-1440`, the last-declared project in `playwright.config.ts`, run last
  * under `--workers=1`), exactly like `tests/e2e/identity.spec.ts`'s own `completeOnboarding` guard.
+ *
+ * Daylight (CR-071): expected wording is read from the copy catalogue (`copy.ambient`, `copy.vocabulary`)
+ * rather than re-typed, so the next copy edit does not break a check whose intent is unchanged. The G7
+ * walks visit three dev-compiled routes in one test, so they carry their own longer timeout.
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy } from '@/i18n';
+import { localizePersonName } from '@/i18n/localize';
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -28,6 +34,24 @@ const LOCALES = [
 
 async function addSession(context: BrowserContext, baseURL: string | undefined, who: keyof typeof TEST_SESSIONS) {
   await context.addCookies([sessionCookieFor(who, new URL(baseURL ?? 'http://localhost:3100'))]);
+}
+
+/**
+ * A client handler (a Toggle, a Button) ignores a click that lands before React has hydrated it, and
+ * on the dev server hydration can lag well past the first paint. Wait until React owns the element
+ * (its props are attached to the node), then click. `networkidle` is not used: dev-compiled route
+ * prefetches can keep the network busy for the whole test.
+ */
+async function clickWhenLive(locator: import('@playwright/test').Locator) {
+  test.info().setTimeout(test.info().timeout + 30_000);
+  await expect(locator).toBeVisible();
+  await expect
+    .poll(() => locator.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps$'))), {
+      message: 'the element is hydrated',
+      timeout: 30_000,
+    })
+    .toBe(true);
+  await locator.click();
 }
 
 async function noOverflowAndAxeClean(page: Page) {
@@ -61,13 +85,14 @@ for (const [locale, dir] of LOCALES) {
     });
 
     test('G7 states', async ({ page, context, baseURL }) => {
+      test.setTimeout(90_000); // three cold dev-server routes in one test
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/calendar?view=loading`);
       await expect(page.getByRole('status').first()).toBeVisible();
       await page.goto(`/${locale}/app/more/calendar?view=error`);
       await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
       await page.goto(`/${locale}/app/more/calendar?view=offline`);
-      await expect(page.getByText(/آخر تحديث|As of/)).toBeVisible();
+      await expect(page.getByText(copy.vocabulary.asOf[locale])).toBeVisible();
     });
   });
 
@@ -80,9 +105,16 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/more/activity`);
       const list = page.getByTestId('activity-list');
       await expect(list).toBeVisible();
+      // Daylight: grouped by day, newest first, each message in the reader's language.
+      await expect(list.getByTestId('activity-day').first()).toBeVisible();
       const bodyText = await page.locator('body').innerText();
       expect(bodyText).not.toMatch(/\d{12}/);
-      await expect(page.getByText(/عبدالله م\*\*\* ع\*\*\* المطيري|عبدالله م\*\*\*/).first()).toBeVisible();
+      // The seed's own masked name (buildAuditEvents: "… عبدالله م*** ع*** المطيري"), localised with its
+      // shape intact: first and family name in full, each middle name its initial + exactly three asterisks.
+      await expect(page.getByText(localizePersonName('عبدالله م*** ع*** المطيري', locale)).first()).toBeVisible();
+      const maskedWords = (await list.innerText()).split(/\s+/).filter((w) => w.includes('*'));
+      expect(maskedWords.length, 'at least one masked name on the feed').toBeGreaterThan(0);
+      for (const word of maskedWords) expect(word, 'a masked middle name is one letter + exactly three asterisks').toMatch(/^\p{L}\*{3}$/u);
       await noOverflowAndAxeClean(page);
     });
 
@@ -96,18 +128,20 @@ for (const [locale, dir] of LOCALES) {
     test('بدر — empty, never alarming', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'badr');
       await page.goto(`/${locale}/app/more/activity`);
-      await expect(page.getByText(/ما فيه شي مسجّل بعد|Nothing recorded yet/)).toBeVisible();
+      await expect(page.getByText(copy.ambient.e2EmptyTitle[locale])).toBeVisible();
+      await expect(page.getByTestId('activity-list')).toHaveCount(0);
       await noOverflowAndAxeClean(page);
     });
 
     test('G7 states', async ({ page, context, baseURL }) => {
+      test.setTimeout(90_000); // three cold dev-server routes in one test
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/activity?view=loading`);
       await expect(page.getByRole('status').first()).toBeVisible();
       await page.goto(`/${locale}/app/more/activity?view=error`);
       await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
       await page.goto(`/${locale}/app/more/activity?view=offline`);
-      await expect(page.getByText(/آخر تحديث|As of/)).toBeVisible();
+      await expect(page.getByText(copy.vocabulary.asOf[locale])).toBeVisible();
     });
   });
 
@@ -128,24 +162,26 @@ for (const [locale, dir] of LOCALES) {
     test('حمد — tracking off with no connected chat: one-line explanation, flipping it goes to E5 rather than failing, and writes nothing', async ({ page, context, baseURL }) => {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/settings`);
-      const trackingSwitch = page.locator('[role="switch"]').first();
+      const trackingSwitch = page.locator('#main-content [role="switch"]').first();
       await expect(trackingSwitch).toHaveAttribute('aria-checked', 'false');
-      await expect(page.getByText(/تحتاج محادثة مربوطة|A connected chat is what turns/)).toBeVisible();
-      await trackingSwitch.click();
-      await expect(page).toHaveURL(new RegExp(`/${locale}/app/more/notifications$`));
+      await expect(page.getByText(copy.ambient.e3TrackingNoChatNotice[locale])).toBeVisible();
+      // The switch's handler is client-side, and the E5 route may still be a cold compile.
+      await clickWhenLive(trackingSwitch);
+      await expect(page).toHaveURL(new RegExp(`/${locale}/app/more/notifications$`), { timeout: 15_000 });
       // Nothing was written — re-visiting settings still shows tracking off.
       await page.goto(`/${locale}/app/more/settings`);
-      await expect(page.locator('[role="switch"]').first()).toHaveAttribute('aria-checked', 'false');
+      await expect(page.locator('#main-content [role="switch"]').first()).toHaveAttribute('aria-checked', 'false');
     });
 
     test('G7 states', async ({ page, context, baseURL }) => {
+      test.setTimeout(90_000); // three cold dev-server routes in one test
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/settings?view=loading`);
       await expect(page.getByRole('status').first()).toBeVisible();
       await page.goto(`/${locale}/app/more/settings?view=error`);
       await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
       await page.goto(`/${locale}/app/more/settings?view=offline`);
-      await expect(page.getByText(/آخر تحديث|As of/)).toBeVisible();
+      await expect(page.getByText(copy.vocabulary.asOf[locale])).toBeVisible();
     });
   });
 
@@ -157,7 +193,7 @@ for (const [locale, dir] of LOCALES) {
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/help`);
       await expect(page.getByTestId('help-screen')).toBeVisible();
-      await expect(page.getByText(/هذا التطبيق ما يعطي استشارة طبية|This app gives no medical advice/)).toBeVisible();
+      await expect(page.getByText(copy.ambient.e4NoAdviceNote[locale])).toBeVisible();
       await noOverflowAndAxeClean(page);
     });
   });
@@ -179,9 +215,14 @@ for (const [locale, dir] of LOCALES) {
       await page.goto(`/${locale}/app/more/notifications`);
       const pushGranted = page.getByTestId('push-granted');
       await expect(pushGranted).toBeVisible();
-      await expect(pushGranted.getByText(/تعارض خطير|Serious interaction/)).toBeVisible();
-      await expect(pushGranted.getByText(/تذكير الجرعة|Dose reminder/)).toBeVisible();
-      await expect(page.getByTestId('chat-connected')).toBeVisible();
+      await expect(pushGranted.getByText(copy.ambient.e5AlertDanger[locale], { exact: true })).toBeVisible();
+      await expect(pushGranted.getByText(copy.ambient.e5AlertReminder[locale], { exact: true })).toBeVisible();
+      await expect(pushGranted.getByRole('button', { name: copy.ambient.e5SendTestAction[locale] })).toBeVisible();
+      await expect(pushGranted.getByRole('button', { name: copy.ambient.e5DisableAction[locale] })).toBeVisible();
+      const chatConnected = page.getByTestId('chat-connected');
+      await expect(chatConnected).toBeVisible();
+      await expect(chatConnected.getByRole('button', { name: copy.ambient.e5SendTestMessageAction[locale] })).toBeVisible();
+      await expect(chatConnected.getByRole('button', { name: copy.ambient.e5DisconnectAction[locale] })).toBeVisible();
       await noOverflowAndAxeClean(page);
     });
 
@@ -215,13 +256,14 @@ for (const [locale, dir] of LOCALES) {
     });
 
     test('G7 states', async ({ page, context, baseURL }) => {
+      test.setTimeout(90_000); // three cold dev-server routes in one test
       await addSession(context, baseURL, 'hamad');
       await page.goto(`/${locale}/app/more/notifications?view=loading`);
       await expect(page.getByRole('status').first()).toBeVisible();
       await page.goto(`/${locale}/app/more/notifications?view=error`);
       await expect(page.locator('#main-content').getByRole('alert')).toBeVisible();
       await page.goto(`/${locale}/app/more/notifications?view=offline`);
-      await expect(page.getByText(/آخر تحديث|As of/)).toBeVisible();
+      await expect(page.getByText(copy.vocabulary.asOf[locale])).toBeVisible();
     });
   });
 }
@@ -237,7 +279,7 @@ test.describe('E1 — subscribing (one-shot)', () => {
     await addSession(context, baseURL, 'hamad');
     await page.goto('/ar/app/more/calendar');
     await expect(page.getByTestId('calendar-off')).toBeVisible(); // still pristine at this point in the run
-    await page.getByRole('button', { name: 'إنشاء رابط الاشتراك' }).click();
+    await clickWhenLive(page.getByRole('button', { name: copy.ambient.e1SubscribeAction.ar }));
     await expect(page.getByTestId('calendar-on')).toBeVisible();
     await expect(page.locator('input[dir="ltr"][readonly]')).toHaveValue('webcal://jurah.app/calendar/pt-01.ics');
   });
@@ -248,21 +290,21 @@ test.describe('E3 — turning tracking off (one-shot)', () => {
     test.skip(testInfo.project.name !== 'desktop-1440', 'updateSettings here is a real, order-sensitive mutation against the shared mock store (D-002); every project reuses the same dev server, so this runs once.');
     await addSession(context, baseURL, 'sara_patient');
     await page.goto('/ar/app/more/settings');
-    const trackingSwitch = page.locator('[role="switch"]').first();
+    const trackingSwitch = page.locator('#main-content [role="switch"]').first();
     await expect(trackingSwitch).toHaveAttribute('aria-checked', 'true'); // still pristine at this point in the run
-    await trackingSwitch.click();
+    await clickWhenLive(trackingSwitch);
 
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
     const consequences = sheet.getByTestId('turn-off-consequences');
-    await expect(consequences).toContainText('تتوقف رسائل المتابعة اليومية.');
-    await expect(consequences).toContainText('الجرعات الجديدة تصير بدون حالة.');
-    await expect(consequences).toContainText('سجلّك المسجّل يبقى محفوظًا.');
+    await expect(consequences).toContainText(copy.ambient.e3TurnOffConsequence1.ar);
+    await expect(consequences).toContainText(copy.ambient.e3TurnOffConsequence2.ar);
+    await expect(consequences).toContainText(copy.ambient.e3TurnOffConsequence3.ar);
     // Not yet written — the Sheet asks before it acts.
     await expect(trackingSwitch).toHaveAttribute('aria-checked', 'true');
 
-    await sheet.getByRole('button', { name: 'إيقاف المتابعة' }).click();
-    await expect(page.locator('[role="switch"]').first()).toHaveAttribute('aria-checked', 'false');
+    await sheet.getByRole('button', { name: copy.ambient.e3TurnOffConfirm.ar }).click();
+    await expect(page.locator('#main-content [role="switch"]').first()).toHaveAttribute('aria-checked', 'false');
   });
 });
 
@@ -280,7 +322,7 @@ test.describe('E5 — chat round trip (one-shot)', () => {
     // than this click's own `router.refresh()` round trip, so the `pending` render is not reliably
     // observable here (it IS observable, statically and without a race, on فاطمة's own retry link —
     // the `pending` test above). Accept either transient render, then wait for the real settle.
-    await page.getByRole('button', { name: 'افتح تيليقرام' }).click();
+    await clickWhenLive(page.getByRole('button', { name: copy.ambient.e5OpenChatAction.ar }));
     await expect(page.getByTestId('chat-pending').or(page.getByTestId('chat-connected'))).toBeVisible();
     body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
@@ -291,12 +333,16 @@ test.describe('E5 — chat round trip (one-shot)', () => {
     body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
 
-    await page.getByRole('button', { name: 'أرسل رسالة تجربة' }).click();
-    await page.getByRole('button', { name: 'فصل الربط' }).click();
+    await page.getByRole('button', { name: copy.ambient.e5SendTestMessageAction.ar }).click();
+    // Daylight: the screen says the test message went, in its own words (no longer the clipboard's "Copied").
+    await expect(page.getByTestId('chat-connected').getByRole('status').filter({ hasText: copy.ambient.e5TestMessageSent.ar })).toBeVisible();
+    await page.getByRole('button', { name: copy.ambient.e5DisconnectAction.ar }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByTestId('disconnect-consequences')).toContainText('تتوقف رسائل المتابعة اليومية.');
-    await sheet.getByRole('button', { name: 'فصل الربط' }).click();
+    const consequences = sheet.getByTestId('disconnect-consequences');
+    await expect(consequences).toContainText(copy.ambient.e5DisconnectConsequence1.ar);
+    await expect(consequences).toContainText(copy.ambient.e5DisconnectConsequence2.ar);
+    await sheet.getByRole('button', { name: copy.ambient.e5DisconnectConfirm.ar }).click();
 
     await expect(page.getByTestId('chat-not-connected')).toBeVisible();
     body = await page.locator('body').innerHTML();

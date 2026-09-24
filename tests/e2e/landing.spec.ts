@@ -9,10 +9,26 @@
  * (the same pattern the system pages already use for their "way back" action). Assertions on these
  * therefore query `role: 'button'` and prove the destination by clicking and waiting for the URL,
  * not by reading an `href` attribute that does not exist on a button.
+ *
+ * Daylight (CR-071): the hero's picture is no longer a screenshot `<img>` but the live `DayDial`
+ * (features/landing/HeroDial.tsx), one `role="img"` described in words; the card wall is gone. The
+ * hero-picture tests below assert that new picture with the same intent (described for assistive
+ * technology, layout reserved, beside the words when wide, independent of any image loading).
+ * Expected wording is read from the copy catalogue.
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { copy } from '../../i18n';
+import { formatTime } from '../../i18n/format';
+import { localizeDrugName } from '../../i18n/localize';
+
+/** The hero's one picture: the live day dial, described in words (HeroDial.tsx). */
+const heroPicture = (page: Page) => page.locator('section[aria-labelledby="hero-title"]').getByRole('img');
+/** The dial actually drawn: HeroDial renders a 296px and a 400px dial and shows one per container width. */
+const heroDial = (page: Page) => page.locator('section[aria-labelledby="hero-title"] .jr-dial').filter({ visible: true });
+/** The hero becomes a row once <main> is 1000px wide (its `@[1000px]` container query). */
+const mainIsWide = (page: Page) => page.locator('main').evaluate((el) => el.clientWidth >= 1000);
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -49,8 +65,9 @@ for (const [locale, dir] of LOCALES) {
 
   test(`L1 (${locale}) — sign-in reachable from the top and from the closing section (G11 pass criteria)`, async ({ page }) => {
     await page.goto(`/${locale}`);
-    // The one repeated action (header, hero, closing — docs/backend-notes/wp4a.md §7.1).
-    const signInButtons = page.getByRole('button', { name: /Hawiati|هويّاتي/ });
+    // The one repeated action (header, hero, closing — docs/backend-notes/wp4a.md §7.1). The header's
+    // is icon-only at phone width, its accessible name still the full action (WCAG 2.5.3).
+    const signInButtons = page.getByRole('button', { name: copy.landing.ctaSignIn[locale], exact: true });
     await expect(signInButtons).toHaveCount(3);
     await expect(signInButtons.first()).toBeVisible();
     await expect(signInButtons.last()).toBeVisible();
@@ -63,42 +80,49 @@ for (const [locale, dir] of LOCALES) {
     expect(html).not.toContain('/clinic');
   });
 
-  test(`L1 (${locale}) — the hero mockup carries a real alt text and reserves its layout space`, async ({ page }) => {
+  // Premise changed (CR-071): the screenshot <img> became the live DayDial. Same intent: the hero's
+  // picture is described in words, and its box is reserved by the layout, not by a loaded file.
+  test(`L1 (${locale}) — the hero picture (the live day dial) carries a real description and reserves its layout space`, async ({ page }) => {
     await page.goto(`/${locale}`);
-    const img = page.locator('img[src="/landing/today-preview.png"]');
-    await expect(img).toHaveCount(1);
-    const alt = await img.getAttribute('alt');
-    expect(alt && alt.length).toBeGreaterThan(20);
-    await expect(img).toHaveAttribute('width', '390');
-    await expect(img).toHaveAttribute('height', '844');
+    await expect(page.locator('section[aria-labelledby="hero-title"] img')).toHaveCount(0); // no screenshot any more
+    const picture = heroPicture(page);
+    await expect(picture).toHaveCount(1);
+    const description = (await picture.getAttribute('aria-label')) ?? '';
+    expect(description.length).toBeGreaterThan(20);
+    // It describes a day the build really renders (G11): حمد's next dose on REFERENCE_NOW, in the reader's language.
+    expect(description).toContain(localizeDrugName('Brufen', locale));
+    expect(description).toContain(formatTime('14:00', locale));
+    const dial = heroDial(page);
+    await expect(dial).toHaveCount(1);
+    const box = (await dial.boundingBox())!;
+    expect(box.width).toBeCloseTo(box.height, 0);
+    expect(box.width).toBe((await mainIsWide(page)) ? 400 : 296);
   });
 
-  test(`L1 (${locale}) — the hero is a row beside the 390px mockup when the page is wide, stacked at phone width (Landing1440 / Landing boards)`, async ({ page }) => {
+  test(`L1 (${locale}) — the hero is a row beside the day dial when the page is wide, stacked at phone and tablet width (V2Landing)`, async ({ page }) => {
     await page.goto(`/${locale}`);
-    const h1 = page.getByRole('heading', { level: 1 });
-    const img = page.locator('img[src="/landing/today-preview.png"]');
-    const [h, i] = await Promise.all([h1.boundingBox(), img.boundingBox()]);
-    expect(h && i).toBeTruthy();
-    if ((page.viewportSize()?.width ?? 390) >= 1000) {
-      // Side by side: the image's vertical extent overlaps the headline's, and it is the intrinsic 390 (minus the card's padding).
-      expect(i!.y < h!.y + h!.height && h!.y < i!.y + i!.height, 'hero text and mockup share a row').toBeTruthy();
-      expect(i!.width).toBeLessThanOrEqual(390);
-      expect(i!.width).toBeGreaterThan(300);
+    const [h, d] = await Promise.all([page.getByRole('heading', { level: 1 }).boundingBox(), heroDial(page).boundingBox()]);
+    expect(h && d).toBeTruthy();
+    if (await mainIsWide(page)) {
+      // Side by side: the dial's vertical extent overlaps the headline's, and the two never overlap sideways.
+      expect(d!.y < h!.y + h!.height && h!.y < d!.y + d!.height, 'hero text and dial share a row').toBeTruthy();
+      expect(d!.x >= h!.x + h!.width || h!.x >= d!.x + d!.width, 'dial beside the headline, not over it').toBeTruthy();
     } else {
-      expect(i!.y, 'mockup below the headline at phone/tablet width').toBeGreaterThan(h!.y + h!.height);
+      expect(d!.y, 'dial below the headline at phone/tablet width').toBeGreaterThan(h!.y + h!.height);
     }
     await noHorizontalOverflow(page);
   });
 
-  test(`L1 (${locale}) — images unavailable: the image still carries alt text and the layout still holds`, async ({ page, context }) => {
-    await context.route('**/landing/today-preview.png', (route) => route.abort());
+  // Premise changed (CR-071): the hero no longer depends on an image file at all. With every image
+  // request refused, the picture still carries its description, keeps its box, and any <img> left on
+  // the page still has alt text.
+  test(`L1 (${locale}) — images unavailable: the hero picture keeps its description and the layout still holds`, async ({ page, context }) => {
+    await context.route(/\.(png|jpe?g|webp|avif|gif|svg)(\?|$)/i, (route) => route.abort());
     await page.goto(`/${locale}`);
-    const img = page.locator('img[src="/landing/today-preview.png"]');
-    await expect(img).toHaveAttribute('alt', /.{20,}/);
-    // The layout reserves the intrinsic width/height even though the image itself failed to load —
-    // a collapsed (zero-height) box would mean the layout depends on the image loading.
-    const box = await img.boundingBox();
+    await expect(heroPicture(page)).toHaveAttribute('aria-label', /.{20,}/);
+    const box = await heroDial(page).boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(0);
+    await expect(page.locator('img:not([alt])')).toHaveCount(0);
     await noHorizontalOverflow(page);
   });
 }
@@ -109,37 +133,40 @@ for (const [locale, dir] of LOCALES) {
 test.describe('L1 — signed-in state: the primary action continues into the right shell', () => {
   test('no session: the primary action reads the sign-in copy and goes to /ar/signin', async ({ page }) => {
     await page.goto('/ar');
-    await page.getByRole('button', { name: /هويّاتي/ }).first().click();
+    await page.getByRole('button', { name: copy.landing.ctaSignIn.ar, exact: true }).first().click();
     await expect(page).toHaveURL(/\/ar\/signin(\?|$)/);
   });
 
   test('a patient session (حمد): the primary action continues to /ar/app', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'hamad');
     await page.goto('/ar');
-    // The sign-in copy must not still be showing once the continue-variant copy applies.
-    await expect(page.getByRole('button', { name: /هويّاتي/ })).toHaveCount(0);
-    await page.getByRole('button', { name: /المتابعة/ }).first().click();
+    // The sign-in copy must not still be showing once the continue-variant copy applies. The
+    // continue copy is asserted present first, so the absence check can never pass on an empty page.
+    const continueButtons = page.getByRole('button', { name: copy.landing.ctaContinue.ar, exact: true });
+    await expect(continueButtons).toHaveCount(3);
+    await expect(page.getByRole('button', { name: copy.landing.ctaSignIn.ar, exact: true })).toHaveCount(0);
+    await continueButtons.first().click();
     await expect(page).toHaveURL(/\/ar\/app(\/|\?|$)/);
   });
 
   test('a caregiver session (عبدالله): the primary action continues to /ar/care', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'abdullah');
     await page.goto('/ar');
-    await page.getByRole('button', { name: /المتابعة/ }).first().click();
+    await page.getByRole('button', { name: copy.landing.ctaContinue.ar, exact: true }).first().click();
     await expect(page).toHaveURL(/\/ar\/care(\/|\?|$)/);
   });
 
   test('a reviewer session: the primary action continues to /en/clinic/review', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'khalid_reviewer');
     await page.goto('/en');
-    await page.getByRole('button', { name: /Continue/ }).first().click();
+    await page.getByRole('button', { name: copy.landing.ctaContinue.en, exact: true }).first().click();
     await expect(page).toHaveURL(/\/en\/clinic\/review(\/|\?|$)/);
   });
 
   test('an admin session: the primary action continues to /en/clinic/audit', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'khalid_admin');
     await page.goto('/en');
-    await page.getByRole('button', { name: /Continue/ }).first().click();
+    await page.getByRole('button', { name: copy.landing.ctaContinue.en, exact: true }).first().click();
     await expect(page).toHaveURL(/\/en\/clinic\/audit(\/|\?|$)/);
   });
 

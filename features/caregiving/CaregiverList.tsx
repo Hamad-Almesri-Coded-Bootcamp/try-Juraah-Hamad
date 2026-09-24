@@ -23,6 +23,7 @@ import { localizePersonName, localizeRelationship } from '@/i18n/localize';
 import { interpolate } from '@/features/shell/interpolate';
 import type { Locale } from '@/i18n/locale';
 import type { CaregiverView } from '@/types/views';
+import { AsWritten } from '@/components/ui/AsWritten';
 
 export function CaregiverList({ caregivers, patientId, locale }: { caregivers: CaregiverView[]; patientId: string; locale: Locale }) {
   const router = useRouter();
@@ -76,10 +77,14 @@ export function CaregiverList({ caregivers, patientId, locale }: { caregivers: C
             {caregivers.map((c) => (
               <MenuRow
                 key={c.id}
-                label={nameOf(c)}
+                label={<AsWritten text={nameOf(c)} locale={locale} />}
                 // The patient's word for them, then where the invitation stands: one quiet line,
                 // the same shape for every state (no state is a fault).
-                description={`${localizeRelationship(c.relationship, locale)} · ${relationshipStateLabel(c, locale)}`}
+                description={
+                  <>
+                    <AsWritten text={localizeRelationship(c.relationship, locale)} locale={locale} /> · {relationshipStateLabel(c, locale)}
+                  </>
+                }
                 tone="relationship"
                 trailing={
                   c.status === 'pending' ? (
