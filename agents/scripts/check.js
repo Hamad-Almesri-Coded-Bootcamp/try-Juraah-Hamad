@@ -17,7 +17,7 @@ const assert = require('node:assert/strict');
 
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
-const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa', 'agent-webchat'];
+const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-alexa', 'agent-webchat'];
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 let failures = 0;
@@ -36,7 +36,7 @@ async function staticChecks() {
     const wf = JSON.parse(raw.toString('ascii'));
     await check(name + ': ASCII-only, parses, Arabic intact', () => {
       assert.ok([...raw].every((b) => b <= 0x7f), 'a byte above 0x7F');
-      if (name !== 'agent-interaction-screening' || true) assert.match(JSON.stringify(wf), /[؀-ۿ]/, 'no Arabic survived un-escaping');
+      assert.match(JSON.stringify(wf), /[؀-ۿ]/, 'no Arabic survived un-escaping');
     });
     await check(name + ': unique node names, every connection resolves', () => {
       const names = wf.nodes.map((n) => n.name);
@@ -464,23 +464,6 @@ async function scenarios() {
     }
   });
 
-  console.log('\n######## agent-interaction-screening');
-  await check('TC-IX-01 on the seed: a new rx-002 Ibuprofen against rx-001 Warfarin -> one danger alert body, pending review', async () => {
-    const r = runner(WF('agent-interaction-screening'));
-    const [input] = await r.code('input (deterministic)', [{ json: { body: { patientId: 'pt-01', newPrescriptionId: 'rx-002', language: 'ar' } } }]);
-    assert.match(input.json.rxUrl, /\/patients\/pt-01\/prescriptions$/);
-    const rx = (id, genericName, needsReview = false) => ({ id, patientId: 'pt-01', drug: { genericName }, needsReview, status: 'active' });
-    const alerts = await r.code('screen (deterministic)', http(200, { patientId: 'pt-01', prescriptions: [rx('rx-001', 'Warfarin'), rx('rx-002', 'Ibuprofen'), rx('rx-003', 'Metformin')] }));
-    const danger = alerts.filter((a) => a.json.alert.severity === 'danger');
-    assert.equal(danger.length, 1);
-    assert.equal(danger[0].json.alert.reviewStatus, 'pending_medical_review');
-    assert.equal(danger[0].json.alert.sourceCitation, '[TO BE SUPPLIED]');
-    console.log('        -> ' + danger[0].json.alert.description);
-  });
-  await check('an id that is not an id is dropped before any read', async () => {
-    const r = runner(WF('agent-interaction-screening'));
-    assert.equal((await r.code('input (deterministic)', [{ json: { body: { patientId: "pt-01' or 1=1", newPrescriptionId: 'rx-1' } } }])).length, 0);
-  });
 }
 
 /** The node types agent-alexa may hold. Any other (an Execute Workflow node, an HTTP tool, ...) could call out. */

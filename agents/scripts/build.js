@@ -3,13 +3,16 @@
 /**
  * Generate agents/workflows/*.json from the tested source in agents/lib/*.js.
  *
- *   agents/lib/adherence.js   agents/lib/screening.js   agents/lib/extraction.js
+ *   agents/lib/adherence.js   agents/lib/extraction.js
  *        |  unit-tested by agents/test/*.test.js, and contract-tested against the backend's own
  *        |  validators by tests/unit/agent/agents-contract.test.ts
  *        v  node agents/scripts/build.js
  *   agents/workflows/agent-telegram-inbound.json       the relay (CR-063) -> adherence | extraction
  *   agents/workflows/agent-checkin-daily.json          08:00 Kuwait (+ a "send now" webhook)
- *   agents/workflows/agent-interaction-screening.json  one NEW prescription against the profile
+ *
+ * AP-04/CR-074: interaction screening is no longer generated here. The DDInter workflow
+ * (agents/knowledge, agent-interaction-screening-ddinter.json) is the only one on
+ * jurah/screen-prescription; the legacy agent-interaction-screening.json is retired.
  *
  * Every workflow is written ASCII-only (\uXXXX escapes): on 21 September raw Arabic went through a
  * Windows clipboard tool and reached the patient as CP850 mojibake. Never edit the jsCode inside
@@ -57,7 +60,6 @@ function inline(file) {
     src + '\n/* ===== end generated ===== */';
 }
 const ADHERENCE = inline('lib/adherence.js');
-const SCREENING = inline('lib/screening.js');
 // AP-03/D3: the Telegram copy is now built on the drug-knowledge core (agents/knowledge/src/extraction.js),
 // which agents/lib/extraction.js requires and re-exports; both are inlined here, core first.
 const EXTRACTION = inline('knowledge/src/extraction.js') + '\n\n' + inline('lib/extraction.js');
@@ -536,45 +538,6 @@ const checkin = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-// =============================================================== 3. agent-interaction-screening
-const SC = (n) => uuid('b3000000-0000-4000-8000-', n);
-
-const SC_INPUT = CONFIG + `
-const b = $input.first().json.body || {};
-const id = /^[A-Za-z0-9_-]{1,64}$/;
-if (!id.test(String(b.patientId || '')) || !id.test(String(b.newPrescriptionId || ''))) return [];
-return [{ json: { patientId: b.patientId, newPrescriptionId: b.newPrescriptionId, language: b.language === 'en' ? 'en' : 'ar',
-                  rxUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/prescriptions' } }];`;
-
-const SC_SCREEN = SCREENING + `
-
-// THE DETERMINISTIC LAYER: no model in this workflow at all. Grounded pairs only; nothing cleared.
-const input = $('input (deterministic)').first().json;
-const res = $input.first().json;
-if (res.statusCode !== 200 || !res.body || !Array.isArray(res.body.prescriptions)) return [];
-const r = screenNewPrescription({ patientId: input.patientId, newPrescriptionId: input.newPrescriptionId,
-                                  prescriptions: res.body.prescriptions, language: input.language });
-return r.alerts.map((a) => ({ json: { alert: a, excluded: r.excluded } }));`;
-
-const screening = {
-  name: 'agent-interaction-screening',
-  nodes: [
-    { parameters: { httpMethod: 'POST', path: 'jurah/screen-prescription', authentication: 'headerAuth', responseMode: 'onReceived', options: {} },
-      id: SC(1), name: 'Screen a new prescription', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [-460, 0], webhookId: SC(1) },
-    code(SC(2), 'input (deterministic)', SC_INPUT, [-240, 0]),
-    api(SC(3), 'backend: active prescriptions', 'GET', '={{ $json.rxUrl }}', [-20, 0]),
-    code(SC(4), 'screen (deterministic)', SC_SCREEN, [200, 0]),
-    api(SC(5), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [420, 0], '={{ JSON.stringify($json.alert) }}'),
-  ],
-  connections: {
-    'Screen a new prescription': main('input (deterministic)'),
-    'input (deterministic)': main('backend: active prescriptions'),
-    'backend: active prescriptions': main('screen (deterministic)'),
-    'screen (deterministic)': main('backend: raise the alert'),
-  },
-  settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
-};
-
 // =============================================================== 4. agent-alexa (demo, READ-ONLY)
 const AX = (n) => uuid('b4000000-0000-4000-8000-', n);
 
@@ -834,5 +797,5 @@ const webchat = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-for (const wf of [inbound, checkin, screening, alexa, webchat]) write(wf);
+for (const wf of [inbound, checkin, alexa, webchat]) write(wf);
 console.log('JURAH_API_BASE = ' + API_BASE + (process.env.JURAH_API_BASE ? '' : '   <- placeholder: rebuild with the deployed URL before import'));
