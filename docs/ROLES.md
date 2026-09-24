@@ -57,6 +57,8 @@ With the Gate 0 decisions, every screen is reachable from a seeded sign-in: د. 
 
 **Two demo patients outside the seed (D-041).** Production also accepts `294061800352` (هيثم حمد العجمي, `pt-05`) and `297112300461` (حمد المسري, `pt-06`). Each resolves to `single_role` patient and starts like بدر: A2 first-run setup, then an empty day and an empty medicine list. They are not part of the seed's twelve and the mock store does not hold them. They are listed in `lib/data/mock/demo-patients.ts`, and `scripts/db/add-demo-patients.ts` adds their rows.
 
+**Five more demo people outside the seed (D-042).** Three patients: `291050300271` (يوسف ناصر الكندري, `pt-07`) and `295081400386` (نورة عادل الرشيدي, `pt-08`) start like بدر on A2; `299021700193` (مريم سعد الشمري, `pt-09`) has `onboardingCompleted: true` and lands on B1's empty day. Two doctors: `278100600524` (د. ريم عبدالله القطان, `acc-17`) and `283122100647` (د. فيصل جاسم الهاجري, `acc-18`), each holding `reviewer` only → `single_role` clinic, the review queue; `/clinic/audit` unreachable. Same file, same script.
+
 ## Enforcement in Phase 1, and what it is not
 
 Phase 1 has no server. Every rule above is enforced in three places that Phase 2 will replace with real refusals:
