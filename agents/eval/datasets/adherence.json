@@ -1,0 +1,6 @@
+{
+  "$schema": "./adherence.schema.json",
+  "set": "adherence",
+  "owed": "[TO BE SUPPLIED] by Mohammad and Hamad: at least 20 Kuwaiti-dialect replies with the correct intent, each verified by a native speaker. See README.md.",
+  "items": []
+}
