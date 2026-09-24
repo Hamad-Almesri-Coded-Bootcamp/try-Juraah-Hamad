@@ -1,59 +1,146 @@
 {
-  "purpose": "The ingredients of every prescription in docs/Seed Dataset.md, as DDInter names them. Add these to your data/build/drug-scope.json, rebuild the index with your own DDInter scripts (build-interaction-index.js, then build-demo-index.js), and copy the resulting demo index over data/interaction-index.json. `npm run coverage` then reports which seed drugs the index covers. Nothing in this file is interaction data.",
+  "purpose": "The ingredients of every prescription in docs/Seed Dataset.md, as DDInter names them, each with its WHO ATC codes. scripts/build-demo-index.js adds every ingredient here to the index's scope and copies each one's ATC top-level categories into the index; `npm run coverage` reports which seed drugs and which seed pairs the index can check. Nothing in this file is interaction data.",
+  "atcSource": {
+    "name": "WHO Collaborating Centre for Drug Statistics Methodology, ATC/DDD Index",
+    "url": "https://atcddd.fhi.no/atc_ddd_index/",
+    "retrievedAt": "2026-09-24",
+    "rule": "`codes` holds every code the index lists under the single substance's own name (the name search at `searchUrl`). A combination code (for example A10BD02, metformin and sulfonylureas) classifies a combined product and is not counted: counting fewer categories can only make screening stricter. Every code in a category whose DDInter file is loaded was also read on its own code page (`url` with ?code=). An ingredient with no `atc` entry has unknown categories and is treated as not loaded (fail closed)."
+  },
   "seedIngredients": [
     {
       "name": "Warfarin",
       "seedPrescriptions": [
         "rx-001"
-      ]
+      ],
+      "atc": {
+        "whoName": "warfarin",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=warfarin",
+        "codes": [
+          { "code": "B01AA03", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=B01AA03&showdescription=no" }
+        ]
+      }
     },
     {
       "name": "Ibuprofen",
       "seedPrescriptions": [
         "rx-002"
-      ]
+      ],
+      "atc": {
+        "whoName": "ibuprofen",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=ibuprofen",
+        "codes": [
+          { "code": "C01EB16", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ibuprofen" },
+          { "code": "G02CC01", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ibuprofen" },
+          { "code": "M01AE01", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=M01AE01&showdescription=no" },
+          { "code": "M02AA13", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ibuprofen" },
+          { "code": "R02AX02", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ibuprofen" }
+        ]
+      }
     },
     {
       "name": "Metformin",
       "seedPrescriptions": [
         "rx-003"
-      ]
+      ],
+      "atc": {
+        "whoName": "metformin",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=metformin",
+        "codes": [
+          { "code": "A10BA02", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A10BA02&showdescription=no" }
+        ]
+      }
     },
     {
       "name": "Atorvastatin",
       "seedPrescriptions": [
         "rx-004 (discontinued - not screened, listed for completeness)"
-      ]
+      ],
+      "atc": {
+        "whoName": "atorvastatin",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=atorvastatin",
+        "codes": [
+          { "code": "C10AA05", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=C10AA05&showdescription=no" }
+        ]
+      }
     },
     {
       "name": "Prednisolone",
       "seedPrescriptions": [
         "rx-005"
-      ]
+      ],
+      "atc": {
+        "whoName": "prednisolone",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone",
+        "codes": [
+          { "code": "A01AC04", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A01AC04&showdescription=no" },
+          { "code": "A07EA01", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A07EA01&showdescription=no" },
+          { "code": "C05AA04", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "D07AA03", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "D07XA02", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "H02AB06", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=H02AB06&showdescription=no" },
+          { "code": "R01AD02", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "S01BA04", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "S01CB02", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "S02BA03", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" },
+          { "code": "S03BA02", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=prednisolone" }
+        ]
+      }
     },
     {
       "name": "Ciprofloxacin",
       "seedPrescriptions": [
         "rx-007 (returned to clinic - excluded until confirmed)"
-      ]
+      ],
+      "atc": {
+        "whoName": "ciprofloxacin",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=ciprofloxacin",
+        "codes": [
+          { "code": "J01MA02", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=J01MA02&showdescription=no" },
+          { "code": "S01AE03", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ciprofloxacin" },
+          { "code": "S02AA15", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ciprofloxacin" },
+          { "code": "S03AA07", "url": "https://atcddd.fhi.no/atc_ddd_index/?name=ciprofloxacin" }
+        ]
+      }
     },
     {
       "name": "Levothyroxine",
       "seedPrescriptions": [
         "rx-008"
-      ]
+      ],
+      "atc": {
+        "whoName": "levothyroxine sodium",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=levothyroxine",
+        "codes": [
+          { "code": "H03AA01", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=H03AA01&showdescription=no" }
+        ]
+      }
     },
     {
       "name": "Calcium carbonate",
       "seedPrescriptions": [
         "rx-009"
-      ]
+      ],
+      "atc": {
+        "whoName": "calcium carbonate",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=calcium%20carbonate",
+        "codes": [
+          { "code": "A02AC01", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A02AC01&showdescription=no" },
+          { "code": "A12AA04", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A12AA04&showdescription=no" }
+        ]
+      }
     },
     {
       "name": "Cholecalciferol",
       "seedPrescriptions": [
         "rx-009 (stored as 'vitamin D3')"
-      ]
+      ],
+      "atc": {
+        "whoName": "colecalciferol",
+        "searchUrl": "https://atcddd.fhi.no/atc_ddd_index/?name=colecalciferol",
+        "codes": [
+          { "code": "A11CC05", "url": "https://atcddd.fhi.no/atc_ddd_index/?code=A11CC05&showdescription=no" }
+        ]
+      }
     }
   ],
   "brandCandidates": {

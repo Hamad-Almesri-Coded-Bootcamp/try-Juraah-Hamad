@@ -48,6 +48,7 @@ Extraction              POST  <n8n>/webhook/jurah/extract-prescription     (x-ju
 | English only | Arabic (default) and English, by the patient's `language` | The product is Arabic-first; the seed's alert descriptions are Arabic |
 | Travel check trusted `prescriptions` from the request body | Reads the profile from the backend | The caller must not decide what the patient takes |
 | Travel check said `no_interaction_found` when a drug wasn't covered | New verdict `cannot_verify` (mapped to the app's `could_not_identify`) - also for an ungraded pair, or while any prescription awaits review | "Not in our data" is not "no interaction" |
+| A pair with no row was "no interaction" whenever both drugs were in the index | Only when one of the two drugs is in an ATC category whose DDInter file was loaded (`meta.categoryFilesLoaded`, `drugs[k].atcCategories` from the WHO ATC/DDD index). Otherwise screening raises one `info` "cannot verify" alert for the reviewer, and travel check answers `cannot_verify` (AP-06) | A DDInter category file lists the interactions of the drugs in that category. With A, B and H loaded, Ibuprofen (M) × Ciprofloxacin (J) can never be in the index, so its absence proves nothing |
 | Travel check brand map loaded every row | Only `verified: true` rows. A generic box also resolves by the index's own ingredient name, exactly | Your own `pendingVerification` rule |
 | "PANADOL" resolved to plain acetaminophen; "Plus"/"Forte" were stripped as form words | A bare family name with line extensions in the map asks which one (`needs_confirmation`); "Plus"/"Forte" stay part of the name; the vision prompt asks for the full product name | A Cold & Flu box read as "Panadol" would drop two ingredients from screening |
 | A truncated Gemini answer was used as-is | Anything but `finishReason: STOP` is unreadable | A cut-off name is a different name |
@@ -59,14 +60,15 @@ Extraction              POST  <n8n>/webhook/jurah/extract-prescription     (x-ju
 | `gemini-2.0-flash` via the LangChain node | The HTTP call and model (`gemini-3-flash-preview`) that `agents/scripts/build.js` uses | One model, one credential, one call shape across the track |
 | Code nodes called `drug-knowledge` as a sub-workflow | The source is inlined into each Code node at build time | Removes the "select the workflow after import" step, which was easy to get wrong |
 
-What stayed the same: exact-match lookup (no fuzzy accept, no vector search), the brand map's verified-only rule, the model never choosing severity or review state, fixed templates for every word, and validation before anything is sent. `data/interaction-index.json` and `data/brand-map.json` hold exactly the data in your uploaded `drug-knowledge` workflow (the JSON content compared equal; only the formatting differs).
+What stayed the same: exact-match lookup (no fuzzy accept, no vector search), the brand map's verified-only rule, the model never choosing severity or review state, fixed templates for every word, and validation before anything is sent. `data/brand-map.json` holds exactly the data in your uploaded `drug-knowledge` workflow (the JSON content compared equal; only the formatting differs). `data/interaction-index.json` started as that workflow's 19-pair slice and is now rebuilt by `scripts/build-demo-index.js` from DDInter's own files (F2, AP-06): every earlier pair kept, none changed level, 62 pairs.
 
 ## Commands
 
 ```bash
 cd agents/knowledge
-JURAH_API_BASE=https://tryjuraaah.vercel.app/api/agent npm run verify   # 65 unit tests + build + generated-workflow checks
-npm run coverage      # which seed drugs the interaction index covers
+JURAH_API_BASE=https://tryjuraaah.vercel.app/api/agent npm run verify   # 89 unit tests + build + generated-workflow checks
+npm run coverage      # each seed drug covered or not, its ATC categories, and each seed pair checkable or "cannot verify"
+node scripts/build-demo-index.js --dry-run   # rebuild the index from data/build/ddinter_downloads_code_*.csv (git-ignored)
 ```
 
 `npm run build` refuses to run without `JURAH_API_BASE`, so it can never write workflows that point nowhere.
@@ -92,7 +94,7 @@ Every value below is a secret. An assistant must never type any of them; the own
    POST /webhook/jurah/screen-prescription { "patientId": "pt-03" }
    ```
 
-   That is a dry run, so nothing is written. It answers 200 at once. Open that execution's `summary (deterministic)` node: expect `screened: true` and two alerts, the Moderate Levothyroxine × Calcium carbonate warning and "cannot verify vitamin D3".
+   That is a dry run, so nothing is written. It answers 200 at once. Open that execution's `summary (deterministic)` node: expect `screened: true` and one alert, the Moderate Levothyroxine × Calcium carbonate warning (vitamin D3 is Cholecalciferol, in DDInter file A, with no row for Levothyroxine).
 7. In n8n settings, set an **error workflow** for these three (for example a message to the team). Every escalation fails the execution, and that is how it reaches a person.
 8. **Connect the website (CR-066).** In Vercel → Settings → Environment Variables, set (not secrets — they reuse `JURAH_AGENT_INBOUND_SECRET`):
    - `JURAH_AGENT_TRAVEL_CHECK_URL` = `https://<n8n>/webhook/jurah/travel-check`
@@ -103,7 +105,7 @@ Every value below is a secret. An assistant must never type any of them; the own
 
 ## Honest limits: what is not done, and why
 
-- **The index does not cover most of the seed.** Only Levothyroxine and Calcium carbonate are covered. Warfarin, Ibuprofen, Metformin, Prednisolone, Ciprofloxacin and vitamin D3 are not in the 19-pair DDInter slice, so for حمد the agent answers "cannot verify" and sends it to the reviewer. That is correct behaviour, but it is not the demo's Warfarin × Ibuprofen finding. The seed already holds that finding as `ia-001`. **Fix:** add the names in `data/seed-drug-scope.json` to your `data/build/drug-scope.json`, rerun your DDInter build scripts, copy the demo index over `data/interaction-index.json`, then run `npm run verify` and `npm run build`. No row was invented here to fill the gap.
+- **The index is a demo slice built from three DDInter category files.** `scripts/build-demo-index.js` builds it from DDInter 2.0's own files for ATC categories A, B and H (`data/build/`, git-ignored; the owner allowed only these three). All nine seed ingredients are covered, and Warfarin × Ibuprofen is the DDInter Major row. A pair whose two drugs are both outside A, B and H cannot be in these files, so screening says "cannot verify" for it and sends it to the reviewer: in the seed that is Ibuprofen × Atorvastatin (rx-004 is discontinued, so it is not screened today). Loading another category file needs the owner's yes. `npm run coverage` lists every seed pair. No row was written by hand.
 - **The seed's brand names are not in the verified brand map.** MAREVAN is in your `pendingVerification`; BRUFEN, GLUCOPHAGE and LIPITOR are only suggested in `data/seed-drug-scope.json` (`brandCandidates`) and are not in the map at all. Confirm each against the SFDA register, copy the trade name verbatim and set `verified: true`.
 - **A prescription confirmed by the reviewer is not re-screened automatically.** Screening runs for a NEW prescription. A flagged one is skipped until confirmed, but nothing calls screening when the reviewer confirms it. The backend's field-confirmation path should call `jurah/screen-prescription` with that prescription's id (CR-065).
 - **One reading of TC-IX-02.** A clean result sends one `info` `auto_cleared` alert ("screened, nothing recorded — not a guarantee"), the shape of the seed's `ia-003`, instead of no alert at all. If the owner prefers silence, remove the `nothingFound` branch in `src/screening.js`.

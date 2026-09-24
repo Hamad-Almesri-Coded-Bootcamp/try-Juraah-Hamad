@@ -56,11 +56,17 @@ test('already taking: EUTHYROX photographed by سارة (on Levothyroxine) -> al
   assert.equal(r.alert, null, 'only a danger finding raises an alert');
 });
 
-test('cannot verify: a covered candidate against a profile drug the index lacks (حمد) -> cannot_verify, app could_not_identify', () => {
-  const r = check({ patientId: 'pt-01', visionText: 'ZOCOR', prescriptions: seedActive('pt-01') });
+test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app could_not_identify', () => {
+  const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Gliclazide')] });
   assert.equal(r.verdict, 'cannot_verify');
   assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
-  assert.ok(r.notCovered.includes('Warfarin'));
+  assert.ok(r.notCovered.includes('Gliclazide'));
+});
+
+test('F2: ZOCOR against the seed profile of حمد is now checkable - Simvastatin x Warfarin is in DDInter -> interaction_found', () => {
+  const r = check({ patientId: 'pt-01', visionText: 'ZOCOR', prescriptions: seedActive('pt-01') });
+  assert.equal(r.verdict, 'interaction_found');
+  assert.deepEqual(r.notCovered, []);
 });
 
 test('an ungraded (Unknown) row -> cannot_verify with the ungraded message, never no_interaction', () => {
@@ -71,11 +77,35 @@ test('an ungraded (Unknown) row -> cannot_verify with the ungraded message, neve
 });
 
 test('no_interaction_found only when every pair was checkable - and the words never say "safe"', () => {
-  const r = check({ visionText: 'Ezetimibe', prescriptions: [rx('t-1', 'Amlodipine')], language: 'en' });
+  // Metformin is ATC A and DDInter file A is loaded, so its missing row with Calcium carbonate is a real "none recorded".
+  const r = check({ visionText: 'Metformin 500 mg', prescriptions: [rx('t-1', 'Calcium carbonate')], language: 'en' });
   assert.equal(r.verdict, 'no_interaction_found');
-  assert.deepEqual(r.appOutcome, { kind: 'identified', drugName: 'Ezetimibe', verdict: 'no_interaction' });
+  assert.deepEqual(r.appOutcome, { kind: 'identified', drugName: 'Metformin', verdict: 'no_interaction' });
   assert.match(r.message, /not a clearance/);
   assert.doesNotMatch(r.message, /\bsafe\b/i);
+});
+
+test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction', () => {
+  for (const [box, onFile] of [['Ezetimibe', 'Amlodipine'], ['Ibuprofen 400 mg', 'Ciprofloxacin']]) {
+    const r = check({ visionText: box, prescriptions: [rx('t-1', onFile)], language: 'en' });
+    assert.equal(r.verdict, 'cannot_verify', box);
+    assert.equal(r.reason, 'pair_outside_loaded_categories');
+    assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
+    assert.equal(r.notCheckable.length, 1);
+    assert.match(r.message, new RegExp('would cover it with ' + onFile + ' is not available to us yet'));
+    assert.doesNotMatch(r.message, /not a clearance|no interaction/i);
+  }
+  const ar = check({ visionText: 'Ezetimibe', prescriptions: [rx('t-1', 'Amlodipine')] });
+  assert.match(ar.message, /لكن الجزء الذي يغطيه مع Amlodipine في قاعدة بيانات التداخلات الدوائية غير متوفر عندنا بعد/);
+  assert.doesNotMatch(ar.message, /—/);
+});
+
+test('AP-06: one checkable pair does not clear an uncheckable one on the same profile', () => {
+  const r = check({ visionText: 'Metformin', prescriptions: [rx('t-1', 'Calcium carbonate'), rx('t-2', 'Diphenhydramine')] });
+  assert.equal(r.verdict, 'no_interaction_found', 'Metformin (A) makes both absences conclusive');
+  const s = check({ visionText: 'Ezetimibe', prescriptions: [rx('t-1', 'Calcium carbonate'), rx('t-2', 'Amlodipine')] });
+  assert.equal(s.verdict, 'cannot_verify');
+  assert.deepEqual(s.notCheckable.map((n) => n.prescriptionId), ['t-2']);
 });
 
 test('a combination product screens EVERY ingredient (Panadol Cold & Flu has pseudoephedrine x levothyroxine, Moderate)', () => {
@@ -129,9 +159,9 @@ test('already_taking names only the ingredient the patient already takes', () =>
 });
 
 test('patient-facing travel text never shows a raw normalised key', () => {
-  const r = check({ visionText: 'KLACID', prescriptions: [rx('t-1', 'Warfarin')], language: 'en' });
+  const r = check({ visionText: 'KLACID', prescriptions: [rx('t-1', 'Gliclazide')], language: 'en' });
   assert.equal(r.verdict, 'cannot_verify');
-  assert.match(r.message, /but our drug-interaction database does not include Warfarin,/);
+  assert.match(r.message, /but our drug-interaction database does not include Gliclazide,/);
 });
 
 test('a generic box is named by its ingredient, not by the brand row that owns the key', () => {
