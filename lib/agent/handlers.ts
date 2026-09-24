@@ -74,7 +74,13 @@ export async function postAlert(request: Request): Promise<Response> {
   return json(201, { alert: r.alert, delivered });
 }
 
-/** POST /api/agent/prescriptions — the extraction write path. 201 `{ prescription, doseCount }`. */
+/**
+ * POST /api/agent/prescriptions — the extraction write path. 201 `{ prescription, doseCount, screening }`:
+ * AP-10 / CR-090, `screening` is what the backend did about interaction screening after the insert
+ * committed: `screened` (handed to the screening agent), `held` (n8n did not accept it; a pending
+ * alert holds it for a specialist) or `skipped` (flagged for review, or screening not configured
+ * here). The caller does not screen a `screened` or `held` prescription again.
+ */
 export async function postPrescription(request: Request): Promise<Response> {
   const refused = await refuseUnlessAgent(request);
   if (refused) return refused;
@@ -84,7 +90,7 @@ export async function postPrescription(request: Request): Promise<Response> {
   if (mock) return mock;
   const r = await insertExtractedPrescription(body.value);
   if (r.kind === 'refused') return refusedBy(r.constraint);
-  return json(201, { prescription: r.prescription, doseCount: r.doseCount });
+  return json(201, { prescription: r.prescription, doseCount: r.doseCount, screening: r.screening });
 }
 
 /** GET /api/agent/check-in-eligibility — `[{ patientId, chatId, language, frequency }]`. */
