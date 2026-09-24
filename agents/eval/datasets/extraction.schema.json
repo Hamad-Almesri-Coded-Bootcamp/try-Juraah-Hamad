@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jur'ah evaluation set: prescription extraction",
+  "description": "Synthetic prescriptions (typed and handwritten, Arabic and English) with the values written on each one. Scored as field-level accuracy on the twelve core fields of expected (AI Agents Acceptance Criteria section 1). A null in expected means the value is not written or cannot be read on the image, so the correct outcome is to leave it unset.",
+  "type": "object",
+  "required": ["set", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "set": { "const": "extraction" },
+    "owed": { "type": "string", "description": "The owed-value marker of an empty set. Delete it once the set holds its minimum." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "file", "layout", "language", "synthetic", "suppliedBy", "expected"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "file": { "type": "string", "pattern": "\\.(jpe?g|png|webp|heic|heif|pdf)$", "description": "The image or PDF, relative to the data file." },
+          "layout": { "enum": ["typed", "handwritten"] },
+          "language": { "enum": ["ar", "en"] },
+          "synthetic": { "const": true, "description": "Always true: never a real patient's prescription." },
+          "suppliedBy": { "type": "string", "minLength": 2 },
+          "note": { "type": "string" },
+          "expected": {
+            "type": "object",
+            "required": ["isPrescription", "facilityName", "sector", "genericName", "brandName", "strength", "strengthUnit",
+                         "dosePerAdministration", "frequencyPerDay", "doseTimes", "dosingPattern", "durationDays", "startDate"],
+            "additionalProperties": false,
+            "properties": {
+              "isPrescription": { "type": "boolean" },
+              "facilityName": { "type": ["string", "null"], "minLength": 1 },
+              "sector": { "enum": ["public", "private", null] },
+              "genericName": { "type": ["string", "null"], "minLength": 1 },
+              "brandName": { "type": ["string", "null"], "minLength": 1 },
+              "strength": { "type": ["number", "null"], "exclusiveMinimum": 0, "description": "The number as written, in strengthUnit's unit." },
+              "strengthUnit": { "enum": ["mg", "mcg", "g", "ml", "IU", null] },
+              "dosePerAdministration": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+              "frequencyPerDay": { "type": ["integer", "null"], "minimum": 1 },
+              "doseTimes": {
+                "type": ["array", "null"], "minItems": 1, "uniqueItems": true,
+                "items": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+                "description": "Only clock times actually written on the prescription, HH:MM."
+              },
+              "dosingPattern": { "enum": ["daily", "alternate_day", "other", null] },
+              "durationDays": { "type": ["integer", "null"], "minimum": 1 },
+              "startDate": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

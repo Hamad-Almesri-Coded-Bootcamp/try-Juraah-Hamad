@@ -160,6 +160,32 @@ test('uncertainFields only ever uses the five CR-002 names, in their fixed order
   assert.deepEqual(r.uncertainFields, FLAGGABLE);
 });
 
+test('TC-EX-06: a caption that contradicts the image flags the named field, unset - the image still wins the value', () => {
+  const r = run(Object.assign({}, CLEAR, { captionConflicts: ['strengthMg'] }), { caption: 'Eltroxin 100' });
+  assert.equal(r.ok, true);
+  assert.equal(r.needsReview, true);
+  assert.deepEqual(r.uncertainFields, ['strengthMg']);
+  assert.ok(!('strengthMg' in r.body.prescription.drug));
+  assert.ok(!('strengthUnit' in r.body.prescription.drug));
+});
+
+test('TC-EX-06: a caption with no captionConflicts answer is unknown, not agreement - all five are flagged', () => {
+  const m = Object.assign({}, CLEAR);
+  delete m.captionConflicts;
+  const r = run(m, { caption: 'من عيادتي' });
+  assert.equal(r.ok, true);
+  assert.equal(r.needsReview, true);
+  assert.deepEqual(r.uncertainFields, FLAGGABLE);
+});
+
+test('TC-EX-06: with no caption at all, captionConflicts is ignored - the app path is unchanged', () => {
+  const r = run(Object.assign({}, CLEAR, { captionConflicts: ['strengthMg'] }));
+  assert.equal(r.ok, true);
+  assert.equal(r.needsReview, false);
+  assert.deepEqual(r.uncertainFields, []);
+  assert.equal(r.body.prescription.drug.strengthMg, 50);
+});
+
 test('secondary text (e.g. "on an empty stomach") is kept only when read confidently, otherwise left out - never flagged', () => {
   const m = Object.assign({}, CLEAR, { timingRelativeToFood: 'on an empty stomach', specialNotes: 'x' });
   const kept = run(m);

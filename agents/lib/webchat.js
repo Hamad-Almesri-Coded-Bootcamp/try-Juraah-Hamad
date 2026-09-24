@@ -157,3 +157,38 @@ function webchatReply({ intent, language, doses, alerts, nowIso, hasChat }) {
 }
 
 module.exports = { webchatReply, trustWebchatIntent, needsDoses, needsChat, quickIntent, WEBCHAT_INTENTS, WEBCHAT_MIN_CONFIDENCE };
+
+/* ===== model contract ===== (agents/scripts/build.js cuts this block out of every Code node)
+ * The prompt and the output schema that the n8n node "Gemini: classify the question"
+ * (agent-webchat) sends, kept beside WEBCHAT_INTENTS and trustWebchatIntent. agents/eval sends
+ * the same two, unchanged. */
+const WEBCHAT_PROMPT = `You classify ONE message a patient typed into the Jur'ah app's assistant.
+The patient writes Kuwaiti colloquial Arabic first, then Modern Standard Arabic, then English.
+
+Return ONE intent:
+- next_dose - when/what is the next dose. «شنو جرعتي الجاية» «متى الدوا الجاي» "what's my next dose"
+- dose_amount - how much / how many to take. «كم آخذ» «كم حبة» "how much do I take"
+- today - the list of today's medicines or doses. «شنو أدويتي اليوم» «جدولي اليوم»
+- forgot - they missed or forgot a dose. «نسيت دواي» «فاتتني الجرعة» "I forgot my medicine"
+- took_it - they say they took a dose. «أخذته» «خذيت الدوا» "I took it"
+- safety - interactions, safety alerts, whether medicines conflict. «فيه تعارض بين أدويتي؟» «تنبيهات السلامة»
+- help_telegram - how to connect or use Telegram or the daily messages. «كيف أربط تيليقرام»
+- help_refill - refills, running out, reordering. «كيف أطلب إعادة صرف» «خلص الدوا»
+- help_general - what the assistant can do, greetings, thanks. «هلا» «شنو تقدر تسوي»
+- unclear - anything else, a medical question, or you are not sure
+
+RULES
+1. If you are not confident, return unclear. Never guess.
+2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
+3. You classify language only. You never answer, never give medical advice, never decide doses or times.`;
+
+const WEBCHAT_SCHEMA = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'took_it', 'safety', 'help_telegram', 'help_refill', 'help_general', 'unclear'] },
+    confidence: { type: 'number' },
+  },
+  required: ['intent', 'confidence'],
+};
+
+Object.assign(module.exports, { WEBCHAT_PROMPT, WEBCHAT_SCHEMA });
