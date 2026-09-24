@@ -1,0 +1,6 @@
+{
+  "$schema": "./screening-non-interacting.schema.json",
+  "set": "screening-non-interacting",
+  "owed": "[TO BE SUPPLIED] by Waddah: at least 3 drug pairs verified to have no interaction. See README.md.",
+  "items": []
+}

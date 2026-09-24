@@ -1,0 +1,6 @@
+{
+  "$schema": "./screening-interacting.schema.json",
+  "set": "screening-interacting",
+  "owed": "[TO BE SUPPLIED] by Waddah (checked by a pharmacist if possible): at least 3 interacting drug pairs, each with its verified citation. See README.md.",
+  "items": []
+}
