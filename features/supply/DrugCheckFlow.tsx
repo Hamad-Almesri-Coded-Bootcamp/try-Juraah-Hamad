@@ -17,8 +17,14 @@
  * no record: `checkDrugPhoto` only reads the store in that branch (lib/data/index.ts), so nothing
  * here needs to undo anything.
  *
+ * cannot_verify (CR-078) is a different honest state: the medicine WAS recognised, but Travel Check
+ * could not screen it against the whole profile. It is content in a warning tone (InlineNotice), not
+ * an ErrorState — the photo was read fine, and a retry does not fix a data gap. No drug name, no
+ * success tone, no record created.
+ *
  * Maps onto G7's four states as: empty = idle, nothing chosen yet · loading = analysing · content =
- * result · error = could_not_identify, drawn with the real ErrorState (mirrors B4's own mapping).
+ * result | cannot_verify · error = could_not_identify, drawn with the real ErrorState (mirrors B4's
+ * own mapping).
  */
 import { useRef, useState, useTransition } from 'react';
 import { InlineNotice } from '@/components/ui/InlineNotice';
@@ -35,7 +41,7 @@ import type { Locale } from '@/i18n/locale';
 import type { InteractionAlert as InteractionAlertRecord } from '@/types/contracts';
 import type { DrugCheckOutcome } from '@/types/views';
 
-type Phase = 'capture' | 'analysing' | 'result' | 'could_not_identify';
+type Phase = 'capture' | 'analysing' | 'result' | 'could_not_identify' | 'cannot_verify';
 
 export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale; patientId: string; backHref: string }) {
   const [photo, setPhoto] = useState<File | null>(null);
@@ -59,6 +65,10 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
         if (seq !== requestSeq.current) return; // superseded by a later photo
         if (result.kind === 'could_not_identify') {
           setPhase('could_not_identify');
+          return;
+        }
+        if (result.kind === 'cannot_verify') {
+          setPhase('cannot_verify');
           return;
         }
         let status: InteractionAlertRecord['reviewStatus'] | undefined;
@@ -163,6 +173,20 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
             {t(copy.safety.c1BackLabel, locale)}
           </NavigateButton>
         </div>
+      )}
+
+      {phase === 'cannot_verify' && (
+        <>
+          <InlineNotice tone="warning" title={t(copy.supply.c3CannotVerifyTitle, locale)}>
+            {t(copy.supply.c3CannotVerifyBody, locale)}
+          </InlineNotice>
+          <Button variant="secondary" icon="camera" fullWidth lang={locale} onClick={handleRetry} disabled={pending}>
+            {t(copy.supply.c3CheckAnotherButton, locale)}
+          </Button>
+          <NavigateButton href={backHref} variant="quiet" lang={locale}>
+            {t(copy.safety.c1BackLabel, locale)}
+          </NavigateButton>
+        </>
       )}
     </div>
   );
