@@ -49,7 +49,7 @@ Conventions used in every row:
 |---|---|---|---|---|
 | `getAlerts(patientId)` | `select … order by severity rank, created_at desc` (RLS). | `S.patient`, `S.cg(active)`, `S.reviewer(queue)` | `interaction_alerts` | — |
 | `getAlert(alertId)` | `select` by id (RLS via patient); a read never writes (trigger-free path, asserted by test). | same | `interaction_alerts` | — |
-| `checkDrugPhoto(patientId, image)` | CR-049 provider: identifies against the patient's first active prescription, then the same screening query (`interaction_alerts` where `severity='danger'` and the prescription is involved). Read-only; nothing stored. | `S.patient` | `prescriptions`, `interaction_alerts` | — |
+| `checkDrugPhoto(patientId, image)` | CR-049 provider: identifies against the patient's first active prescription, then the same screening query (`interaction_alerts` where `severity='danger'` and the prescription is involved). Read-only; nothing stored. Returns `identified` (with verdict and optional `alertId`), `could_not_identify`, or `cannot_verify` (CR-078) — the medicine was recognised but Travel Check could not screen it against the whole profile; this mock has no path that produces it. | `S.patient` | `prescriptions`, `interaction_alerts` | — |
 
 ### Supply — 3
 

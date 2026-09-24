@@ -95,7 +95,17 @@ describe('readDrugCheck ← agent-travel-check', () => {
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: '', verdict: 'no_interaction' } })).toEqual(cni);
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'safe' } })).toEqual(cni);
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X'.repeat(201), verdict: 'no_interaction' } })).toEqual(cni);
-    expect(readDrugCheck(200, { appOutcome: { kind: 'cannot_verify' } })).toEqual(cni);
+  });
+
+  it('cannot_verify (CR-078) passes through as its own outcome, with extra fields never read', () => {
+    expect(readDrugCheck(200, { appOutcome: { kind: 'cannot_verify' } })).toEqual({ kind: 'cannot_verify' });
+    expect(
+      readDrugCheck(200, { appOutcome: { kind: 'cannot_verify', drugName: 'X', verdict: 'no_interaction', alertId: 'ia-1' } })
+    ).toEqual({ kind: 'cannot_verify' });
+    expect(readDrugCheck(500, { appOutcome: { kind: 'cannot_verify' } })).toEqual({ kind: 'could_not_identify' });
+    expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'cannot_verify' } })).toEqual({
+      kind: 'could_not_identify',
+    });
   });
 
   it('an alert id that is not an id is dropped, never followed', () => {
