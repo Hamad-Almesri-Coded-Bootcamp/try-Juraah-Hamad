@@ -29,17 +29,24 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sheet } from '@/components/ui/Sheet';
+import { AsWritten } from '@/components/ui/AsWritten';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { askAssistant, assistantAudience, voiceTurns } from '@/lib/assistant';
 import { PAGE_PATH, type AssistantAudience, type AssistantPage, type VoiceTopic, type VoiceTurn } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
+import { localizeText } from '@/i18n/localize';
+import { directionFor } from '@/i18n/locale';
 import { ASSISTANT_OPEN_EVENT } from './AssistantButton';
 import type { Locale } from '@/i18n/locale';
 
 type CopyKey = keyof typeof copy.assistant;
-/** `ask`: the chips under this line — only the LAST line's are live. */
-type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' | 'clarifyVoice' };
+/**
+ * `ask`: the chips under this line — only the LAST line's are live. `lang`: the language an agent's
+ * reply is in (CR-071): Alexa answers in the Echo's language, which need not be the page's, so a
+ * reply in the other language is declared (`lang` + `dir`), never shown unmarked.
+ */
+type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' | 'clarifyVoice'; lang?: Locale };
 
 const SUGGESTIONS: Record<AssistantAudience, readonly (keyof typeof copy.assistant)[]> = {
   patient: ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestSafety'],
@@ -88,13 +95,37 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, openPanel);
   }, []);
 
-  // Ask the server once, on mount, who this panel is talking to (a patient's screen follows the voice).
+  // Ask the server who this panel is talking to (a patient's screen follows the voice). This launcher
+  // lives in the root layout, which a sign-in, sign-out or role switch does not remount, so it asks
+  // again whenever the shell changes (the first segment after the locale: app, care, clinic, signin,
+  // gate, invitation, or none for the landing). When the answer changes, the conversation so far
+  // belonged to someone else: it is cleared and the panel closed (CR-071).
+  const shell = pathname.split('/')[2] ?? '';
+  const audienceRef = useRef<AssistantAudience | null>(null);
   useEffect(() => {
-    if (audience) return;
     let live = true;
-    void assistantAudience().then((a) => { if (live) setAudience(a); }, () => { if (live) setAudience('guest'); });
+    const settle = (a: AssistantAudience) => {
+      if (!live) return;
+      if (audienceRef.current !== null && audienceRef.current !== a) {
+        setLines([]);
+        setDraft('');
+        setOpen(false);
+      }
+      audienceRef.current = a;
+      setAudience(a);
+    };
+    void assistantAudience().then(settle, () => settle('guest'));
     return () => { live = false; };
-  }, [audience]);
+  }, [shell]);
+
+  // A page marked `data-no-assistant` (first-run setup, the invitation, the clinic) shows no assistant:
+  // arriving on one closes the panel, and the voice below does not reopen it there.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (document.querySelector('[data-no-assistant]')) setOpen(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pathname]);
 
   // CR-069: follow the patient's Alexa turns. The first answer is only the starting point.
   const pathRef = useRef(pathname);
@@ -102,15 +133,18 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
   const lastSeq = useRef<number | null>(null);
   useEffect(() => {
     if (audience !== 'patient') return;
+    lastSeq.current = null; // a new patient session starts from its own latest turn, never replays one
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const follow = (turns: VoiceTurn[]) => {
+      // The turns are already counted (lastSeq moved on), so they are dropped here, not replayed later.
+      if (document.querySelector('[data-no-assistant]')) return;
       const next: Line[] = [];
       let page: AssistantPage | null = null;
       for (const turn of turns) {
         const asked = VOICE_ASKED[turn.topic];
         if (asked) next.push({ from: 'you', text: t(c[asked], locale), note: t(c.voiceSaid, locale) });
-        next.push({ from: 'assistant', text: turn.reply, note: t(c.voiceAnswered, locale) });
+        next.push({ from: 'assistant', text: localizeText(turn.reply, turn.language), lang: turn.language, note: t(c.voiceAnswered, locale) });
         if (turn.topic === 'unclear') next.push({ from: 'assistant', text: t(c.clarifyVoiceAsk, locale), ask: 'clarifyVoice' });
         if (turn.topic === 'bye') next.push({ from: 'assistant', text: t(c.voiceEnded, locale) });
         page = turn.page ?? page;
@@ -153,7 +187,7 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
         else if ('guestTopic' in r) next.push({ from: 'assistant', text: t(c[r.guestTopic], locale) });
         // Not sure: ask back with choices, move nowhere.
         else if (r.intent === 'unclear') next.push({ from: 'assistant', text: t(c.clarifyAsk, locale), ask: 'clarify' });
-        else next.push({ from: 'assistant', text: r.reply, ...(r.telegramPrompted ? { note: t(c.telegramPrompted, locale) } : {}) });
+        else next.push({ from: 'assistant', text: localizeText(r.reply, locale), lang: locale, ...(r.telegramPrompted ? { note: t(c.telegramPrompted, locale) } : {}) });
         const page = r.ok ? r.page : null;
         const target = page ? `/${locale}${PAGE_PATH[page]}` : null;
         if (page && target && pathname !== target) {
@@ -221,17 +255,23 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
             <div className="flex flex-col gap-3" data-testid="assistant-panel" data-audience={audience ?? 'unknown'}>
               <ul className="flex max-h-chat flex-col gap-2 overflow-y-auto" aria-live="polite" data-testid="assistant-lines">
                 <li className="rounded-lg bg-surface-card p-3 type-body">{t(who === 'patient' ? c.intro : c.guestIntro, locale)}</li>
-                {lines.map((line, i) => (
-                  <li
-                    key={i}
-                    className={['rounded-lg p-3 type-body whitespace-pre-line', line.from === 'you' ? 'bg-navy-tint text-navy self-end' : 'bg-surface-card'].join(' ')}
-                    data-from={line.from}
-                  >
-                    <span className="sr-only">{t(line.from === 'you' ? c.youLabel : c.assistantLabel, locale)}: </span>
-                    {line.text}
-                    {line.note && <span className="mt-1 block type-caption text-ink-muted">{line.note}</span>}
-                  </li>
-                ))}
+                {lines.map((line, i) => {
+                  const lineLang = line.lang ?? locale;
+                  // The page's own words inside a line declared in the other language keep the page's.
+                  const own = lineLang !== locale ? { lang: locale, dir: directionFor(locale) } : {};
+                  return (
+                    <li
+                      key={i}
+                      className={['rounded-lg p-3 type-body whitespace-pre-line', line.from === 'you' ? 'bg-navy-tint text-navy self-end' : 'bg-surface-card'].join(' ')}
+                      data-from={line.from}
+                      {...(lineLang !== locale ? { lang: lineLang, dir: directionFor(lineLang) } : {})}
+                    >
+                      <span className="sr-only" {...own}>{t(line.from === 'you' ? c.youLabel : c.assistantLabel, locale)}: </span>
+                      <AsWritten text={line.text} locale={lineLang} />
+                      {line.note && <span className="mt-1 block type-caption text-ink-muted" {...own}>{line.note}</span>}
+                    </li>
+                  );
+                })}
                 {pending && (
                   <li className="rounded-lg bg-surface-card p-3 type-body text-ink-muted" data-testid="assistant-thinking">
                     {t(c.thinking, locale)}

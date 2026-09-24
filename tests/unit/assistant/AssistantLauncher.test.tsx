@@ -19,6 +19,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: nav.push }), usePa
 
 import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import { copy, t } from '@/i18n';
+import { hasLatin, localizeText } from '@/i18n/localize';
 
 beforeEach(() => { h.voice.mockClear(); h.voice.mockImplementation(async (after) => ({ latest: after ?? 7, turns: [] })); h.ask.mockClear(); h.audience.mockClear(); h.audience.mockResolvedValue('patient'); nav.push.mockClear(); nav.pathname = '/ar'; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -59,7 +60,9 @@ describe('AssistantLauncher', () => {
     await waitFor(() => expect(screen.getByText(t(copy.assistant.guestTelegram, 'ar'))).toBeTruthy());
   });
 
-  it('a suggestion is sent as the patient’s words; the typing bubble shows while waiting; the answer is shown as received', async () => {
+  // Premise changed (CR-071): the answer is shown in the reader's language: its words as received, a
+  // known drug name in the page's script (Calcium carbonate → كربونات الكالسيوم), never a dash.
+  it('a suggestion is sent as the patient’s words; the typing bubble shows while waiting; the answer is shown as received, in the reader’s language', async () => {
     let finish: (v: unknown) => void = () => {};
     h.ask.mockImplementationOnce(() => new Promise((r) => { finish = r; }));
     render(<AssistantLauncher locale="ar" />);
@@ -67,8 +70,15 @@ describe('AssistantLauncher', () => {
     fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'ar') }));
     expect(h.ask).toHaveBeenCalledWith(t(copy.assistant.suggestNext, 'ar'), 'ar');
     await waitFor(() => expect(screen.getByTestId('assistant-thinking').textContent).toBe(t(copy.assistant.thinking, 'ar')));
-    await act(async () => { finish({ ok: true, reply: 'جرعتك الجاية Calcium carbonate', telegramPrompted: false }); });
-    await waitFor(() => expect(screen.getByText(/جرعتك الجاية Calcium carbonate/)).toBeTruthy());
+    const received = 'جرعتك الجاية Calcium carbonate + vitamin D3 — الساعة 1 الظهر.';
+    await act(async () => { finish({ ok: true, reply: received, telegramPrompted: false }); });
+    const answer = () => screen.getByTestId('assistant-lines').querySelector('li[data-from="assistant"]');
+    await waitFor(() => expect(answer()).toBeTruthy());
+    const shown = answer()!.textContent!.replace(t(copy.assistant.assistantLabel, 'ar') + ': ', '');
+    expect(shown).toBe(localizeText(received, 'ar'));
+    expect(shown).toMatch(/^جرعتك الجاية /); // the words as received
+    expect(hasLatin(shown)).toBe(false); // the seed's drug name reads in Arabic
+    expect(shown).not.toMatch(/[—–]/);
     expect(screen.queryByTestId('assistant-thinking')).toBeNull();
   });
 
@@ -200,6 +210,74 @@ describe('AssistantLauncher', () => {
     expect(nav.push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'I forgot my medicine' }));
     expect(h.ask).toHaveBeenLastCalledWith('I forgot my medicine', 'en');
+  });
+
+  it('CR-071: an Alexa reply in the other language is declared, with its drug names and dashes normalised', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reply = 'جرعتك الجاية Eltroxin الساعة 7 المغرب — تبي شي ثاني؟';
+    h.voice.mockImplementationOnce(async () => ({ latest: 1, turns: [] }));
+    h.voice.mockImplementationOnce(async () => ({ latest: 2, turns: [{ seq: 2, topic: 'next_dose', language: 'ar', reply, page: 'today' }] }));
+    nav.pathname = '/en/app';
+    render(<AssistantLauncher locale="en" />);
+    await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+    await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+    const shown = localizeText(reply, 'ar');
+    await waitFor(() => expect(screen.getByText(shown)).toBeTruthy());
+    const li = screen.getByText(shown).closest('li')!;
+    expect(li.getAttribute('lang')).toBe('ar');
+    expect(li.getAttribute('dir')).toBe('rtl');
+    expect(hasLatin(shown)).toBe(false); // Eltroxin reads in Arabic script
+    expect(li.textContent).not.toMatch(/[—–]/);
+    // The page's own words on that line keep the page's language.
+    expect(screen.getByText(t(copy.assistant.voiceAnswered, 'en')).getAttribute('lang')).toBe('en');
+  });
+
+  it('CR-071: on a page marked data-no-assistant (first-run setup, the invitation) a voice turn neither opens the panel nor moves', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const marker = document.createElement('div');
+    marker.setAttribute('data-no-assistant', '');
+    document.body.appendChild(marker);
+    try {
+      h.voice.mockImplementationOnce(async () => ({ latest: 4, turns: [] }));
+      h.voice.mockImplementationOnce(async () => ({ latest: 5, turns: [{ seq: 5, topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…', page: 'today' }] }));
+      nav.pathname = '/ar/app';
+      render(<AssistantLauncher locale="ar" />);
+      await waitFor(() => expect(h.voice).toHaveBeenCalledWith(null));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      await waitFor(() => expect(h.voice).toHaveBeenCalledWith(4));
+      await act(async () => { await vi.advanceTimersByTimeAsync(2600); });
+      expect(h.voice).toHaveBeenCalledWith(5); // counted, so never replayed later
+      expect(screen.queryByTestId('assistant-panel')).toBeNull();
+      expect(screen.queryByText('عندك اليوم 3 جرعات…')).toBeNull();
+      expect(nav.push).not.toHaveBeenCalled();
+    } finally {
+      marker.remove();
+    }
+  });
+
+  it('CR-071: when the person changes (sign-out, then a guest), the conversation is cleared and asked again', async () => {
+    nav.pathname = '/ar/app';
+    const { rerender } = render(<AssistantLauncher locale="ar" />);
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'ar') }));
+    const reply = localizeText('جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.', 'ar');
+    await waitFor(() => expect(screen.getByText(reply)).toBeTruthy());
+    expect(h.audience).toHaveBeenCalledTimes(1);
+    // Moving inside one shell does not ask again, and the conversation stays.
+    nav.pathname = '/ar/app/medicines';
+    rerender(<AssistantLauncher locale="ar" />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(h.audience).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(reply)).toBeTruthy();
+    // Signed out: the landing, where the server now answers "guest".
+    h.audience.mockResolvedValue('guest');
+    nav.pathname = '/ar';
+    rerender(<AssistantLauncher locale="ar" />);
+    await waitFor(() => expect(h.audience).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByTestId('assistant-panel')).toBeNull());
+    await open();
+    expect(screen.queryByText(reply)).toBeNull();
+    expect(screen.getByText(t(copy.assistant.guestIntro, 'ar'))).toBeTruthy();
   });
 
   it('CR-069: a guest (not a signed-in patient) never polls for voice turns', async () => {
