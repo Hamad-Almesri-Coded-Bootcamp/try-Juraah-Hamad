@@ -504,6 +504,9 @@ else if (p.ok && p.kind === 'FreeTalkIntent') {
   kind = t.kind;
   items = t.items;
 }
+// The Arabic skill has no free talk: its slotless RecordDoseIntent («سجل الجرعة», «خذيت دواي») is a record
+// request that names no dose, so every open dose that is due gets its buttons. No model runs for it.
+else if (p.ok && p.kind === 'RecordDoseIntent') kind = 'record';
 // A record request reads the schedule and the chat too: only to choose which buttons go to Telegram.
 const needsDoses = p.ok && (VOICE_INTENTS.includes(kind) || kind === 'record');
 return [{ json: { ...p, kind, items, needsDoses } }];`;

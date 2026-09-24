@@ -495,7 +495,7 @@ async function alexaScenarios() {
     assert.deepEqual(buttonData(s).map((b) => b[0]), ['d:rx-008-rec-a:taken_on_time']);
     readOnly(s);
   });
-  await check('AP-02 TC-AD-15: «خذيت الأولى والثانية وفاتتني الثالثة» (ar-SA) -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; the header and buttons in Arabic; nothing written', async () => {
+  await check('AP-02: the voice-actions code path in Arabic (a FreeTalkIntent with locale ar-SA; the ar-SA skill cannot send one - its spoken path is RecordDoseIntent, next) -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; the header and buttons in Arabic; nothing written', async () => {
     const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
     const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'خذيت الأولى والثانية وفاتتني الثالثة' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.93, items } });
     assert.equal(text(s), AR_SENT);
@@ -503,6 +503,38 @@ async function alexaScenarios() {
     assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
     readOnly(s);
     console.log('        -> ' + text(s));
+  });
+  await check('AP-02 TC-AD-15 (ar-SA, spoken): «سجل الجرعة» and «خذيت الأولى والثانية وفاتتني الثالثة» are samples of the ar-SA RecordDoseIntent; that intent -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; no model call; the due dose\x27s buttons in Arabic; nothing written', async () => {
+    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
+    const rec = ar.find((i) => i.name === 'RecordDoseIntent');
+    assert.ok(rec, 'the ar-SA interaction model has a RecordDoseIntent');
+    assert.deepEqual(rec.slots, [], 'slotless: no dose is named, so no model is needed');
+    for (const sample of ['سجل الجرعة', 'خذيت دواي', 'خذيت الأولى والثانية وفاتتني الثالثة']) assert.ok(rec.samples.includes(sample), sample + ' is a RecordDoseIntent sample');
+    assert.ok(!ar.some((i) => i.name === 'FreeTalkIntent'), 'the ar-SA skill has no free talk');
+    const s = await walk(linked, body('IntentRequest', 'RecordDoseIntent', 'ar-SA'), { doses: http(200, { doses: RECDAY() }), model: { intent: 'unclear', confidence: 1 } });
+    assert.equal(s.intent.kind, 'record');
+    assert.equal(text(s), AR_SENT);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
+    assert.match(s.prompts[0].text, /^من أليكسا/);
+    assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
+    assert.deepEqual(buttonData(s), [['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']]);
+    assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
+    readOnly(s);
+    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.reply], ['record', AR_SENT]);
+    console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text);
+  });
+  await check('AP-02: every intent in both committed interaction models, walked, makes only the allowed calls and writes nothing', async () => {
+    const seen = [];
+    for (const locale of ['ar-SA', 'en-US']) {
+      const intents = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.' + locale + '.json'), 'utf8')).interactionModel.languageModel.intents;
+      assert.ok(intents.length >= 5, locale + ' model read');
+      for (const i of intents) {
+        const s = await walk(linked, body('IntentRequest', i.name, locale, i.name === 'FreeTalkIntent' ? { utterance: 'mark it taken' } : {}), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [] } });
+        readOnly(s);
+        seen.push(locale + ':' + i.name);
+      }
+    }
+    assert.ok(seen.includes('ar-SA:RecordDoseIntent') && seen.includes('en-US:FreeTalkIntent'), seen.join(', '));
   });
   await check('AP-02: the model gave no answer (outage) to "mark it taken" -> still the fixed line and the buttons, never a guess and never a write', async () => {
     const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: null });

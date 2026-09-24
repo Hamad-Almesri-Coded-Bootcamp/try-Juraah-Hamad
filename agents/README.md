@@ -99,7 +99,10 @@ next, then sends that dose's three buttons to the patient's **Telegram**. A reco
 taken", "I took the first two and missed the third") is answered "I can't record by voice; I've sent
 the buttons to your Telegram" («ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»), and the buttons
 of the doses the patient meant (open and due; every open due dose if none was named) go to the
-patient's own chat. The tap there records it through the adherence path. There is no recording
+patient's own chat. The Arabic skill has no free talk, so its model carries a slotless
+`RecordDoseIntent` («سجل الجرعة», «خذيت دواي», «خذيت الأولى والثانية وفاتتني الثالثة»): it names no
+dose and runs no model, and it gets the same fixed line and the buttons of every open dose that is
+due. A tap on one of those buttons in Telegram records it through the adherence path. There is no recording
 switch and no write node: `scripts/check.js` asserts the workflow makes exactly two GETs (the doses
 of the day, who is eligible) and the one CR-069 voice-turn POST, and no call whose URL contains
 `/doses/` or `/schedule/`, and shows that assertion going red on copies edited to break it.
@@ -108,6 +111,7 @@ Setup (the Amazon account the Echo is registered to):
 1. developer.amazon.com → Alexa → Create Skill → Custom, "Provision your own", primary language
    **Arabic (SA)**; then Language settings → add **English (US)**.
 2. Build → JSON Editor → paste `interaction-model.ar-SA.json` (and the en-US one in English) → Build.
+   Paste and build again whenever a model file changes (AP-02 added the ar-SA `RecordDoseIntent`).
 3. Endpoint → HTTPS → `https://mohammad-aljry.app.n8n.cloud/webhook/jurah/alexa`, certificate
    option "a sub-domain of a domain that has a wildcard certificate" — the host serves
    `*.app.n8n.cloud` (Google Trust Services), checked 2026-09-23.
