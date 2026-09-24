@@ -1,7 +1,8 @@
 import type * as React from 'react';
-import './styles/AlertRow.css';
+import Link from 'next/link';
 import { Icon, type IconName } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
+import { localizeDrugName } from '@/i18n/localize';
 import type { InteractionAlert } from '@/types/contracts';
 
 /** InteractionAlert.severity, narrowed locally per index.d.ts (Severity). */
@@ -25,6 +26,8 @@ export interface AlertRowProps {
   title?: React.ReactNode;
   /** Patient/sector line for a reviewer queue, e.g. "حمد سالم المطيري · قطاع عام". */
   metaLabel?: React.ReactNode;
+  /** The review line: the vocabulary's sentence by default, another line, or `null` for none (a reviewer's queue). */
+  reviewLabel?: React.ReactNode | null;
   href?: string;
   onOpen?: () => void;
   lang?: Locale;
@@ -36,7 +39,7 @@ export interface AlertRowProps {
  * without opening it (Build Prompts prompt 1). Used on the patient's safety list and both reviewer
  * queues. `pending_medical_review` renders `warning`, never `success` or `danger` alone.
  */
-export function AlertRow({ severity, drugs, reviewStatus, title, metaLabel, href, onOpen, lang = 'en', className }: AlertRowProps) {
+export function AlertRow({ severity, drugs, reviewStatus, title, metaLabel, reviewLabel, href, onOpen, lang = 'en', className }: AlertRowProps) {
   const interactive = Boolean(href) || Boolean(onOpen);
   const classes = ['jr-alert-row', `jr-alert-row--${severity}`, interactive ? 'wsf-focus' : null, className]
     .filter(Boolean)
@@ -53,17 +56,17 @@ export function AlertRow({ severity, drugs, reviewStatus, title, metaLabel, href
         </span>
         {interactive ? <Icon name="chevron" mirror className="jr-alert-row__go" /> : null}
       </span>
-      <span className="jr-alert-row__title type-body-strong">{title ?? drugs.join(' + ')}</span>
+      <span className="jr-alert-row__title type-body-strong">{title ?? drugs.map((d) => localizeDrugName(d, lang)).join(' × ')}</span>
       {metaLabel ? <span className="jr-alert-row__meta type-body-small">{metaLabel}</span> : null}
-      <span className="jr-alert-row__review type-body-small">{reviewWord}</span>
+      {reviewLabel === null ? null : <span className="jr-alert-row__review type-body-small">{reviewLabel ?? reviewWord}</span>}
     </>
   );
 
   if (href) {
     return (
-      <a href={href} className={classes}>
+      <Link href={href} className={classes}>
         {body}
-      </a>
+      </Link>
     );
   }
   if (onOpen) {

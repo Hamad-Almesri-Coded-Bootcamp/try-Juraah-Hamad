@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
+import Link from 'next/link';
 import { Icon, type IconName } from './Icon';
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -38,9 +39,9 @@ export function IconButton({
     // renders an <a> — a design-system prop-shape gap, reported rather than changed here).
     const anchorRest = rest as unknown as AnchorHTMLAttributes<HTMLAnchorElement>;
     return (
-      <a href={href} aria-label={label} className={classes} {...anchorRest}>
+      <Link href={href} aria-label={label} className={classes} {...anchorRest}>
         <Icon name={icon} mirror={mirrorIcon} reverse={reverseIcon} />
-      </a>
+      </Link>
     );
   }
 

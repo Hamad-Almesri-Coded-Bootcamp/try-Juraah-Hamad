@@ -32,7 +32,8 @@ export default async function ClinicShellLayout({ children, params }: { children
       redirect(`/${locale}/gate`);
     }
     return (
-      <div className="relative min-h-dvh" id="main-content">
+      // The assistant is not offered anywhere in the clinic (CR-069(k)).
+      <div className="relative min-h-dvh" id="main-content" data-no-assistant="">
         {children}
       </div>
     );
@@ -47,7 +48,9 @@ export default async function ClinicShellLayout({ children, params }: { children
 
   return (
     <ClinicNav locale={locale} active={active} roles={roles} switchOption={switchOption}>
-      <div id="main-content">{children}</div>
+      <div id="main-content" data-no-assistant="">
+        {children}
+      </div>
     </ClinicNav>
   );
 }

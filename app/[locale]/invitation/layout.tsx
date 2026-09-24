@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { copy, t } from '@/i18n';
-import { AppBar } from '@/components/ui/AppBar';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
@@ -26,8 +25,13 @@ export default async function InvitationLayout({ children, params }: { children:
   if (!session && !(await isServerActionRender())) redirect(`/${locale}/signin`);
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
-      <AppBar title={t(copy.shell.appName, locale)} action={<LanguageSwitch locale={locale} role={session?.role} subjectId={session?.subjectId} />} />
+    // F0's only exits are its two answers: no assistant here (CR-069(k)).
+    <div className="relative flex min-h-dvh flex-col" data-no-assistant="">
+      {/* The bar names the product, not the screen: F0's own heading is the page's one h1. */}
+      <header className="wsf-appbar">
+        <span className="jr-wordmark">{t(copy.shell.appName, locale)}</span>
+        <LanguageSwitch locale={locale} role={session?.role} subjectId={session?.subjectId} assistant={false} />
+      </header>
       <div id="main-content" className="flex-1">
         {children}
       </div>

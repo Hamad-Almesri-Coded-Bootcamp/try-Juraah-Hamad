@@ -64,7 +64,7 @@ export default async function CalendarPage({
   const subscription = await getCalendarSubscription(patientId);
 
   const content = (
-    <div className="p-3 tablet:p-5">
+    <div className="px-3 pb-5 pt-2 tablet:px-5">
       <CalendarSync patientId={patientId} subscription={subscription} locale={locale} />
     </div>
   );

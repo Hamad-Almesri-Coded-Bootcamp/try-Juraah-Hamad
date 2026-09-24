@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
-import { getRoleOptions } from '@/lib/session';
+import { getRoleOptions, getSession } from '@/lib/session';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { homePathFor } from '@/features/shell/tabs';
 import { RoleChooser } from '@/features/identity/RoleChooser';
 
@@ -14,9 +15,15 @@ export default async function SignInChoosePage({ params }: { params: Promise<{ l
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  const options = await getRoleOptions();
+  const [options, session] = await Promise.all([getRoleOptions(), getSession()]);
   if (options.length === 0) redirect(`/${locale}/signin`);
   if (options.length === 1 && options[0]) redirect(homePathFor(options[0].role, locale));
 
-  return <RoleChooser options={options} locale={locale} />;
+  return (
+    <RoleChooser
+      options={options}
+      locale={locale}
+      actions={<LanguageSwitch locale={locale} role={session?.role} subjectId={session?.subjectId} />}
+    />
+  );
 }

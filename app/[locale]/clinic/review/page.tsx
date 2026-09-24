@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getReviewQueue, getFieldConfirmationQueue } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ReviewerQueueShell } from '@/features/clinic/ReviewerQueueShell';
 import { ReviewQueueList } from '@/features/clinic/ReviewQueueList';
@@ -32,7 +33,7 @@ export default async function ReviewQueuePage({
   if (view === 'loading') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} />
+        <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="list" rows={3} label={t(copy.vocabulary.loading, locale)} />
         </div>
@@ -42,7 +43,7 @@ export default async function ReviewQueuePage({
   if (view === 'error') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} />
+        <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <ClinicErrorState locale={locale} backHref={`/${locale}/clinic/review`} />
         </div>

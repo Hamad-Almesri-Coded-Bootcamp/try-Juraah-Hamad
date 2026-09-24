@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getSession } from '@/lib/session';
-import { getAlerts, getPrescription } from '@/lib/data';
+import { getAlerts, getPrescription, getPrescriptions } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
@@ -13,9 +13,10 @@ import { screenTitles } from '@/i18n/copy/shell';
 import { kuwaitNow } from '@/lib/config';
 
 /**
- * C1 — Safety alerts list (`/[locale]/app/safety`, the Safety tab): every `InteractionAlert` the
- * patient has, most severe and most recent first, `reviewed`/`auto_cleared` history included, none →
- * a reassuring `EmptyState`. Read-only per G1 — this route calls only `getAlerts`/`getPrescription`.
+ * C1 — Safety alerts list (`/[locale]/app/safety`, the Safety tab): the navy summary of what was
+ * checked, the findings that need attention (most severe and most recent first), the photo check,
+ * then `reviewed`/`auto_cleared` history; none → a reassuring `EmptyState`. Read-only per G1 — this
+ * route calls only `getAlerts`/`getPrescriptions`/`getPrescription`.
  *
  * `?view=loading` / `?view=error` / `?view=offline` — dev-only G7-state flags, gated so they never
  * act in a production build, matching `app/[locale]/app/page.tsx`'s own pattern exactly (the
@@ -62,7 +63,14 @@ export default async function SafetyPage({
   const patientId = session.subjectId;
   const action = <LanguageSwitch locale={locale} role="patient" subjectId={patientId} />;
 
-  const alerts = await getAlerts(patientId);
+  const [alerts, allPrescriptions] = await Promise.all([getAlerts(patientId), getPrescriptions(patientId)]);
+  // The navy card's facts (Daylight, CR-071): every active prescription is screened together, whatever
+  // its sector, so the count is the active list's own length.
+  const active = allPrescriptions.filter((rx) => rx.status === 'active');
+  const summary = {
+    checkedCount: active.length,
+    mixedSectors: new Set(active.map((rx) => rx.source.sector)).size > 1,
+  };
   const prescriptionIds = Array.from(new Set(alerts.flatMap((a) => a.involvedPrescriptionIds)));
   const prescriptions = await Promise.all(prescriptionIds.map((id) => getPrescription(id)));
   const nameById = new Map(prescriptions.filter((rx) => rx != null).map((rx) => [rx.id, rx.drug.genericName]));
@@ -75,13 +83,14 @@ export default async function SafetyPage({
   }
 
   const content = (
-    <div className="p-3 tablet:p-5">
+    <div className="px-3 pb-5 pt-2 tablet:px-5">
       <SafetyList
         alerts={alerts}
         drugNamesByAlertId={drugNamesByAlertId}
         locale={locale}
         hrefBuilder={(alert) => `${baseHref}/${alert.id}`}
         checkHref={`/${locale}/app/safety/check`}
+        summary={summary}
       />
     </div>
   );

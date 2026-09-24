@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { TabBar, type TabBarItems } from '@/components/ui/TabBar';
+import { ShellAside } from './ShellAside';
 
 /**
  * The three shells' chrome (WP3 brief; navigation.md "Across breakpoints"): one `TabBar` that is
@@ -35,6 +36,8 @@ export function AppShell({
   label,
   wordmark,
   railOnly = false,
+  tabRootPaths,
+  tabRootPrefixes,
   railFooter,
   beforeContent,
   contentClassName = 'tablet:max-w-content',
@@ -48,6 +51,9 @@ export function AppShell({
   /** Shown at the top of the rail from 834px up — the product wordmark, or the clinic's variant. */
   wordmark: ReactNode;
   railOnly?: boolean;
+  /** Where the dock shows on phones, read in the browser (ShellAside); `railOnly` is the first paint. */
+  tabRootPaths?: readonly string[];
+  tabRootPrefixes?: readonly string[];
   /** Rendered at the bottom of the rail from 834px up (CR-020: the clinic sign-out lives there). */
   railFooter?: ReactNode;
   /** Rendered inside the scroll area above the capped content — a banner that spans the content
@@ -58,10 +64,6 @@ export function AppShell({
   contentClassName?: string;
   children: ReactNode;
 }) {
-  const asideClasses = [
-    railOnly ? 'hidden tablet:grid' : 'flex flex-col tablet:grid',
-    'tablet:order-first tablet:w-rail tablet:shrink-0 tablet:grid-rows-[auto_1fr_auto]',
-  ].join(' ');
   const railChrome = 'hidden border-e border-border bg-surface-card';
   const railBlock = `${railChrome} tablet:block`;
 
@@ -71,13 +73,13 @@ export function AppShell({
         {beforeContent}
         <div className={['mx-auto w-full', contentClassName].filter(Boolean).join(' ')}>{children}</div>
       </div>
-      <aside className={asideClasses}>
-        <div className={`${railBlock} px-5 pt-4 pb-2`}>
-          <span className="type-body-strong text-navy">{wordmark}</span>
+      <ShellAside railOnly={railOnly} tabRootPaths={tabRootPaths} tabRootPrefixes={tabRootPrefixes}>
+        <div className={`${railBlock} px-5 pt-5 pb-3`}>
+          <span className="jr-wordmark">{wordmark}</span>
         </div>
         {items ? <TabBar items={items} value={value} layout="auto" label={label} /> : <div className={railBlock} />}
-        {railFooter ? <div className={`${railChrome} tablet:flex flex-col gap-2 p-3`}>{railFooter}</div> : <div className={railBlock} />}
-      </aside>
+        {railFooter ? <div className={`${railChrome} jr-rail-footer tablet:flex flex-col gap-2 p-3`}>{railFooter}</div> : <div className={railBlock} />}
+      </ShellAside>
     </div>
   );
 }

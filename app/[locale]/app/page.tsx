@@ -1,22 +1,23 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getSession } from '@/lib/session';
-import { getDosesForDay, getPendingInvitationsForSubject, getPrescriptions, getSettings } from '@/lib/data';
+import { getAlerts, getDosesForDay, getPatient, getPendingInvitationsForSubject, getPrescriptions, getSettings } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
-import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { LastKnown } from '@/features/shell/LastKnown';
 import { interpolate } from '@/features/shell/interpolate';
-import { DoseDayList } from '@/features/day/DoseDayList';
 import { DayErrorState } from '@/features/day/DayErrorState';
+import { greetingFor } from '@/features/day/today';
+import { TodayView, standingDangerAlerts } from '@/features/day/TodayView';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { formatDayLabel, formatNumber } from '@/i18n/format';
+
+import { localizeFirstName } from '@/i18n/localize';
 import { kuwaitNow } from '@/lib/config';
-import { addDays, kuwaitToday } from '@/lib/schedule/dates';
+import { kuwaitToday } from '@/lib/schedule/dates';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -78,77 +79,82 @@ export default async function TodayPage({
 
   const today = kuwaitToday();
   const isoDate = day && ISO_DATE.test(day) ? day : today;
-  const prevHref = `${baseHref}?day=${addDays(isoDate, -1)}`;
-  const nextHref = `${baseHref}?day=${addDays(isoDate, 1)}`;
-  const isToday = isoDate === today;
+  const nowIso = kuwaitNow();
 
-  const [doses, settings, prescriptions, pendingInvitations] = await Promise.all([
+  const [doses, settings, prescriptions, pendingInvitations, alerts, patient] = await Promise.all([
     getDosesForDay(patientId, isoDate),
     getSettings(patientId),
     getPrescriptions(patientId),
     getPendingInvitationsForSubject(),
+    getAlerts(patientId),
+    getPatient(patientId),
   ]);
 
   const hasActivePrescriptions = prescriptions.some((p) => p.status === 'active');
   const pendingInvitation = pendingInvitations[0];
-  const caption = interpolate(t(isToday ? copy.day.doseCountTodayTemplate : copy.day.doseCountTemplate, locale), {
-    count: formatNumber(doses.length, locale),
-  });
-
-  const content = (
-    <div className="flex flex-col gap-4 p-3 tablet:p-5">
-      <div className="flex items-center gap-2">
-        <IconButton label={t(copy.day.previousDay, locale)} icon="chevron" mirrorIcon reverseIcon href={prevHref} />
-        <div className="flex flex-1 flex-col">
-          <span className="type-body-strong">{formatDayLabel(isoDate, locale)}</span>
-          <span className="type-caption">{caption}</span>
-        </div>
-        <IconButton label={t(copy.day.nextDay, locale)} icon="chevron" mirrorIcon href={nextHref} />
-      </div>
-
-      {!isToday && (
-        <NavigateButton href={baseHref} variant="quiet" lang={locale}>
-          {t(copy.day.returnToToday, locale)}
-        </NavigateButton>
-      )}
-
-      {pendingInvitation && (
-        <InlineNotice>
-          <span className="flex flex-col items-start gap-2">
-            <span>{interpolate(t(copy.shell.pendingInvitationNoticeTemplate, locale), { name: pendingInvitation.patientFirstName })}</span>
-            <NavigateButton href={`/${locale}/invitation?id=${pendingInvitation.id}`} variant="quiet" lang={locale}>
-              {t(copy.shell.pendingInvitationNoticeValue, locale)}
-            </NavigateButton>
-          </span>
-        </InlineNotice>
-      )}
-
-      <DoseDayList
-        doses={doses}
-        tracked={settings.adherenceCheckInEnabled}
-        locale={locale}
-        hrefBuilder={(dose) => `/${locale}/app/medicines/${dose.prescriptionId}`}
-        settingsHref={`/${locale}/app/more/settings`}
-        emptyTitle={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsTitle, locale) : undefined}
-        emptyDescription={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsDescription, locale) : undefined}
-        // Audit M12: a patient with no prescription at all is offered the one action that fills this
-        // screen — B4 (SCREENS.md: "push from B2 / B1 empty state"), in B2's own empty-state words.
-        // A day that merely has no dose gets none: the day navigation above is the way on.
-        emptyAction={
-          !hasActivePrescriptions ? (
-            <NavigateButton href={`/${locale}/app/medicines/add`} variant="secondary" icon="camera" lang={locale}>
-              {t(copy.day.addPrescriptionAction, locale)}
-            </NavigateButton>
-          ) : undefined
-        }
-      />
-    </div>
-  );
+  const drugNameById = new Map(prescriptions.map((p) => [p.id, p.drug.genericName] as const));
 
   return (
-    <div className="relative flex min-h-full flex-col">
-      <AppBar title={title} action={action} />
-      {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
-    </div>
+    <TodayView
+      locale={locale}
+      title={title}
+      eyebrow={greetingFor(nowIso, patient ? localizeFirstName(patient.name, locale) : undefined, locale)}
+      actions={action}
+      isoDate={isoDate}
+      today={today}
+      nowIso={nowIso}
+      dayHref={(iso) => (iso === today ? baseHref : `${baseHref}?day=${iso}`)}
+      homeHref={baseHref}
+      doses={doses}
+      tracked={settings.adherenceCheckInEnabled}
+      hrefBuilder={(dose) => `/${locale}/app/medicines/${dose.prescriptionId}`}
+      settingsHref={`/${locale}/app/more/settings`}
+      // CR-069(g): a danger finding that still stands is pointed to from the day it concerns. One row,
+      // linking to C2; it is not a pill and not a dose status.
+      alerts={standingDangerAlerts(alerts).map((a) => ({
+        id: a.id,
+        severity: a.severity,
+        reviewStatus: a.reviewStatus,
+        drugs: a.involvedPrescriptionIds.map((id) => drugNameById.get(id) ?? '').filter(Boolean),
+        href: `/${locale}/app/safety/${a.id}`,
+      }))}
+      notices={
+        pendingInvitation ? (
+          <InlineNotice>
+            <span className="flex flex-col items-start gap-2">
+              <span>
+                {interpolate(t(copy.shell.pendingInvitationNoticeTemplate, locale), {
+                  name: localizeFirstName(pendingInvitation.patientFirstName, locale),
+                })}
+              </span>
+              <NavigateButton href={`/${locale}/invitation?id=${pendingInvitation.id}`} variant="secondary" lang={locale}>
+                {t(copy.shell.pendingInvitationNoticeValue, locale)}
+              </NavigateButton>
+            </span>
+          </InlineNotice>
+        ) : undefined
+      }
+      emptyTitle={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsTitle, locale) : undefined}
+      emptyDescription={!hasActivePrescriptions ? t(copy.day.emptyNoPrescriptionsDescription, locale) : undefined}
+      // Audit M12: a patient with no prescription at all is offered the one action that fills this
+      // screen, B4 (SCREENS.md: "push from B2 / B1 empty state"), in B2's own empty-state words.
+      // A day that merely has no dose gets none: the week strip above is the way on.
+      emptyAction={
+        !hasActivePrescriptions ? (
+          <NavigateButton href={`/${locale}/app/medicines/add`} variant="secondary" icon="camera" lang={locale}>
+            {t(copy.day.addPrescriptionAction, locale)}
+          </NavigateButton>
+        ) : undefined
+      }
+      wrapSheet={
+        view === 'offline'
+          ? (sheet) => (
+              <LastKnown asOf={nowIso} locale={locale}>
+                {sheet}
+              </LastKnown>
+            )
+          : undefined
+      }
+    />
   );
 }

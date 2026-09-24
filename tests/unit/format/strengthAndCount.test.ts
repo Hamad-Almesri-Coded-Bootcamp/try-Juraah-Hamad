@@ -48,13 +48,13 @@ describe('pluralCategory / formatCount', () => {
 
 describe('formatDaysLeft — the refill meter caption', () => {
   it('Arabic picks the grammatical noun form and Arabic-Indic digits', () => {
-    expect(formatDaysLeft(1, 'ar')).toBe('باقي يوم واحد من الكمية');
-    expect(formatDaysLeft(2, 'ar')).toBe('باقي يومين من الكمية');
-    expect(formatDaysLeft(5, 'ar')).toBe('باقي ٥ أيام من الكمية');
-    expect(formatDaysLeft(11, 'ar')).toBe('باقي ١١ يومًا من الكمية');
-    expect(formatDaysLeft(70, 'ar')).toBe('باقي ٧٠ يومًا من الكمية'); // حمد's Warfarin on REFERENCE_NOW
-    expect(formatDaysLeft(100, 'ar')).toBe('باقي ١٠٠ يوم من الكمية');
-    expect(formatDaysLeft(0, 'ar')).toBe('باقي أقل من يوم من الكمية');
+    expect(formatDaysLeft(1, 'ar')).toBe('يتبقى يوم واحد من الكمية');
+    expect(formatDaysLeft(2, 'ar')).toBe('يتبقى يومان من الكمية');
+    expect(formatDaysLeft(5, 'ar')).toBe('يتبقى ٥ أيام من الكمية');
+    expect(formatDaysLeft(11, 'ar')).toBe('يتبقى ١١ يومًا من الكمية');
+    expect(formatDaysLeft(70, 'ar')).toBe('يتبقى ٧٠ يومًا من الكمية'); // حمد's Warfarin on REFERENCE_NOW
+    expect(formatDaysLeft(100, 'ar')).toBe('يتبقى ١٠٠ يوم من الكمية');
+    expect(formatDaysLeft(0, 'ar')).toBe('يتبقى أقل من يوم من الكمية');
   });
 
   it('never prints the ungrammatical "70 أيام" or a Western digit in Arabic', () => {

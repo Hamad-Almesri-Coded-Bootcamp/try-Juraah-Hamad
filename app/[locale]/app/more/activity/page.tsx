@@ -63,7 +63,7 @@ export default async function ActivityPage({
   const events = await getActivity(patientId);
 
   const content = (
-    <div className="p-3 tablet:p-5">
+    <div className="px-3 pb-5 pt-2 tablet:px-5">
       <ActivityFeed events={events} locale={locale} />
     </div>
   );

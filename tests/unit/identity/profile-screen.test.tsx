@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setScriptSession } from '@/lib/session/cookie';
 import { reset } from '@/lib/data/mock/store';
 import { copy, t } from '@/i18n';
+import { localizePersonName } from '@/i18n/localize';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -29,10 +30,11 @@ describe('A3 — profile / account (حمد, pt-01)', () => {
     expect(document.body.innerHTML).not.toMatch(/\d{9,}/);
   });
 
-  it('shows the name in full and the simulated-Hawiati identity line — never a Civil ID row', async () => {
+  it('shows the name in full, in the reader’s language (CR-071), and the simulated-Hawiati identity line — never a Civil ID row', async () => {
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
     render(await ProfileScreen({ locale: 'en' }));
-    expect(screen.getByText('حمد سالم المطيري')).toBeInTheDocument();
+    expect(screen.getByText(localizePersonName('حمد سالم المطيري', 'en'))).toBeInTheDocument();
+    expect(screen.getByTestId('profile-identity').textContent).not.toMatch(/[\u0600-\u06FF]/);
     expect(screen.getByText(t(copy.identity.identityLineValue, 'en'))).toBeInTheDocument();
   });
 
@@ -44,11 +46,11 @@ describe('A3 — profile / account (حمد, pt-01)', () => {
     expect(link).toHaveTextContent('2');
   });
 
-  it('in Arabic the caregiver count uses Arabic-Indic digits — ٢ مربوط, never 2 مربوط (audit M7)', async () => {
+  it('in Arabic the caregiver count uses Arabic-Indic digits — ٢, never 2 (audit M7)', async () => {
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
     render(await ProfileScreen({ locale: 'ar' }));
     const link = screen.getByRole('link', { name: new RegExp(t(copy.identity.caregiverCountLabel, 'ar')) });
-    expect(link).toHaveTextContent('٢ مربوط');
+    expect(link).toHaveTextContent(t(copy.identity.caregiverCountTemplate, 'ar').replace('{count}', '٢'));
     expect(link.textContent).not.toMatch(/[0-9]/);
   });
 

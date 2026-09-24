@@ -13,6 +13,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { CaregiverToday } from '@/features/caregiving/CaregiverToday';
 import { interpolate } from '@/features/shell/interpolate';
 import { copy, t } from '@/i18n';
+import { localizeFirstName } from '@/i18n/localize';
 import { REFERENCE_DATE } from '@/lib/schedule/dates';
 import { getStore, reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
@@ -32,8 +33,10 @@ describe('F2 Today, حمد (tracking off)', () => {
     it(`${locale}: the caregiver-voice line names the patient; the patient-voice line and its action are absent`, async () => {
       const { container } = render(await CaregiverToday({ caregiverId: 'cg-01', locale, day: REFERENCE_DATE }));
 
-      expect(screen.getByText(interpolate(t(copy.caregiving.f2TrackingOffNoticeTitleTemplate, locale), { name: 'حمد' }))).toBeInTheDocument();
-      expect(screen.getByText(interpolate(t(copy.caregiving.f2TrackingOffNoticeBodyTemplate, locale), { name: 'حمد' }))).toBeInTheDocument();
+      // The patient named in the reader's language (CR-071): حمد in Arabic, Hamad in English.
+      const name = localizeFirstName('حمد', locale);
+      expect(screen.getByText(interpolate(t(copy.caregiving.f2TrackingOffNoticeTitleTemplate, locale), { name }))).toBeInTheDocument();
+      expect(screen.getByText(interpolate(t(copy.caregiving.f2TrackingOffNoticeBodyTemplate, locale), { name }))).toBeInTheDocument();
 
       expect(container.textContent).not.toContain(t(copy.day.trackingOffNotice, locale));
       expect(container.textContent).not.toContain(t(copy.day.turnTrackingOn, locale));
@@ -52,7 +55,7 @@ describe('F2 Today, tracking on', () => {
     const settings = getStore().settings.find((s) => s.patientId === 'pt-01')!;
     settings.adherenceCheckInEnabled = true;
     const { container } = render(await CaregiverToday({ caregiverId: 'cg-01', locale: 'en', day: REFERENCE_DATE }));
-    expect(container.textContent).not.toContain(interpolate(t(copy.caregiving.f2TrackingOffNoticeTitleTemplate, 'en'), { name: 'حمد' }));
+    expect(container.textContent).not.toContain(interpolate(t(copy.caregiving.f2TrackingOffNoticeTitleTemplate, 'en'), { name: 'Hamad' }));
     expect(container.textContent).not.toContain(t(copy.day.trackingOffNotice, 'en'));
   });
 });

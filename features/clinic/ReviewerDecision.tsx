@@ -1,46 +1,47 @@
 'use client';
 
 /**
- * G2s — reviewer decision (`/clinic/review/[alertId]`). Three shapes from one markup, keyed off this
- * component's own container width (so the 1280 board renders at 1280, not only at 1440 — D-009):
- * stacked at phone width; decision beside the read-only patient-context panel from `@[720px]`; and
- * from `@[1000px]` (a 1280 window minus the rail) the `ReviewerDesktop` board's third pane — the reviewer's own queue, with the
- * open item marked, so a reviewer working through several findings never leaves the screen to see
- * what is left. Confirming the risk or clearing it each commit only through a `Sheet`, and only
- * `submitReviewDecision` is ever called — no `Prescription` field and no `Dose` is editable from
- * this screen (rule 1 / G1: nothing here can touch `Dose.status`).
+ * G2s — reviewer decision (`/clinic/review/[alertId]`), Daylight (CR-071; board V2Clinic). It leads
+ * with the finding (the danger band), then the bridge between the two prescriptions (public and
+ * private sector, the product's core story), the source citation, the patient's context (read-only),
+ * and the decision: an optional note and two equal choices, each confirmed in a `Sheet` that names
+ * its consequence. Only `submitReviewDecision` is ever called: a reviewer changes the review state and
+ * nothing else; no `Prescription` field and no `Dose` is editable from this screen (rule 1 / G1).
  *
- * `patientContext.trackingOn` decides whether `DoseTimeline` renders a pill per row at all — never a
- * check on the status word (rule 3): an untracked patient's recent-dose list is a plain list of
- * times, exactly like the patient's own untracked Today.
+ * Three shapes from one markup, keyed off this component's own container width (so the 1280 board
+ * renders at 1280, not only at 1440 — D-009):
+ * - a phone column: finding, bridge, source, patient context, decision;
+ * - from `@[720px]`: the decision column beside the read-only patient context, with the decision
+ *   card sticky at the bottom of the viewport, so it stays in reach while the reviewer reads;
+ * - from `@[1000px]` (a 1280 window minus the rail): the reviewer's own queue as a first column
+ *   (ReviewerDesktop, V2Clinic), the open item marked, never linked, nothing in it writes.
+ * On a phone the decision column's wrapper is `display: contents`, so `order` can put the patient
+ * context before the decision without duplicating either.
+ *
+ * `patientContext.trackingOn` decides whether `DoseTimeline` renders at all, and each row's own
+ * `tracked` whether it carries a pill — never a check on the status word (rule 3).
  */
-import { useState, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { InteractionAlert } from '@/components/ui/InteractionAlert';
 import { AlertRow } from '@/components/ui/AlertRow';
-import { Card } from '@/components/ui/Card';
-import { DetailRow } from '@/components/ui/DetailRow';
-import { SectorChip } from '@/components/ui/SectorChip';
 import { DoseTimeline } from '@/components/ui/DoseTimeline';
+import { Icon } from '@/components/ui/Icon';
+import { Monogram } from '@/components/ui/Monogram';
 import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
-import { InlineNotice } from '@/components/ui/InlineNotice';
 import { submitReviewDecision } from '@/lib/data';
 import { copy, t } from '@/i18n';
 import { TO_BE_SUPPLIED } from '@/lib/config';
-import { formatStrength, patternLabel, timelineWhen } from '@/features/caregiving/format';
-import { doseTimesLabel, prescriptionLine, waitedLabel } from './format';
+import { patternLabel, timelineWhen } from '@/features/caregiving/format';
+import { doseTimesLabel, rxHeadline, waitedLabel } from './format';
+import { PrescriptionBridge } from './PrescriptionBridge';
 import { interpolate } from '@/features/shell/interpolate';
-import { formatNumber } from '@/i18n/format';
+import { formatDate, formatNumber, formatTime } from '@/i18n/format';
+import { localizeDrugName, localizeFacility, localizeFirstName } from '@/i18n/localize';
 import type { Locale } from '@/i18n/locale';
 import type { AlertReviewView, ReviewQueueItem } from '@/types/views';
-import type { Prescription } from '@/types/contracts';
-
-function rxHeadline(rx: Prescription, locale: Locale): string {
-  const strength = formatStrength(rx.drug, locale);
-  return strength ? `${rx.drug.genericName} ${strength}` : rx.drug.genericName;
-}
 
 export function ReviewerDecision({
   view,
@@ -60,12 +61,14 @@ export function ReviewerDecision({
   queueBasePath?: string;
 }) {
   const router = useRouter();
+  const ids = useId();
   const [note, setNote] = useState('');
   const [pendingDecision, setPendingDecision] = useState<'confirmed' | 'cleared' | null>(null);
   const [pending, startTransition] = useTransition();
   const { alert, involvedPrescriptions, patientContext } = view;
-  const drugNames = involvedPrescriptions.map((rx) => rx.drug.genericName);
   const citationIsUnverified = !alert.sourceCitation || alert.sourceCitation === TO_BE_SUPPLIED;
+  const queueItem = queue?.find((item) => item.alertId === alert.id);
+  const sectors = new Set(involvedPrescriptions.map((rx) => rx.source.sector));
 
   function commit() {
     const decision = pendingDecision;
@@ -78,10 +81,21 @@ export function ReviewerDecision({
     });
   }
 
+  const findingMeta = [
+    queueItem ? interpolate(t(copy.clinic.g2sFindingPatientTemplate, locale), { name: localizeFirstName(queueItem.patientFirstName, locale) }) : null,
+    interpolate(t(copy.clinic.g2sFindingRaisedTemplate, locale), {
+      date: formatDate(alert.createdAt.slice(0, 10), locale),
+      time: formatTime(alert.createdAt.slice(11, 16), locale),
+    }),
+    queueItem ? waitedLabel(queueItem.waitedMinutes, locale) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const queuePane =
     queue && queue.length > 0 ? (
-      <aside className="hidden @[1000px]:flex @[1000px]:w-rail-wide @[1000px]:shrink-0 flex-col gap-3" aria-label={t(copy.clinic.reviewerQueuesTitle, locale)}>
-        <h2 className="type-h2">
+      <aside className="hidden flex-col gap-3 @[1000px]:flex" aria-label={t(copy.clinic.reviewerQueuesTitle, locale)}>
+        <h2 className="jr-group-title">
           {interpolate(t(copy.clinic.findingsOptionTemplate, locale), {
             count: formatNumber(queue.length, locale),
           })}
@@ -90,12 +104,12 @@ export function ReviewerDecision({
           {queue.map((item) => {
             const current = item.alertId === alert.id;
             return (
-              <div key={item.alertId} aria-current={current ? 'page' : undefined}>
+              <div key={item.alertId} aria-current={current ? 'page' : undefined} className={current ? 'rounded-lg shadow-md' : undefined}>
                 <AlertRow
                   severity={item.severity}
                   drugs={item.drugNames}
                   reviewStatus="pending_medical_review"
-                  metaLabel={`${item.patientFirstName} · ${waitedLabel(item.waitedMinutes, locale)}`}
+                  metaLabel={`${localizeFirstName(item.patientFirstName, locale)} · ${waitedLabel(item.waitedMinutes, locale)}`}
                   href={current || !queueBasePath ? undefined : `${queueBasePath}/${item.alertId}`}
                   lang={locale}
                 />
@@ -106,130 +120,149 @@ export function ReviewerDecision({
       </aside>
     ) : null;
 
-  // The container and the queries are on different elements: a container query looks at an
-  // ancestor's inline size, so `@container` sits on the outer div and the `@[…]` classes on the row.
-  return (
-    <div className="@container relative flex min-h-full flex-col">
-      <div className="flex flex-col gap-4 p-3 tablet:p-5 @[720px]:flex-row @[720px]:items-start @[720px]:gap-6">
-        {queuePane}
-        <div className="flex flex-1 flex-col gap-4 @[1000px]:max-w-content">
-          <InteractionAlert
-            severity={alert.severity}
-            reviewStatus={alert.reviewStatus}
-            title={drugNames.join(' × ')}
-            description={alert.description}
-            drugs={involvedPrescriptions.map((rx) => prescriptionLine(rx, locale))}
+  const decision = (
+    <section
+      aria-labelledby={`${ids}-decision`}
+      className="@container jr-group order-2 flex flex-col gap-3 p-4 @[720px]:sticky @[720px]:bottom-3 @[720px]:mt-auto @[720px]:shadow-md"
+    >
+      <h2 id={`${ids}-decision`} className="type-h2">
+        {t(copy.clinic.g2sDecisionHeading, locale)}
+      </h2>
+      <TextField
+        label={t(copy.clinic.g2sNoteLabel, locale)}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder={t(copy.clinic.g2sNotePlaceholder, locale)}
+        lang={locale}
+      />
+      {/* Two legitimate decisions, drawn as two equal options (UX §2; audit M2). The board draws
+          confirm as `danger` and clear as `secondary`, logged in docs/DECISIONS.md. The weight of
+          the choice lives in the Sheet that commits it, which names the consequence. */}
+      <div className="grid gap-2 @[440px]:grid-cols-2">
+        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('confirmed')}>
+          {t(copy.clinic.g2sConfirmButton, locale)}
+        </Button>
+        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('cleared')}>
+          {t(copy.clinic.g2sClearButton, locale)}
+        </Button>
+      </div>
+      <p className="flex items-start gap-2 text-ink-muted">
+        <Icon name="info" small />
+        <span className="type-body-small">{t(copy.clinic.g2sReviewOnlyNote, locale)}</span>
+      </p>
+    </section>
+  );
+
+  const context = (
+    <section aria-labelledby={`${ids}-context`} className="order-1 flex min-w-0 flex-col gap-3 @[720px]:self-start">
+      <h2 id={`${ids}-context`} className="jr-group-title">
+        {t(copy.clinic.g2sContextHeading, locale)}
+      </h2>
+      <div className="jr-group">
+        <h3 className="type-label px-4 pt-3 text-ink-muted">{t(copy.clinic.g2sActiveListHeading, locale)}</h3>
+        <ul className="flex flex-col">
+          {patientContext.activePrescriptions.map((rx) => (
+            <li key={rx.id} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
+              <Monogram name={localizeDrugName(rx.drug.brandName ?? rx.drug.genericName, locale)} />
+              <span className="flex min-w-0 flex-col">
+                <span className="type-body-strong">{rxHeadline(rx, locale)}</span>
+                <span className="jr-num type-body-small text-ink-muted">
+                  {[patternLabel(rx.dosingPattern, locale), doseTimesLabel(rx.doseTimes, locale)].filter(Boolean).join(' · ')}
+                </span>
+                <span className="type-body-small text-ink-muted">
+                  {[localizeFacility(rx.source.facilityName, locale), t(copy.vocabulary[rx.source.sector], locale)].join(' · ')}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="jr-group flex flex-col gap-2 p-4">
+        <h3 className="type-body-strong">{t(copy.clinic.g2sRecentDosesHeading, locale)}</h3>
+        {!patientContext.trackingOn ? (
+          <p className="type-body-small text-ink-muted">{t(copy.clinic.g2sNoTrackingNote, locale)}</p>
+        ) : patientContext.recentDoses.length === 0 ? (
+          <p className="type-body-small text-ink-muted">{t(copy.clinic.g2sNoRecentDoses, locale)}</p>
+        ) : (
+          <DoseTimeline
+            items={patientContext.recentDoses.map((d) => ({
+              ...timelineWhen(d.scheduledAt, locale),
+              status: d.status,
+              tracked: d.tracked,
+            }))}
             lang={locale}
           />
+        )}
+      </div>
+    </section>
+  );
 
+  // The container and the queries are on different elements: a container query looks at an
+  // ancestor's inline size, so `@container` sits on the outer div and the `@[…]` classes inside it.
+  return (
+    <div className="@container relative flex min-h-full flex-col">
+      <div className="flex flex-col gap-5 px-3 pb-5 pt-2 tablet:px-5 @[720px]:grid @[720px]:grid-cols-[minmax(0,1fr)_var(--spacing-rail-wide)] @[720px]:items-start @[1000px]:grid-cols-[var(--spacing-rail)_minmax(0,1fr)_var(--spacing-rail-wide)]">
+        {queuePane}
+        <div className="contents @[720px]:flex @[720px]:min-w-0 @[720px]:flex-col @[720px]:gap-5 @[720px]:self-stretch">
           <section className="flex flex-col gap-2">
-            <h2 className="type-h2">{t(copy.clinic.g2sSourceHeading, locale)}</h2>
-            <Card flat>
-              {citationIsUnverified ? (
-                <span className="type-body-small">{t(copy.safety.c2SourceUnverified, locale)}</span>
-              ) : (
-                <span className="type-body-small" dir="ltr">
-                  {alert.sourceCitation}
-                </span>
-              )}
-            </Card>
-          </section>
-
-          <section className="flex flex-col gap-3" aria-label={t(copy.clinic.g2sInvolvedHeading, locale)}>
-            <h2 className="type-h2">{t(copy.clinic.g2sInvolvedHeading, locale)}</h2>
-            {involvedPrescriptions.map((rx) => (
-              <DetailRow
-                key={rx.id}
-                label={rxHeadline(rx, locale)}
-                value={[patternLabel(rx.dosingPattern, locale), doseTimesLabel(rx.doseTimes, locale), rx.source.facilityName].filter(Boolean).join(' · ')}
-                lang={locale}
-              />
-            ))}
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <h2 className="type-h2">{t(copy.clinic.g2sDecisionHeading, locale)}</h2>
-            <TextField
-              label={t(copy.clinic.g2sNoteLabel, locale)}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t(copy.clinic.g2sNotePlaceholder, locale)}
+            <InteractionAlert
+              severity={alert.severity}
+              reviewStatus={alert.reviewStatus}
+              reviewLabel={alert.reviewStatus === 'pending_medical_review' ? t(copy.clinic.g2sPendingReviewLabel, locale) : undefined}
+              title={involvedPrescriptions.map((rx) => localizeDrugName(rx.drug.genericName, locale)).join(' × ')}
+              description={alert.description}
               lang={locale}
             />
-            {/* Two legitimate decisions, drawn as two equal options (UX §2; audit M2). The board draws
-                confirm as `danger` and clear as `secondary` — logged in docs/DECISIONS.md. The weight
-                of the choice lives in the Sheet that commits it, not in which button is louder. */}
-            <div className="flex gap-2">
-              <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('confirmed')}>
-                {t(copy.clinic.g2sConfirmButton, locale)}
-              </Button>
-              <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('cleared')}>
-                {t(copy.clinic.g2sClearButton, locale)}
-              </Button>
+            <p className="jr-num type-body-small px-1 text-ink-muted">{findingMeta}</p>
+          </section>
+
+          <section aria-labelledby={`${ids}-involved`} className="flex flex-col gap-2">
+            <h2 id={`${ids}-involved`} className="jr-group-title">
+              {t(copy.clinic.g2sInvolvedHeading, locale)}
+            </h2>
+            {sectors.size > 1 ? <p className="type-body-small px-1 text-ink-muted">{t(copy.clinic.g2sCrossSectorNote, locale)}</p> : null}
+            <PrescriptionBridge prescriptions={involvedPrescriptions} locale={locale} />
+          </section>
+
+          <section aria-labelledby={`${ids}-source`} className="flex flex-col gap-2">
+            <h2 id={`${ids}-source`} className="jr-group-title">
+              {t(copy.clinic.g2sSourceHeading, locale)}
+            </h2>
+            <div className="jr-group p-4">
+              {citationIsUnverified ? (
+                <p className="type-body">{t(copy.safety.c2SourceUnverified, locale)}</p>
+              ) : (
+                <p className="type-body" dir="ltr">
+                  {alert.sourceCitation}
+                </p>
+              )}
             </div>
-            <InlineNotice tone="info" title={t(copy.clinic.g2sReviewOnlyNote, locale)} />
           </section>
+
+          {decision}
         </div>
-
-        <div className="flex flex-1 flex-col gap-3">
-          <h2 className="type-h2">{t(copy.clinic.g2sContextHeading, locale)}</h2>
-          <section className="flex flex-col gap-2" aria-label={t(copy.clinic.g2sActiveListHeading, locale)}>
-            {patientContext.activePrescriptions.map((rx) => (
-              <Card key={rx.id} className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="type-body-strong flex-1">{rxHeadline(rx, locale)}</span>
-                  <SectorChip sector={rx.source.sector} lang={locale} />
-                </div>
-                <span className="type-body-small">
-                  {[patternLabel(rx.dosingPattern, locale), doseTimesLabel(rx.doseTimes, locale), rx.source.facilityName].filter(Boolean).join(' · ')}
-                </span>
-              </Card>
-            ))}
-          </section>
-
-          <section className="flex flex-col gap-2" aria-label={t(copy.clinic.g2sRecentDosesHeading, locale)}>
-            <h3 className="type-h2" style={{ fontSize: 'inherit' }}>
-              {t(copy.clinic.g2sRecentDosesHeading, locale)}
-            </h3>
-            {!patientContext.trackingOn ? (
-              <div className="flex flex-col gap-1">
-                <span className="type-body-small">{t(copy.clinic.g2sNoTrackingNote, locale)}</span>
-                <span className="type-caption">{t(copy.clinic.g2sNoTrackingSubnote, locale)}</span>
-              </div>
-            ) : patientContext.recentDoses.length === 0 ? (
-              <span className="type-body-small">{t(copy.clinic.g2sNoRecentDoses, locale)}</span>
-            ) : (
-              <DoseTimeline
-                items={patientContext.recentDoses.map((d) => ({
-                  ...timelineWhen(d.scheduledAt, locale),
-                  status: d.status,
-                  tracked: d.tracked,
-                }))}
-                lang={locale}
-              />
-            )}
-          </section>
-        </div>
-
-        <Sheet
-          open={pendingDecision !== null}
-          title={pendingDecision === 'confirmed' ? t(copy.clinic.g2sConfirmSheetTitle, locale) : t(copy.clinic.g2sClearSheetTitle, locale)}
-          onClose={() => setPendingDecision(null)}
-          closeLabel={t(copy.vocabulary.close, locale)}
-          footer={
-            <>
-              <Button variant={pendingDecision === 'confirmed' ? 'danger' : 'primary'} fullWidth lang={locale} loading={pending} onClick={commit}>
-                {t(copy.clinic.g2sSheetConfirmLabel, locale)}
-              </Button>
-              <Button variant="quiet" fullWidth lang={locale} onClick={() => setPendingDecision(null)} disabled={pending}>
-                {t(copy.identity.cancelLabel, locale)}
-              </Button>
-            </>
-          }
-        >
-          <p className="type-body">{pendingDecision === 'confirmed' ? t(copy.clinic.g2sConfirmSheetBody, locale) : t(copy.clinic.g2sClearSheetBody, locale)}</p>
-        </Sheet>
+        {context}
       </div>
+
+      <Sheet
+        open={pendingDecision !== null}
+        title={pendingDecision === 'confirmed' ? t(copy.clinic.g2sConfirmSheetTitle, locale) : t(copy.clinic.g2sClearSheetTitle, locale)}
+        onClose={() => setPendingDecision(null)}
+        closeLabel={t(copy.vocabulary.close, locale)}
+        footer={
+          <>
+            {/* Both commits are drawn the same: red is kept for the finding itself. */}
+            <Button variant="primary" fullWidth lang={locale} loading={pending} onClick={commit}>
+              {t(copy.clinic.g2sSheetConfirmLabel, locale)}
+            </Button>
+            <Button variant="quiet" fullWidth lang={locale} onClick={() => setPendingDecision(null)} disabled={pending}>
+              {t(copy.identity.cancelLabel, locale)}
+            </Button>
+          </>
+        }
+      >
+        <p className="type-body">{pendingDecision === 'confirmed' ? t(copy.clinic.g2sConfirmSheetBody, locale) : t(copy.clinic.g2sClearSheetBody, locale)}</p>
+      </Sheet>
     </div>
   );
 }

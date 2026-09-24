@@ -41,6 +41,20 @@ export function formatDayLabel(isoDate: string, locale: Locale): string {
   return new Intl.DateTimeFormat(numberingLocale(locale), { weekday: 'long', day: 'numeric', month: 'long', ...DATE_OPTS }).format(d);
 }
 
+/** A weekday in short form for the week strip ("Mon"). Arabic has no abbreviation, so it drops the
+ * article instead, as a printed Arabic calendar does ("الاثنين" → "اثنين"). */
+export function formatWeekdayShort(isoDate: string, locale: Locale): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  const name = new Intl.DateTimeFormat(numberingLocale(locale), { weekday: 'short', ...DATE_OPTS }).format(d);
+  return locale === 'ar' ? name.replace(/^ال/, '') : name;
+}
+
+/** The day of the month alone, in the reader's digits ("21" / "٢١"). */
+export function formatDayOfMonth(isoDate: string, locale: Locale): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  return new Intl.DateTimeFormat(numberingLocale(locale), { day: 'numeric', ...DATE_OPTS }).format(d);
+}
+
 /** `Prescription.drug.strengthUnit` — the contract's five unit codes (default "mg"). */
 export type StrengthUnit = NonNullable<Prescription['drug']['strengthUnit']>;
 

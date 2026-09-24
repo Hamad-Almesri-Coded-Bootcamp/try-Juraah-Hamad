@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
-import './styles/CopyField.css';
 
 export interface CopyFieldProps {
   label: ReactNode;

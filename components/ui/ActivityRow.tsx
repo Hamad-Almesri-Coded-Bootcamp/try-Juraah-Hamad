@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import './styles/ActivityRow.css';
+import Link from 'next/link';
 import { Icon, type IconName } from './Icon';
 import type { AuditEvent } from '@/types/contracts';
 
@@ -58,10 +58,10 @@ export function ActivityRow({ title, timeLabel, description, href, actor, code, 
     const classes = ['jr-activity-row--table', className].filter(Boolean).join(' ');
     return (
       <tr className={classes}>
-        <td className="jr-activity-row__cell type-body-small" dir="ltr">
-          {timeLabel}
+        <td className="jr-activity-row__cell type-body-small">
+          <bdi>{timeLabel}</bdi>
         </td>
-        <td className="jr-activity-row__cell type-body-small">{href ? <a href={href}>{title}</a> : title}</td>
+        <td className="jr-activity-row__cell type-body-small">{href ? <Link href={href}>{title}</Link> : title}</td>
         <td className="jr-activity-row__cell type-body-small">
           {actor ? (
             <span className="jr-activity-row__actor">
@@ -97,9 +97,9 @@ export function ActivityRow({ title, timeLabel, description, href, actor, code, 
 
   if (href) {
     return (
-      <a href={href} className={`${classes} wsf-focus`}>
+      <Link href={href} className={`${classes} wsf-focus`}>
         {content}
-      </a>
+      </Link>
     );
   }
   return <div className={classes}>{content}</div>;

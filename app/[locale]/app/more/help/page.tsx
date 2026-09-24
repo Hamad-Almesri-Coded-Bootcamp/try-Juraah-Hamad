@@ -24,7 +24,7 @@ export default async function HelpPage({ params }: { params: Promise<{ locale: s
         backLabel={t(copy.vocabulary.back, locale)}
         action={<LanguageSwitch locale={locale} />}
       />
-      <div className="p-3 tablet:p-5">
+      <div className="px-3 pb-5 pt-2 tablet:px-5">
         <HelpScreen locale={locale} />
       </div>
     </div>

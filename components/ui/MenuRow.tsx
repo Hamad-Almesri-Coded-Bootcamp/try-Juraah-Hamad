@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import './styles/MenuRow.css';
+import Link from 'next/link';
 import { Icon, type IconName } from './Icon';
 
 export interface MenuRowProps {
@@ -55,9 +55,9 @@ export function MenuRow({ label, value, description, icon, href, onClick, tone =
 
   if (interactive && href) {
     return (
-      <a href={href} className={classes}>
+      <Link href={href} className={classes}>
         {content}
-      </a>
+      </Link>
     );
   }
   if (interactive && onClick) {

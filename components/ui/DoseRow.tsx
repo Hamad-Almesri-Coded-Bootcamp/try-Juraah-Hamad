@@ -1,8 +1,9 @@
 import type * as React from 'react';
-import './styles/DoseRow.css';
 import { Icon } from './Icon';
+import { Monogram } from './Monogram';
 import { StatusPill, type DoseStatus } from './StatusPill';
 import type { Locale } from '@/i18n';
+import { localizeDrugName } from '@/i18n/localize';
 
 export interface DoseRowProps {
   dose: {
@@ -38,25 +39,39 @@ export function DoseRow({ dose, drug, amountLabel, timeLabel, href, onOpen, lang
   const classes = ['jr-dose-row', interactive ? 'wsf-focus' : null, className].filter(Boolean).join(' ');
   const showPill = dose.tracked !== false;
 
+  // Brand first, then the generic name (CR-069(l), PrescriptionCard.md: the pair patients lose), each
+  // in the reader's script (CR-071). The monogram repeats the first letters of the name on the box.
+  const brand = drug.brandName ? localizeDrugName(drug.brandName, lang) : undefined;
+  const generic = localizeDrugName(drug.genericName, lang);
+  const primary = brand ?? generic;
+
   const body = (
     <>
+      <Monogram name={!drug.brandName && drug.genericName === '(unreadable)' ? '(unreadable)' : primary} />
       <span className="jr-dose-row__body">
         <span className="jr-dose-row__name type-body-strong">
-          {drug.genericName}
-          {drug.brandName ? <span className="jr-dose-row__brand"> {drug.brandName}</span> : null}
+          <span className="jr-dose-row__brand">{primary}</span>
         </span>
         <span className="jr-dose-row__amount type-body-small">
+          {brand ? <span className="jr-dose-row__generic">{generic} · </span> : null}
           {amountLabel}
-          {timeLabel ? <span className="jr-dose-row__time"> · {timeLabel}</span> : null}
         </span>
+        {showPill ? (
+          <span className="jr-dose-row__status">
+            <StatusPill status={dose.status} lang={lang} />
+          </span>
+        ) : null}
       </span>
-      {showPill ? <StatusPill status={dose.status} lang={lang} /> : null}
-      {interactive ? <Icon name="chevron" mirror className="jr-dose-row__go" /> : null}
+      {timeLabel ? <span className="jr-dose-row__time type-label">{timeLabel}</span> : null}
+      {interactive && !timeLabel ? <Icon name="chevron" mirror className="jr-dose-row__go" /> : null}
     </>
   );
 
   if (href) {
     return (
+      // A plain anchor, on purpose: the G1 runtime proof (tests/e2e/g1-today-tracking-off.spec.ts)
+      // requires the dose list to carry ZERO click handlers, and next/link attaches one. The browser's
+      // own cross-document view transition (daylight.css `@view-transition`) keeps the move smooth.
       <a href={href} className={classes} data-testid="dose-row">
         {body}
       </a>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PrescriptionCard, type PrescriptionCardProps } from '@/components/ui/PrescriptionCard';
 
@@ -12,5 +13,10 @@ import { PrescriptionCard, type PrescriptionCardProps } from '@/components/ui/Pr
  */
 export function PrescriptionCardLink({ href, ...props }: { href?: string } & Omit<PrescriptionCardProps, 'onOpen'>) {
   const router = useRouter();
+  // Warm the detail route the way a Link would, so the tap opens it without a wait (Daylight: calm,
+  // smooth navigation). Optional-called: a test double of the router may not carry it.
+  useEffect(() => {
+    if (href) router.prefetch?.(href);
+  }, [href, router]);
   return <PrescriptionCard {...props} onOpen={href ? () => router.push(href) : undefined} />;
 }

@@ -8,7 +8,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RefillList } from '@/features/supply/RefillList';
-import { getRefillOverview, getRefillRequests, requestRefill } from '@/lib/data';
+import { getPrescriptions, getRefillOverview, getRefillRequests, requestRefill } from '@/lib/data';
+import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
 
@@ -131,14 +132,22 @@ describe('D1 — no primary per row (UX Principles §2, audit M19)', () => {
     expect(document.body.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
   });
 
-  it('lang="ar": the meter reads Arabic-Indic digits and a grammatical days caption (audit M7)', async () => {
+  it('lang="ar": the days read in Arabic-Indic digits with the unit that agrees with them, no Latin anywhere (audit M7, CR-071)', async () => {
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
-    const overview = await getRefillOverview('pt-01');
-    const requests = await getRefillRequests('pt-01');
-    const { container } = render(<RefillList overview={overview} requests={requests} patientId="pt-01" locale="ar" />);
-    const notes = [...container.querySelectorAll('.wsf-dep__note')].map((n) => n.textContent ?? '');
-    expect(notes.length).toBeGreaterThan(0);
-    for (const note of notes) expect(note).not.toMatch(/[0-9]/);
-    expect(notes).toContain('باقي ٧٠ يومًا من الكمية'); // rx-001 Warfarin on REFERENCE_NOW
+    const [overview, requests, prescriptions] = await Promise.all([getRefillOverview('pt-01'), getRefillRequests('pt-01'), getPrescriptions('pt-01')]);
+    const { container } = render(<RefillList overview={overview} requests={requests} prescriptions={prescriptions} patientId="pt-01" locale="ar" />);
+    const [warfarin, brufen] = [...container.querySelectorAll('[data-testid="refill-line"]')].map((n) => n.textContent ?? '');
+    expect(warfarin).toContain('٧٠' + t(copy.supply.supplyDaysUnitMany, 'ar')); // 70 days: يومًا
+    expect(brufen).toContain('٥' + t(copy.supply.supplyDaysUnitFew, 'ar')); // 5 days: أيام
+    expect(brufen).toContain(t(copy.vocabulary.lowSupply, 'ar'));
+    expect(container.textContent).not.toMatch(/[0-9A-Za-z]/);
+  });
+
+  it('names the facility and the sector on one line of the card (the prescription’s own source)', async () => {
+    setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+    const [overview, requests, prescriptions] = await Promise.all([getRefillOverview('pt-01'), getRefillRequests('pt-01'), getPrescriptions('pt-01')]);
+    render(<RefillList overview={overview} requests={requests} prescriptions={prescriptions} patientId="pt-01" locale="en" />);
+    expect(screen.getByText('Al-Nukhba Medical Clinic · Private sector')).toBeInTheDocument(); // rx-002
+    expect(screen.getAllByText('Farwaniya Hospital · Public sector')).toHaveLength(2); // rx-001, rx-003
   });
 });

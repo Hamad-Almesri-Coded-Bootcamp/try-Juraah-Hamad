@@ -2,6 +2,7 @@ import { ContextBanner } from '@/components/ui/ContextBanner';
 import { getCaregiverLink } from '@/lib/data';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
+import { localizeFirstName } from '@/i18n/localize';
 
 /**
  * The persistent "whose data is this" banner (UX Principles §10, F2/F3): on every caregiver screen,
@@ -11,6 +12,6 @@ import type { Locale } from '@/i18n/locale';
  */
 export async function CaregiverBanner({ caregiverId, locale }: { caregiverId: string; locale: Locale }) {
   const link = await getCaregiverLink(caregiverId);
-  const title = `${t(copy.vocabulary.viewingRecordOf, locale)} ${link.patientFirstName}`.trim();
+  const title = `${t(copy.vocabulary.viewingRecordOf, locale)} ${localizeFirstName(link.patientFirstName, locale)}`.trim();
   return <ContextBanner variant="caregiver" title={title} detail={t(copy.shell.caregiverBannerReadOnly, locale)} icon="users" />;
 }

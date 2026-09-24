@@ -1,8 +1,11 @@
 'use client';
 
 /**
- * E5 — notifications & messaging (`docs/wireframes/Messaging.dc.html`, `NotifyStates.dc.html`). Two
- * independent sections, per SCREENS.md and rule 2: **neither ever renders as an error or a warning**
+ * E5 — notifications & messaging (`docs/wireframes/Messaging.dc.html`, `NotifyStates.dc.html`),
+ * Daylight (CR-071): each section a heading, one quiet summary line and its state in a grouped card.
+ * After a test is sent the screen says so in its own words (it used to reuse the clipboard's
+ * "Copied"). The "this is a demo" line shows only while the bot is simulated. Two independent
+ * sections, per SCREENS.md and rule 2: **neither ever renders as an error or a warning**
  * for an off/not-connected/denied state (G10 — `InlineNotice` never `tone="warning"` for these; CR-012
  * fixed exactly this on the board's own not-connected panel).
  *
@@ -25,6 +28,7 @@ import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Sheet } from '@/components/ui/Sheet';
 import { MenuRow } from '@/components/ui/MenuRow';
+import { Icon } from '@/components/ui/Icon';
 import {
   disablePush,
   disconnectMessaging,
@@ -33,7 +37,7 @@ import {
   sendTestNotification,
   startMessagingLink,
 } from '@/lib/data';
-import { formatDate } from '@/i18n/format';
+import { formatDate, formatNumber } from '@/i18n/format';
 import { interpolate } from '@/features/shell/interpolate';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
@@ -49,6 +53,7 @@ export function NotificationsScreen({
   iosNeedsInstall,
   messaging,
   botHandle,
+  simulated = false,
   locale,
 }: {
   patientId: string;
@@ -59,6 +64,9 @@ export function NotificationsScreen({
   iosNeedsInstall: boolean;
   messaging: MessagingLink;
   botHandle: string;
+  /** The chat is a demo (no bot token configured on the server, `BOT_IS_SIMULATED`). Only then is the
+   * "this is a demo" line shown; the page reads the server-only flag and passes it in. */
+  simulated?: boolean;
   locale: Locale;
 }) {
   const router = useRouter();
@@ -147,14 +155,14 @@ export function NotificationsScreen({
   return (
     <div className="relative flex flex-col gap-6" data-testid="notifications-screen">
       {/* Browser notifications */}
-      <section className="flex flex-col gap-3" data-testid="push-section">
-        <span className="type-h2">{t(copy.ambient.e5BrowserSectionTitle, locale)}</span>
-        <p className="type-body-small">{t(copy.ambient.e5BrowserSummary, locale)}</p>
+      <section className="flex flex-col gap-2" data-testid="push-section">
+        <h2 className="jr-group-title">{t(copy.ambient.e5BrowserSectionTitle, locale)}</h2>
+        <p className="m-0 px-1 type-body-small text-ink-muted">{t(copy.ambient.e5BrowserSummary, locale)}</p>
 
         {showDefault && (
-          <div className="flex flex-col gap-3" data-testid="push-default">
-            <p className="type-body">{t(copy.ambient.e5DefaultBody, locale)}</p>
-            <Button variant="primary" size="lg" fullWidth lang={locale} icon="subscribe" loading={pending} onClick={handleEnablePush}>
+          <div className="jr-group flex flex-col gap-4 p-4" data-testid="push-default">
+            <p className="m-0 type-body">{t(copy.ambient.e5DefaultBody, locale)}</p>
+            <Button variant="primary" size="lg" fullWidth lang={locale} icon="bell" loading={pending} onClick={handleEnablePush}>
               {t(copy.ambient.e5EnableAction, locale)}
             </Button>
           </div>
@@ -165,38 +173,46 @@ export function NotificationsScreen({
             <InlineNotice tone="success" title={t(copy.ambient.e5GrantedNoticeTitle, locale)}>
               {t(copy.ambient.e5GrantedNoticeBody, locale)}
             </InlineNotice>
-            <div className="flex flex-col">
+            <h3 className="m-0 px-1 pt-2 type-body-strong text-navy">{t(copy.ambient.e5AlertsListTitle, locale)}</h3>
+            <div className="jr-group">
               <MenuRow label={t(copy.ambient.e5AlertDanger, locale)} value={t(copy.vocabulary.on, locale)} />
               <MenuRow label={t(copy.ambient.e5AlertReviewer, locale)} value={t(copy.vocabulary.on, locale)} />
               <MenuRow label={t(copy.ambient.e5AlertRefill, locale)} value={t(copy.vocabulary.on, locale)} />
               <MenuRow label={t(copy.ambient.e5AlertNewRx, locale)} value={t(copy.vocabulary.on, locale)} />
               <MenuRow label={t(copy.ambient.e5AlertInvite, locale)} value={t(copy.vocabulary.on, locale)} />
-              <MenuRow label={t(copy.ambient.e5AlertReminder, locale)} value={`${t(copy.vocabulary.on, locale)} · ${t(copy.ambient.e5AlertReminderNote, locale)}`} />
+              <MenuRow
+                label={t(copy.ambient.e5AlertReminder, locale)}
+                description={t(copy.ambient.e5AlertReminderNote, locale)}
+                value={t(copy.vocabulary.on, locale)}
+              />
             </div>
-            <Button variant="secondary" size="lg" fullWidth lang={locale} icon="subscribe" loading={pending} onClick={handleSendTestNotification}>
-              {t(copy.ambient.e5SendTestAction, locale)}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <Button variant="secondary" lang={locale} icon="bell" loading={pending} onClick={handleSendTestNotification}>
+                {t(copy.ambient.e5SendTestAction, locale)}
+              </Button>
+              <Button variant="quiet" lang={locale} loading={pending} onClick={handleDisablePush}>
+                {t(copy.ambient.e5DisableAction, locale)}
+              </Button>
+            </div>
             {testSent && (
-              <p role="status" aria-live="polite" className="type-caption">
-                {t(copy.vocabulary.copied, locale)}
+              <p role="status" aria-live="polite" className="m-0 flex items-center gap-2 px-1 type-body-small text-success">
+                <Icon name="check" small />
+                <span>{t(copy.ambient.e5TestNotificationSent, locale)}</span>
               </p>
             )}
-            <Button variant="quiet" lang={locale} loading={pending} onClick={handleDisablePush}>
-              {t(copy.ambient.e5DisableAction, locale)}
-            </Button>
           </div>
         )}
 
         {showDenied && (
-          <div className="flex flex-col gap-3" data-testid="push-denied">
+          <div className="jr-group flex flex-col gap-4 p-4" data-testid="push-denied">
             <InlineNotice tone="info" title={t(copy.ambient.e5DeniedNoticeTitle, locale)}>
               {t(copy.ambient.e5DeniedNoticeBody, locale)}
             </InlineNotice>
             <div className="flex flex-col gap-1">
-              <span className="type-body-strong">{t(copy.ambient.e5DeniedHowToTitle, locale)}</span>
-              <span className="type-body-small">{t(copy.ambient.e5DeniedHowToBody, locale)}</span>
+              <h3 className="m-0 type-body-strong text-navy">{t(copy.ambient.e5DeniedHowToTitle, locale)}</h3>
+              <p className="m-0 type-body">{t(copy.ambient.e5DeniedHowToBody, locale)}</p>
             </div>
-            <p className="type-caption">{t(copy.ambient.e5DeniedFooterNote, locale)}</p>
+            <p className="m-0 type-body-small text-ink-muted">{t(copy.ambient.e5DeniedFooterNote, locale)}</p>
           </div>
         )}
 
@@ -213,15 +229,17 @@ export function NotificationsScreen({
             <InlineNotice tone="info" title={t(copy.ambient.e5IosNoticeTitle, locale)}>
               {t(copy.ambient.e5IosNoticeBody, locale)}
             </InlineNotice>
-            <div className="flex flex-col gap-1">
-              <span className="type-body-strong">{t(copy.ambient.e5IosStepsTitle, locale)}</span>
-              <ol className="flex flex-col gap-1 ps-5 type-body-small">
-                <li>{t(copy.ambient.e5IosStep1, locale)}</li>
-                <li>{t(copy.ambient.e5IosStep2, locale)}</li>
-                <li>{t(copy.ambient.e5IosStep3, locale)}</li>
-                <li>{t(copy.ambient.e5IosStep4, locale)}</li>
-              </ol>
-            </div>
+            <h3 className="m-0 px-1 pt-2 type-body-strong text-navy">{t(copy.ambient.e5IosStepsTitle, locale)}</h3>
+            <ol className="jr-group m-0 flex list-none flex-col p-0">
+              {[copy.ambient.e5IosStep1, copy.ambient.e5IosStep2, copy.ambient.e5IosStep3, copy.ambient.e5IosStep4].map((step, i) => (
+                <li key={i} className={`flex items-start gap-3 px-4 py-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+                  <span className="jr-num flex size-5 flex-none items-center justify-center rounded-full bg-navy-tint type-body-strong text-navy" aria-hidden="true">
+                    {formatNumber(i + 1, locale)}
+                  </span>
+                  <span className="type-body">{t(step, locale)}</span>
+                </li>
+              ))}
+            </ol>
             <Button variant="secondary" size="lg" fullWidth lang={locale} icon="link" loading={pending} onClick={handleConnectChat}>
               {t(copy.ambient.e5IosChatInsteadAction, locale)}
             </Button>
@@ -230,14 +248,14 @@ export function NotificationsScreen({
       </section>
 
       {/* Chat (optional) */}
-      <section className="flex flex-col gap-3" data-testid="chat-section">
-        <span className="type-h2">{t(copy.ambient.e5ChatSectionTitle, locale)}</span>
-        <p className="type-body-small">{t(copy.ambient.e5ChatSummary, locale)}</p>
+      <section className="flex flex-col gap-2" data-testid="chat-section">
+        <h2 className="jr-group-title">{t(copy.ambient.e5ChatSectionTitle, locale)}</h2>
+        <p className="m-0 px-1 type-body-small text-ink-muted">{t(copy.ambient.e5ChatSummary, locale)}</p>
 
         {messaging.status === 'not_connected' && (
-          <div className="flex flex-col gap-3" data-testid="chat-not-connected">
-            <InlineNotice tone="info" title={t(copy.ambient.e5ChatNotConnectedBody, locale)} />
-            <p className="type-body-small">{t(copy.ambient.e5ChatStepsBody, locale)}</p>
+          <div className="jr-group flex flex-col gap-4 p-4" data-testid="chat-not-connected">
+            <p className="m-0 type-body-strong text-navy">{t(copy.ambient.e5ChatNotConnectedBody, locale)}</p>
+            <p className="m-0 type-body">{t(copy.ambient.e5ChatStepsBody, locale)}</p>
             {/* One primary per screen (UX §2, audit M19): while the browser section still offers its
                 own primary "Enable notifications", the chat's action steps down to secondary; once
                 that choice is made (granted/denied/unsupported), this is the screen's one primary. */}
@@ -257,8 +275,13 @@ export function NotificationsScreen({
 
         {messaging.status === 'connected' && (
           <div className="flex flex-col gap-3" data-testid="chat-connected">
-            <InlineNotice tone="success" title={interpolate(t(copy.ambient.e5ChatConnectedSinceTemplate, locale), { date: messaging.connectedAt ? formatDate(messaging.connectedAt.slice(0, 10), locale) : '' })} />
-            <div className="flex gap-2">
+            <InlineNotice
+              tone="success"
+              title={interpolate(t(copy.ambient.e5ChatConnectedSinceTemplate, locale), {
+                date: messaging.connectedAt ? formatDate(messaging.connectedAt.slice(0, 10), locale) : '',
+              })}
+            />
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" lang={locale} loading={pending} onClick={handleSendTestMessage}>
                 {t(copy.ambient.e5SendTestMessageAction, locale)}
               </Button>
@@ -267,8 +290,9 @@ export function NotificationsScreen({
               </Button>
             </div>
             {testMessageSent && (
-              <p role="status" aria-live="polite" className="type-caption">
-                {t(copy.vocabulary.copied, locale)}
+              <p role="status" aria-live="polite" className="m-0 flex items-center gap-2 px-1 type-body-small text-success">
+                <Icon name="check" small />
+                <span>{t(copy.ambient.e5TestMessageSent, locale)}</span>
               </p>
             )}
           </div>
@@ -285,8 +309,9 @@ export function NotificationsScreen({
           </div>
         )}
 
-        <p className="type-caption">
-          {interpolate(t(copy.ambient.e5BotHandleTemplate, locale), { handle: botHandle })} · {t(copy.ambient.e5SimulatedNote, locale)}
+        <p className="m-0 px-1 pt-1 type-caption text-ink-muted">
+          {interpolate(t(copy.ambient.e5BotHandleTemplate, locale), { handle: '\u2068' + botHandle + '\u2069' })}
+          {simulated ? ` · ${t(copy.ambient.e5SimulatedNote, locale)}` : null}
         </p>
       </section>
 

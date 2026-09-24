@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { copy, t } from '@/i18n';
 import { formatNumber } from '@/i18n/format';
 import { interpolate } from '@/features/shell/interpolate';
-import { splitDoseHistory, timelineWhen } from './format';
+import { historyWhen, splitDoseHistory } from './format';
 import { DoseHistoryList, type DoseHistoryRow } from './DoseHistoryList';
 import type { Locale } from '@/i18n/locale';
 import type { Dose } from '@/types/contracts';
@@ -31,19 +31,22 @@ export interface DoseHistorySectionProps {
 export function DoseHistorySection({ history, nowIso, locale, trackingOffNote }: DoseHistorySectionProps) {
   const { past, planned, pastVisible, plannedVisible } = splitDoseHistory(history, nowIso);
   const toRow = (d: Pick<Dose, 'scheduledAt' | 'status' | 'tracked'>): DoseHistoryRow => ({
-    ...timelineWhen(d.scheduledAt, locale),
+    ...historyWhen(d.scheduledAt, locale),
     status: d.status,
     tracked: d.tracked,
   });
   const showFewer = t(copy.prescription.doseHistoryShowFewer, locale);
 
+  // Daylight: each list in one card under a quiet heading; side by side once the column is wide
+  // enough for two (a container query, so B3 and F3 lay out the same in any shell).
   return (
-    <>
-      <section className="flex flex-col gap-2">
-        <h2 className="type-h2">{t(copy.prescription.doseHistoryTitle, locale)}</h2>
+    <div className="@container">
+      <div className={['grid items-start gap-5', planned.length > 0 ? '@[640px]:grid-cols-2' : null].filter(Boolean).join(' ')}>
+      <section className="flex min-w-0 flex-col gap-2">
+        <h2 className="jr-group-title">{t(copy.prescription.doseHistoryTitle, locale)}</h2>
         {trackingOffNote}
         {past.length === 0 ? (
-          <p className="type-body-small">{t(copy.prescription.doseHistoryEmpty, locale)}</p>
+          <p className="type-body-small px-1 text-ink-muted">{t(copy.prescription.doseHistoryEmpty, locale)}</p>
         ) : (
           <DoseHistoryList
             rows={past.map(toRow)}
@@ -56,8 +59,8 @@ export function DoseHistorySection({ history, nowIso, locale, trackingOffNote }:
       </section>
 
       {planned.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="type-h2">{t(copy.prescription.doseHistoryPlannedTitle, locale)}</h2>
+        <section className="flex min-w-0 flex-col gap-2">
+          <h2 className="jr-group-title">{t(copy.prescription.doseHistoryPlannedTitle, locale)}</h2>
           <DoseHistoryList
             rows={planned.map(toRow)}
             visibleCount={plannedVisible}
@@ -67,6 +70,7 @@ export function DoseHistorySection({ history, nowIso, locale, trackingOffNote }:
           />
         </section>
       )}
-    </>
+      </div>
+    </div>
   );
 }

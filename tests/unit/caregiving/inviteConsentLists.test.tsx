@@ -15,6 +15,8 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import icons from '@/design/icons.json';
 import { InviteConsent } from '@/features/caregiving/InviteConsent';
 import { copy, t } from '@/i18n';
+import { interpolate } from '@/features/shell/interpolate';
+import { localizeRelationship } from '@/i18n/localize';
 import type { Locale } from '@/i18n/locale';
 import type { InvitationSummary } from '@/types/views';
 
@@ -47,16 +49,25 @@ const SEE_KEYS = ['f0CanSee1', 'f0CanSee2', 'f0CanSee3', 'f0CanSee4'] as const;
 const NEVER_KEYS = ['f0Cannot1', 'f0Cannot2', 'f0Cannot3', 'f0Cannot4'] as const;
 
 describe('F0 — the relationship is quoted, never asserted in the reader’s voice (M4)', () => {
-  it('ar: صلة القرابة في الطلب: «ابني». — and no "يقول إنك ابني"', () => {
+  // The quote is the catalogue's template filled with the patient's own word, in the reader's
+  // language (CR-071: 'ابني' reads “my son” in English; Arabic keeps the stored word).
+  const quoted = (locale: Locale) =>
+    interpolate(t(copy.caregiving.f0RelationshipTemplate, locale), { relationship: localizeRelationship('ابني', locale) });
+
+  it('ar: صلة القرابة في الدعوة: «ابني». and no "يقول إنك ابني"', () => {
     const { baseElement } = renderConsent('ar');
-    expect(screen.getByText('صلة القرابة في الطلب: «ابني».')).toBeInTheDocument();
+    expect(quoted('ar')).toBe('صلة القرابة في الدعوة: «ابني».');
+    expect(screen.getByText(quoted('ar'))).toBeInTheDocument();
     expect(baseElement.textContent).not.toContain('يقول إنك');
   });
 
-  it('en: Described you as “ابني”. — and no "Says you are their"', () => {
+  it('en: Described you as “my son”. and no "Says you are their", no Arabic script at all', () => {
     const { baseElement } = renderConsent('en');
-    expect(screen.getByText('Described you as “ابني”.')).toBeInTheDocument();
+    expect(quoted('en')).toBe('Described you as “my son”.');
+    expect(screen.getByText(quoted('en'))).toBeInTheDocument();
     expect(baseElement.textContent).not.toContain('Says you are their');
+    // One language per locale: neither the first name nor the relationship leaks in Arabic.
+    expect(baseElement.textContent).not.toMatch(/[\u0600-\u06FF]/);
   });
 });
 
@@ -90,7 +101,10 @@ describe('F0 — "you will see" and "you will never be able to" cannot be mistak
   }
 
   it('the negative heading is unambiguous in both languages', () => {
-    expect(t(copy.caregiving.f0CannotTitle, 'ar')).toBe('هذي أشياء ما تقدر تسويها أبدًا:');
+    // It opens with the negation and says "never" (أبدًا): it cannot be read as a permission, as
+    // the old 'وما راح تقدر:' could ("and what you'll be able to").
+    expect(t(copy.caregiving.f0CannotTitle, 'ar')).toBe('لن تستطيع أبدًا:');
+    expect(t(copy.caregiving.f0CannotTitle, 'ar')).toMatch(/^لن .*أبدًا/);
     expect(t(copy.caregiving.f0CannotTitle, 'en')).toBe('You will never be able to:');
   });
 });

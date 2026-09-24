@@ -8,6 +8,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { CalendarSync } from '@/features/ambient/CalendarSync';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
+import { copy } from '@/i18n';
+
+const SUBSCRIBE = copy.ambient.e1SubscribeAction.en;
 
 const refresh = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
@@ -27,12 +30,12 @@ describe('CalendarSync — off (حمد has never subscribed)', () => {
     render(<CalendarSync patientId="pt-01" subscription={null} locale="en" />);
     expect(screen.getByTestId('calendar-off')).toBeInTheDocument();
     expect(screen.queryByTestId('calendar-on')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create subscription link' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: SUBSCRIBE })).toBeInTheDocument();
   });
 
   it('subscribing calls the real enableCalendarSync and then shows the exact returned link, never constructed on screen', async () => {
     render(<CalendarSync patientId="pt-01" subscription={null} locale="en" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create subscription link' }));
+    fireEvent.click(screen.getByRole('button', { name: SUBSCRIBE }));
     const input = await screen.findByDisplayValue(/^webcal:\/\//);
     expect(input).toHaveValue('webcal://jurah.app/calendar/pt-01.ics');
     expect(refresh).toHaveBeenCalled();
@@ -49,7 +52,8 @@ describe('CalendarSync — on (سارة is already subscribed)', () => {
       />,
     );
     expect(screen.getByDisplayValue('webcal://jurah.app/calendar/pt-03.ics')).toBeInTheDocument();
-    expect(screen.getByText('Sync is one-directional')).toBeInTheDocument();
+    expect(screen.getByText(copy.ambient.e1OneDirectionalTitle.en)).toBeInTheDocument();
+    expect(document.querySelector('.wsf-notice--warning')).not.toBeInTheDocument();
     expect(screen.queryByText('tok-03')).not.toBeInTheDocument(); // the token itself is never printed
   });
 });

@@ -1,5 +1,5 @@
+import { formatNumber } from '@/i18n/format';
 import { copy, t, type Locale } from '@/i18n';
-import './styles/StepIndicator.css';
 
 export interface StepIndicatorProps {
   /** One label per step, used as the assistive-technology name of that step. Never more than four
@@ -43,7 +43,7 @@ export function StepIndicator({ steps, current, label, lang = 'en', className }:
         })}
       </ol>
       <p className="wsf-stepind__caption type-caption">
-        {t(copy.vocabulary.stepOf, lang)} {current + 1} {t(copy.vocabulary.of, lang)} {steps.length}
+        {t(copy.vocabulary.stepOf, lang)} {formatNumber(current + 1, lang)} {t(copy.vocabulary.of, lang)} {formatNumber(steps.length, lang)}
       </p>
     </div>
   );

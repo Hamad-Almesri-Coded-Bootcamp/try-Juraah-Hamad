@@ -3,6 +3,8 @@ import { Card } from './Card';
 import { StatusPill, type DoseStatus } from './StatusPill';
 import { SectorChip, type Sector } from './SectorChip';
 import { Icon } from './Icon';
+import { Monogram } from './Monogram';
+import { localizeDrugName, localizeFacility } from '@/i18n/localize';
 import type { Locale } from '@/i18n';
 import { formatStrength, isStrengthUnit, type StrengthUnit } from '@/i18n/format';
 
@@ -27,6 +29,8 @@ export interface PrescriptionCardProps {
   /** Fallback unit for a summary that carries no `drug.strengthUnit` (index.d.ts) — never converted.
    * The prescription's own unit always wins; with neither, the contract's default (mg). */
   strengthUnit?: string;
+  /** Extra lines under the card's meta: the dose times, the supply remaining (Daylight, CR-071). */
+  children?: React.ReactNode;
   lang?: Locale;
   className?: string;
 }
@@ -41,6 +45,7 @@ export function PrescriptionCard({
   doseTimeLabel,
   onOpen,
   strengthUnit,
+  children,
   lang = 'en',
   className,
 }: PrescriptionCardProps) {
@@ -49,20 +54,22 @@ export function PrescriptionCard({
   const unit = drug.strengthUnit ?? (isStrengthUnit(fallbackUnit) ? fallbackUnit : undefined);
   // One formatter for every strength on every screen (audit M7): locale digits, one unit word.
   const strengthText = drug.strengthMg != null ? formatStrength(drug.strengthMg, unit, lang) : null;
-  const primaryName = drug.brandName ?? drug.genericName;
+  const generic = localizeDrugName(drug.genericName, lang);
+  const primaryName = drug.brandName ? localizeDrugName(drug.brandName, lang) : generic;
   const showGenericLine = Boolean(drug.brandName);
 
   return (
     <Card onClick={onOpen} className={['wsf-rx', className].filter(Boolean).join(' ')}>
+      <Monogram name={!drug.brandName && drug.genericName === '(unreadable)' ? '(unreadable)' : primaryName} />
       <span className="wsf-rx__body">
         <span className="wsf-rx__name type-body-strong">
           {primaryName}
           {strengthText ? <span> {strengthText}</span> : null}
         </span>
-        {showGenericLine ? <span className="wsf-rx__generic type-body-small">{drug.genericName}</span> : null}
+        {showGenericLine ? <span className="wsf-rx__generic type-body-small">{generic}</span> : null}
         <span className="wsf-rx__meta">
           <SectorChip sector={source.sector} lang={lang} />
-          <span className="type-body-small">{source.facilityName}</span>
+          <span className="type-body-small">{localizeFacility(source.facilityName, lang)}</span>
         </span>
         {dose ? (
           <span className="wsf-rx__dose">
@@ -70,6 +77,7 @@ export function PrescriptionCard({
             {doseTimeLabel ? <span className="type-body-small">{doseTimeLabel}</span> : null}
           </span>
         ) : null}
+        {children ? <span className="wsf-rx__extra">{children}</span> : null}
       </span>
       {onOpen ? <Icon name="chevron" mirror className="wsf-rx__go" /> : null}
     </Card>

@@ -7,6 +7,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MedicinesList } from '@/features/day/MedicinesList';
+import { copy, t } from '@/i18n';
+import { formatDaysLeft } from '@/i18n/format';
 import type { InteractionAlert, Prescription } from '@/types/contracts';
 
 afterEach(cleanup);
@@ -17,7 +19,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
 const rxWarfarin: Prescription = {
   id: 'rx-001',
   patientId: 'pt-01',
-  source: { facilityName: 'Farwaniya Hospital', sector: 'public' },
+  source: { facilityName: 'مستشفى الفروانية', sector: 'public' },
   drug: { genericName: 'Warfarin', brandName: 'Marevan', strengthMg: 5 },
   dosePerAdministration: 1,
   frequencyPerDay: 1,
@@ -32,7 +34,7 @@ const rxWarfarin: Prescription = {
 const rxAtorvastatin: Prescription = {
   id: 'rx-004',
   patientId: 'pt-01',
-  source: { facilityName: 'Farwaniya Hospital', sector: 'public' },
+  source: { facilityName: 'مستشفى الفروانية', sector: 'public' },
   drug: { genericName: 'Atorvastatin', brandName: 'Lipitor', strengthMg: 20 },
   dosePerAdministration: 1,
   frequencyPerDay: 1,
@@ -43,7 +45,24 @@ const rxAtorvastatin: Prescription = {
   needsReview: false,
   status: 'discontinued',
   discontinuedAt: '2026-06-28',
-  discontinuedReason: 'Doctor stopped it for muscle pain',
+  discontinuedReason: 'الطبيب أوقف الدواء بسبب آلام العضلات',
+};
+
+// A second active medicine with a dispensing record and no part in any finding (rx-003's shape).
+const rxMetformin: Prescription = {
+  id: 'rx-003',
+  patientId: 'pt-01',
+  source: { facilityName: 'مستشفى الفروانية', sector: 'public' },
+  drug: { genericName: 'Metformin', brandName: 'Glucophage', strengthMg: 500 },
+  dosePerAdministration: 1,
+  frequencyPerDay: 2,
+  durationDays: 180,
+  dosingPattern: 'daily',
+  startDate: '2026-06-15',
+  doseTimes: ['08:00', '20:00'],
+  dispensing: { unitsPerPackage: 60, totalQuantityDispensed: 60, dispenseDate: '2026-09-01' },
+  needsReview: false,
+  status: 'active',
 };
 
 const dangerAlert: InteractionAlert = {
@@ -164,21 +183,26 @@ describe('MedicinesList — the alert is never a dead end (audit C6)', () => {
     expect(screen.getByRole('button', { name: 'See all safety alerts' })).toHaveClass('wsf-btn--quiet');
   });
 
-  it('a pending danger alert carries §8 part two — what to do right now — in its review line', () => {
-    render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={(a) => `/en/app/safety/${a.id}`} />);
-    expect(screen.getByText(/do not stop or change any medication yourself/i)).toBeInTheDocument();
-    expect(screen.getByText(/a doctor or pharmacist is reviewing this/i)).toBeInTheDocument();
+  it('a pending danger alert carries §8 parts two and three — what to do now, who is checking — in its review line', () => {
+    const { container } = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={(a) => `/en/app/safety/${a.id}`} />);
+    const review = container.querySelector('.wsf-alert__review')?.textContent ?? '';
+    expect(review).toContain(t(copy.safety.c2WhatToDoHeading, 'en'));
+    expect(review).toContain(t(copy.safety.c2WhatToDoPendingBody, 'en'));
   });
 
   it('a non-danger alert keeps the built-in review sentence (no manufactured alarm, UX §8)', () => {
-    render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[infoAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={(a) => `/en/app/safety/${a.id}`} />);
-    expect(screen.queryByText(/do not stop or change/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/screened automatically/i)).toBeInTheDocument();
+    const { container } = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[infoAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={(a) => `/en/app/safety/${a.id}`} />);
+    expect(container.textContent).not.toContain(t(copy.safety.c2WhatToDoPendingBody, 'en'));
+    expect(screen.getByText(t(copy.vocabulary.auto_cleared, 'en'))).toBeInTheDocument();
   });
 
-  it('Arabic drug line: Arabic-Indic digits and the Arabic unit word (audit M7)', () => {
-    const { container } = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="ar" hrefBuilder={null} alertHrefBuilder={null} />);
-    expect(container.querySelector('.wsf-alert__drugs')?.textContent).toBe('Warfarin ٥ ملغم — Farwaniya Hospital');
+  it('drug line: brand first, the strength and the facility in the reader’s language, joined with " · ", never a dash (audit M7, CR-071)', () => {
+    const ar = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="ar" hrefBuilder={null} alertHrefBuilder={null} />);
+    expect(ar.container.querySelector('.wsf-alert__drugs')?.textContent).toBe('ماريفان ٥ ملغم · مستشفى الفروانية');
+    cleanup();
+    const en = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />);
+    expect(en.container.querySelector('.wsf-alert__drugs')?.textContent).toBe('Marevan 5 mg · Farwaniya Hospital');
+    expect(en.container.textContent).not.toMatch(/[—–]/);
   });
 });
 
@@ -215,8 +239,62 @@ describe('MedicinesList — rule 3 / G10 on the card', () => {
 describe('MedicinesList — past group', () => {
   it('shows the discontinuation reason and date, no refill action', () => {
     render(<MedicinesList prescriptions={[rxAtorvastatin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />);
-    expect(screen.getByText(/Doctor stopped it for muscle pain/)).toBeInTheDocument();
+    expect(screen.getByText(/muscle pain/)).toBeInTheDocument();
+    expect(screen.getByText(/June 28, 2026/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /refill/i })).not.toBeInTheDocument();
+  });
+
+  it('one locale, one script (CR-071): the Arabic past row shows no Latin, the English one no Arabic', () => {
+    const ar = render(<MedicinesList prescriptions={[rxAtorvastatin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="ar" hrefBuilder={(rx) => `/ar/app/medicines/${rx.id}`} alertHrefBuilder={null} />);
+    expect(ar.container.textContent).not.toMatch(/[A-Za-z]/);
+    expect(ar.container.querySelector('a[href="/ar/app/medicines/rx-004"]')).not.toBeNull();
+    cleanup();
+    const en = render(<MedicinesList prescriptions={[rxAtorvastatin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />);
+    expect(en.container.textContent).not.toMatch(/[\u0600-\u06FF]/);
+  });
+});
+
+describe('MedicinesList — the rich card (Daylight)', () => {
+  it('marks only the medicines in a standing danger finding as part of a serious interaction', () => {
+    const { container } = render(
+      <MedicinesList prescriptions={[rxWarfarin, rxMetformin]} alerts={[dangerAlert]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />,
+    );
+    const cards = [...container.querySelectorAll('.wsf-rx')];
+    const flag = t(copy.day.partOfSeriousInteraction, 'en');
+    expect(cards[0]!.textContent).toContain(flag); // Warfarin, in ia-001
+    expect(cards[1]!.textContent).not.toContain(flag); // Metformin, in none
+  });
+
+  it('a cleared danger finding marks nothing (only a finding that still stands does)', () => {
+    const cleared: InteractionAlert = { ...dangerAlert, reviewStatus: 'reviewed', reviewerDecision: 'cleared' };
+    const { container } = render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[cleared]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />);
+    expect(container.querySelector('.wsf-rx')!.textContent).not.toContain(t(copy.day.partOfSeriousInteraction, 'en'));
+  });
+
+  it('shows supply left only with a dispensing record, never an invented estimate', () => {
+    const { container } = render(
+      <MedicinesList prescriptions={[rxWarfarin, rxMetformin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} />,
+    );
+    const [warfarin, metformin] = [...container.querySelectorAll('.wsf-rx')];
+    expect(warfarin!.textContent).not.toMatch(/supply left/); // rxWarfarin carries no dispensing here
+    // Metformin: 60 dispensed on 1 Sept, two a day, 20 days elapsed at REFERENCE_NOW → 20 left, 10 days.
+    expect(metformin!.textContent).toContain(formatDaysLeft(10, 'en'));
+  });
+
+  it('lists every dose time as its own pill, in the reader’s digits', () => {
+    const { container } = render(<MedicinesList prescriptions={[rxMetformin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="ar" hrefBuilder={null} alertHrefBuilder={null} />);
+    const text = container.querySelector('.wsf-rx')!.textContent ?? '';
+    expect(text).toContain('٨:٠٠');
+    expect(text).toContain('٢٠:٠٠');
+    expect(text).not.toMatch(/[0-9A-Za-z]/);
+  });
+
+  it('offers "Add a prescription by photo" beside a full list too — never in the read-only caregiver view', () => {
+    render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} addHref="/en/app/medicines/add" />);
+    expect(screen.getByRole('button', { name: t(copy.day.addPrescriptionAction, 'en') })).toBeInTheDocument();
+    cleanup();
+    render(<MedicinesList prescriptions={[rxWarfarin]} alerts={[]} nextDoseByPrescriptionId={{}} tracked={false} locale="en" hrefBuilder={null} alertHrefBuilder={null} addHref="/en/app/medicines/add" readOnly />);
+    expect(screen.queryByRole('button', { name: t(copy.day.addPrescriptionAction, 'en') })).not.toBeInTheDocument();
   });
 });
 

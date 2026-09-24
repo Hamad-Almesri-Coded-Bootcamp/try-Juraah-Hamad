@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { DoseDayList } from '@/features/day/DoseDayList';
+import { copy } from '@/i18n';
 import type { DoseWithPrescription } from '@/types/views';
 
 afterEach(cleanup);
@@ -70,7 +71,7 @@ describe('DoseDayList', () => {
   it('omits the "turn tracking on" Button when readOnly, but keeps the explanation', () => {
     render(<DoseDayList doses={[makeDose()]} tracked={false} locale="en" hrefBuilder={null} readOnly settingsHref="/en/app/more/settings" />);
     expect(screen.queryByRole('button', { name: 'Turn it on' })).not.toBeInTheDocument();
-    expect(screen.getByText(/not tracking your doses/i)).toBeInTheDocument();
+    expect(screen.getByText(copy.day.trackingOffNotice.en)).toBeInTheDocument();
   });
 
   it('an empty state’s action renders beside the dose-list root, never inside it (audit M12, G1)', () => {

@@ -1,25 +1,19 @@
 import { getSession } from '@/lib/session';
 import { getPatient, getSettings, getPushState, getMessagingLink, getCaregivers } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
-import { Card } from '@/components/ui/Card';
 import { DetailRow } from '@/components/ui/DetailRow';
 import { MenuRow } from '@/components/ui/MenuRow';
+import { Monogram } from '@/components/ui/Monogram';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { SignOutButton } from '@/features/shell/SignOutButton';
 import { interpolate } from '@/features/shell/interpolate';
 import { copy, t } from '@/i18n';
 import { formatNumber } from '@/i18n/format';
+import { localizePersonName } from '@/i18n/localize';
 import { screenTitles } from '@/i18n/copy/shell';
 import { PhoneEditor } from './PhoneEditor';
 import type { Locale } from '@/i18n/locale';
 import type { MessagingLink, PushSubscription } from '@/types/views';
-
-/** Two letters for the avatar mark — the patient's own name, shown in full elsewhere on this
- * screen; nothing here is another person's identity (rule 6 only guards OTHER people's names). */
-function initialsOf(name: string): string {
-  const parts = name.split(/\s+/).filter(Boolean);
-  return parts.slice(0, 2).map((p) => p[0]).join(' ');
-}
 
 function pushLabel(push: PushSubscription | null): keyof typeof copy.identity {
   if (push?.permission === 'denied') return 'pushBlocked';
@@ -32,7 +26,8 @@ function chatLabel(link: MessagingLink): keyof typeof copy.identity {
 }
 
 /**
- * A3 — profile / account (patient). Name and identity line (CR-001/CR-026: no Civil ID, masked or
+ * A3 — profile / account (patient), Daylight (CR-071): grouped cards, the name (in the reader's
+ * language, CR-071) beside its monogram. Name and identity line (CR-001/CR-026: no Civil ID, masked or
  * whole — "signed in via Hawiati (simulated)" instead) · notification status, both neutral, each
  * linking to E5 · optional contact phone · language, display-only (G2: the switch lives in the app
  * bar) · linked-caregiver count, linking to F1 · sign out, which exists nowhere else in this shell.
@@ -53,6 +48,8 @@ export async function ProfileScreen({ locale }: { locale: Locale }) {
 
   const activeCaregivers = caregivers.filter((c) => c.status === 'active').length;
   const languageLabel = t(settings.language === 'en' ? copy.identity.languageEn : copy.identity.languageAr, locale);
+  // The patient's own name, in the reader's language (CR-071); the monogram takes its first letters.
+  const name = localizePersonName(patient.name, locale);
 
   return (
     <div className="relative flex min-h-full flex-col">
@@ -62,35 +59,39 @@ export async function ProfileScreen({ locale }: { locale: Locale }) {
         backLabel={t(copy.vocabulary.back, locale)}
         action={<LanguageSwitch locale={locale} role="patient" subjectId={patientId} />}
       />
-      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
-        <Card className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex size-avatar items-center justify-center rounded-full bg-navy-tint type-body-strong">
-            {initialsOf(patient.name)}
+      <div className="flex w-full flex-col gap-5 px-3 pb-5 pt-2 tablet:px-5">
+        <section className="jr-group flex items-center gap-4 p-4" data-testid="profile-identity">
+          <Monogram name={name} size="lg" />
+          <span className="flex min-w-0 flex-col">
+            <span className="jr-display type-h2 text-navy">{name}</span>
+            <span className="type-body-small text-ink-muted">{t(copy.identity.profileRoleLabel, locale)}</span>
           </span>
-          <span className="flex flex-col">
-            <span className="type-body-strong">{patient.name}</span>
-            <span className="type-body-small">{t(copy.identity.profileRoleLabel, locale)}</span>
-          </span>
-        </Card>
+        </section>
 
-        <Card className="flex flex-col gap-3">
+        <div className="jr-group flex flex-col px-4 py-2">
           <DetailRow label={t(copy.identity.identityLineLabel, locale)} value={t(copy.identity.identityLineValue, locale)} lang={locale} />
-          <PhoneEditor patientId={patientId} initialPhone={patient.phone ?? null} locale={locale} />
           <DetailRow label={t(copy.identity.languageLabel, locale)} value={languageLabel} lang={locale} />
-        </Card>
+        </div>
 
-        <div className="flex flex-col">
+        <div className="jr-group px-4 py-4">
+          <PhoneEditor patientId={patientId} initialPhone={patient.phone ?? null} locale={locale} />
+        </div>
+
+        <div className="jr-group">
           <MenuRow
+            icon="bell"
             label={t(copy.identity.browserNotifLabel, locale)}
             value={t(copy.identity[pushLabel(push)], locale)}
             href={`/${locale}/app/more/notifications`}
           />
           <MenuRow
+            icon="link"
             label={t(copy.identity.chatLabel, locale)}
             value={t(copy.identity[chatLabel(chat)], locale)}
             href={`/${locale}/app/more/notifications`}
           />
           <MenuRow
+            icon="users"
             label={t(copy.identity.caregiverCountLabel, locale)}
             value={interpolate(t(copy.identity.caregiverCountTemplate, locale), { count: formatNumber(activeCaregivers, locale) })}
             href={`/${locale}/app/more/caregivers`}

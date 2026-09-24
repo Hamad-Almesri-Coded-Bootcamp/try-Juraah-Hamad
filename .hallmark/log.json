@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-09-24",
+    "scope": "app",
+    "macrostructure": "Daylight (app): sky header + sheet, grouped cards; landing: sky hero + bridge + numbered steps",
+    "theme": "project design system (docs/design-system) + styles/daylight.css theme layer",
+    "theme_axes": "light / geometric-sans display (Readex Pro) over humanist body (IBM Plex) / cool (navy)",
+    "enrichment": "E5 hand-built SVG (DayDial, the 24-hour day dial)",
+    "brief": "Jur'ah medication safety, Arabic-first, elderly patients; redesign every screen, same colours (CR-071)"
+  }
+]

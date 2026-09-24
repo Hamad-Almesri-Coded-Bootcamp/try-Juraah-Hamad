@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ViewTransition } from 'react';
 import { notFound } from 'next/navigation';
 import { LOCALES, directionFor, isLocale, copy, t } from '@/i18n';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
@@ -6,7 +7,7 @@ import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import '../globals.css';
 
 const FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap';
+  'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Readex+Pro:wght@400;500;600;700&display=swap';
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -52,7 +53,9 @@ export default async function LocaleLayout({
         >
           {t(copy.shell.skipToContent, locale)}
         </a>
-        {children}
+        {/* Route changes cross-fade (CR-071 "smooth"): every App Router navigation is a transition, so this
+            one boundary animates each page swap. Unsupported browsers simply swap; reduced motion disables it. */}
+        <ViewTransition>{children}</ViewTransition>
         {/* CR-067: the assistant on every page; the server decides patient answers vs app help. */}
         <AssistantLauncher locale={locale} />
         <RegisterServiceWorker />

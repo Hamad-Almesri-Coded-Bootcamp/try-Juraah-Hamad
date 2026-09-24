@@ -10,6 +10,9 @@ import { NotificationsScreen } from '@/features/ambient/NotificationsScreen';
 import { getMessagingLink } from '@/lib/data';
 import { getStore, reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
+import { copy } from '@/i18n';
+
+const A = copy.ambient;
 
 const refresh = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
@@ -46,7 +49,7 @@ describe('Browser section — four permission states', () => {
       />,
     );
     expect(screen.getByTestId('push-default')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Enable notifications' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: A.e5EnableAction.en })).toBeInTheDocument();
   });
 
   it('granted — on, alert types listed, send-test and disable both present', () => {
@@ -62,11 +65,11 @@ describe('Browser section — four permission states', () => {
       />,
     );
     expect(screen.getByTestId('push-granted')).toBeInTheDocument();
-    expect(screen.getByText('Notifications are on')).toBeInTheDocument();
-    expect(screen.getByText('Serious interaction')).toBeInTheDocument();
-    expect(screen.getByText('Dose reminder')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send a test notification' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Turn off notifications' })).toBeInTheDocument();
+    expect(screen.getByText(A.e5GrantedNoticeTitle.en)).toBeInTheDocument();
+    expect(screen.getByText(A.e5AlertDanger.en)).toBeInTheDocument();
+    expect(screen.getByText(A.e5AlertReminder.en)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: A.e5SendTestAction.en })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: A.e5DisableAction.en })).toBeInTheDocument();
   });
 
   it('denied — neutral tone: no warning/danger class on its notice, plain re-enable steps, never a nag', () => {
@@ -84,7 +87,7 @@ describe('Browser section — four permission states', () => {
     const panel = screen.getByTestId('push-denied');
     expect(panel).toBeInTheDocument();
     expect(container.querySelector('.wsf-notice--warning, .wsf-notice--danger')).not.toBeInTheDocument();
-    expect(screen.getByText('How to turn it back on')).toBeInTheDocument();
+    expect(screen.getByText(A.e5DeniedHowToTitle.en)).toBeInTheDocument();
   });
 
   it('chat expired — says so and offers retry; no seeded patient’s CURRENT chat state ever resolves to `expired` (فاطمة’s own retry link, ml-05, supersedes ml-02 — docs/backend-notes/wp4g.md), so this branch is exercised here with constructed props, matching CR-014’s own precedent for an unreachable-from-one-patient combination', () => {
@@ -100,8 +103,8 @@ describe('Browser section — four permission states', () => {
       />,
     );
     expect(screen.getByTestId('chat-expired')).toBeInTheDocument();
-    expect(screen.getByText('This link expired')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.getByText(A.e5ChatExpiredTitle.en)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: copy.vocabulary.retry.en })).toBeInTheDocument();
   });
 
   it('unsupported, generic — says so, no install steps', () => {
@@ -133,8 +136,8 @@ describe('Browser section — four permission states', () => {
       />,
     );
     expect(screen.getByTestId('push-ios-install')).toBeInTheDocument();
-    expect(screen.getByText('Add Jur’ah to the Home Screen')).toBeInTheDocument();
-    expect(screen.getByText('Tap the Share button in Safari')).toBeInTheDocument();
+    expect(screen.getByText(A.e5IosStepsTitle.en)).toBeInTheDocument();
+    expect(screen.getByText(A.e5IosStep1.en)).toBeInTheDocument();
   });
 
   it('a granted permission whose subscription this screen disabled folds into the same one-enable-action branch as default (not a fifth, undesigned state)', () => {
@@ -172,7 +175,7 @@ describe('Chat section — round trip: not_connected → pending → connected �
     expect(screen.getByTestId('chat-not-connected')).toBeInTheDocument();
     expectNoTokenInDom();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Telegram' }));
+    fireEvent.click(screen.getByRole('button', { name: A.e5OpenChatAction.en }));
     await vi.waitFor(() => expect(getStore().messagingLinks.some((l) => l.subjectId === 'pt-01' && l.status === 'pending')).toBe(true));
     const pending = getStore().messagingLinks.find((l) => l.subjectId === 'pt-01' && l.status === 'pending')!;
     expect(pending.linkToken).toBeTruthy(); // the mock does generate one — it must never surface
@@ -215,13 +218,16 @@ describe('Chat section — round trip: not_connected → pending → connected �
     expect(screen.getByTestId('chat-connected')).toBeInTheDocument();
     expectNoTokenInDom();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Send a test message' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    fireEvent.click(screen.getByRole('button', { name: A.e5SendTestMessageAction.en }));
+    // It says what happened in its own words, never the clipboard's "Copied".
+    expect(await screen.findByText(A.e5TestMessageSent.en)).toBeInTheDocument();
+    expect(screen.queryByText(copy.vocabulary.copied.en)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: A.e5DisconnectAction.en }));
     const consequences = screen.getByTestId('disconnect-consequences');
-    expect(consequences).toHaveTextContent('Daily check-in messages stop.');
-    expect(consequences).toHaveTextContent('Your recorded dose history is kept.');
+    expect(consequences).toHaveTextContent(A.e5DisconnectConsequence1.en);
+    expect(consequences).toHaveTextContent(A.e5DisconnectConsequence3.en);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Disconnect' })[1]!); // the Sheet's confirming button
+    fireEvent.click(screen.getAllByRole('button', { name: A.e5DisconnectConfirm.en })[1]!); // the Sheet's confirming button
     await vi.waitFor(() => expect(getStore().messagingLinks.find((l) => l.id === connected.id)?.status).toBe('not_connected'));
     expectNoTokenInDom();
   });
@@ -235,8 +241,8 @@ describe('E5 — exactly one primary action (UX Principles §2, audit M19)', () 
       <NotificationsScreen patientId="pt-01" permission="default" active={false} iosNeedsInstall={false} messaging={notConnected} botHandle="@jurah_bot" locale="en" />,
     );
     expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Enable notifications' })).toHaveClass('wsf-btn--primary');
-    expect(screen.getByRole('button', { name: 'Open Telegram' })).toHaveClass('wsf-btn--secondary');
+    expect(screen.getByRole('button', { name: A.e5EnableAction.en })).toHaveClass('wsf-btn--primary');
+    expect(screen.getByRole('button', { name: A.e5OpenChatAction.en })).toHaveClass('wsf-btn--secondary');
   });
 
   it('push already decided (denied) + chat not connected: "Open Telegram" is then the screen’s one primary', () => {
@@ -244,6 +250,42 @@ describe('E5 — exactly one primary action (UX Principles §2, audit M19)', () 
       <NotificationsScreen patientId="pt-01" permission="denied" active={false} iosNeedsInstall={false} messaging={notConnected} botHandle="@jurah_bot" locale="en" />,
     );
     expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Open Telegram' })).toHaveClass('wsf-btn--primary');
+    expect(screen.getByRole('button', { name: A.e5OpenChatAction.en })).toHaveClass('wsf-btn--primary');
+  });
+});
+
+describe('E5 — test sends and the demo line', () => {
+  it('after a test notification the screen says it was sent, never "Copied"', async () => {
+    setScriptSession({ subjectId: 'pt-03', role: 'patient' });
+    render(
+      <NotificationsScreen
+        patientId="pt-03"
+        permission="granted"
+        active
+        iosNeedsInstall={false}
+        messaging={{ id: 'ml-03', subjectType: 'patient', subjectId: 'pt-03', channel: 'telegram', status: 'connected', connectedAt: '2026-08-11T00:00:00+03:00' }}
+        botHandle="@jurah_bot"
+        locale="en"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: A.e5SendTestAction.en }));
+    expect(await screen.findByText(A.e5TestNotificationSent.en)).toBeInTheDocument();
+    expect(screen.queryByText(copy.vocabulary.copied.en)).not.toBeInTheDocument();
+  });
+
+  it('the "this is a demo" line shows only while the bot is simulated', () => {
+    const props = {
+      patientId: 'pt-01',
+      permission: 'default' as const,
+      active: false,
+      iosNeedsInstall: false,
+      messaging: { id: 'ml-01', subjectType: 'patient' as const, subjectId: 'pt-01', channel: 'telegram' as const, status: 'not_connected' as const },
+      botHandle: '@jurah_bot',
+      locale: 'en' as const,
+    };
+    const { rerender } = render(<NotificationsScreen {...props} simulated />);
+    expect(screen.getByText(new RegExp(A.e5SimulatedNote.en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
+    rerender(<NotificationsScreen {...props} simulated={false} />);
+    expect(screen.queryByText(new RegExp(A.e5SimulatedNote.en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).not.toBeInTheDocument();
   });
 });

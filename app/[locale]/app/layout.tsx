@@ -28,7 +28,8 @@ export default async function PatientShellLayout({ children, params }: { childre
 
   if (path.startsWith('/app/setup')) {
     return (
-      <div className="relative min-h-dvh" id="main-content">
+      // First-run setup carries no chrome and no assistant (CR-069(k)).
+      <div className="relative min-h-dvh" id="main-content" data-no-assistant="">
         {children}
       </div>
     );
@@ -50,6 +51,8 @@ export default async function PatientShellLayout({ children, params }: { childre
       label={t(copy.shell.mainNavigationLabel, locale)}
       wordmark={t(copy.shell.appName, locale)}
       railOnly={!isTabRoot}
+      tabRootPaths={[`/${locale}/app`, `/${locale}/app/medicines`, `/${locale}/app/safety`]}
+      tabRootPrefixes={[`/${locale}/app/more`]}
     >
       <div id="main-content">{children}</div>
     </AppShell>

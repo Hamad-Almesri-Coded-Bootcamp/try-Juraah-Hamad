@@ -18,7 +18,14 @@ export function patientTabs(locale: Locale): TabBarItems {
 export function caregiverTabs(locale: Locale): TabBarItems {
   return [
     { id: 'today', label: t(copy.shell.careTabToday, locale), icon: 'clock', href: `/${locale}/care` },
-    { id: 'medicines', label: t(copy.shell.careTabMedicines, locale), icon: 'capsule', href: `/${locale}/care/medicines` },
+    {
+      id: 'medicines',
+      label: t(copy.shell.careTabMedicines, locale),
+      icon: 'capsule',
+      href: `/${locale}/care/medicines`,
+      // A read-only alert opens from the caregiver's Medicines (F2 → F3), so it stays under that tab.
+      activePrefixes: [`/${locale}/care/alerts`],
+    },
     { id: 'more', label: t(copy.shell.careTabMore, locale), icon: 'settings', href: `/${locale}/care/more` },
   ];
 }

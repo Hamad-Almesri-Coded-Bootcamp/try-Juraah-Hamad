@@ -13,6 +13,7 @@ vi.mock('@/lib/data', () => ({
 }));
 
 import { DrugCheckFlow } from '@/features/supply/DrugCheckFlow';
+import { copy, t } from '@/i18n';
 
 afterEach(() => cleanup());
 
@@ -22,7 +23,7 @@ describe('C3 — interaction_found without an alert id', () => {
     const [input] = Array.from(container.querySelectorAll('input[type="file"]'));
     fireEvent.change(input as HTMLInputElement, { target: { files: [new File([new Uint8Array(200)], 'box.jpg', { type: 'image/jpeg' })] } });
 
-    await screen.findByText(/Ask your pharmacist or doctor before taking it/);
+    await screen.findByText(t(copy.supply.c3InteractionNoDetailsDescription, 'en'));
     expect(screen.getAllByText('Clarithromycin').length).toBeGreaterThan(0);
     expect(screen.queryByText('No interaction found')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open interaction details' })).not.toBeInTheDocument();

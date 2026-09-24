@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AddPrescriptionFlow } from '@/features/prescription/AddPrescriptionFlow';
 import { getPrescriptions } from '@/lib/data';
+import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
 
@@ -35,14 +36,27 @@ function choosePhoto(container: HTMLElement, file: File) {
   fireEvent.change(input as HTMLInputElement, { target: { files: [file] } });
 }
 
+describe('B4 — capture', () => {
+  it('says what the photo is for, with the prescriber note, and offers the two real file inputs', () => {
+    const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
+    expect(screen.getByRole('heading', { name: t(copy.prescription.b4CaptureTitle, 'en') })).toBeInTheDocument();
+    expect(screen.getByText(t(copy.prescription.b4PrescriberFieldsNote, 'en'))).toBeInTheDocument();
+    expect(container.querySelectorAll('input[type="file"]')).toHaveLength(2);
+    // Never a text input for a prescriber-owned field (B4's invariant).
+    expect(container.querySelectorAll('input[type="text"], textarea')).toHaveLength(0);
+  });
+});
+
 describe('B4 — confident outcome (100+ bytes)', () => {
   it('shows the review-and-confirm DetailRows, and confirming saves a real record and navigates back', async () => {
     const before = await getPrescriptions('pt-01');
     const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
     choosePhoto(container, fileOfSize(150));
 
-    await screen.findByText('Review before saving');
+    await screen.findByText(t(copy.prescription.b4ReviewHeading, 'en'));
     expect(screen.getByText('Ibuprofen')).toBeInTheDocument();
+    // The prescriber note belongs to the capture step only (copy pass), never to the review.
+    expect(screen.queryByText(t(copy.prescription.b4PrescriberFieldsNote, 'en'))).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm and save' }));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/medicines'));
@@ -57,15 +71,18 @@ describe('B4 — needs_review outcome (1–99 bytes)', () => {
     const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
     choosePhoto(container, fileOfSize(50));
 
-    await screen.findByText('Some fields need confirmation');
+    await screen.findByText(t(copy.prescription.b4NeedsReviewNoticeTitle, 'en'));
     expect(screen.getAllByText('Unclear in the photo').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Confirm and save' })).toBeInTheDocument();
+    // The draft's generic name is the seed's "(unreadable)": shown in words, never the literal.
+    expect(container.textContent).not.toContain('(unreadable)');
+    expect(container.textContent).not.toMatch(/[—–]/);
   });
 
   it('says "unclear" ONCE per field — the same phrase seen and heard, never "Unclear" plus "Unclear in the photo" (audit m7)', async () => {
     const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
     choosePhoto(container, fileOfSize(50));
-    await screen.findByText('Some fields need confirmation');
+    await screen.findByText(t(copy.prescription.b4NeedsReviewNoticeTitle, 'en'));
 
     const marks = [...container.querySelectorAll('.wsf-dr__value--empty')];
     const unclear = marks.filter((m) => /Unclear/.test(m.textContent ?? ''));
@@ -86,7 +103,7 @@ describe('B4 — unreadable outcome (0 bytes): no fabricated record', () => {
     const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
     choosePhoto(container, fileOfSize(0));
 
-    await screen.findByText('We could not read this photo');
+    await screen.findByText(t(copy.prescription.b4UnreadableTitle, 'en'));
     expect(screen.getByRole('button', { name: 'Try another photo' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to My Medicines' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Confirm and save' })).not.toBeInTheDocument();
@@ -98,7 +115,7 @@ describe('B4 — unreadable outcome (0 bytes): no fabricated record', () => {
   it('retry returns to the capture state so a new photo can be chosen', async () => {
     const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
     choosePhoto(container, fileOfSize(0));
-    await screen.findByText('We could not read this photo');
+    await screen.findByText(t(copy.prescription.b4UnreadableTitle, 'en'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Try another photo' }));
     expect(screen.getByText('Prescription photo')).toBeInTheDocument();

@@ -18,17 +18,14 @@
  */
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { PhotoInput } from '@/components/ui/PhotoInput';
-import { LoadingState } from '@/components/ui/LoadingState';
-import { DetailRow } from '@/components/ui/DetailRow';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { savePrescriptionDraft, submitPrescriptionImage } from '@/lib/data';
-import { formatDate } from '@/i18n/format';
-import { formatDoseTimes, formatDurationDays, formatStrength, patternLabel } from './format';
+import { draftFields } from './format';
+import { PrescriptionFields } from './PrescriptionFields';
+import { CaptureCard, ReadingCard } from './PhotoSteps';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { ExtractionOutcome } from '@/types/views';
@@ -76,34 +73,25 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
     });
   }
 
-  const drug = outcome?.prescription.drug;
-  const strength = formatStrength(drug, locale);
-  const uncertain = outcome?.kind === 'needs_review' ? new Set(outcome.uncertainFields) : null;
-
-  function reviewRow(label: string, value: string | number | null | undefined, fieldKey?: string) {
-    const isUncertain = !!fieldKey && (uncertain?.has(fieldKey) ?? false);
-    // One phrase, seen and heard alike (audit m7): the visible mark and the screen-reader label are
-    // the same "Unclear in the photo", so no reading of the row says "unclear" twice in two wordings.
-    const unclear = isUncertain ? t(copy.prescription.unclearFieldLabel, locale) : undefined;
-    return <DetailRow label={label} value={value} lang={locale} emptyMark={unclear} emptyLabel={unclear} />;
-  }
+  // Every field a photo can carry, read-only (never a form: the prescriber owns them). One the
+  // extraction flagged keeps its own row, marked "Unclear in the photo" in one phrase, seen and heard
+  // alike (audit m7); one the photo did not carry at all is named in the card's closing line.
+  const uncertain = outcome?.kind === 'needs_review' ? new Set(outcome.uncertainFields) : undefined;
 
   return (
-    <div className="flex flex-col gap-4 p-3 tablet:p-5">
+    <div className="flex flex-col gap-5 p-3 tablet:p-5">
       {phase === 'capture' && (
-        <>
-          <PhotoInput value={photo} onChange={handlePhotoChange} label={t(copy.prescription.b4PhotoLabel, locale)} lang={locale} />
-          <p className="type-caption">{t(copy.prescription.b4PrescriberFieldsNote, locale)}</p>
-        </>
+        <CaptureCard
+          title={t(copy.prescription.b4CaptureTitle, locale)}
+          body={t(copy.prescription.b4PrescriberFieldsNote, locale)}
+          photoLabel={t(copy.prescription.b4PhotoLabel, locale)}
+          photo={photo}
+          onPhoto={handlePhotoChange}
+          locale={locale}
+        />
       )}
 
-      {phase === 'analysing' && (
-        <>
-          <LoadingState variant="detail" label={t(copy.prescription.b4AnalysingTitle, locale)} />
-          <p className="type-body-strong">{t(copy.prescription.b4AnalysingTitle, locale)}</p>
-          <p className="type-body-small">{t(copy.prescription.b4AnalysingBody, locale)}</p>
-        </>
-      )}
+      {phase === 'analysing' && <ReadingCard title={t(copy.prescription.b4AnalysingTitle, locale)} body={t(copy.prescription.b4AnalysingBody, locale)} />}
 
       {phase === 'review' && outcome && (
         <>
@@ -112,22 +100,15 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
               {t(copy.prescription.b4NeedsReviewNoticeBody, locale)}
             </InlineNotice>
           )}
-          <h2 className="type-h2">{t(copy.prescription.b4ReviewHeading, locale)}</h2>
-          <Card className="flex flex-col gap-2">
-            {reviewRow(t(copy.prescription.rxGenericLabel, locale), drug?.genericName, 'genericName')}
-            {reviewRow(t(copy.prescription.rxBrandLabel, locale), drug?.brandName, 'brandName')}
-            {reviewRow(t(copy.prescription.rxStrengthLabel, locale), strength, 'strengthMg')}
-            {reviewRow(t(copy.prescription.rxFrequencyLabel, locale), outcome.prescription.frequencyPerDay, 'frequencyPerDay')}
-            {reviewRow(t(copy.prescription.rxDoseTimesLabel, locale), formatDoseTimes(outcome.prescription.doseTimes, locale), 'doseTimes')}
-            {reviewRow(
-              t(copy.prescription.rxStartDateLabel, locale),
-              outcome.prescription.startDate ? formatDate(outcome.prescription.startDate, locale) : null,
-              'startDate',
-            )}
-            {reviewRow(t(copy.prescription.rxDurationLabel, locale), formatDurationDays(outcome.prescription.durationDays, locale))}
-            {reviewRow(t(copy.prescription.rxPatternLabel, locale), patternLabel(outcome.prescription.dosingPattern, locale))}
-          </Card>
-          <p className="type-caption">{t(copy.prescription.b4PrescriberFieldsNote, locale)}</p>
+          <section className="flex flex-col gap-2">
+            <h2 className="jr-group-title">{t(copy.prescription.b4ReviewHeading, locale)}</h2>
+            <PrescriptionFields
+              fields={draftFields(outcome.prescription, locale)}
+              unclear={uncertain}
+              missingTemplate={copy.prescription.b4NotInPhotoTemplate}
+              locale={locale}
+            />
+          </section>
           <Button variant="primary" size="lg" fullWidth lang={locale} loading={pending} onClick={handleConfirm}>
             {t(copy.prescription.b4ConfirmButton, locale)}
           </Button>
@@ -135,17 +116,19 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
       )}
 
       {phase === 'unreadable' && (
-        <>
-          <ErrorState
-            title={t(copy.prescription.b4UnreadableTitle, locale)}
-            description={t(copy.prescription.b4UnreadableDescription, locale)}
-            onRetry={handleRetry}
-            retryLabel={t(copy.prescription.b4RetryLabel, locale)}
-          />
+        <div className="flex flex-col items-center gap-3">
+          <div className="jr-group w-full px-4">
+            <ErrorState
+              title={t(copy.prescription.b4UnreadableTitle, locale)}
+              description={t(copy.prescription.b4UnreadableDescription, locale)}
+              onRetry={handleRetry}
+              retryLabel={t(copy.prescription.b4RetryLabel, locale)}
+            />
+          </div>
           <NavigateButton href={backHref} variant="quiet" lang={locale}>
             {t(copy.prescription.b4BackToMedicinesLabel, locale)}
           </NavigateButton>
-        </>
+        </div>
       )}
     </div>
   );

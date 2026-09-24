@@ -5,7 +5,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { NavigateButton } from '@/features/shell/NavigateButton';
 import { copy, t } from '@/i18n';
-import { formatDoseAmount, formatDoseTime, groupDosesByTime } from './format';
+import { formatDoseAmount, formatDoseTime } from './format';
+import { groupDosesByPart, minutesOfIso, partLabel } from './today';
+import { formatTime } from '@/i18n/format';
 import type { Locale } from '@/i18n/locale';
 import type { DoseWithPrescription } from '@/types/views';
 
@@ -51,6 +53,8 @@ export interface DoseDayListProps {
    * the caregiver's F2 passes the same fact in the caregiver's voice, naming the patient, with no
    * action (UX §10, rule 8; audit M10). Rendered outside the `dose-list` root, like the default. */
   trackingOffNotice?: ReactNode;
+  /** Minutes since midnight now, only when the day shown is today: draws the "Now" line. */
+  nowMinutes?: number | null;
   className?: string;
 }
 
@@ -73,9 +77,10 @@ export function DoseDayList({
   emptyDescription,
   emptyAction,
   trackingOffNotice,
+  nowMinutes,
   className,
 }: DoseDayListProps) {
-  const groups = groupDosesByTime(doses);
+  const groups = groupDosesByPart(doses);
   const isEmpty = groups.length === 0;
 
   return (
@@ -90,23 +95,42 @@ export function DoseDayList({
           action={!readOnly ? emptyAction : undefined}
         />
       )}
-      <div data-testid="dose-list" className="flex flex-col gap-4">
-        {isEmpty ? null : (
-          groups.map((group) => (
-            <ScheduleGroup key={group.time} timeLabel={formatDoseTime(group.doses[0]!.scheduledAt, locale)}>
-              {group.doses.map((dose) => (
-                <DoseRow
-                  key={dose.id}
-                  dose={{ status: dose.status, tracked: dose.tracked }}
-                  drug={dose.drug}
-                  amountLabel={formatDoseAmount(dose, locale)}
-                  href={hrefBuilder ? hrefBuilder(dose) : undefined}
-                  lang={locale}
-                />
-              ))}
-            </ScheduleGroup>
-          ))
-        )}
+      <div data-testid="dose-list" className="flex flex-col gap-5">
+        {isEmpty
+          ? null
+          : groups.map((group, gi) => {
+              // "Now" sits before the first dose still ahead: between two parts of the day, or inside
+              // one. It is a line of time, never a control and never a status (rule 1, rule 3).
+              const firstAhead = nowMarkerIndex(group.doses, nowMinutes);
+              const beforeGroup = firstAhead === 0 && (gi === 0 || nowMarkerIndex(groups[gi - 1]!.doses, nowMinutes) === -1);
+              return (
+                <div key={`${group.part}-${gi}`} className="flex flex-col gap-5">
+                  {beforeGroup ? <NowLine minutes={nowMinutes!} locale={locale} /> : null}
+                  <ScheduleGroup timeLabel={partLabel(group.part, locale)}>
+                    {group.doses.map((dose, di) => (
+                      <DoseRowWithNow
+                        key={dose.id}
+                        showNow={di > 0 && di === firstAhead}
+                        nowMinutes={nowMinutes}
+                        locale={locale}
+                      >
+                        <DoseRow
+                          dose={{ status: dose.status, tracked: dose.tracked }}
+                          drug={dose.drug}
+                          amountLabel={formatDoseAmount(dose, locale)}
+                          timeLabel={formatDoseTime(dose.scheduledAt, locale)}
+                          href={hrefBuilder ? hrefBuilder(dose) : undefined}
+                          lang={locale}
+                        />
+                      </DoseRowWithNow>
+                    ))}
+                  </ScheduleGroup>
+                </div>
+              );
+            })}
+        {!isEmpty && nowMinutes != null && groups.every((g) => nowMarkerIndex(g.doses, nowMinutes) === -1) ? (
+          <NowLine minutes={nowMinutes} locale={locale} />
+        ) : null}
       </div>
       {!tracked && !isEmpty && trackingOffNotice}
       {!tracked && !isEmpty && !trackingOffNotice && (
@@ -122,5 +146,44 @@ export function DoseDayList({
         </InlineNotice>
       )}
     </div>
+  );
+}
+
+/** Index of the first dose after now in a group, or -1 (none ahead in it, or no "now" at all). */
+function nowMarkerIndex(doses: readonly DoseWithPrescription[], nowMinutes: number | null | undefined): number {
+  if (nowMinutes == null) return -1;
+  return doses.findIndex((d) => minutesOfIso(d.scheduledAt) > nowMinutes);
+}
+
+function NowLine({ minutes, locale }: { minutes: number; locale: Locale }) {
+  const hhmm = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  return (
+    <div className="jr-now type-label" data-testid="now-line">
+      <span className="jr-now__dot" aria-hidden="true" />
+      <span>
+        {t(copy.daylight.now, locale)} <span className="jr-num">{formatTime(hhmm, locale)}</span>
+      </span>
+      <span className="jr-now__line" aria-hidden="true" />
+    </div>
+  );
+}
+
+function DoseRowWithNow({
+  showNow,
+  nowMinutes,
+  locale,
+  children,
+}: {
+  showNow: boolean;
+  nowMinutes: number | null | undefined;
+  locale: Locale;
+  children: ReactNode;
+}) {
+  if (!showNow || nowMinutes == null) return <>{children}</>;
+  return (
+    <>
+      <NowLine minutes={nowMinutes} locale={locale} />
+      {children}
+    </>
   );
 }

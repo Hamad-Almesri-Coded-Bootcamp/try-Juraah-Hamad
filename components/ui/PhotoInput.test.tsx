@@ -45,7 +45,7 @@ describe('PhotoInput', () => {
     const { container } = render(<PhotoInput value={file} onChange={() => {}} state="analysing" label="Photo of your prescription" />);
     expect(container.querySelectorAll('input[type="file"]')).toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
-    expect(screen.getByText('Analysing…')).toBeInTheDocument();
+    expect(screen.getByText('Checking…')).toBeInTheDocument();
     expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
   });
 });

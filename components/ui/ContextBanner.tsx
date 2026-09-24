@@ -1,5 +1,4 @@
 import { Icon, type IconName } from './Icon';
-import './styles/ContextBanner.css';
 
 export interface ContextBannerProps {
   variant: 'caregiver' | 'simulated' | 'lastKnown';

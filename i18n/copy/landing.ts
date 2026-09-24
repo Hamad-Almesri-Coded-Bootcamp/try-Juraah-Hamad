@@ -14,161 +14,187 @@ import type { CopyEntry } from './shell';
 export const landing = {
   // Repeated call to action (sections 1 · 2 · 10) — one action, shown at three scroll positions of
   // one long page, per the approved boards. `ctaContinue` is the signed-in variant (WHAT TO BUILD).
-  ctaSignIn: { ar: 'الدخول عن طريق هويّاتي', en: 'Sign in with Hawiati', placeholder: true },
+  ctaSignIn: { ar: 'الدخول عن طريق هويتي', en: 'Sign in with Hawiati', placeholder: true },
   ctaContinue: { ar: 'المتابعة إلى حسابك', en: 'Continue to your account', placeholder: true },
+  // The header's short label for the same action (V2Landing). The button's accessible name stays the
+  // full `ctaSignIn` / `ctaContinue`, which begins with these words (WCAG 2.5.3, label in name).
+  ctaSignInShort: { ar: 'الدخول', en: 'Sign in', placeholder: true },
+  ctaContinueShort: { ar: 'المتابعة', en: 'Continue', placeholder: true },
 
   // (2) Hero
   heroHeadline: {
-    ar: 'أدويتك كلها في مكان واحد — ومفحوصة',
-    en: 'All your medicines, in one place — and checked',
+    ar: 'أدويتك كلها في مكان واحد، ومفحوصة معًا',
+    en: 'All your medicines in one place, and checked together',
     placeholder: true,
   },
   heroSupportingLine: {
-    ar: 'وصفاتك من المستشفى الحكومي والعيادة الخاصة في سجل واحد، مع جدول جرعات يومي وفحص تعارضات مستمر على ملفك كامل.',
-    en: 'Your prescriptions from public hospitals and private clinics, in one record, with a daily dose schedule and continuous interaction screening across your whole file.',
+    ar: 'وصفاتك من المستشفيات الحكومية والعيادات الخاصة في سجل واحد، مع جدول يومي لجرعاتك وفحص للتعارضات بين أدويتك كلها.',
+    en: 'Your prescriptions from public hospitals and private clinics, together in one record, with a daily dose schedule and interaction checks across all your medicines.',
     placeholder: true,
   },
-  heroSeeHowItWorks: { ar: 'شوف كيف تشتغل', en: 'See how it works', placeholder: true },
-  heroMockupCaption: {
-    ar: 'صورة من شاشة «اليوم» داخل التطبيق',
-    en: 'A preview of the “Today” screen inside the app',
+  heroSeeHowItWorks: { ar: 'اعرف كيف يعمل التطبيق', en: 'See how it works', placeholder: true },
+  // The hero picture: the real day dial, drawn with حمد's seed day at REFERENCE_NOW (CR-071).
+  heroDialCaption: {
+    ar: 'مثال ليوم من الجرعات، ببيانات تجريبية',
+    en: 'An example day of doses, with made-up data',
     placeholder: true,
   },
-  heroMockupAlt: {
-    ar: 'رسم تخطيطي لشاشة اليوم: جرعات الأدوية مجمّعة حسب وقت اليوم، كل صف يعرض اسم الدواء ومقدار الجرعة، ونجمة الحالة تظهر فقط عندما تكون متابعة الجرعات مفعّلة. صورة توضيحية عامة، بدون بيانات مريض حقيقية.',
-    en: 'Schematic preview of the Today screen: medication doses grouped by time of day, each row showing a drug name and dose amount, with a status pill appearing only when dose tracking is on. A generic illustration — no real patient data.',
+  // {times}: the day's dose times; {drug}: the next dose; {next}: its time.
+  heroDialDescriptionTemplate: {
+    ar: 'مثال ليوم فيه جرعات في الساعة {times}. الجرعة القادمة {drug} في الساعة {next}.',
+    en: 'An example day with doses at {times}. The next dose is {drug} at {next}.',
     placeholder: true,
   },
 
   // (3) The problem, in two parts
-  problemHeading: { ar: 'وين تنكسر السالفة اليوم', en: 'Where things break down today', placeholder: true },
+  problemHeading: { ar: 'أين تتعثر الأمور اليوم', en: 'Where things go wrong today', placeholder: true },
   problemInstructionsTitle: {
     ar: 'تعليمات تضيع بعد العيادة',
     en: 'Instructions get lost after the clinic visit',
     placeholder: true,
   },
   problemInstructionsBody: {
-    ar: 'المريض يطلع وهو مو متأكد: الجرعة، عدد المرات، المدة، ولا «يوم بعد يوم» تعني شنو بالضبط.',
-    en: 'A patient leaves unsure of the dose, how many times a day, for how long, or what “every other day” actually means.',
+    ar: 'يغادر المريض العيادة وهو غير متأكد من الجرعة أو عدد المرات أو المدة، أو من معنى «يومًا بعد يوم» بالضبط.',
+    en: 'A patient leaves unsure of the dose, how often to take it, for how long, or what “every other day” really means.',
     placeholder: true,
   },
-  problemRecordsTitle: { ar: 'سجلات مفرّقة', en: 'Fragmented records', placeholder: true },
+  problemRecordsTitle: { ar: 'سجلات متفرّقة', en: 'Scattered records', placeholder: true },
   problemRecordsBody: {
-    ar: 'كل مستشفى وعيادة على نظامه، فأحد ما يشوف قائمة أدويتك كاملة — ولا حتى الطبيب اللي يكتب لك الوصفة الجديدة.',
-    en: 'Every hospital and clinic runs its own system, so no one sees your full medicine list — not even the doctor writing your next prescription.',
+    ar: 'لكل مستشفى وعيادة نظامه الخاص، فلا أحد يرى قائمة أدويتك كاملة، ولا حتى الطبيب الذي يكتب وصفتك التالية.',
+    en: 'Every hospital and clinic has its own system, so nobody sees your full list of medicines. Not even the doctor writing your next prescription.',
+    placeholder: true,
+  },
+
+  // The bridge: rx-001 and rx-002, one patient's two prescriptions from two systems (the reason
+  // Jur'ah exists; ia-001 is the finding they produce). Drawn without the danger colour: it is an
+  // illustration, not a finding (L1 bounded exception).
+  problemBridgeLabel: {
+    ar: 'وصفتان لمريض واحد من نظامين لا يرى أحدهما الآخر',
+    en: 'Two prescriptions for one patient, from two systems that never see each other',
+    placeholder: true,
+  },
+  // The two facilities of the bridge, as the seed names them (rx-001, rx-002); English as in CR-071.
+  problemBridgePublicFacility: { ar: 'مستشفى الفروانية', en: 'Farwaniya Hospital', placeholder: true },
+  problemBridgePrivateFacility: { ar: 'عيادة النخبة الطبية', en: 'Al-Nukhba Medical Clinic', placeholder: true },
+  problemBridgeAnswer: {
+    ar: 'في جرعة تجتمع الوصفتان في سجل واحد وتُفحصان معًا، وأي تعارض خطير يراجعه مختص قبل أن يصلك.',
+    en: 'In Jur’ah both sit in one record and are checked together, and a medical reviewer looks at any serious interaction before it reaches you.',
     placeholder: true,
   },
 
   // (4) The solution, in three steps
-  solutionHeading: { ar: 'كيف تشتغل — ثلاث خطوات', en: 'How it works — three steps', placeholder: true },
-  solutionStep1Title: { ar: '١ · تدخل بهويّاتي', en: '1 · Sign in with Hawiati', placeholder: true },
+  solutionHeading: { ar: 'كيف يعمل التطبيق', en: 'How it works', placeholder: true },
+  // The step number is drawn in its own disc, in the reader's digits (formatNumber).
+  solutionStep1Title: { ar: 'ادخل عبر هويتي', en: 'Sign in with Hawiati', placeholder: true },
   solutionStep1Body: {
-    ar: 'رقم مدني واحد، وموافقة من تطبيق الهوية.',
-    en: 'One Civil ID, and an approval from the identity app.',
+    ar: 'رقمك المدني، ثم الموافقة من تطبيق هويتي.',
+    en: 'Your Civil ID, then an approval in the Hawiati app.',
     placeholder: true,
   },
-  solutionStep2Title: { ar: '٢ · تضيف وصفاتك', en: '2 · Add your prescriptions', placeholder: true },
+  solutionStep2Title: { ar: 'أضف وصفاتك', en: 'Add your prescriptions', placeholder: true },
   solutionStep2Body: {
-    ar: 'صورة للوصفة، والنظام يقراها ويبني الجدول.',
-    en: 'A photo of the prescription — the system reads it and builds your schedule.',
+    ar: 'التقط صورة للوصفة، فيقرؤها التطبيق ويبني جدولك.',
+    en: 'Take a photo of the prescription. The app reads it and builds your schedule.',
     placeholder: true,
   },
-  solutionStep3Title: { ar: '٣ · يفحصها لك', en: '3 · It screens them for you', placeholder: true },
+  solutionStep3Title: { ar: 'يفحصها لك', en: 'It checks them for you', placeholder: true },
   solutionStep3Body: {
-    ar: 'كل دواء جديد يُقاس على ملفك كامل، وأي خطر يوقف عند مراجع بشري.',
-    en: 'Every new medicine is checked against your whole file, and any danger stops at a human reviewer.',
+    ar: 'يُفحص كل دواء جديد مع كل ما تتناوله من أدوية، ويراجع مختص طبي أي تعارض خطير قبل أن تصبح النتيجة نهائية.',
+    en: 'Every new medicine is checked against everything you already take, and a medical reviewer looks at any serious interaction before the result is final.',
     placeholder: true,
   },
 
-  // (5) Six feature cards
-  featuresHeading: { ar: 'شنو تحصل داخل جرعة', en: 'What you get inside Jur’ah', placeholder: true },
-  feature1Title: { ar: 'سجل دوائي موحّد', en: 'One unified medicine record', placeholder: true },
-  feature1Body: { ar: 'حكومي وخاص في مكان واحد.', en: 'Public and private prescriptions, in one place.', placeholder: true },
-  feature2Title: { ar: 'جدول يومك', en: 'Your day’s schedule', placeholder: true },
-  feature2Body: { ar: 'جرعات مرتبة بالوقت، قراءة فقط.', en: 'Doses ordered by time, read-only.', placeholder: true },
-  feature3Title: { ar: 'فحص تعارضات', en: 'Interaction screening', placeholder: true },
+  // (5) Six features, a two-column list with icons (CR-069(f): no card wall)
+  featuresHeading: { ar: 'ماذا تجد في جرعة', en: 'What you get with Jur’ah', placeholder: true },
+  feature1Title: { ar: 'سجل واحد لكل أدويتك', en: 'One record for all your medicines', placeholder: true },
+  feature1Body: { ar: 'وصفات القطاع العام والقطاع الخاص معًا.', en: 'Public and private sector prescriptions, side by side.', placeholder: true },
+  feature2Title: { ar: 'جدول يومك', en: 'Your daily schedule', placeholder: true },
+  feature2Body: { ar: 'جرعاتك مرتبة حسب الوقت، كخطة واضحة ليومك.', en: 'Your doses in time order, as a clear plan for the day.', placeholder: true },
+  feature3Title: { ar: 'فحص التعارضات', en: 'Interaction checks', placeholder: true },
   feature3Body: {
-    ar: 'على الملف كامل، مع المصدر الطبي مكتوب.',
-    en: 'Across your whole file, with the medical source stated.',
+    ar: 'بين أدويتك كلها، مع ذكر المصدر الطبي.',
+    en: 'Across all your medicines, with the medical source named.',
     placeholder: true,
   },
-  feature4Title: { ar: 'تجديد الوصفات', en: 'Refill requests', placeholder: true },
-  feature4Body: { ar: 'يُوجّه لصيدلية القطاع نفسه.', en: 'Routed to a pharmacy in the same sector.', placeholder: true },
-  feature5Title: { ar: 'فحص دواء بالصورة', en: 'Photo drug check', placeholder: true },
-  feature5Body: { ar: 'مفيد بالسفر تحديدًا.', en: 'Especially useful while travelling.', placeholder: true },
+  feature4Title: { ar: 'تجديد الوصفات', en: 'Prescription refills', placeholder: true },
+  feature4Body: { ar: 'يُرسَل طلبك إلى صيدلية من قطاع الوصفة نفسه.', en: 'Your request goes to a pharmacy in the same sector as the prescription.', placeholder: true },
+  feature5Title: { ar: 'فحص دواء بالصورة', en: 'Check a medicine by photo', placeholder: true },
+  feature5Body: { ar: 'مفيد خاصةً عند السفر.', en: 'Especially handy when you travel.', placeholder: true },
   feature6Title: { ar: 'مزامنة التقويم', en: 'Calendar sync', placeholder: true },
   feature6Body: {
-    ar: 'جدولك يظهر في تقويمك، باتجاه واحد.',
-    en: 'Your schedule appears in your own calendar, one direction only.',
+    ar: 'يظهر جدولك في تقويمك الخاص، ولا يستطيع التقويم تغيير أي شيء في التطبيق.',
+    en: 'Your schedule shows up in your own calendar, and the calendar can’t change anything in the app.',
     placeholder: true,
   },
 
   // (6) Adherence follow-up — marked optional, G10
   adherenceBadge: { ar: 'اختياري', en: 'Optional', placeholder: true },
-  adherenceHeading: { ar: 'متابعة الجرعات اليومية', en: 'Daily dose follow-up', placeholder: true },
+  adherenceHeading: { ar: 'متابعة الجرعات اليومية', en: 'Daily dose check-ins', placeholder: true },
   adherenceBody: {
-    ar: 'لو حبيت، يوصلك سؤال يومي على المحادثة وترد عليه هناك. كل اللي فوق يشتغل بدونها — وهي مطفّية افتراضيًا.',
-    en: 'If you want it, a daily question reaches you on chat and you answer it there. Everything above works without it — and it is off by default.',
+    ar: 'إن أردت، يصلك سؤال يومي قصير في محادثة، وتجيب عنه هناك لتتابع الجرعات التي تأخذها. تبقى هذه المتابعة متوقفة حتى تفعّلها، ويعمل كل ما سبق دونها.',
+    en: 'If you’d like, you can get a short daily question in a chat and answer it there, to keep track of the doses you take. It stays off until you turn it on, and everything above works without it.',
     placeholder: true,
   },
 
   // (7) Who it's for
-  audienceHeading: { ar: 'لمين هذا التطبيق', en: 'Who this is for', placeholder: true },
-  audiencePatientTitle: { ar: 'للمريض', en: 'For the patient', placeholder: true },
+  audienceHeading: { ar: 'لمن هذا التطبيق', en: 'Who it’s for', placeholder: true },
+  audiencePatientTitle: { ar: 'للمريض', en: 'For patients', placeholder: true },
   audiencePatientBody: {
-    ar: 'تدخل برقمك المدني، وتشوف أدويتك وجدولك وتنبيهات السلامة.',
-    en: 'You sign in with your Civil ID, and see your medicines, your schedule and your safety alerts.',
+    ar: 'ادخل برقمك المدني، واطّلع على أدويتك وجدولك وتنبيهات السلامة.',
+    en: 'Sign in with your Civil ID to see your medicines, your schedule and your safety alerts.',
     placeholder: true,
   },
   audiencePatientCta: { ar: 'دخول المريض', en: 'Patient sign-in', placeholder: true },
-  audienceCaregiverTitle: { ar: 'لمن يعتني بمريض', en: 'For a family caregiver', placeholder: true },
+  audienceCaregiverTitle: { ar: 'لمقدّم الرعاية من العائلة', en: 'For family caregivers', placeholder: true },
   audienceCaregiverBody: {
-    ar: 'تدخل برقمك المدني بعد ما يدعوك المريض وتقبل الدعوة. قراءة فقط، وما تقدر تسجّل جرعة ولا تعدّل وصفة.',
-    en: 'You sign in with the same Civil ID after the patient invites you and you accept. Read-only — you cannot record a dose or change a prescription.',
+    ar: 'بعد أن يدعوك المريض وتقبل الدعوة، ادخل برقمك المدني. يمكنك الاطلاع على أدويته، لكن لا يمكنك تسجيل جرعة أو تعديل وصفة.',
+    en: 'Once the patient invites you and you accept, sign in with your own Civil ID. You can see their medicines, but you can’t record a dose or change a prescription.',
     placeholder: true,
   },
   audienceCaregiverCta: { ar: 'دخول مقدّم الرعاية', en: 'Caregiver sign-in', placeholder: true },
   // Names the reviewer path without linking it (pass criteria: the clinic route is never linked or named).
   audienceReviewerNote: {
-    ar: 'المراجعون الطبيون يستخدمون عنوانًا منفصلًا.',
-    en: 'Clinical reviewers use a separate address.',
+    ar: 'يدخل المراجعون الطبيون من عنوان منفصل.',
+    en: 'Medical reviewers sign in at a separate address.',
     placeholder: true,
   },
 
   // (8) Safety and privacy
   safetyHeading: { ar: 'السلامة والخصوصية', en: 'Safety and privacy', placeholder: true },
-  safety1Title: { ar: 'التطبيق لا يسجّل جرعة من نفسه', en: 'The app never records a dose by itself', placeholder: true },
+  safety1Title: { ar: 'لا يسجّل التطبيق أي جرعة من تلقاء نفسه', en: 'The app never records a dose on its own', placeholder: true },
   safety1Body: {
-    ar: 'ولا زر ولا إشعار يقدر يعلّم جرعة كمأخوذة. التسجيل يصير بمسار واحد متحقق فقط.',
-    en: 'No button and no notification can mark a dose as taken. Recording happens through one verified path only.',
+    ar: 'لا يوجد زر ولا إشعار يمكنه تعليم جرعة بأنها أُخذت. تُسجَّل الجرعة فقط حين تجيب أنت عن السؤال اليومي في محادثتك.',
+    en: 'No button or notification can mark a dose as taken. A dose is recorded only when you answer the daily question in your chat.',
     placeholder: true,
   },
-  safety2Title: { ar: 'الخطر يوقف عند إنسان', en: 'A danger finding stops at a human', placeholder: true },
+  safety2Title: { ar: 'كل تعارض خطير يراجعه إنسان', en: 'A person reviews every serious interaction', placeholder: true },
   safety2Body: {
-    ar: 'أي تعارض خطير يمر على طبيب أو صيدلي قبل ما يوصلك كنتيجة نهائية.',
-    en: 'A serious interaction goes through a doctor or pharmacist before it reaches you as a final result.',
+    ar: 'يمرّ أي تعارض خطير على طبيب أو صيدلي قبل أن يصلك كنتيجة نهائية.',
+    en: 'A doctor or pharmacist looks at any serious interaction before it reaches you as a final answer.',
     placeholder: true,
   },
-  safety3Title: { ar: 'الفحص من بيانات منشورة', en: 'Screening is grounded in published data', placeholder: true },
+  safety3Title: { ar: 'الفحص مبني على بيانات دوائية منشورة', en: 'Checks are based on published drug data', placeholder: true },
   safety3Body: {
-    ar: 'كل نتيجة معها السجل الدوائي اللي طُوبقت عليه.',
-    en: 'Every finding carries the published drug record it was checked against.',
+    ar: 'مع كل نتيجة يظهر المرجع الدوائي المنشور الذي استندت إليه.',
+    en: 'Every finding shows the published drug reference it’s based on.',
     placeholder: true,
   },
 
   // (9) Academic transparency
-  transparencyHeading: { ar: 'شفافية أكاديمية', en: 'Academic transparency', placeholder: true },
+  transparencyHeading: { ar: 'عن هذا المشروع', en: 'About this project', placeholder: true },
   transparencyBody: {
-    ar: 'هذا نموذج أولي لمشروع تخرج. تدفق الهوية محاكى وليس ربطًا حقيقيًا بهويّاتي، والبيانات المعروضة تجريبية وليست لأشخاص حقيقيين.',
-    en: 'This is a graduation-project prototype. The identity flow is simulated, not a real Hawiati integration, and the data shown is synthetic — not real people.',
+    ar: 'جرعة نموذج أولي لمشروع تخرج. تسجيل الدخول عبر هويتي محاكاة وليس ربطًا حقيقيًا، وكل البيانات المعروضة تجريبية ولا تعود لأشخاص حقيقيين.',
+    en: 'Jur’ah is a graduation-project prototype. Signing in with Hawiati is simulated, not a real connection, and all the data you see is made up. None of it belongs to real people.',
     placeholder: true,
   },
 
   // (10) Closing call to action and footer
-  closingHeading: { ar: 'جاهز تبدأ؟', en: 'Ready to start?', placeholder: true },
+  closingHeading: { ar: 'هل أنت مستعد للبدء؟', en: 'Ready to start?', placeholder: true },
   footerLine: {
-    ar: 'جرعة · مشروع تخرج — SACGC AI for Coding · الكويت',
-    en: 'Jur’ah · a graduation project — SACGC AI for Coding · Kuwait',
+    // The programme's name stays as written: the one Latin run CR-071 allows in Arabic here
+    // (tests/e2e/language-purity.spec.ts).
+    ar: 'جرعة · مشروع تخرج · SACGC AI for Coding · الكويت',
+    en: 'Jur’ah · A graduation project · SACGC AI for Coding · Kuwait',
     placeholder: true,
   },
 } as const satisfies Record<string, CopyEntry>;

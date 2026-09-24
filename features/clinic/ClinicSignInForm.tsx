@@ -160,15 +160,11 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
     setPhase('form');
   }
 
+  // The sky above (ClinicEntryFrame) carries the h1 and the simulated-role statement; this is the sheet.
   return (
-    <div className="mx-auto flex max-w-content flex-col gap-4 p-3 tablet:p-5">
+    <>
       {phase === 'form' && (
         <>
-          <div className="flex flex-col gap-2">
-            <span className="type-caption">{t(copy.clinic.x0Kicker, locale)}</span>
-            <h1 className="type-h1">{t(copy.clinic.x0Title, locale)}</h1>
-            <p className="type-body">{t(copy.clinic.x0Body, locale)}</p>
-          </div>
           {/* A real form: Enter submits, and Continue is never disabled-until-valid (audit M14). */}
           <form action={handleSubmit} noValidate className="flex flex-col gap-4">
             <TextField
@@ -189,22 +185,24 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
               {t(copy.identity.continueLabel, locale)}
             </Button>
           </form>
+          {/* X0's spec: say plainly that the server checks the role, not the unlisted address. */}
+          <InlineNotice tone="info">{t(copy.clinic.x0Body, locale)}</InlineNotice>
         </>
       )}
 
       {/* Countdown draws its own frame — no Card around it (audit m1, same as A1). */}
       {phase === 'countdown' && (
-          <Countdown
-            seconds={HAWIATI_COUNTDOWN_SECONDS}
-            state={countdownState}
-            label={t(copy.identity.countdownLabel, locale)}
-            onLapse={handleLapse}
-            onRetry={handleRetry}
-            onCancel={handleCancel}
-            cancelLabel={t(copy.identity.cancelLabel, locale)}
-            retryLabel={t(copy.vocabulary.retry, locale)}
-            lang={locale}
-          />
+        <Countdown
+          seconds={HAWIATI_COUNTDOWN_SECONDS}
+          state={countdownState}
+          label={t(copy.identity.countdownLabel, locale)}
+          onLapse={handleLapse}
+          onRetry={handleRetry}
+          onCancel={handleCancel}
+          cancelLabel={t(copy.identity.cancelLabel, locale)}
+          retryLabel={t(copy.vocabulary.retry, locale)}
+          lang={locale}
+        />
       )}
 
       {phase === 'refused' && (
@@ -217,6 +215,6 @@ export function ClinicSignInForm({ locale }: { locale: Locale }) {
           </Button>
         </div>
       )}
-    </div>
+    </>
   );
 }

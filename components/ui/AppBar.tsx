@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Icon } from './Icon';
 
 interface AppBarSharedProps {
@@ -65,9 +66,9 @@ export function AppBar({ title, onBack, backHref, backLabel, action, className }
       <Icon name="chevron" mirror reverse />
     </button>
   ) : backHref ? (
-    <a href={backHref} className="wsf-btn wsf-btn--quiet wsf-iconbtn wsf-focus" aria-label={backLabel}>
+    <Link href={backHref} className="wsf-btn wsf-btn--quiet wsf-iconbtn wsf-focus" aria-label={backLabel}>
       <Icon name="chevron" mirror reverse />
-    </a>
+    </Link>
   ) : null;
 
   return (

@@ -10,7 +10,7 @@ describe('AlertRow', () => {
   it('renders the severity word and glyph beside the drugs and review state', () => {
     render(<AlertRow severity="danger" drugs={['Warfarin', 'Ibuprofen']} reviewStatus="pending_medical_review" lang="en" />);
     expect(screen.getByText('Serious interaction')).toBeInTheDocument();
-    expect(screen.getByText('Warfarin + Ibuprofen')).toBeInTheDocument();
+    expect(screen.getByText('Warfarin × Ibuprofen')).toBeInTheDocument(); // CR-071: the pair reads as an interaction
     expect(screen.getByText(/still checking/)).toBeInTheDocument();
   });
 

@@ -1,5 +1,4 @@
 import type * as React from 'react';
-import './styles/DoseTimeline.css';
 import { StatusPill, type DoseStatus } from './StatusPill';
 import type { Locale } from '@/i18n';
 

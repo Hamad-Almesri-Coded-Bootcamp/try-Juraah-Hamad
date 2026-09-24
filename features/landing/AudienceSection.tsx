@@ -1,40 +1,43 @@
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
-import { SECTION_GUTTER } from './layout';
 import { Card } from '@/components/ui/Card';
+import { Icon } from '@/components/ui/Icon';
 import { NavigateButton } from '@/features/shell/NavigateButton';
+import { SECTION_HEADING, SECTION_INNER, SECTION_OUTER } from './layout';
 
 /**
- * Section (7) — who it's for: the patient, the family caregiver (who enters with the same Civil
- * ID after being invited and accepting), and one plain line naming the reviewer path **without
- * linking it** (G11 item 7 / pass criteria: "the clinic route is not linked or named" — this line
- * names the audience, "clinical reviewers", never the route or the word "clinic route").
- *
- * Both buttons here go to the same sign-in route regardless of a viewer's session — this section
- * frames the two audiences the product serves, not the repeated primary action (header/hero/
- * closing carry that, and read the continue-variant copy per `resolveLandingCta`).
+ * Section (7): who it is for. Two equal cards, the patient and the family caregiver (who enters with
+ * their own Civil ID after being invited and accepting), each with its own sign-in action, and one
+ * plain line naming the reviewers' separate address without linking or naming the route (G11 item 7).
+ * Both actions are `secondary`: the hero holds the page's one primary.
  */
 export function AudienceSection({ locale }: { locale: Locale }) {
+  const cards = [
+    ['person', copy.landing.audiencePatientTitle, copy.landing.audiencePatientBody, copy.landing.audiencePatientCta],
+    ['users', copy.landing.audienceCaregiverTitle, copy.landing.audienceCaregiverBody, copy.landing.audienceCaregiverCta],
+  ] as const;
   return (
-    <section className={`flex flex-col gap-3 border-y border-border bg-surface-card ${SECTION_GUTTER}`}>
-      <h2 className="text-h2 text-navy">{t(copy.landing.audienceHeading, locale)}</h2>
-      <div className="flex flex-col gap-4 tablet:flex-row">
-        <Card className="flex flex-1 flex-col gap-2">
-          <span className="text-body-strong">{t(copy.landing.audiencePatientTitle, locale)}</span>
-          <span className="text-body-small text-ink-muted">{t(copy.landing.audiencePatientBody, locale)}</span>
-          <NavigateButton href={`/${locale}/signin`} variant="secondary" fullWidth lang={locale}>
-            {t(copy.landing.audiencePatientCta, locale)}
-          </NavigateButton>
-        </Card>
-        <Card className="flex flex-1 flex-col gap-2">
-          <span className="text-body-strong">{t(copy.landing.audienceCaregiverTitle, locale)}</span>
-          <span className="text-body-small text-ink-muted">{t(copy.landing.audienceCaregiverBody, locale)}</span>
-          <NavigateButton href={`/${locale}/signin`} variant="secondary" fullWidth lang={locale}>
-            {t(copy.landing.audienceCaregiverCta, locale)}
-          </NavigateButton>
-        </Card>
+    <section aria-labelledby="audience-title" className={SECTION_OUTER}>
+      <div className={SECTION_INNER}>
+        <h2 id="audience-title" className={SECTION_HEADING}>
+          {t(copy.landing.audienceHeading, locale)}
+        </h2>
+        <div className="grid gap-4 @[700px]:grid-cols-2 @[700px]:gap-5">
+          {cards.map(([icon, title, body, cta]) => (
+            <Card key={title.en} className="flex flex-col items-start gap-3 p-5">
+              <span className="inline-flex size-hit-lg items-center justify-center rounded-full bg-navy-tint text-navy" aria-hidden="true">
+                <Icon name={icon} />
+              </span>
+              <h3 className="type-h2 m-0 text-navy">{t(title, locale)}</h3>
+              <p className="type-body m-0 flex-1 text-ink-muted">{t(body, locale)}</p>
+              <NavigateButton href={`/${locale}/signin`} variant="secondary" size="lg" lang={locale}>
+                {t(cta, locale)}
+              </NavigateButton>
+            </Card>
+          ))}
+        </div>
+        <p className="type-body-small m-0 text-ink-muted">{t(copy.landing.audienceReviewerNote, locale)}</p>
       </div>
-      <p className="text-caption text-ink-muted">{t(copy.landing.audienceReviewerNote, locale)}</p>
     </section>
   );
 }

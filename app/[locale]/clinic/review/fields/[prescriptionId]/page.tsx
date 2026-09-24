@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getFlaggedPrescription } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { FlaggedPrescriptionDetail } from '@/features/clinic/FlaggedPrescriptionDetail';
 import { copy, t } from '@/i18n';
 
@@ -19,7 +20,12 @@ export default async function FieldConfirmationDetailPage({ params }: { params: 
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <AppBar title={t(copy.clinic.g3sDetailTitle, locale)} backHref={backHref} backLabel={t(copy.vocabulary.back, locale)} />
+      <AppBar
+        title={t(prescription.fieldReviewStatus === 'returned' ? copy.clinic.g3sReturnedTitle : copy.clinic.g3sDetailTitle, locale)}
+        backHref={backHref}
+        backLabel={t(copy.vocabulary.back, locale)}
+        action={<LanguageSwitch locale={locale} assistant={false} />}
+      />
       <FlaggedPrescriptionDetail prescription={prescription} locale={locale} backHref={backHref} />
     </div>
   );

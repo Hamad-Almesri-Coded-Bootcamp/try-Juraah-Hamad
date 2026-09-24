@@ -3,7 +3,23 @@
  * every date/number is passed in (G3/rule 9).
  */
 import { describe, expect, it } from 'vitest';
-import { formatDoseTimes, formatDurationDays, formatStrength, patternLabel, rxStatusLabel, splitDoseHistory, timelineWhen } from '@/features/prescription/format';
+import {
+  draftFields,
+  formatDoseTimes,
+  formatDurationDays,
+  formatStrength,
+  historyWhen,
+  medicineNames,
+  patternLabel,
+  prescriptionFields,
+  rxStatusLabel,
+  splitDoseHistory,
+  timelineWhen,
+} from '@/features/prescription/format';
+import { buildPrescriptions } from '@/lib/data/mock/seed';
+import type { Prescription } from '@/types/contracts';
+
+const seedRx = (id: string): Prescription => buildPrescriptions().find((p) => p.id === id)!;
 
 describe('formatStrength', () => {
   it('renders rx-008 as "50 mcg", never converting to 0.05 (guard U)', () => {
@@ -130,5 +146,69 @@ describe('timelineWhen', () => {
     const { dateLabel, timeLabel } = timelineWhen('2026-09-21T18:00:00+03:00', 'en');
     expect(dateLabel).toBe('September 21, 2026');
     expect(timeLabel).toBe('18:00');
+  });
+});
+
+describe('medicineNames — brand first, in the reader’s language (CR-069(l), CR-071)', () => {
+  it('leads with the brand and keeps the generic as the second line', () => {
+    expect(medicineNames({ genericName: 'Warfarin', brandName: 'Marevan' }, 'en')).toEqual({ primary: 'Marevan', generic: 'Warfarin' });
+    expect(medicineNames({ genericName: 'Warfarin', brandName: 'Marevan' }, 'ar')).toEqual({ primary: 'ماريفان', generic: 'وارفارين' });
+  });
+  it('a generic-only record leads with the generic and has no second line', () => {
+    expect(medicineNames({ genericName: 'Prednisolone' }, 'ar')).toEqual({ primary: 'بريدنيزولون', generic: null });
+  });
+  it('never returns the seed’s literal "(unreadable)"', () => {
+    for (const locale of ['ar', 'en'] as const) expect(medicineNames({ genericName: '(unreadable)' }, locale).primary).not.toContain('(unreadable)');
+  });
+});
+
+describe('prescriptionFields — every contract field, named once (B3, F3)', () => {
+  it('rx-001: every field is present in the list, dispensing included, with values only where the seed has them', () => {
+    const fields = prescriptionFields(seedRx('rx-001'), 'en');
+    expect(fields.map((f) => f.key)).toEqual([
+      'genericName', 'brandName', 'strengthMg', 'dosePerAdministration', 'frequencyPerDay', 'dosingPattern', 'doseTimes', 'startDate',
+      'durationDays', 'timingRelativeToFood', 'routeOfAdministration', 'indication', 'specialNotes', 'prescriberName', 'prescribedAt', 'status',
+      'unitsPerPackage', 'totalQuantityDispensed', 'dispenseDate', 'brandActuallyDispensed',
+    ]);
+    const byKey = Object.fromEntries(fields.map((f) => [f.key, f.value]));
+    expect(byKey.strengthMg).toBe('5 mg');
+    expect(byKey.dosePerAdministration).toBe('One tablet');
+    expect(byKey.dispenseDate).toBe('September 1, 2026');
+    expect(byKey.prescriberName).toBeNull(); // not in the seed, never invented
+    expect(byKey.brandActuallyDispensed).toBeNull();
+  });
+
+  it('rx-004 (discontinued): the reason and date join the list, the reason in the reader’s language', () => {
+    const en = Object.fromEntries(prescriptionFields(seedRx('rx-004'), 'en').map((f) => [f.key, f.value]));
+    expect(en.discontinuedReason).toBe('The doctor stopped this medicine because of muscle pain.');
+    expect(en.discontinuedAt).toBe('June 28, 2026');
+  });
+
+  it('rx-008: 50 mcg stays 50 mcg (guard U)', () => {
+    expect(prescriptionFields(seedRx('rx-008'), 'en').find((f) => f.key === 'strengthMg')?.value).toBe('50 mcg');
+  });
+
+  it('Arabic values carry no Latin script and no Western digit (CR-071, audit M7)', () => {
+    for (const id of ['rx-001', 'rx-004', 'rx-006', 'rx-008', 'rx-009']) {
+      for (const f of prescriptionFields(seedRx(id), 'ar')) expect(`${f.label} ${f.value ?? ''}`).not.toMatch(/[A-Za-z0-9]/);
+    }
+  });
+});
+
+describe('draftFields — B4’s review keys are the contract’s own, so uncertainFields mark the right rows', () => {
+  it('names the mock extraction’s uncertain fields by the same keys', () => {
+    const keys = draftFields({ drug: { genericName: '(unreadable)' }, dosePerAdministration: 1, durationDays: 30, dosingPattern: 'daily' }, 'en').map((f) => f.key);
+    for (const k of ['strengthMg', 'frequencyPerDay', 'startDate', 'doseTimes']) expect(keys).toContain(k);
+  });
+  it('absent values are null, never "undefined" or an empty string', () => {
+    const fields = draftFields({ drug: { genericName: 'Ibuprofen' }, durationDays: 7 }, 'en');
+    for (const f of fields) expect(f.value === null || (typeof f.value === 'string' && f.value.length > 0 && !f.value.includes('undefined'))).toBe(true);
+  });
+});
+
+describe('historyWhen — a calm day label and the clock time', () => {
+  it('weekday and date, no year; the time in the reader’s digits', () => {
+    expect(historyWhen('2026-09-20T18:00:00+03:00', 'en')).toEqual({ dateLabel: 'Sunday, September 20', timeLabel: '18:00' });
+    expect(historyWhen('2026-09-20T18:00:00+03:00', 'ar').timeLabel).toBe('١٨:٠٠');
   });
 });

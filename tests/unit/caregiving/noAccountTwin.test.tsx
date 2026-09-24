@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { InviteSheet } from '@/features/caregiving/InviteSheet';
+import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
 
@@ -25,19 +26,19 @@ async function driveToCreated(civilId: string, name: string, relationship: strin
   // outside RTL's `container` — read it from `baseElement` (document.body) instead.
   const { baseElement } = render(<InviteSheet patientId="pt-01" locale="ar" onDone={() => {}} />);
 
-  fireEvent.change(screen.getByLabelText('الرقم المدني'), { target: { value: civilId } });
-  fireEvent.change(screen.getByLabelText('الاسم اللي تعرفه فيه'), { target: { value: name } });
-  fireEvent.change(screen.getByLabelText('صلة القرابة'), { target: { value: relationship } });
-  fireEvent.click(screen.getByRole('button', { name: 'متابعة' }));
+  fireEvent.change(screen.getByLabelText(t(copy.caregiving.f1CivilIdLabel, 'ar')), { target: { value: civilId } });
+  fireEvent.change(screen.getByLabelText(t(copy.caregiving.f1NameKnownLabel, 'ar')), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText(t(copy.caregiving.f1RelationshipLabel, 'ar')), { target: { value: relationship } });
+  fireEvent.click(screen.getByRole('button', { name: t(copy.caregiving.f1ContinueButton, 'ar') }));
 
   // Has-account path pauses on the masked-name confirmation; no-account skips straight to 'created'.
   await waitFor(() => {
     expect(
-      screen.queryByTestId('invite-created-panel') ?? screen.queryByText('هذا هو الشخص؟'),
+      screen.queryByTestId('invite-created-panel') ?? screen.queryByText(t(copy.caregiving.f1ConfirmQuestion, 'ar')),
     ).not.toBeNull();
   });
 
-  const confirmYes = screen.queryByRole('button', { name: 'نعم، هذا هو' });
+  const confirmYes = screen.queryByRole('button', { name: t(copy.caregiving.f1ConfirmYes, 'ar') });
   if (confirmYes) fireEvent.click(confirmYes);
 
   await waitFor(() => expect(screen.getByTestId('invite-created-panel')).toBeInTheDocument());

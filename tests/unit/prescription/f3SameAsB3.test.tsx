@@ -21,8 +21,10 @@ afterEach(() => {
 
 beforeEach(() => reset());
 
+/** Every field a screen names: a DetailRow's label, or a name in B3's one "not recorded" line
+ * (Daylight: a field with no value is named there rather than drawn with an empty mark). */
 function labels(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('.wsf-dr__label')].map((el) => el.textContent ?? '');
+  return [...container.querySelectorAll('.wsf-dr__label, [data-field-label]')].map((el) => el.textContent ?? '');
 }
 
 async function renderF3(prescriptionId: string, locale: 'ar' | 'en') {

@@ -29,6 +29,7 @@ import { TextField } from '@/components/ui/TextField';
 import { askAssistant, assistantAudience } from '@/lib/assistant';
 import { PAGE_PATH, type AssistantAudience, type AssistantPage } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
+import { ASSISTANT_OPEN_EVENT } from './AssistantButton';
 import type { Locale } from '@/i18n/locale';
 
 type CopyKey = keyof typeof copy.assistant;
@@ -65,6 +66,13 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
   // STABLE on purpose: Sheet re-runs its focus trap whenever onClose changes identity, and it moves
   // focus to its first control (the close button). A new arrow per render sent every keystroke there.
   const close = useCallback(() => setOpen(false), []);
+
+  // The app bar's assistant pill opens this same panel (AssistantButton).
+  useEffect(() => {
+    const openPanel = () => setOpen(true);
+    window.addEventListener(ASSISTANT_OPEN_EVENT, openPanel);
+    return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, openPanel);
+  }, []);
 
   // Ask the server once, on first open, who this panel is talking to.
   useEffect(() => {

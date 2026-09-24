@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, t } from '@/i18n';
 import { interpolate } from '@/features/shell/interpolate';
+import { localizeFirstName, localizeRelationship } from '@/i18n/localize';
 import type { RoleOption } from '@/types/views';
 
 const pushMock = vi.fn();
@@ -28,22 +29,36 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+// CR-071: the patient's name and the relationship they typed show in the reader's language.
+const caregiverButtonEn = interpolate(t(copy.identity.roleChooserCaregiverButtonTemplate, 'en'), { name: localizeFirstName('حمد', 'en') });
+
 describe('A1b — role chooser', () => {
   it('renders two equally weighted cards, own record and the caregiver record named by relationship', () => {
     render(<RoleChooser options={options} locale="en" />);
-    expect(screen.getByRole('button', { name: t(copy.identity.roleChooserOwnButton, 'en') })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: interpolate(t(copy.identity.roleChooserCaregiverButtonTemplate, 'en'), { name: 'حمد' }) }),
-    ).toBeInTheDocument();
+    const own = screen.getByRole('button', { name: t(copy.identity.roleChooserOwnButton, 'en') });
+    const theirs = screen.getByRole('button', { name: caregiverButtonEn });
+    // Equal weight (UX §2, audit M2): the same variant, size and width, neither primary.
+    expect([...own.classList].sort()).toEqual([...theirs.classList].sort());
+    expect(own).toHaveClass('wsf-btn--secondary');
     // The relationship is the PATIENT's own first-person label ('ابني' = "my son"), so it is quoted,
     // never shown bare under the patient's name as if it described the reader (audit M4).
-    expect(screen.getByText('Described you as “ابني”')).toBeInTheDocument();
+    expect(
+      screen.getByText(interpolate(t(copy.identity.roleChooserRelationshipTemplate, 'en'), { relationship: localizeRelationship('ابني', 'en') })),
+    ).toBeInTheDocument();
     expect(screen.queryByText('ابني')).not.toBeInTheDocument();
+    // One language per locale (CR-071): no Arabic script on the English screen.
+    expect(document.body.textContent ?? '').not.toMatch(/[؀-ۿ]/);
   });
 
-  it('ar: the relationship reads as a quote — صلة القرابة في الطلب: «ابني»', () => {
+  it('ar: the relationship reads as a quote, «ابني»', () => {
     render(<RoleChooser options={options} locale="ar" />);
-    expect(screen.getByText('صلة القرابة في الطلب: «ابني»')).toBeInTheDocument();
+    expect(screen.getByText(interpolate(t(copy.identity.roleChooserRelationshipTemplate, 'ar'), { relationship: 'ابني' }))).toBeInTheDocument();
+    expect(screen.getByText(/«ابني»/)).toBeInTheDocument();
+  });
+
+  it('has exactly one h1, the question (the wordmark is not a heading)', () => {
+    render(<RoleChooser options={options} locale="en" />);
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([t(copy.identity.roleChooserTitle, 'en')]);
   });
 
   it('choosing "my medicines" calls chooseRole with the patient option and routes to /app', async () => {
@@ -55,7 +70,7 @@ describe('A1b — role chooser', () => {
 
   it('choosing the caregiver record calls chooseRole with the caregiver option and routes to /care — never signing out', async () => {
     render(<RoleChooser options={options} locale="en" />);
-    fireEvent.click(screen.getByRole('button', { name: interpolate(t(copy.identity.roleChooserCaregiverButtonTemplate, 'en'), { name: 'حمد' }) }));
+    fireEvent.click(screen.getByRole('button', { name: caregiverButtonEn }));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/care'));
     expect(chooseRoleMock).toHaveBeenCalledWith(options[1]);
     expect(pushMock).not.toHaveBeenCalledWith(expect.stringContaining('signin'));

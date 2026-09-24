@@ -69,7 +69,7 @@ describe('InteractionAlert', () => {
 
     rerender(<InteractionAlert severity="info" reviewStatus="auto_cleared" title="Prednisolone" lang="en" titleId="i" />);
     expect(screen.getByRole('region')).toHaveClass('wsf-alert--info');
-    expect(screen.getByText('Screened automatically. No interaction found.')).toBeInTheDocument();
+    expect(screen.getByText('Checked automatically. No interaction found.')).toBeInTheDocument();
   });
 
   it('overrides the built-in severity and review words when severityLabel/reviewLabel are given', () => {

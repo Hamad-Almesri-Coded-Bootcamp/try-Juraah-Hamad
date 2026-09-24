@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session';
 import { getAlert, getPrescription } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { LastKnown } from '@/features/shell/LastKnown';
 import { DayErrorState } from '@/features/day/DayErrorState';
 import { AlertDetail } from '@/features/safety/AlertDetail';
@@ -40,7 +41,7 @@ export default async function AlertDetailPage({
   if (view === 'loading') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} backHref={backHref} backLabel={backLabel} />
+        <AppBar title={title} backHref={backHref} backLabel={backLabel} action={<LanguageSwitch locale={locale} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="detail" label={t(copy.vocabulary.loading, locale)} />
         </div>
@@ -50,7 +51,7 @@ export default async function AlertDetailPage({
   if (view === 'error') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} backHref={backHref} backLabel={backLabel} />
+        <AppBar title={title} backHref={backHref} backLabel={backLabel} action={<LanguageSwitch locale={locale} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <DayErrorState locale={locale} backHref={`${backHref}/${alertId}`} />
         </div>
@@ -60,6 +61,7 @@ export default async function AlertDetailPage({
 
   const session = await getSession();
   if (!session || session.role !== 'patient') notFound(); // defensive — the shell layout already gates this
+  const action = <LanguageSwitch locale={locale} role="patient" subjectId={session.subjectId} />;
 
   const alert = await getAlert(alertId);
   if (!alert) notFound();
@@ -69,7 +71,7 @@ export default async function AlertDetailPage({
   );
 
   const content = (
-    <div className="p-3 tablet:p-5">
+    <div className="px-3 pb-5 pt-2 tablet:px-5">
       <AlertDetail
         alert={alert}
         prescriptions={prescriptions}
@@ -81,7 +83,7 @@ export default async function AlertDetailPage({
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <AppBar title={title} backHref={backHref} backLabel={backLabel} />
+      <AppBar title={title} backHref={backHref} backLabel={backLabel} action={action} />
       {view === 'offline' ? <LastKnown asOf={kuwaitNow()} locale={locale}>{content}</LastKnown> : content}
     </div>
   );

@@ -6,11 +6,25 @@
  * kept as this bundle's own copy rather than a cross-bundle import — D-003's "two subagents never
  * own the same file" reasoning applies just as much to a shared helper module as to a copy catalogue.
  */
-import { formatCount, formatDate, formatStrength as formatStrengthValue, formatTime, formatUnit, type PluralCopy } from '@/i18n/format';
+import { formatCount, formatDate, formatDayLabel, formatNumber, formatStrength as formatStrengthValue, formatTime, formatUnit, type PluralCopy } from '@/i18n/format';
+import { localizeDrugName, localizePersonName, localizeText } from '@/i18n/localize';
 import { dateOf, daysBetween } from '@/lib/schedule/dates';
+import { formatDoseCount } from '@/features/day/format';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { Prescription } from '@/types/contracts';
+
+/** The names on the box, in the reader's language, brand first (CR-069(l)): `primary` is the brand
+ * when there is one, else the generic; `generic` is the second line, only when a brand leads. The
+ * seed's "(unreadable)" becomes words (localizeDrugName), never the literal. */
+export function medicineNames(
+  drug: { genericName?: string; brandName?: string } | undefined,
+  locale: Locale,
+): { primary: string; generic: string | null } {
+  const generic = localizeDrugName(drug?.genericName ?? '', locale);
+  if (drug?.brandName) return { primary: localizeDrugName(drug.brandName, locale), generic };
+  return { primary: generic, generic: null };
+}
 
 /** `Prescription.drug.strengthUnit`'s word, defaulting to "mg" per the contract's own default — the
  * one shared unit vocabulary (i18n/format.ts, audit M7), never a catalogue of this bundle's own. */
@@ -74,6 +88,89 @@ export function formatDurationDays(days: number | undefined, locale: Locale): st
 export function timelineWhen(scheduledAt: string, locale: Locale): { dateLabel: string; timeLabel: string } {
   const isoDate = dateOf(scheduledAt);
   return { dateLabel: formatDate(isoDate, locale), timeLabel: formatTime(scheduledAt.slice(11, 16), locale) };
+}
+
+/** A dose-history row's day, calm and short — "Sunday, September 20" / "الأحد، ٢٠ سبتمبر" — and
+ * its clock time (Daylight: the history reads as a list of days, not of full dates). */
+export function historyWhen(scheduledAt: string, locale: Locale): { dateLabel: string; timeLabel: string } {
+  return { dateLabel: formatDayLabel(dateOf(scheduledAt), locale), timeLabel: formatTime(scheduledAt.slice(11, 16), locale) };
+}
+
+/** One labelled field of the prescription, its value already in the reader's language, or `null`
+ * when the record holds none. */
+export interface PrescriptionField {
+  key: string;
+  label: string;
+  value: string | null;
+}
+
+/**
+ * Every field of the `Prescription` contract a reader sees, dispensing included, in one order, each
+ * value formatted and localised (numbers in the locale's digits, drug names, people and free text
+ * through i18n/localize.ts). B3 lays them out in its details card; F3 can read the very same list,
+ * so the two cannot drift into two words for one field (audit M10). Nothing is dropped: a field
+ * with no value comes back with `value: null`, and the screen names it rather than hiding it.
+ */
+export function prescriptionFields(rx: Prescription, locale: Locale): PrescriptionField[] {
+  const num = (n: number | undefined) => (n == null ? null : formatNumber(n, locale));
+  const text = (s: string | undefined) => (s ? localizeText(s, locale) : null);
+  const date = (iso: string | undefined) => (iso ? formatDate(iso.slice(0, 10), locale) : null);
+  const f = (key: string, label: string, value: string | null | undefined): PrescriptionField => ({ key, label, value: value || null });
+  const fields: PrescriptionField[] = [
+    f('genericName', t(copy.prescription.rxGenericLabel, locale), localizeDrugName(rx.drug.genericName, locale)),
+    f('brandName', t(copy.prescription.rxBrandLabel, locale), rx.drug.brandName ? localizeDrugName(rx.drug.brandName, locale) : null),
+    f('strengthMg', t(copy.prescription.rxStrengthLabel, locale), formatStrength(rx.drug, locale)),
+    f('dosePerAdministration', t(copy.prescription.rxDoseLabel, locale), formatDoseCount(rx.dosePerAdministration, locale)),
+    f('frequencyPerDay', t(copy.prescription.rxFrequencyLabel, locale), num(rx.frequencyPerDay)),
+    f('dosingPattern', t(copy.prescription.rxPatternLabel, locale), patternLabel(rx.dosingPattern, locale)),
+    f('doseTimes', t(copy.prescription.rxDoseTimesLabel, locale), formatDoseTimes(rx.doseTimes, locale)),
+    f('startDate', t(copy.prescription.rxStartDateLabel, locale), date(rx.startDate)),
+    f('durationDays', t(copy.prescription.rxDurationLabel, locale), formatDurationDays(rx.durationDays, locale)),
+    f('timingRelativeToFood', t(copy.prescription.rxTimingLabel, locale), text(rx.timingRelativeToFood)),
+    f('routeOfAdministration', t(copy.prescription.rxRouteLabel, locale), text(rx.routeOfAdministration)),
+    f('indication', t(copy.prescription.rxIndicationLabel, locale), text(rx.indication)),
+    f('specialNotes', t(copy.prescription.rxNotesLabel, locale), text(rx.specialNotes)),
+    f('prescriberName', t(copy.prescription.rxPrescriberLabel, locale), rx.prescriberName ? localizePersonName(rx.prescriberName, locale) : null),
+    f('prescribedAt', t(copy.prescription.rxPrescribedAtLabel, locale), date(rx.prescribedAt)),
+    f('status', t(copy.prescription.rxStatusLabel, locale), rxStatusLabel(rx.status, locale)),
+  ];
+  if (rx.status === 'discontinued') {
+    fields.push(
+      f('discontinuedReason', t(copy.prescription.rxDiscontinuedReasonLabel, locale), text(rx.discontinuedReason)),
+      f('discontinuedAt', t(copy.prescription.rxDiscontinuedAtLabel, locale), date(rx.discontinuedAt)),
+    );
+  }
+  fields.push(
+    f('unitsPerPackage', t(copy.prescription.rxUnitsPerPackageLabel, locale), num(rx.dispensing?.unitsPerPackage)),
+    f('totalQuantityDispensed', t(copy.prescription.rxTotalDispensedLabel, locale), num(rx.dispensing?.totalQuantityDispensed)),
+    f('dispenseDate', t(copy.prescription.rxDispenseDateLabel, locale), date(rx.dispensing?.dispenseDate)),
+    f(
+      'brandActuallyDispensed',
+      t(copy.prescription.rxBrandDispensedLabel, locale),
+      rx.dispensing?.brandActuallyDispensed ? localizeDrugName(rx.dispensing.brandActuallyDispensed, locale) : null,
+    ),
+  );
+  return fields;
+}
+
+/**
+ * B4's review step: the fields a photo can carry, from the still-unsaved draft (a
+ * `Partial<Prescription>`), in B3's order and words. Keys are the contract's own field names, so
+ * the extraction's `uncertainFields` ("strengthMg", "doseTimes"…) mark the matching rows.
+ */
+export function draftFields(draft: Partial<Prescription>, locale: Locale): PrescriptionField[] {
+  const f = (key: string, label: string, value: string | null | undefined): PrescriptionField => ({ key, label, value: value || null });
+  return [
+    f('genericName', t(copy.prescription.rxGenericLabel, locale), draft.drug?.genericName ? localizeDrugName(draft.drug.genericName, locale) : null),
+    f('brandName', t(copy.prescription.rxBrandLabel, locale), draft.drug?.brandName ? localizeDrugName(draft.drug.brandName, locale) : null),
+    f('strengthMg', t(copy.prescription.rxStrengthLabel, locale), formatStrength(draft.drug, locale)),
+    f('dosePerAdministration', t(copy.prescription.rxDoseLabel, locale), draft.dosePerAdministration != null ? formatDoseCount(draft.dosePerAdministration, locale) : null),
+    f('frequencyPerDay', t(copy.prescription.rxFrequencyLabel, locale), draft.frequencyPerDay != null ? formatNumber(draft.frequencyPerDay, locale) : null),
+    f('dosingPattern', t(copy.prescription.rxPatternLabel, locale), patternLabel(draft.dosingPattern, locale)),
+    f('doseTimes', t(copy.prescription.rxDoseTimesLabel, locale), formatDoseTimes(draft.doseTimes, locale)),
+    f('startDate', t(copy.prescription.rxStartDateLabel, locale), draft.startDate ? formatDate(draft.startDate, locale) : null),
+    f('durationDays', t(copy.prescription.rxDurationLabel, locale), formatDurationDays(draft.durationDays, locale)),
+  ];
 }
 
 /** How far either side of today B3/F3's dose history shows before its "show all" disclosure (audit M8). */

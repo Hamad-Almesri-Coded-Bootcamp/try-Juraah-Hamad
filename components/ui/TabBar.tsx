@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Icon, type IconName } from './Icon';
 
 export interface TabBarItem {
@@ -16,6 +18,8 @@ export interface TabBarItem {
    * consumer can keep its own `value` state in step with the route.
    */
   href?: string;
+  /** Other paths under which this tab is the current one (a caregiver's alert belongs to Medicines). */
+  activePrefixes?: string[];
 }
 
 /** Exactly 2, 3 or 4 items — a shell's own set (G8) — refused at the type level for a 5th. */
@@ -44,13 +48,35 @@ const LAYOUT_CLASS: Record<NonNullable<TabBarProps['layout']>, string> = {
  * background, a navy leading-edge indicator (bundle CSS, ::after) and aria-current="page" — never
  * colour alone.
  */
+/**
+ * The tab whose href (or an extra prefix) is the longest match for the path. A shell layout does not
+ * re-render on an in-app navigation (App Router layouts persist), so the `value` it computed on the
+ * server would go stale the moment a screen links client-side. Reading the path here keeps the
+ * current tab correct after every navigation; `value` stays the answer when no path is known (tests).
+ */
+export function currentTabFor(items: readonly TabBarItem[], pathname: string | null | undefined, fallback: string): string {
+  if (!pathname) return fallback;
+  let best: { id: string; length: number } | null = null;
+  for (const item of items) {
+    for (const prefix of [item.href, ...(item.activePrefixes ?? [])]) {
+      if (!prefix) continue;
+      if ((pathname === prefix || pathname.startsWith(`${prefix}/`)) && (!best || prefix.length > best.length)) {
+        best = { id: item.id, length: prefix.length };
+      }
+    }
+  }
+  return best?.id ?? fallback;
+}
+
 export function TabBar({ items, value, onChange, layout = 'auto', label, className }: TabBarProps) {
   const classes = ['wsf-tabs', LAYOUT_CLASS[layout], className].filter(Boolean).join(' ');
+  const pathname = usePathname();
+  const currentId = currentTabFor(items, pathname, value);
 
   return (
     <nav className={classes} aria-label={label}>
       {items.map((item) => {
-        const current = item.id === value;
+        const current = item.id === currentId;
         const hasBadge = typeof item.badge === 'number' && item.badge > 0;
         // The badge's assistive text is built from the consumer's own item.label — never an invented
         // word — so the control's accessible name folds the count in without duplicating the visible
@@ -71,7 +97,7 @@ export function TabBar({ items, value, onChange, layout = 'auto', label, classNa
 
         if (item.href) {
           return (
-            <a
+            <Link
               key={item.id}
               href={item.href}
               className={itemClasses}
@@ -80,7 +106,7 @@ export function TabBar({ items, value, onChange, layout = 'auto', label, classNa
               onClick={onChange ? () => onChange(item.id) : undefined}
             >
               {content}
-            </a>
+            </Link>
           );
         }
 

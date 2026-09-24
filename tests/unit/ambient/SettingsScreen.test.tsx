@@ -10,6 +10,7 @@ import { SettingsScreen } from '@/features/ambient/SettingsScreen';
 import { getSettings } from '@/lib/data';
 import { getStore, reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
+import { copy } from '@/i18n';
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -52,7 +53,11 @@ describe('E3 — adherence toggle with no connected chat', () => {
       <SettingsScreen patientId="pt-01" settings={before} chatConnected={false} phone={null} locale="en" notificationsHref="/en/app/more/notifications" />,
     );
 
-    expect(screen.getByText('A connected chat is what turns daily check-ins on.')).toBeInTheDocument();
+    expect(screen.getByText(copy.ambient.e3TrackingNoChatNotice.en)).toBeInTheDocument();
+    // The frequency choice stays calm while tracking is off: present, not disabled, one quiet line.
+    expect(screen.getByText(copy.ambient.e3FrequencyOffNote.en)).toBeInTheDocument();
+    for (const radio of document.querySelectorAll('input[type="radio"]')) expect(radio).not.toBeDisabled();
+    expect(document.querySelector('.wsf-notice--warning')).not.toBeInTheDocument();
 
     const trackingSwitch = screen.getAllByRole('switch')[0]!;
     expect(trackingSwitch).toHaveAttribute('aria-checked', 'false');
@@ -81,11 +86,11 @@ describe('E3 — turning tracking off', () => {
     expect(getStore().settings.find((s) => s.patientId === 'pt-03')?.adherenceCheckInEnabled).toBe(true);
 
     const consequences = screen.getByTestId('turn-off-consequences');
-    expect(consequences).toHaveTextContent('Daily check-in messages stop.');
-    expect(consequences).toHaveTextContent('New doses stop carrying a status.');
-    expect(consequences).toHaveTextContent('Your recorded history is kept.');
+    expect(consequences).toHaveTextContent(copy.ambient.e3TurnOffConsequence1.en);
+    expect(consequences).toHaveTextContent(copy.ambient.e3TurnOffConsequence2.en);
+    expect(consequences).toHaveTextContent(copy.ambient.e3TurnOffConsequence3.en);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Turn tracking off' }));
+    fireEvent.click(screen.getByRole('button', { name: copy.ambient.e3TurnOffConfirm.en }));
     await vi.waitFor(() => expect(getStore().settings.find((s) => s.patientId === 'pt-03')?.adherenceCheckInEnabled).toBe(false));
   });
 });

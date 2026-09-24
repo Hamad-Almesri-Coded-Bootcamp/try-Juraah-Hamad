@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import Link from 'next/link';
 
 export interface CardProps {
   /** Defaults to 'button' when onClick is set, 'div' otherwise. Set 'a' (with href) to render a link. */
@@ -32,9 +33,9 @@ export function Card({ as, onClick, href, flat, className, children, ...rest }: 
   }
   if (tag === 'a') {
     return (
-      <a href={href} className={classes} onClick={onClick} {...rest}>
+      <Link href={href ?? '#'} className={classes} onClick={onClick} {...rest}>
         {children}
-      </a>
+      </Link>
     );
   }
   const Tag = tag;

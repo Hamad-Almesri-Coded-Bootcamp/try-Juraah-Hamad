@@ -10,7 +10,7 @@ import { DayErrorState } from '@/features/day/DayErrorState';
 import { NotificationsScreen } from '@/features/ambient/NotificationsScreen';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
-import { BOT_HANDLE, kuwaitNow } from '@/lib/config';
+import { BOT_HANDLE, BOT_IS_SIMULATED, kuwaitNow } from '@/lib/config';
 
 /**
  * E5 — notifications & messaging (`/[locale]/app/more/notifications`).
@@ -80,7 +80,7 @@ export default async function NotificationsPage({
   const active = !iosFixture && push?.status === 'active';
 
   const content = (
-    <div className="p-3 tablet:p-5">
+    <div className="px-3 pb-5 pt-2 tablet:px-5">
       <NotificationsScreen
         patientId={patientId}
         permission={permission}
@@ -88,6 +88,7 @@ export default async function NotificationsPage({
         iosNeedsInstall={iosNeedsInstall}
         messaging={messaging}
         botHandle={BOT_HANDLE}
+        simulated={BOT_IS_SIMULATED}
         locale={locale}
       />
     </div>

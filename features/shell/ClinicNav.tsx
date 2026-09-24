@@ -1,4 +1,4 @@
-import { ContextBanner } from '@/components/ui/ContextBanner';
+import { ClinicRoleBanner } from './ClinicRoleBanner';
 import type { TabBarItems } from '@/components/ui/TabBar';
 import { AppShell } from './AppShell';
 import { RoleSwitch } from './RoleSwitch';
@@ -8,11 +8,6 @@ import { copy, t } from '@/i18n';
 import type { ReactNode } from 'react';
 import type { Locale } from '@/i18n/locale';
 import type { Role, RoleOption } from '@/types/views';
-
-const ROLE_LABEL: Record<'reviewer' | 'admin', (locale: Locale) => string> = {
-  reviewer: (l) => t(copy.shell.clinicRoleReviewer, l),
-  admin: (l) => t(copy.shell.clinicRoleAdmin, l),
-};
 
 /**
  * The clinic shell's chrome, on the shared `AppShell`: the simulated-role banner on every screen
@@ -41,8 +36,7 @@ export function ClinicNav({
   children: ReactNode;
 }) {
   const items = clinicTabs(locale, roles);
-  const roleLabel = active === 'review' ? ROLE_LABEL.reviewer(locale) : ROLE_LABEL.admin(locale);
-  const banner = <ContextBanner variant="simulated" title={t(copy.vocabulary.simulatedRole, locale)} detail={roleLabel} icon="shield" />;
+  const banner = <ClinicRoleBanner locale={locale} fallback={active} />;
 
   return (
     <AppShell
@@ -54,7 +48,7 @@ export function ClinicNav({
       beforeContent={
         <>
           <div className="sticky top-0 z-10 flex items-center justify-between gap-2 tablet:hidden">
-            <ContextBanner variant="simulated" title={t(copy.vocabulary.simulatedRole, locale)} detail={roleLabel} icon="shield" className="flex-1" />
+            <ClinicRoleBanner locale={locale} fallback={active} className="flex-1" />
             <SignOutButton locale={locale} variant="quiet" />
           </div>
           <div className="hidden tablet:block">{banner}</div>

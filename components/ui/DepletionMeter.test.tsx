@@ -57,6 +57,6 @@ describe('DepletionMeter — Arabic digits and counted noun (audit M7)', () => {
     const { container } = render(<DepletionMeter remaining={15} total={21} daysRemaining={5} lang="ar" />);
     const note = container.querySelector('.wsf-dep__note')?.textContent ?? '';
     expect(note).toContain('٥ أيام');
-    expect(note).toContain('الكمية قاربت تخلص');
+    expect(note).toContain('الكمية أوشكت على النفاد'); // CR-071 Fusha
   });
 });

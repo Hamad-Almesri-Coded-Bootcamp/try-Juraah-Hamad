@@ -70,13 +70,14 @@ describe('F4 — profile: only the enumerated relationship-writes appear as butt
       />,
     );
     const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim());
+    // Read from the catalogue, so a wording change cannot silently widen or narrow the set.
     const ALLOWED = [
-      'تفعيل إشعارات المتصفح',
-      'إيقاف إشعارات المتصفح',
-      'ربط تيليقرام',
-      'فصل تيليقرام',
-      'افصل نفسي عن هذا الملف',
-      'تسجيل الخروج',
+      t(copy.caregiving.f4PushEnableAction, 'ar'),
+      t(copy.caregiving.f4PushDisableAction, 'ar'),
+      t(copy.caregiving.f4ChatConnectAction, 'ar'),
+      t(copy.caregiving.f4ChatDisconnectAction, 'ar'),
+      t(copy.caregiving.f4UnlinkAction, 'ar'),
+      t(copy.shell.signOut, 'ar'),
     ];
     for (const label of buttons) {
       expect(ALLOWED.some((allowed) => label?.includes(allowed)), `unexpected button: ${label}`).toBe(true);

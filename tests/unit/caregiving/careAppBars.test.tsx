@@ -12,6 +12,13 @@
  * The page files are rendered for real (their `requireRole` gate runs against the script session);
  * only their async screen bodies are stubbed, because a client-side `render` cannot await an async
  * server component nested inside the page's tree. Those bodies have their own tests.
+ *
+ * Daylight (CR-071): F2 Today is the patient's Today composition, so its h1 lives in the sky that
+ * `CaregiverToday` draws (a `<header>`), with the bar's actions the page hands it. That case renders
+ * the page (for the wiring) and the real screen body (for the header), awaited separately.
+ *
+ * The app bar now also carries the assistant (CR-069(k)): a `<button data-assistant-trigger>` that
+ * only opens the assistant's panel. It is the one button allowed; any other is a failure (rule 8).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -39,7 +46,9 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('@/features/caregiving/CaregiverToday', () => ({ CaregiverToday: () => <div data-testid="f2-today-body" /> }));
+vi.mock('@/features/caregiving/CaregiverToday', () => ({
+  CaregiverToday: ({ actions }: { actions?: React.ReactNode }) => <div data-testid="f2-today-body">{actions}</div>,
+}));
 vi.mock('@/features/caregiving/CaregiverMedicines', () => ({ CaregiverMedicines: () => <div data-testid="f2-medicines-body" /> }));
 vi.mock('@/features/caregiving/CaregiverPrescriptionDetail', () => ({
   CaregiverPrescriptionDetail: () => <div data-testid="f3-rx-body" />,
@@ -48,6 +57,15 @@ vi.mock('@/features/caregiving/CaregiverPrescriptionDetail', () => ({
 const { default: CaregiverTodayPage } = await import('@/app/[locale]/care/page');
 const { default: CaregiverMedicinesPage } = await import('@/app/[locale]/care/medicines/page');
 const { default: CaregiverPrescriptionDetailPage } = await import('@/app/[locale]/care/medicines/[prescriptionId]/page');
+const { CaregiverToday: RealCaregiverToday } = await vi.importActual<typeof import('@/features/caregiving/CaregiverToday')>(
+  '@/features/caregiving/CaregiverToday',
+);
+const { LanguageSwitch } = await import('@/features/shell/LanguageSwitch');
+
+/** Every button except the app bar's assistant trigger: must be none (rule 8, no write control). */
+function nonAssistantButtons(root: ParentNode) {
+  return root.querySelectorAll('button:not([data-assistant-trigger])');
+}
 
 beforeEach(() => {
   reset();
@@ -70,18 +88,25 @@ function expectAppBar(title: string, locale: Locale) {
   expect(switchLink.getAttribute('href')).toMatch(new RegExp(`^/${other}/care`));
 }
 
-describe('F2 Today — an app bar with the caregiver tab title and the language switch (C7)', () => {
+describe('F2 Today — a header with the caregiver tab title and the language switch (C7)', () => {
   for (const locale of ['ar', 'en'] as const) {
     it(`${locale}: h1 is the caregiver "Today" tab label; no button is added to the screen`, async () => {
       nav.pathname = `/${locale}/care`;
-      const { container } = render(
-        await CaregiverTodayPage({ params: Promise.resolve({ locale }), searchParams: Promise.resolve({}) }),
-      );
+      // The page: gated, it renders the screen body and hands it the bar's actions.
+      const page = render(await CaregiverTodayPage({ params: Promise.resolve({ locale }), searchParams: Promise.resolve({}) }));
+      const body = screen.getByTestId('f2-today-body');
+      expect(body.querySelector('a.jr-bar-pill')?.getAttribute('href')).toMatch(new RegExp(`^/${locale === 'ar' ? 'en' : 'ar'}/care`));
+      page.unmount();
+
+      // The screen body with those actions: one h1 in the sky's header, the switch beside it.
+      const actions = <LanguageSwitch locale={locale} role="caregiver" subjectId="cg-01" />;
+      const { container } = render(await RealCaregiverToday({ caregiverId: 'cg-01', locale, actions }));
       expectAppBar(t(copy.shell.careTabToday, locale), locale);
-      expect(screen.getByTestId('f2-today-body')).toBeInTheDocument();
-      // Zero write controls (rule 8): the app bar adds a link, never a button (no back on a home).
-      expect(container.querySelectorAll('button')).toHaveLength(0);
-    });
+      expect(container.querySelectorAll('h1')).toHaveLength(1);
+      // Zero write controls (rule 8): the header adds links and the assistant trigger, nothing else.
+      expect(container.querySelectorAll('button[data-assistant-trigger]')).toHaveLength(1);
+      expect(nonAssistantButtons(container)).toHaveLength(0);
+    }, 20_000); // the first render transforms the whole Today tree; slow under a parallel run
   }
 });
 
@@ -92,7 +117,7 @@ describe('F2 Medicines — an app bar with the caregiver tab title and the langu
       const { container } = render(await CaregiverMedicinesPage({ params: Promise.resolve({ locale }) }));
       expectAppBar(t(copy.shell.careTabMedicines, locale), locale);
       expect(screen.getByTestId('f2-medicines-body')).toBeInTheDocument();
-      expect(container.querySelectorAll('button')).toHaveLength(0);
+      expect(nonAssistantButtons(container)).toHaveLength(0);
     });
   }
 });

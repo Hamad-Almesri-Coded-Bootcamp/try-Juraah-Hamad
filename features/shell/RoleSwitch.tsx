@@ -8,6 +8,7 @@ import { copy, t } from '@/i18n';
 import { interpolate } from './interpolate';
 import { homePathFor } from './tabs';
 import type { Locale } from '@/i18n/locale';
+import { localizeFirstName } from '@/i18n/localize';
 import type { RoleOption } from '@/types/views';
 
 function labelFor(option: RoleOption, locale: Locale): string {
@@ -16,7 +17,7 @@ function labelFor(option: RoleOption, locale: Locale): string {
     option.role === 'patient'
       ? t(copy.shell.roleSwitchPatientLabel, locale)
       : option.role === 'caregiver'
-        ? interpolate(t(copy.shell.roleSwitchCaregiverLabelTemplate, locale), { name: option.patientFirstName ?? '' })
+        ? interpolate(t(copy.shell.roleSwitchCaregiverLabelTemplate, locale), { name: localizeFirstName(option.patientFirstName ?? '', locale) })
         : option.role === 'reviewer'
           ? t(copy.shell.roleSwitchReviewerLabel, locale)
           : t(copy.shell.roleSwitchAdminLabel, locale);

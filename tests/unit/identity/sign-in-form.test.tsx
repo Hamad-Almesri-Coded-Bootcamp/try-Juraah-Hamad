@@ -10,6 +10,7 @@ import { act } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy, t } from '@/i18n';
+import { screenTitles } from '@/i18n/copy/shell';
 import { HAWIATI_COUNTDOWN_SECONDS } from '@/lib/config';
 
 const pushMock = vi.fn();
@@ -85,11 +86,11 @@ describe('validation on submit — Continue is never disabled-until-valid (audit
   it('ar: the same two messages in Arabic', async () => {
     render(<SignInForm locale="ar" />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'ar') }));
-    expect(await screen.findByText('اكتب رقمك المدني')).toBeInTheDocument();
+    expect(await screen.findByText(t(copy.identity.civilIdRequiredError, 'ar'))).toBeInTheDocument();
     const input = screen.getByLabelText(t(copy.identity.civilIdLabel, 'ar'));
     fireEvent.change(input, { target: { value: '12345' } });
     fireEvent.submit(formOf(input));
-    expect(await screen.findByText('الرقم المدني ١٢ رقم')).toBeInTheDocument();
+    expect(await screen.findByText(t(copy.identity.civilIdLengthError, 'ar'))).toBeInTheDocument();
     expect(signInMock).not.toHaveBeenCalled();
   });
 
@@ -111,20 +112,40 @@ describe('validation on submit — Continue is never disabled-until-valid (audit
     fireEvent.submit(formOf(input));
     await vi.waitFor(() => expect(signInMock).toHaveBeenCalledWith('255031200187'));
     expect(input).toHaveValue('٢٥٥٠٣١٢٠٠١٨٧');
-    expect(screen.queryByText('الرقم المدني ١٢ رقم')).not.toBeInTheDocument();
+    expect(screen.queryByText(t(copy.identity.civilIdLengthError, 'ar'))).not.toBeInTheDocument();
   });
 });
 
 describe('the countdown is not a card inside a card (audit m1)', () => {
-  it('the running countdown draws its own frame only — no outer Card around it', async () => {
+  it('the running countdown draws its own frame only (the navy sky) — no outer Card around it', async () => {
     signInMock.mockResolvedValue({ kind: 'single_role', session: { subjectId: 'pt-01', role: 'patient' } });
     waitMock.mockImplementation(() => new Promise<void>(() => {})); // hold the countdown on screen; no stray navigation later
     render(<SignInForm locale="en" />);
     typeCivilId('255031200187');
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') }));
     const bar = await screen.findByRole('progressbar');
-    expect(bar.closest('.wsf-countdown')).not.toBeNull();
+    // CR-071: the wait is the Daylight sky (ApprovalWait, V2SignInWait), no longer the Countdown card.
+    expect(bar.closest('[data-testid="approval-wait"]')).not.toBeNull();
     expect(bar.closest('.wsf-card')).toBeNull();
+    // A way out is always there while it counts (navigation.md).
+    expect(screen.getByRole('button', { name: t(copy.identity.cancelLabel, 'en') })).toBeInTheDocument();
+  });
+});
+
+describe('one h1 per state (CR-071: the old app bar added a second)', () => {
+  it('the form has exactly one h1, the screen title, and the wordmark is not a heading', () => {
+    render(<SignInForm locale="en" />);
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([t(screenTitles.A1, 'en')]);
+  });
+
+  it('the wait has exactly one h1, the instruction', async () => {
+    signInMock.mockResolvedValue({ kind: 'single_role', session: { subjectId: 'pt-01', role: 'patient' } });
+    waitMock.mockImplementation(() => new Promise<void>(() => {}));
+    render(<SignInForm locale="en" />);
+    typeCivilId('255031200187');
+    fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') }));
+    await screen.findByRole('progressbar');
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([t(copy.identity.countdownLabel, 'en')]);
   });
 });
 

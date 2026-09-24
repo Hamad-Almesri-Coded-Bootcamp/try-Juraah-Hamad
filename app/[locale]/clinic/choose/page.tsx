@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getSession, getRoleOptions } from '@/lib/session';
 import { ClinicRoleChooser } from '@/features/clinic/ClinicRoleChooser';
+import { ClinicEntryFrame } from '@/features/clinic/ClinicEntryFrame';
+import { copy, t } from '@/i18n';
 
 const CLINIC_ROLES = new Set(['reviewer', 'admin']);
 
@@ -22,5 +24,9 @@ export default async function ClinicChoosePage({ params }: { params: Promise<{ l
   const clinicOptions = options.filter((o) => CLINIC_ROLES.has(o.role));
   if (clinicOptions.length < 2) redirect(`/${locale}/gate`);
 
-  return <ClinicRoleChooser options={clinicOptions} locale={locale} />;
+  return (
+    <ClinicEntryFrame locale={locale} title={t(copy.clinic.x0ChooserTitle, locale)} subtitle={t(copy.clinic.x0ChooserBody, locale)}>
+      <ClinicRoleChooser options={clinicOptions} locale={locale} />
+    </ClinicEntryFrame>
+  );
 }

@@ -4,7 +4,6 @@ import { useEffect, useId, useMemo, type ChangeEvent, type ReactNode } from 'rea
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
-import './styles/PhotoInput.css';
 
 export interface PhotoInputProps {
   value?: File | null;

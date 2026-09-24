@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getAlertForReview, getReviewQueue } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { ReviewerDecision } from '@/features/clinic/ReviewerDecision';
 import { copy, t } from '@/i18n';
 
@@ -20,7 +21,12 @@ export default async function ReviewerDecisionPage({ params }: { params: Promise
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <AppBar title={t(copy.clinic.g2sTitle, locale)} backHref={backHref} backLabel={t(copy.vocabulary.back, locale)} />
+      <AppBar
+        title={t(copy.clinic.g2sTitle, locale)}
+        backHref={backHref}
+        backLabel={t(copy.vocabulary.back, locale)}
+        action={<LanguageSwitch locale={locale} assistant={false} />}
+      />
       <ReviewerDecision view={view} locale={locale} backHref={backHref} queue={queue} queueBasePath={backHref} />
     </div>
   );

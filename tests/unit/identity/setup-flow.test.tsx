@@ -122,6 +122,26 @@ describe('A2 step 4 — closing explainer', () => {
   });
 });
 
+describe('Daylight (CR-071): one h1 per step, and the invite step draws its two answers equal', () => {
+  const titles = [copy.identity.languageStepTitle, copy.identity.notificationsStepTitle, copy.identity.inviteStepTitle, copy.identity.closingStepTitle];
+  for (const [step, title] of titles.entries()) {
+    it(`step ${step} has exactly one h1, its question (no app-bar title beside it)`, () => {
+      searchRef.value = `step=${step}`;
+      render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+      expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([t(title, 'en')]);
+    });
+  }
+
+  it('inviting and "not now" are the same button (UX §2: every "later" is an equal choice)', () => {
+    searchRef.value = 'step=2';
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    const invite = screen.getByRole('button', { name: t(copy.identity.inviteOpenLabel, 'en') });
+    const skip = screen.getByRole('button', { name: t(copy.identity.skipInviteLabel, 'en') });
+    expect([...invite.classList].sort()).toEqual([...skip.classList].sort());
+    expect(invite).not.toHaveClass('wsf-btn--primary');
+  });
+});
+
 describe('abandoning returns to the same step', () => {
   it('a ?step=2 URL renders the invite step directly, not step 1', () => {
     searchRef.value = 'step=2';

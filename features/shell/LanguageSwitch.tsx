@@ -7,8 +7,15 @@ import { updateSettings } from '@/lib/data';
 import { copy, t } from '@/i18n';
 import { withLocale, type Locale } from '@/i18n/locale';
 import type { Role } from '@/types/views';
+import { AssistantButton } from '@/features/assistant/AssistantButton';
 
-type LanguageSwitchProps = { locale: Locale; role?: Role; subjectId?: string };
+type LanguageSwitchProps = {
+  locale: Locale;
+  role?: Role;
+  subjectId?: string;
+  /** The app bar's assistant pill sits beside the switch on every bar (CR-071); `false` leaves it out. */
+  assistant?: boolean;
+};
 
 /**
  * G2: the language switch, in the app bar's action slot on every screen (and L1's own header,
@@ -21,11 +28,14 @@ type LanguageSwitchProps = { locale: Locale; role?: Role; subjectId?: string };
  * exported component wraps the query-aware link in one, with a pathname-only link as the
  * fallback — the control itself never disappears while the query resolves.
  */
-export function LanguageSwitch(props: LanguageSwitchProps) {
+export function LanguageSwitch({ assistant = true, ...props }: LanguageSwitchProps) {
   return (
-    <Suspense fallback={<SwitchLink {...props} />}>
-      <QueryAwareSwitchLink {...props} />
-    </Suspense>
+    <span className="jr-bar-actions">
+      {assistant ? <AssistantButton locale={props.locale} /> : null}
+      <Suspense fallback={<SwitchLink {...props} />}>
+        <QueryAwareSwitchLink {...props} />
+      </Suspense>
+    </span>
   );
 }
 
@@ -52,7 +62,7 @@ function SwitchLink({ locale, role, subjectId, query }: LanguageSwitchProps & { 
     <Link
       href={target}
       onClick={handleClick}
-      className="wsf-btn wsf-btn--quiet wsf-focus type-label"
+      className="jr-bar-pill wsf-focus"
       aria-label={t(copy.shell.languageSwitchLabel, locale)}
     >
       {t(copy.shell.languageSwitch, locale)}

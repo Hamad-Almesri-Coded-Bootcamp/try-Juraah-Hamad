@@ -755,3 +755,93 @@ Each fix below needed no decision: it makes the build do what a binding document
 - M15: AlertRow loses its side stripe.
 - M19: D1's per-row buttons and E5's Telegram button are secondary.
 - m7: B4 says "Unclear in the photo" once.
+
+### CR-071 · The "Daylight" redesign, Fusha Arabic and one language per locale — `APPROVED BY THE OWNER` 2026-09-24 (in chat; being built on branch `visual-redesign`)
+**What the owner decided.** Reviewing `docs/audits/2026-09-24-hallmark-visual-audit.md` and the v2 "Daylight" mock (canvas "Jur'ah redesign mock", page v2), the owner said:
+- Keep the twelve colours and redesign everything else, then apply v2 to every screen, with smooth motion.
+- Write the Arabic in Fusha.
+- Spell the identity app هويتي, not هويّاتي.
+- Show only Arabic when the app is in Arabic and only English when it is in English.
+- Make the text read as a person wrote it, with no em dashes.
+- For CR-069 (a), (c), (f), (g), (k) and (l): "you know better".
+- Push to `main` when finished.
+
+**Where this overrides a binding document.** The documents are not edited here. The owner updates them, and these sentences no longer match what is built:
+1. `docs/UX Principles.md` §3, first bullet: "Everyday Arabic, in the register the Adherence Agent speaks — not formal MSA". The app now speaks plain Fusha. The Adherence Agent (the other track, `agents/`) still speaks dialect in chat, so chat and app now differ in register. That is the owner's call.
+2. Brand book, *Arabic and English in one layout*: "…not formal Modern Standard Arabic". Same as 1.
+3. Brand book, *Type*: "Set everything in `sans`… weights 400 and 600". The build adds Readex Pro (Arabic and Latin) for headings and numbers, and uses weights 400 to 700.
+4. Brand book, *Elevation, radius*: "`radius-md` for cards and primary buttons", "a full `danger` fill… not a stripe". The build uses pill buttons, 24px cards and a danger band with a white body (CR-069(c)).
+5. Brand book, *Arabic and English in one layout*: "Keep a Latin drug name inside an Arabic sentence…". In Arabic the drug name is now written in Arabic (see *Language purity*).
+6. `tokens.json` `type-label` / `type-caption` 13px. Both are raised to 14px (CR-069(a)).
+
+**How it is built without touching the design-system copies.**
+- `docs/design-system/`, `components/ui/styles/bundle.css` (byte-identical test) and `styles/tokens.css` (generated, `check:tokens`) are unchanged.
+- A new theme layer, `styles/daylight.css`, sits after them in the `components` cascade layer. It redefines token values (the type scale in `rem`, radii, shadows) and restyles the design system's classes.
+- New primitives the design system lacks live in `components/ui/`: the 24-hour day dial, the week strip, the medicine monogram, the progress ring and the sky header. They are listed here as design-system additions, for the owner to take into the published system.
+- The bell and person glyphs (audit m3) are added to `design/icons.json` for the same reason.
+
+**The CR-069 items this settles.**
+- (a) 14px floor.
+- (c) Danger band.
+- (f) Landing without the card wall.
+- (g) One line on Today pointing to a pending danger finding. It is not a pill and not a dose status.
+- (k) The assistant moves from a floating button into the app bar, and is not shown on F0, A2 or the clinic shell.
+- (l) One name order everywhere: brand first, then the generic name.
+- (d) The TabBar becomes a dock whose cells size to their labels, so "My Medicines" no longer wraps.
+
+**Language purity.** The seed is Arabic-only for free text and proper nouns, and Latin-only for drug names. The contract carries no second language. So that no locale shows the other script, `i18n/localize.ts` localises at display time, with a fallback to the stored value. No seed value, contract field or database row changes.
+- **Drug names** (Latin → Arabic): a dictionary of the seed's drugs, for example Warfarin → وارفارين and Brufen → بروفين. A name the dictionary lacks, such as a new prescription read from a photo, is shown as stored.
+- **Facilities, relationships and people's names** (Arabic → English): transliterations, listed below for the owner to correct. A masked name keeps its shape: `ناصر ح*** المطيري` → `Nasser H*** Al-Mutairi`.
+- **Free text and activity messages** (Arabic → English): an exact-string map for the seed's alert descriptions, reviewer note and reasons, plus patterns for the app's own `AuditEvent.message` templates.
+- **Old spellings in stored text** (هويّاتي, تيليقرام): normalised on display in Arabic.
+- **The one exception**: an identifier the person must type exactly (the bot handle) stays as written.
+- *If we don't go further:* free text written at runtime by the agents on the production database is shown as stored. Phase 2 should store both languages (BACKEND-NOTES).
+
+Transliterations for the owner to correct:
+- **Facilities:**
+  - مستشفى الفروانية Farwaniya Hospital
+  - عيادة النخبة الطبية Al-Nukhba Medical Clinic
+  - مستشفى العدان Adan Hospital
+  - مركز الصباح للأمراض الروماتيزمية Al-Sabah Rheumatology Center
+  - عيادة الياسمين Al-Yasmin Clinic
+- **Relationships:**
+  - ابني my son
+  - ابنتي my daughter
+  - زوجة ابني my son's wife
+  - قريب a relative
+  - ابنة أختي my niece (my sister's daughter)
+  - ابنة أخي my niece (my brother's daughter)
+  - حفيدي my grandson
+- **People:** the seed's twelve names, word by word. For example حمد سالم المطيري → Hamad Salem Al-Mutairi.
+- **English name of هويتي:** kept as "Hawiati". Say if it should be "Hawiyati".
+
+**As built (2026-09-24, branch `visual-redesign`).**
+- **Foundation (lead).**
+  - `styles/daylight.css` is imported after the system's files in the `components` layer. The project's own component stylesheets (`components/ui/styles/*.css`) are now imported into that same layer from `app/globals.css`, instead of from each component. Imported from the components, they were unlayered, and unlayered CSS beats every layer.
+  - Readex Pro is loaded beside IBM Plex (400 to 700).
+  - Route changes cross-fade: one `<ViewTransition>` in the root layout, off under reduced motion.
+  - The patient and caregiver shells have loading skeletons.
+  - Internal links in the shared components are `next/link`, so navigation no longer reloads the page.
+  - The shell reads the path in the browser (`TabBar` `currentTabFor`, `ShellAside`, `ClinicRoleBanner`). App Router layouts do not re-render on an in-app navigation, so the server-computed current tab, dock visibility and clinic role label went stale after any client-side navigation. This was already true of the existing `router.push` buttons.
+  - New primitives: `DayDial`, `WeekStrip`, `Monogram`, `ProgressRing`, `SkyHeader`, `features/day/TodayView.tsx`. The bell and person glyphs are added to `design/icons.json`.
+  - The assistant is a pill in the app bar (`AssistantButton` inside `LanguageSwitch`). Pages marked `data-no-assistant` (F0, A2, the clinic) show neither it nor the floating launcher.
+- **Today (B1, and F2 through the same `TodayView`).**
+  - Today opens on a navy sky with a greeting, the week strip, and a 24-hour dial whose centre shows the next dose. Previous- and next-day buttons sit beside the dial, because the week strip only reaches the current week.
+  - Any standing danger finding comes next, then the day in parts (morning, afternoon, evening, night), each part one card with a time pill per dose and a "Now" line.
+  - The dial's dot colours key off `Dose.tracked` first, and a unit test pins it (rule 3).
+- **Screens (five area passes).**
+  - B2, B3, B4, C1, C2, C3, D1, E1 to E5, A3 and More.
+  - L1, A1, A1b and A2.
+  - F0 to F5 and the caregiver's More.
+  - X0, G1s, G2s, G3s and X1.
+  - One h1 per screen (A1, A1b, F0 and A2 had two).
+  - The landing's screenshot is replaced by the live `DayDial`.
+- **Proof.**
+  - `tests/unit/i18n/localize.test.ts` (15 tests) covers every seed value in both directions.
+  - `tests/e2e/language-purity.spec.ts` checks 41 routes × 2 locales. Run against the pre-redesign commit (`ff86837`): 37 failed, 4 passed. The green run on this branch is recorded in the audit report.
+- **For the owner to decide.**
+  - **(i) CR-010 against CR-071.** CR-010 lets X1 show the literal role and type codes beside their labels. With "no Latin in Arabic", those codes now show only in the English locale.
+  - **(ii) X1's footer.** It says the log shows no medicine or dose details, but stored messages do (for example "Levothyroxine dose recorded: taken on time"). The spec and the seed disagree; nothing was changed.
+  - **(iii) The field-confirmation queue.** It always lists "Strength" as unclear. The Postgres mapper hard-codes it (`lib/data/shapes/reads-clinic.ts`), to match the mock, which reads `p.strengthMg` instead of `p.drug.strengthMg`. This existed before the redesign; fixing it changes both backends and `tests/fixtures/shapes.json`.
+  - **(iv) The consent read on the mock.** `getInvitationForConsent` on the mock does not check the session; Postgres does (`c.civil_id = jurah_session()->>'civilId'`). Local and test runs only.
+  - **(v) Drawn by hand.** These pieces are not yet design-system components: B2's time pills and supply bar, D1's refill status chip, `SupplyRing`, the clinic's `PrescriptionBridge` and `ClinicEntryFrame`.

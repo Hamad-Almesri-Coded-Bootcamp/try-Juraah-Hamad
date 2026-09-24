@@ -1,6 +1,7 @@
 import type { IconName } from './Icon';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
+import { localizeText } from '@/i18n/localize';
 
 /** InteractionAlert.severity from the data contract. */
 export type Severity = 'info' | 'warning' | 'danger';
@@ -87,12 +88,14 @@ export function InteractionAlert({
           </h2>
         </div>
       </div>
-      {description && <p className={`wsf-alert__desc ${descClass}`}>{description}</p>}
+      {description && (
+        <p className={`wsf-alert__desc ${descClass}`}>{typeof description === 'string' ? localizeText(description, lang) : description}</p>
+      )}
       {drugs && drugs.length > 0 && (
         <ul className="wsf-alert__drugs">
           {drugs.map((drug) => (
             <li key={drug} className="type-body">
-              {drug}
+              {localizeText(drug, lang)}
             </li>
           ))}
         </ul>

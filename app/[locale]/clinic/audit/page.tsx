@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getAuditLog } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { AuditLogView } from '@/features/clinic/AuditLogView';
 import { ClinicErrorState } from '@/features/clinic/ClinicErrorState';
@@ -34,7 +35,7 @@ export default async function AuditLogPage({
   if (view === 'loading') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} />
+        <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <LoadingState variant="list" rows={4} label={t(copy.vocabulary.loading, locale)} />
         </div>
@@ -44,7 +45,7 @@ export default async function AuditLogPage({
   if (view === 'error') {
     return (
       <div className="relative flex min-h-full flex-col">
-        <AppBar title={title} />
+        <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
         <div className="flex flex-col gap-4 p-3 tablet:p-5">
           <ClinicErrorState locale={locale} backHref={`/${locale}/clinic/audit`} />
         </div>
@@ -57,7 +58,7 @@ export default async function AuditLogPage({
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <AppBar title={title} />
+      <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
       <AuditLogView events={events} locale={locale} filters={{ actor, type, period }} basePath={`/${locale}/clinic/audit`} />
     </div>
   );

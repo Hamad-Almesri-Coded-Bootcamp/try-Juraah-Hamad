@@ -36,11 +36,20 @@ export function DoseHistoryList({ rows, visibleCount, showAllLabel, showFewerLab
   const listId = useId();
   const hasMore = rows.length > visibleCount;
   const shown = expanded || !hasMore ? rows : rows.slice(0, visibleCount);
+  // Daylight: the day in navy, its time as a small pill. The row's status pill (tracked doses only)
+  // is still DoseTimeline's own, decided by `tracked` alone.
+  const items = shown.map((row) => ({
+    ...row,
+    dateLabel: <span className="text-navy">{row.dateLabel}</span>,
+    timeLabel: (
+      <span className="jr-num ms-1 inline-flex items-center rounded-full bg-navy-tint px-2 font-semibold text-navy">{row.timeLabel}</span>
+    ),
+  }));
 
   return (
     <div className="flex flex-col gap-2">
-      <div id={listId}>
-        <DoseTimeline items={shown} lang={lang} />
+      <div id={listId} className="jr-group px-4 py-1">
+        <DoseTimeline items={items} lang={lang} />
       </div>
       {hasMore && (
         <div>

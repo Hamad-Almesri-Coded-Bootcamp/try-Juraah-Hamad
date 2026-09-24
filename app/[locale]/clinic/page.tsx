@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { ClinicSignInForm } from '@/features/clinic/ClinicSignInForm';
+import { ClinicEntryFrame } from '@/features/clinic/ClinicEntryFrame';
 import { ClinicErrorState } from '@/features/clinic/ClinicErrorState';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { copy, t } from '@/i18n';
 
 /**
  * X0 — clinic entry, Civil ID sign-in (`/[locale]/clinic`). See `features/clinic/ClinicSignInForm.tsx`.
@@ -25,20 +27,18 @@ export default async function ClinicEntryPage({
   const { view: rawView } = await searchParams;
   const view = process.env.NODE_ENV === 'production' ? undefined : rawView;
 
-  if (view === 'loading') {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
-        <LoadingState variant="lines" rows={4} />
-      </main>
-    );
-  }
-  if (view === 'error') {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-content flex-col justify-center p-3 tablet:p-5">
-        <ClinicErrorState locale={locale} backHref={`/${locale}/clinic`} />
-      </main>
-    );
-  }
+  const title = t(copy.clinic.x0Title, locale);
+  const subtitle = t(copy.clinic.x0Subtitle, locale);
 
-  return <ClinicSignInForm locale={locale} />;
+  return (
+    <ClinicEntryFrame locale={locale} title={title} subtitle={subtitle} showRoles>
+      {view === 'loading' ? (
+        <LoadingState variant="lines" rows={4} label={t(copy.vocabulary.loading, locale)} />
+      ) : view === 'error' ? (
+        <ClinicErrorState locale={locale} backHref={`/${locale}/clinic`} />
+      ) : (
+        <ClinicSignInForm locale={locale} />
+      )}
+    </ClinicEntryFrame>
+  );
 }

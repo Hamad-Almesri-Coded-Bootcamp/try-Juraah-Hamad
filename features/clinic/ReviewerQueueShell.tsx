@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AppBar } from '@/components/ui/AppBar';
 import { ChoiceGroup } from '@/components/ui/ChoiceGroup';
+import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { copy, t } from '@/i18n';
 import { interpolate } from '@/features/shell/interpolate';
 import { formatNumber } from '@/i18n/format';
@@ -40,8 +41,9 @@ export function ReviewerQueueShell({
 
   return (
     <div className="relative flex min-h-full flex-col">
-      <AppBar title={t(copy.clinic.reviewerQueuesTitle, locale)} />
-      <div className="mx-auto flex w-full max-w-content flex-col gap-4 p-3 tablet:p-5">
+      <AppBar title={t(copy.clinic.reviewerQueuesTitle, locale)} action={<LanguageSwitch locale={locale} assistant={false} />} />
+      {/* Aligned with the title at the reading edge, capped at the reading width (D-011). */}
+      <div className="flex w-full max-w-content flex-col gap-5 px-3 pb-5 pt-2 tablet:px-5">
         <ChoiceGroup
           variant="segmented"
           name="reviewer-queue-switch"

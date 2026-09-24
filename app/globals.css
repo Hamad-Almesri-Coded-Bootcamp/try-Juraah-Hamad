@@ -10,5 +10,22 @@
    `.wsf-btn--primary { color: var(--on-fill) }` on every link-styled button. */
 @import '../components/ui/styles/bundle.css' layer(components);
 @import '../styles/tokens.css' layer(components);
+/* The project's own pending components (.jr-*), in the same layer so Daylight's restyle below wins
+   over them the same way it wins over bundle.css (imported from each component file, they were
+   unlayered, and unlayered CSS beats every layer whatever the specificity). */
+@import '../components/ui/styles/ActivityRow.css' layer(components);
+@import '../components/ui/styles/AlertRow.css' layer(components);
+@import '../components/ui/styles/ContextBanner.css' layer(components);
+@import '../components/ui/styles/CopyField.css' layer(components);
+@import '../components/ui/styles/Countdown.css' layer(components);
+@import '../components/ui/styles/DoseRow.css' layer(components);
+@import '../components/ui/styles/DoseTimeline.css' layer(components);
+@import '../components/ui/styles/MenuRow.css' layer(components);
+@import '../components/ui/styles/PhotoInput.css' layer(components);
+@import '../components/ui/styles/ScheduleGroup.css' layer(components);
+@import '../components/ui/styles/StepIndicator.css' layer(components);
+/* Daylight (CR-071): the v2 theme layer — token values and component restyles, after the system's own
+   files in the same layer, so it wins over them and every utility a screen writes still wins over it. */
+@import '../styles/daylight.css' layer(components);
 @import '../styles/theme.css';
 @import '../styles/base.css' layer(base);

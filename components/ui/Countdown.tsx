@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { copy, t, type Locale } from '@/i18n';
 import { formatNumber } from '@/i18n/format';
-import './styles/Countdown.css';
 
 export interface CountdownProps {
   /** Total seconds the countdown was started with (the determinate progressbar's max). */

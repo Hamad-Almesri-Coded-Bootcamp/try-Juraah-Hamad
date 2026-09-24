@@ -2,7 +2,10 @@
 
 /**
  * E3 — settings (`docs/wireframes/Settings.dc.html`, overridden per CR-011: no channel `Select`, no
- * language control — G2 keeps language in the app bar). **Exactly** four controls: adherence
+ * language control — G2 keeps language in the app bar). Daylight (CR-071): the controls sit in three
+ * grouped cards (check-ins · alerts and calendar · contact), each toggle stating what it does, and the
+ * frequency choice stays calm while tracking is off (set-able, with one quiet line saying when it
+ * applies — never disabled, never a warning). **Exactly** four controls: adherence
  * tracking (`Toggle` + `ChoiceGroup` frequency) · refill alerts (`Toggle`) · calendar sync
  * (`Toggle`, state shared with E1) · optional contact phone (`TextField`, via the identical
  * `PhoneEditor` A3 already uses — imported rather than re-typed, per this bundle's brief note on
@@ -107,54 +110,78 @@ export function SettingsScreen({
   }
 
   return (
-    <div className="relative flex flex-col gap-4" data-testid="settings-screen">
-      <Toggle
-        label={t(copy.ambient.e3TrackingLabel, locale)}
-        description={t(copy.ambient.e3TrackingDescription, locale)}
-        checked={settings.adherenceCheckInEnabled}
-        onChange={handleTrackingChange}
-        lang={locale}
-      />
+    <div className="relative flex flex-col gap-5" data-testid="settings-screen">
+      <section className="flex flex-col gap-2">
+        <h2 className="jr-group-title">{t(copy.ambient.e3GroupCheckIns, locale)}</h2>
+        <div className="jr-group flex flex-col">
+          <div className="px-4 py-3">
+            <Toggle
+              label={t(copy.ambient.e3TrackingLabel, locale)}
+              description={t(copy.ambient.e3TrackingDescription, locale)}
+              checked={settings.adherenceCheckInEnabled}
+              onChange={handleTrackingChange}
+              lang={locale}
+            />
+          </div>
+          {!chatConnected && (
+            <div className="px-4 pb-3">
+              <InlineNotice tone="info" title={t(copy.ambient.e3TrackingNoChatNotice, locale)}>
+                <NavigateButton href={notificationsHref} variant="quiet" lang={locale}>
+                  {t(copy.ambient.e3TrackingNoChatAction, locale)}
+                </NavigateButton>
+              </InlineNotice>
+            </div>
+          )}
+          <div className="border-t border-border px-4 py-4">
+            {/* Calm while tracking is off: still there to set, with one quiet line saying when it applies. */}
+            <ChoiceGroup
+              variant="segmented"
+              name="adherence-frequency"
+              label={t(copy.ambient.e3FrequencyLabel, locale)}
+              value={settings.adherenceCheckInFrequency}
+              onChange={handleFrequencyChange}
+              helperText={settings.adherenceCheckInEnabled ? undefined : t(copy.ambient.e3FrequencyOffNote, locale)}
+              options={[
+                { value: 'daily', label: t(copy.ambient.e3FrequencyDaily, locale) },
+                { value: 'every_other_day', label: t(copy.ambient.e3FrequencyAltDay, locale) },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
 
-      {!chatConnected && (
-        <InlineNotice tone="info" title={t(copy.ambient.e3TrackingNoChatNotice, locale)}>
-          <NavigateButton href={notificationsHref} variant="quiet" lang={locale}>
-            {t(copy.ambient.e3TrackingNoChatAction, locale)}
-          </NavigateButton>
-        </InlineNotice>
-      )}
+      <section className="flex flex-col gap-2">
+        <h2 className="jr-group-title">{t(copy.ambient.e3GroupAlerts, locale)}</h2>
+        <div className="jr-group flex flex-col">
+          <div className="px-4 py-3">
+            <Toggle
+              label={t(copy.ambient.e3RefillAlertsLabel, locale)}
+              description={t(copy.ambient.e3RefillAlertsDescription, locale)}
+              checked={settings.refillAlertsEnabled}
+              onChange={handleRefillChange}
+              lang={locale}
+            />
+          </div>
+          <div className="border-t border-border px-4 py-3">
+            <Toggle
+              label={t(copy.ambient.e3CalendarSyncLabel, locale)}
+              description={t(copy.ambient.e3CalendarSyncDescription, locale)}
+              checked={settings.calendarSyncEnabled}
+              onChange={handleCalendarChange}
+              lang={locale}
+            />
+          </div>
+        </div>
+      </section>
 
-      <ChoiceGroup
-        variant="segmented"
-        name="adherence-frequency"
-        label={t(copy.ambient.e3FrequencyLabel, locale)}
-        value={settings.adherenceCheckInFrequency}
-        onChange={handleFrequencyChange}
-        options={[
-          { value: 'daily', label: t(copy.ambient.e3FrequencyDaily, locale) },
-          { value: 'every_other_day', label: t(copy.ambient.e3FrequencyAltDay, locale) },
-        ]}
-      />
+      <section className="flex flex-col gap-2">
+        <h2 className="jr-group-title">{t(copy.ambient.e3GroupContact, locale)}</h2>
+        <div className="jr-group px-4 py-4">
+          <PhoneEditor patientId={patientId} initialPhone={phone} locale={locale} />
+        </div>
+      </section>
 
-      <Toggle
-        label={t(copy.ambient.e3RefillAlertsLabel, locale)}
-        description={t(copy.ambient.e3RefillAlertsDescription, locale)}
-        checked={settings.refillAlertsEnabled}
-        onChange={handleRefillChange}
-        lang={locale}
-      />
-
-      <Toggle
-        label={t(copy.ambient.e3CalendarSyncLabel, locale)}
-        description={t(copy.ambient.e3CalendarSyncDescription, locale)}
-        checked={settings.calendarSyncEnabled}
-        onChange={handleCalendarChange}
-        lang={locale}
-      />
-
-      <PhoneEditor patientId={patientId} initialPhone={phone} locale={locale} />
-
-      <p className="type-caption">{t(copy.ambient.e3EngineNote, locale)}</p>
+      <p className="m-0 px-1 type-caption text-ink-muted">{t(copy.ambient.e3EngineNote, locale)}</p>
 
       <Sheet
         open={confirmingTurnOff}

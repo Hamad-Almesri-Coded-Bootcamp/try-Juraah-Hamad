@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DrugCheckFlow } from '@/features/supply/DrugCheckFlow';
 import { getActivity, getAlerts } from '@/lib/data';
+import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
 
@@ -47,6 +48,17 @@ describe('C3 — interaction_found (حمد, pt-01)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open interaction details' }));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/safety/ia-001'));
   });
+
+  it('says who is checking it: the linked alert’s own review state, in the fixed vocabulary (UX §8)', async () => {
+    setScriptSession({ subjectId: 'pt-01', role: 'patient' });
+    const { container } = render(<DrugCheckFlow locale="ar" patientId="pt-01" backHref="/ar/app/safety" />);
+    choosePhoto(container, fileOfSize(200));
+    // ia-001 is pending_medical_review in the seed.
+    expect(await screen.findByText(t(copy.vocabulary.pending_medical_review, 'ar'))).toBeInTheDocument();
+    expect(container.querySelector('.wsf-alert--danger .wsf-alert__review--pending')).not.toBeNull();
+    // One locale, one script: the drug name is in Arabic too (CR-071).
+    expect(container.textContent).not.toMatch(/[A-Za-z]/);
+  });
 });
 
 describe('C3 — no_interaction (سارة, pt-03)', () => {
@@ -69,7 +81,7 @@ describe('C3 — could_not_identify (0-byte photo): no record, no alert', () => 
     const { container } = render(<DrugCheckFlow locale="en" patientId="pt-01" backHref="/en/app/safety" />);
     choosePhoto(container, fileOfSize(0));
 
-    await screen.findByText('We could not identify this medication');
+    await screen.findByText(t(copy.supply.c3CouldNotIdentifyTitle, 'en'));
     expect(screen.getByRole('button', { name: 'Try another photo' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to Safety' })).toBeInTheDocument();
 
@@ -81,7 +93,7 @@ describe('C3 — could_not_identify (0-byte photo): no record, no alert', () => 
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
     const { container } = render(<DrugCheckFlow locale="en" patientId="pt-01" backHref="/en/app/safety" />);
     choosePhoto(container, fileOfSize(0));
-    await screen.findByText('We could not identify this medication');
+    await screen.findByText(t(copy.supply.c3CouldNotIdentifyTitle, 'en'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Try another photo' }));
     expect(screen.getByText('Photo of the packet')).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
 import { getSession } from '@/lib/session';
-import { getRefillOverview, getRefillRequests } from '@/lib/data';
+import { getPrescriptions, getRefillOverview, getRefillRequests } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
@@ -62,11 +62,24 @@ export default async function RefillPage({
   const patientId = session.subjectId;
   const action = <LanguageSwitch locale={locale} role="patient" subjectId={patientId} />;
 
-  const [overview, requests] = await Promise.all([getRefillOverview(patientId), getRefillRequests(patientId)]);
+  // The patient's own prescriptions, for each card's facility (RefillLine carries only the routing)
+  // and for naming a request whose prescription is no longer active. No contract change.
+  const [overview, requests, prescriptions] = await Promise.all([
+    getRefillOverview(patientId),
+    getRefillRequests(patientId),
+    getPrescriptions(patientId),
+  ]);
 
   const content = (
     <div className="p-3 tablet:p-5">
-      <RefillList overview={overview} requests={requests} patientId={patientId} locale={locale} highlightPrescriptionId={rx} />
+      <RefillList
+        overview={overview}
+        requests={requests}
+        prescriptions={prescriptions}
+        patientId={patientId}
+        locale={locale}
+        highlightPrescriptionId={rx}
+      />
     </div>
   );
 
