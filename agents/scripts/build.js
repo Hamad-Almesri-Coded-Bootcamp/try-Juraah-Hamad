@@ -162,10 +162,15 @@ const stopTap = p.kind === 'callback' && !tap ? parseStopTap(p.text) : null;
 // A tap carries the CHECK-IN message's time, not the tap's: the tap happened now (n8n's receipt).
 const eventAt = p.kind === 'callback' ? new Date().toISOString() : p.sentAt;
 const route = (p.photoFileId || p.documentFileId) && p.subjectType === 'patient' && p.kind === 'message' ? 'extraction' : 'adherence';
-// AP-05 step 2 (TC-AD-12) - a TYPED reply between 00:00 and 02:59 Kuwait also reads the previous
-// day's open doses; a tap already names its own dose and its own check-in day. dates' last entry
+// AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads the previous day's
+// open doses. This applies to a TAP too: a tap names its own dose id, but the button carrying that
+// id can have been SENT before midnight and TAPPED after it (eventAt/p.sentAt is the tap's own
+// time, not the check-in message's), and a tap fetched by today's date alone would then never find
+// yesterday's dose id among the doses it gets back. Fetching both days here is always safe: the
+// dose is still looked up by its exact id (agents/lib/adherence.js decide()), never by date, so an
+// extra fetch can only widen the search, never attach the tap to the wrong day. dates' last entry
 // is always "today" (the reply's own Kuwait date); a first entry, when present, is the day before.
-const dates = p.kind === 'callback' ? [kuwaitDate(p.sentAt)] : readDates(p.sentAt);
+const dates = readDates(p.sentAt);
 const date = dates[dates.length - 1];
 const prevDate = dates.length > 1 ? dates[0] : null;
 return [{ json: {

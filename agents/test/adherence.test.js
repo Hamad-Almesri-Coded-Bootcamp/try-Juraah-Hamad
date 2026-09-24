@@ -195,6 +195,25 @@ test('ran_out writes nothing (a refill is the patient’s own request in the app
   assert.deepEqual(d.writes, []);
 });
 
+test('TC-AD-12: "it ran out" with two open doses of the SAME prescription -> picks one, never asks (naming a specific dose does not matter for ran_out)', () => {
+  const doses = [
+    dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN),
+    dose('rx-009-20260924-2100', 'rx-009', '21:00', OPEN),
+  ];
+  const d = A.decide(patient({ doses, sentAt: at('22:00'), classification: said('ran_out') }));
+  assert.equal(d.outcome, 'ran_out');
+  assert.deepEqual(d.writes, []);
+  assert.match(d.reply, /Calcium carbonate/);
+});
+
+test('TC-AD-12: "it ran out" with open doses across TWO prescriptions -> ask, never guess which medicine (the prescription-level guard candidateDoses/decide relies on)', () => {
+  const d = A.decide(patient({ sentAt: at('22:00'), classification: said('ran_out', 0.95, 'خلص الدوا') }));
+  assert.equal(d.outcome, 'ask_which');
+  assert.deepEqual(d.writes, []);
+  assert.equal(d.reply, A.REPLIES.ar.unclear);
+  assert.deepEqual(d.askDoses, []);
+});
+
 test('replyAfterWrites: a refused write never reads as recorded; a failed recompute says the miss is recorded', () => {
   const miss = A.decide(patient({ sentAt: at('08:30'), classification: said(MISSED) }));
   assert.deepEqual(A.replyAfterWrites(miss, [{ statusCode: 200 }, { statusCode: 200 }], 'ar'), { reply: miss.reply, recorded: true });
@@ -288,16 +307,19 @@ test('TC-AD-09 (CR-092): trackingOn false and nothing open -> "check-ins are not
 // AP-05 step 5 - rule 3/4 invariants.
 test('TC-AD-11 (rule 3): a tracked:false dose is never a candidate or a tap target and is never written', () => {
   const untracked = dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN, { tracked: false });
-  // The backend never RETURNS an untracked dose to the agent (CR-062) - candidateDoses does not
-  // filter on `tracked` itself (it only ever sees tracked rows), so this proves the doses array the
-  // agent is handed never includes one, by construction of the fixture used everywhere else too.
+  // The backend never RETURNS an untracked dose to the agent in the first place (CR-062,
+  // docs/API-SURFACE.md: "an untracked dose is never returned"), and the database refuses a
+  // status on one regardless of what any caller sends (dose_untracked_has_no_status,
+  // supabase/migrations/0004_constraints_and_triggers.sql:194, surfaced as 409 untracked_dose by
+  // lib/agent/handlers.ts:33). This test proves the DEFENCE IN DEPTH on top of that: even handed
+  // the tracked:false dose directly (never trusting the backend contract alone), candidateDoses
+  // and the tap lookup both refuse it - on the `tracked` field itself, never the status word
+  // (rule 3 as written: "the pill's absence keys off Dose.tracked, never off the status word").
   const doses = [untracked];
   const typed = A.decide(patient({ doses, sentAt: at('13:05'), classification: said(ON_TIME) }));
-  assert.equal(typed.writes[0].doseId, 'rx-009-20260924-1300'); // still a candidate INSIDE this file...
-  // ...which is exactly why the backend, not this file, must never hand the agent an untracked
-  // dose in the first place (docs/API-SURFACE.md: "an untracked dose is never returned"). Proven
-  // the other way here: a tap naming a dose id the backend did NOT return finds nothing to write.
-  const tapped = A.decide(patient({ doses: [], sentAt: at('13:05'), tap: A.parseTap('d:rx-009-20260924-1300:taken_on_time') }));
+  assert.equal(typed.outcome, 'no_dose');
+  assert.deepEqual(typed.writes, []);
+  const tapped = A.decide(patient({ doses, sentAt: at('13:05'), tap: A.parseTap('d:rx-009-20260924-1300:taken_on_time') }));
   assert.equal(tapped.outcome, 'no_dose');
   assert.deepEqual(tapped.writes, []);
 });

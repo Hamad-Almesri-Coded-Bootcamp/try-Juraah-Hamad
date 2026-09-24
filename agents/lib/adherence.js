@@ -227,6 +227,11 @@ function candidateDoses({ doses, sentAt, intent }) {
   const t = new Date(sentAt).getTime();
   const horizon = intent === 'missed' ? t : t + EARLY_GRACE_HOURS * HOUR_MS;
   return (doses || [])
+    // Rule 3, defence in depth - the backend's own contract already never returns an untracked dose
+    // here (docs/API-SURFACE.md), and the database refuses a status on one regardless
+    // (dose_untracked_has_no_status / lib/agent/handlers.ts 409 untracked_dose). This file adds its
+    // own filter anyway, on the `tracked` field itself, never the status word (rule 3 as written).
+    .filter((d) => d && d.tracked !== false)
     .filter((d) => d && d.status === OPEN_WORD)
     .filter((d) => new Date(d.scheduledAt).getTime() <= horizon)
     .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
@@ -296,7 +301,9 @@ function decide({ subjectType, language, sentAt, doses, prescriptions, tap, stop
   let dose = null;
   if (tap) {
     trusted = { intent: tap.intent, claimed: tap.intent, confidence: 1, quote: '', guardrail: null };
-    dose = (doses || []).find((d) => d && d.id === tap.doseId) || null;
+    // Rule 3, defence in depth (candidateDoses above has the same note) - a tap naming an untracked
+    // dose's id finds nothing here either, whatever the backend contract already guarantees.
+    dose = (doses || []).find((d) => d && d.id === tap.doseId && d.tracked !== false) || null;
     if (!dose) {
       return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',
                reason: 'the tapped dose is not one of this patient\'s tracked doses' };
@@ -341,10 +348,23 @@ function decide({ subjectType, language, sentAt, doses, prescriptions, tap, stop
       return { ...base, intent, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10', reason: 'no open tracked dose this reply could be about' };
     }
     // TC-AD-12 - more than one open dose (possibly across two Kuwait dates, AP-05 step 2) and a
-    // typed report: ask with buttons, never pick one. ran_out is informational, never asked about.
+    // typed report: ask with buttons, never pick one. ran_out picks silently among candidates of
+    // the SAME prescription (below), because naming a specific dose does not matter for it - but
+    // never guesses which MEDICINE ran out.
     if (candidates.length > 1 && intent !== 'ran_out') {
       return { ...base, intent, outcome: 'ask_which', reply: L.which_dose, askDoses: candidates.slice().reverse(),
                reason: candidates.length + ' open doses could be meant' };
+    }
+    // A prescription-level report (today, only ran_out reaches here with candidates.length > 1:
+    // discontinued_by_doctor already returned above, and every other intent was just asked about)
+    // needs ONE prescription behind the candidates - "it ran out" said with two medicines open must
+    // not be read as naming whichever candidate happens to sort first.
+    if (candidates.length > 1) {
+      const rxIds = [...new Set(candidates.map((d) => d.prescriptionId))];
+      if (rxIds.length > 1) {
+        return { ...base, intent, outcome: 'ask_which', reply: L.unclear, askDoses: [],
+                 reason: 'the report names no medicine and ' + rxIds.length + ' prescriptions are open' };
+      }
     }
     dose = candidates[0];
   }

@@ -289,6 +289,20 @@ async function scenarios() {
     const late = await inbound({ payload: relay({ sentAt: '2026-09-24T03:00:00+03:00', text: 'خذيته' }), dosesResponse: http(200, today), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
     assert.equal(late.routed.prevDosesUrl, null);
   });
+  await check('TC-AD-12: a tap on the ASK\'s yesterday button, itself sent after midnight, still fetches the previous day (the tap\'s own sentAt is the tap time, not the check-in message\'s) and records that dose, never no_dose', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    const today = { patientId: 'pt-03', date: '2026-09-24', doses: [dose('rx-008-20260924-0015', 'rx-008', '00:15', OPEN, 'Eltroxin')] };
+    const s = await inbound({
+      payload: relay({ kind: 'callback', text: 'd:rx-009-y-2100:taken_on_time', callbackQueryId: 'cbq-y1', sentAt: '2026-09-24T00:41:00+03:00' }),
+      dosesResponse: http(200, today), prevDosesResponse: http(200, yesterday),
+    });
+    assert.equal(s.routed.needsModel, false);
+    assert.match(s.routed.prevDosesUrl, /doses\?date=2026-09-23$/);
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].url, /rx-009-y-2100\/status$/);
+    assert.equal(s.calls[0].body.status, W_ON);
+    assert.notEqual(s.decision.outcome, 'no_dose');
+  });
   await check('TC-AD-09 (CR-092): trackingOn false and nothing open -> "check-ins are not switched on", no write; trackingOn absent -> the plain no-dose reply', async () => {
     const empty = { patientId: 'pt-03', date: '2026-09-24', doses: [] };
     const off = await inbound({ payload: relay({ trackingOn: false }), dosesResponse: http(200, empty), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
