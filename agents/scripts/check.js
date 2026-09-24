@@ -462,6 +462,31 @@ async function alexaScenarios() {
     // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path.
     assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
   });
+  await check('"Alexa, ask medicine helper what are my medicines today" -> today\'s schedule with each status, in code (no model), the screen to «اليوم»; never the record path; only the two GETs and the screen POST', async () => {
+    const en = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.en-US.json'), 'utf8')).interactionModel.languageModel.intents;
+    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
+    const enToday = en.find((i) => i.name === 'TodayDosesIntent').samples;
+    const arToday = ar.find((i) => i.name === 'TodayDosesIntent').samples;
+    for (const s of ['what are my medicines today', 'what medicines do I take today', 'what are my meds today', 'which medicines today']) assert.ok(enToday.includes(s), 'en-US TodayDosesIntent sample: ' + s);
+    for (const s of ['شنو أدويتي اليوم', 'وش أدويتي اليوم']) assert.ok(arToday.includes(s), 'ar-SA TodayDosesIntent sample: ' + s);
+    // Spoken as a sample (TodayDosesIntent), or caught by free talk's "what {utterance}" carrier - both the same answer.
+    const bySample = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'en-US'));
+    const byFree = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'are my medicines today' }), { model: { intent: 'record', confidence: 0.99, items: [] } });
+    for (const s of [bySample, byFree]) {
+      assert.equal(s.intent.kind, 'TodayDosesIntent');
+      assert.match(text(s), /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
+      assert.equal(s.spoken.screen.topic, 'today');
+      assert.deepEqual(s.prompts, [], 'no Telegram buttons: nothing to record');
+      assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
+      readOnly(s);
+    }
+    assert.equal(byFree.parsed.quick, 'TodayDosesIntent', 'answered in code: the model node does not run');
+    const arS = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'ar-SA'));
+    assert.match(text(arS), /^عندك اليوم 2 جرعات: /);
+    assert.equal(arS.spoken.screen.topic, 'today');
+    readOnly(arS);
+    console.log('        -> ' + text(bySample));
+  });
   await check('CR-070 free talk: the sentence goes to Gemini, and its intent is answered from the data ("check my medicines" -> today)', async () => {
     const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'my medicines for today' }), { model: { intent: 'today', confidence: 0.9 } });
     assert.equal(s.intent.kind, 'TodayDosesIntent');

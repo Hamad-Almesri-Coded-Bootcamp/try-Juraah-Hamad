@@ -154,3 +154,22 @@ test('quickFreeTalk: a plain question skips the model (Alexa waits at most 8 s);
     assert.equal(A.quickFreeTalk(t), null, t);
   }
 });
+
+test('"what are my medicines today" and its variants -> today\'s schedule, in code (no model), whole or with the carrier "what" stripped', () => {
+  const asked = [
+    'what are my medicines today', 'are my medicines today', 'What are my medicines today?',
+    'what medicines do I take today', 'medicines do I take today',
+    'what are my meds today', 'are my meds today',
+    'which medicines today', 'check my medicines for today', 'my medicines for today',
+    'شنو أدويتي اليوم', 'وش أدويتي اليوم', 'شنو ادويتي اليوم؟', 'وش ادويتي اليوم',
+  ];
+  for (const t of asked) assert.equal(A.quickFreeTalk(t), 'TodayDosesIntent', t);
+});
+
+test('"what are my medicines today" never takes the record path; a record sentence about today still does, and another day is not today', () => {
+  // The fast path answers it, so the model's answer is never read for it - even a model that says "record".
+  assert.equal(A.quickFreeTalk('what are my medicines today'), 'TodayDosesIntent');
+  assert.notEqual(A.trustFreeTalk({ intent: 'today', confidence: 0.9 }, 'what are my medicines today').kind, 'record');
+  for (const t of ['i took my medicines today', 'mark my medicines today as taken', 'I missed my meds today']) assert.equal(A.quickFreeTalk(t), null, t);
+  for (const t of ['what are my medicines tomorrow', 'my meds for yesterday']) assert.equal(A.quickFreeTalk(t), null, t);
+});

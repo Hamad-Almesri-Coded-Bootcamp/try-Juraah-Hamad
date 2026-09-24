@@ -31,6 +31,16 @@ const KIND_FOR_FREE = {
 const MAX_ITEMS = 10;
 /** Words that say what the patient DID with a dose. Used only when the model gave no answer at all. */
 const RECORD_TALK = /\b(took|taken|missed|skipped|mark|record|log)\b/;
+/**
+ * "What are my medicines today" and its asked-for variants, English and Arabic, as whole sentences
+ * (alef forms folded). Alexa may strip a leading "what" into FreeTalkIntent's carrier, so the word is optional.
+ */
+const TODAY_ASKED = [
+  /^(what )?(are )?my (medicines|medications|meds) (for )?today$/,
+  /^(what |which )?(medicines|medications|meds) (do i take |do i have |are )?(for )?today$/,
+  /^(check )?my (medicines|medications|meds) for today$/,
+  /^(شنو|وش) (هي )?ادويتي اليوم$/,
+];
 
 /** What Alexa says to a record request. The first line is the fixed CR-073 answer. */
 const ACT = {
@@ -92,7 +102,13 @@ function trustFreeTalk(classification, text) {
  */
 function quickFreeTalk(text) {
   const t = String(text || '').toLowerCase().replace(/[?.!,،؟]/g, ' ').replace(/\s+/g, ' ').trim();
+  // The asked-for today questions, matched whole (with or without the carrier word Alexa may strip):
+  // always today's schedule, never the model, never the record path.
+  const bare = t.replace(/[أإآ]/g, 'ا');
+  if (TODAY_ASKED.some((re) => re.test(bare))) return 'TodayDosesIntent';
   if (!t || /\b(took|taken|missed|miss|forgot|forget|skipped|mark|record|log|didn't|did not|not)\b/.test(t)) return null;
+  // Another day is not today's schedule: the model reads it (today's answer is never given for it).
+  if (/\b(tomorrow|yesterday|next week)\b/.test(t)) return null;
   const hits = [];
   // Alexa keeps the carrier word ("when ...") out of the slot: "should I have my eltroxin" is the same question.
   if (/\bnext (dose|medicine|medication|pill)\b|\bwhen (do|should|will|can|must) i\b.*\b(take|have)\b|^(do|should|can|must|will) i (need to |have to )?(take|have)\b|\bwhen is my\b|\bwhat time\b/.test(t)) hits.push('NextDoseIntent');
