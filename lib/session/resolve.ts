@@ -48,8 +48,8 @@ export function sessionForOption(option: RoleOption): Session {
 export function resolveCivilId(civilId: string, store: StoreState, nowIso: string): SignInOutcome {
   // Steps 1–2: shape and test-list. A malformed value never matches one of the twelve test IDs,
   // so both checks collapse into one membership test (ROLES.md step 2 is the only rejection A1
-  // makes, and it reveals nothing about accounts). The list is the seed's twelve plus the two demo
-  // patients the owner added outside the seed (D-041).
+  // makes, and it reveals nothing about accounts). The list is the seed's twelve plus the demo
+  // patients and doctors the owner added outside the seed (D-041, D-042).
   const listed = (ALL_TEST_CIVIL_IDS as readonly string[]).includes(civilId) || DEMO_TEST_CIVIL_IDS.includes(civilId);
   if (!listed) return { kind: 'not_in_test_list' };
 
