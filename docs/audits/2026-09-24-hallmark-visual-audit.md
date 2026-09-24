@@ -133,7 +133,7 @@ A "modern" pass that swapped these for trend colours or a display face would mak
 
 The owner approved the v2 "Daylight" mock and asked for it on every screen, with Fusha Arabic, هويتي, one language per locale, text that reads as a person wrote it, and no em dashes. It is built on branch `visual-redesign` and recorded in `docs/DECISIONS.md` under CR-071.
 
-**Checks on the final commit.**
+**Checks on the redesign before the merge (`5ae4608`).**
 
 - `npm run verify`: exit 0 (1,123 unit tests, and a production build of 74 pages).
 - `npm run guards`: all passed.
@@ -156,3 +156,11 @@ Two screens could not be opened there, both because of live data, not the code:
 - **G2 for ia-001.** That alert has already been reviewed on the live database, so the reviewer's queue is empty and G2 shows "not found". This is correct.
 
 That run also found one problem: a reviewer who reached "not found" saw the patient assistant. It is fixed (`app/[locale]/not-found.tsx`).
+
+**After merging `main` (the agents track's voice work) and the post-merge fixes: `bdaaabf`, the commit pushed.**
+
+- `npm run verify`: exit 0 (1,139 unit tests, and a production build of 74 pages). `npm run guards`: all passed.
+- Full e2e on the mock backend, every width against one server: 958 passed and 35 failed. The 35 depend on test order, not on code: tests earlier in the same run confirm `ia-001` and decline `cg-08`, and those rows live in one shared in-memory store. All 35 then passed on a fresh server (`--last-failed --workers=1`). So 993 passed, and 114 are skipped by design (width-specific).
+- Language purity: 41 of 41 routes, in both locales.
+- A five-lens review of the merge, with each finding checked by two independent skeptics, upheld 16 findings. The web app's side is fixed and tested: assistant replies declared in their language; the panel follows the person and the page; no assistant Server Action on page load. The agents track's side is listed in `docs/DECISIONS.md` CR-071 (x).
+- Runs broke twice for reasons outside the code. Next's dev server rewrote `prerender-manifest.json` while it was being read, when recompiling pages it had unloaded (its default keeps 2 pages for 25 s). Separately, three dev servers plus browsers on this 16 GB machine swapped (load 543). The final run kept every page compiled (a test-worktree-only setting) and used one server.
