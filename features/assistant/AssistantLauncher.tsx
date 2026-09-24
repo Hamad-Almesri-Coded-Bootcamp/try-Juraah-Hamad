@@ -20,21 +20,26 @@
  * for?" — No offers the other topics. When the agent is not sure ('unclear'), the panel moves
  * nowhere and asks back with the same tappable topics instead of guessing. Every chip only SENDS a
  * question; none records anything.
+ *
+ * CR-069 — the screen follows the voice. For a signed-in patient the panel polls `voiceTurns` every
+ * few seconds, also in a background tab; each turn the patient has with Alexa opens the panel, shows
+ * what was asked and what Alexa said, and opens the screen it is about. When Alexa did not
+ * understand, the panel shows the four voice topics — tap one, or say it to the Echo.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { askAssistant, assistantAudience } from '@/lib/assistant';
-import { PAGE_PATH, type AssistantAudience, type AssistantPage } from '@/lib/assistant/core';
+import { askAssistant, assistantAudience, voiceTurns } from '@/lib/assistant';
+import { PAGE_PATH, type AssistantAudience, type AssistantPage, type VoiceTopic, type VoiceTurn } from '@/lib/assistant/core';
 import { copy, t } from '@/i18n';
 import { ASSISTANT_OPEN_EVENT } from './AssistantButton';
 import type { Locale } from '@/i18n/locale';
 
 type CopyKey = keyof typeof copy.assistant;
 /** `ask`: the chips under this line — only the LAST line's are live. */
-type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' };
+type Line = { from: 'you' | 'assistant'; text: string; note?: string; ask?: 'confirm' | 'clarify' | 'clarifyVoice' };
 
 const SUGGESTIONS: Record<AssistantAudience, readonly (keyof typeof copy.assistant)[]> = {
   patient: ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestSafety'],
@@ -46,6 +51,15 @@ const CLARIFY: Record<AssistantAudience, readonly CopyKey[]> = {
   patient: ['suggestNext', 'suggestToday', 'suggestSafety', 'suggestTelegram', 'suggestRefill'],
   guest: ['guestSuggestWhat', 'guestSuggestSignIn', 'guestSuggestTelegram'],
 };
+
+/** Said to the Echo: the four things Alexa understands, worded exactly as its interaction model's samples. */
+const CLARIFY_VOICE: readonly CopyKey[] = ['suggestNext', 'suggestAmount', 'suggestToday', 'suggestForgot'];
+/** What the patient asked Alexa, in the screen's language (Alexa sends the topic, not the words). */
+const VOICE_ASKED: Partial<Record<VoiceTopic, CopyKey>> = {
+  launch: 'voiceAskedLaunch', next_dose: 'suggestNext', dose_amount: 'suggestAmount', today: 'suggestToday', forgot: 'suggestForgot',
+  record: 'voiceAskedRecord',
+};
+const VOICE_POLL_MS = 2500;
 
 const MOVED: Record<AssistantPage, CopyKey> = {
   today: 'movedToday', activity: 'movedActivity', safety: 'movedSafety', notifications: 'movedNotifications',
@@ -74,13 +88,53 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
     return () => window.removeEventListener(ASSISTANT_OPEN_EVENT, openPanel);
   }, []);
 
-  // Ask the server once, on first open, who this panel is talking to.
+  // Ask the server once, on mount, who this panel is talking to (a patient's screen follows the voice).
   useEffect(() => {
-    if (!open || audience) return;
+    if (audience) return;
     let live = true;
     void assistantAudience().then((a) => { if (live) setAudience(a); }, () => { if (live) setAudience('guest'); });
     return () => { live = false; };
-  }, [open, audience]);
+  }, [audience]);
+
+  // CR-069: follow the patient's Alexa turns. The first answer is only the starting point.
+  const pathRef = useRef(pathname);
+  useEffect(() => { pathRef.current = pathname; }, [pathname]);
+  const lastSeq = useRef<number | null>(null);
+  useEffect(() => {
+    if (audience !== 'patient') return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const follow = (turns: VoiceTurn[]) => {
+      const next: Line[] = [];
+      let page: AssistantPage | null = null;
+      for (const turn of turns) {
+        const asked = VOICE_ASKED[turn.topic];
+        if (asked) next.push({ from: 'you', text: t(c[asked], locale), note: t(c.voiceSaid, locale) });
+        next.push({ from: 'assistant', text: turn.reply, note: t(c.voiceAnswered, locale) });
+        if (turn.topic === 'unclear') next.push({ from: 'assistant', text: t(c.clarifyVoiceAsk, locale), ask: 'clarifyVoice' });
+        if (turn.topic === 'bye') next.push({ from: 'assistant', text: t(c.voiceEnded, locale) });
+        page = turn.page ?? page;
+      }
+      setOpen(true);
+      setLines((prev) => [...prev, ...next]);
+      const target = page ? `/${locale}${PAGE_PATH[page]}` : null;
+      if (target && pathRef.current !== target) router.push(target);
+      requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
+    };
+    // Also in a background tab (the browser slows its timers there): the page has already moved
+    // when the patient looks at it — they talk to the Echo, not to this window.
+    const tick = async () => {
+      const r = await voiceTurns(lastSeq.current).catch(() => null);
+      if (live && r) {
+        const first = lastSeq.current === null;
+        lastSeq.current = r.latest;
+        if (!first && r.turns.length > 0) follow(r.turns);
+      }
+      if (live) timer = setTimeout(() => void tick(), VOICE_POLL_MS);
+    };
+    void tick();
+    return () => { live = false; if (timer) clearTimeout(timer); };
+  }, [audience, locale, router, c]);
 
   const scrollToEnd = () => requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: 'end' }));
 
@@ -189,6 +243,15 @@ export function AssistantLauncher({ locale }: { locale: Locale }) {
                 <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.confirmLabel, locale)} data-testid="assistant-confirm">
                   <Button variant="secondary" onClick={() => answerConfirm(true)} lang={locale}>{t(c.confirmYes, locale)}</Button>
                   <Button variant="secondary" onClick={() => answerConfirm(false)} lang={locale}>{t(c.confirmNo, locale)}</Button>
+                </div>
+              )}
+              {lastAsk === 'clarifyVoice' && (
+                <div className="flex flex-wrap gap-2" role="group" aria-label={t(c.clarifyLabel, locale)} data-testid="assistant-clarify-voice">
+                  {CLARIFY_VOICE.map((key) => (
+                    <Button key={key} variant="secondary" onClick={() => send(t(c[key], locale))} lang={locale}>
+                      {t(c[key], locale)}
+                    </Button>
+                  ))}
                 </div>
               )}
               {lastAsk === 'clarify' && (

@@ -89,6 +89,10 @@ const http = (statusCode, body) => [{ json: { statusCode, body } }];
 // --------------------------------------------------------------- scenarios
 const ON_TIME = ['taken_on_time'][0];
 const OPEN = ['upcoming'][0];
+// Dose words by reference, never as an object literal (guard 4 / G1 scans for status: '<word>').
+const W_ON = ['taken_on_time'][0];
+const W_LATE = ['taken_late'][0];
+const W_MISS = ['missed'][0];
 const dose = (id, prescriptionId, hhmm, word, brandName) => ({
   id, prescriptionId, scheduledAt: '2026-09-24T' + hhmm + ':00+03:00', status: word, recordedAt: null,
   genericName: prescriptionId === 'rx-008' ? 'Levothyroxine' : 'Calcium carbonate + vitamin D3', brandName: brandName || null,
@@ -290,27 +294,50 @@ async function alexaScenarios() {
   const SKILL = 'amzn1.ask.skill.check';
   const USER = 'amzn1.ask.account.CHECKUSER';
   const wf = WF('agent-alexa');
-  const configure = (skill, links) => {
+  // `records` stands in for turning the CR-070 switch on in the live node (the repository ships it off).
+  const configure = (skill, links, records = false) => {
     const copy = JSON.parse(JSON.stringify(wf));
     const n = copy.nodes.find((x) => x.name === 'alexa request (deterministic)');
     n.parameters.jsCode = n.parameters.jsCode.replace("const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};",
       'const ALEXA_SKILL_ID = ' + JSON.stringify(skill) + ';\nconst ALEXA_LINKS = ' + JSON.stringify(links) + ';');
+    if (records) {
+      const plan = copy.nodes.find((x) => x.name === 'plan (deterministic)');
+      plan.parameters.jsCode = plan.parameters.jsCode.replace('const VOICE_RECORDS = false;', 'const VOICE_RECORDS = true;');
+    }
     return copy;
   };
-  const body = (type, intent, locale = 'ar-SA') => [{ json: { body: {
-    version: '1.0', session: { application: { applicationId: SKILL }, user: { userId: USER } },
-    request: { type, locale, timestamp: new Date().toISOString(), ...(intent ? { intent: { name: intent } } : {}) } } } }];
+  const body = (type, intent, locale = 'ar-SA', { utterance, pending } = {}) => [{ json: { body: {
+    version: '1.0', session: { application: { applicationId: SKILL }, user: { userId: USER }, ...(pending ? { attributes: { pending } } : {}) },
+    request: { type, locale, timestamp: new Date().toISOString(),
+      ...(intent ? { intent: { name: intent, ...(utterance ? { slots: { utterance: { name: 'utterance', value: utterance } } } : {}) } } : {}) } } } }];
   const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
   const doseAt = (id, rx, hhmm, brand) => ({ ...dose(id, rx, hhmm, OPEN, brand), scheduledAt: today + 'T' + hhmm + ':00+03:00' });
   // One dose already passed (00:05) and one still ahead (23:55), whatever the clock says.
   const DAYDOSES = [doseAt('rx-008-x-0005', 'rx-008', '00:05', 'Eltroxin'), doseAt('rx-009-x-2355', 'rx-009', '23:55')];
-  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]) } = {}) => {
+  // Walked as the connections run: parse -> (Gemini, for free talk) -> intent -> reads -> plan -> (writes) -> speak.
+  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]), model = null, writeCode = 200 } = {}) => {
     const r = runner(w);
     const [p] = await r.code('alexa request (deterministic)', input);
-    if (p.json.ok && p.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
+    let toIntent = [p];
+    if (p.json.ok && p.json.kind === 'FreeTalkIntent' && p.json.utterance) toIntent = r.set('Gemini: understand the sentence', [{ json: { output: model } }]);
+    const [q] = await r.code('voice intent (deterministic)', toIntent);
+    if (q.json.ok && q.json.needsDoses) { r.set('backend: doses of the day', doses); r.set('backend: who is eligible', elig); }
+    const [pl] = await r.code('plan (deterministic)', [{ json: {} }]);
+    const posted = [];
+    if (pl.json.writes.length) {
+      const items = await r.code('one item per write (deterministic)', [pl]);
+      posted.push(...items.map((x) => x.json));
+      r.set('backend: record the status', items.map(() => ({ json: { statusCode: writeCode, body: {} } })));
+      const [rc] = await r.code('recomputes (deterministic)', [{ json: {} }]);
+      if (rc.json.recomputes.length) {
+        const re = await r.code('one item per recompute (deterministic)', [rc]);
+        posted.push(...re.map((x) => x.json));
+        r.set('backend: recompute', re.map(() => ({ json: { statusCode: 200, body: {} } })));
+      }
+    }
     const [s] = await r.code('speak (deterministic)', [{ json: {} }]);
     const prompts = s.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
-    return { parsed: p.json, spoken: s.json, prompts: prompts.map((x) => x.json) };
+    return { parsed: p.json, intent: q.json, plan: pl.json, posted, spoken: s.json, prompts: prompts.map((x) => x.json) };
   };
 
   await check('the COMMITTED workflow ships no skill id and no link -> every request refused, nothing read', async () => {
@@ -351,10 +378,89 @@ async function alexaScenarios() {
     assert.match(s.spoken.alexa.response.outputSpeech.text, /ما قدرت أوصل لجدولك/);
     assert.deepEqual(s.prompts, []);
   });
-  await check('the voice workflow holds no write: its only HTTP calls are GETs to the two read routes, no Code node calls out', async () => {
+  await check('CR-069: a linked turn tells the patient\'s screen its topic and the words just spoken; refused / unlinked / a closed session tell it nothing', async () => {
+    const linked = configure(SKILL, { [USER]: 'pt-03' });
+    let s = await walk(linked, body('IntentRequest', 'TodayDosesIntent'));
+    assert.match(s.parsed.voiceTurnUrl, /\/api\/agent\/patients\/pt-03\/voice-turns$/);
+    assert.deepEqual(Object.keys(s.spoken.screen).sort(), ['language', 'reply', 'topic']);
+    assert.equal(s.spoken.screen.topic, 'today');
+    assert.equal(s.spoken.screen.reply, s.spoken.alexa.response.outputSpeech.text);
+    s = await walk(linked, body('IntentRequest', 'AMAZON.FallbackIntent', 'en-US'));
+    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.language], ['unclear', 'en']);
+    s = await walk(linked, body('SessionEndedRequest'));
+    assert.equal(s.spoken.screen, null);
+    s = await walk(configure(SKILL, {}), body('IntentRequest', 'TodayDosesIntent'));
+    assert.equal(s.spoken.screen, null);
+    assert.equal(s.parsed.voiceTurnUrl, null);
+    s = await walk(wf, body('IntentRequest', 'TodayDosesIntent'));
+    assert.equal(s.spoken.screen, null);
+    // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path.
+    assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
+  });
+  // ---- CR-070: free talk, and dose actions by voice behind the switch.
+  const FIRST_TWO_THIRD = { intent: 'record', confidence: 0.95, items: [{ position: 1, status: W_ON }, { position: 2, status: W_MISS }] };
+  await check('CR-070 free talk: the sentence goes to Gemini, and its intent is answered from the data ("check my medicines" -> today)', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'my medicines for today' }), { model: { intent: 'today', confidence: 0.9 } });
+    assert.equal(s.intent.kind, 'TodayDosesIntent');
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
+    assert.equal(s.spoken.screen.topic, 'today');
+    const u = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'what is the weather' }), { model: { intent: 'unclear', confidence: 0.9 } });
+    assert.equal(u.intent.kind, 'AMAZON.FallbackIntent');
+    assert.equal(u.spoken.screen.topic, 'unclear');
+    const failed = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'x y z' }), { model: null });
+    assert.equal(failed.intent.kind, 'AMAZON.FallbackIntent'); // the model failed -> unclear, never a guess
+  });
+  await check('CR-070 switch ON, turn 1: "mark the first two taken and the third missed" is read back and asked; NOTHING is written; a not-due dose is named and skipped', async () => {
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken and the third missed' }), { model: FIRST_TWO_THIRD });
+    assert.equal(s.intent.kind, 'record');
+    assert.deepEqual(s.posted, []);
+    assert.deepEqual(s.spoken.alexa.sessionAttributes, { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_ON }] });
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /^I will record: Eltroxin at 12:05 in the morning taken\. I could not record: Calcium carbonate \+ vitamin D3 at 11:55 in the evening - not due yet\. Shall I\? Say yes, or no\.$/);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, false);
+    assert.equal(s.spoken.screen.topic, 'record');
+    console.log('        -> ' + s.spoken.alexa.response.outputSpeech.text);
+  });
+  await check('CR-070 switch ON, turn 2 "yes": the list comes back from Alexa\'s session, is re-checked, and is written exactly as the Telegram path writes it (a miss is recomputed)', async () => {
+    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }, { doseId: 'rx-009-x-2355', prescriptionId: 'rx-009', status: W_ON }];
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending }));
+    assert.deepEqual(s.posted.map((x) => [x.url.replace(/^.*\/api\/agent/, ''), x.body.status || x.body.reason]), [
+      ['/doses/rx-008-x-0005/status', 'missed'], ['/schedule/recompute', 'reported_miss'],
+    ]); // 23:55 is not due -> not written even though it came back in the session
+    assert.equal(s.posted[0].body.source, 'adherence_agent');
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /^Done\. I recorded: Eltroxin at 12:05 in the morning missed\./);
+    assert.equal(s.spoken.alexa.sessionAttributes, undefined); // the list is spent
+    const refused = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: pending.slice(0, 1) }), { writeCode: 409 });
+    assert.match(refused.spoken.alexa.response.outputSpeech.text, /^I could not record: Eltroxin/); // a refused write never reads as recorded
+    const no = await walk(configure(SKILL, { [USER]: 'pt-03' }, true), body('IntentRequest', 'AMAZON.NoIntent', 'en-US', { pending }));
+    assert.deepEqual(no.posted, []);
+    assert.match(no.spoken.alexa.response.outputSpeech.text, /did not record anything/);
+  });
+  await check('CR-070: the COMMITTED workflow ships the switch OFF: a record request is refused out loud and a "yes" writes nothing', async () => {
+    const plan = wf.nodes.find((x) => x.name === 'plan (deterministic)').parameters.jsCode;
+    assert.ok(plan.includes('const VOICE_RECORDS = false;'));
+    assert.ok(!plan.includes('const VOICE_RECORDS = true;'));
+    const s = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'the first two taken' }), { model: FIRST_TWO_THIRD });
+    assert.match(s.spoken.alexa.response.outputSpeech.text, /Recording by voice is turned off/);
+    assert.deepEqual(s.posted, []);
+    const y = await walk(configure(SKILL, { [USER]: 'pt-03' }), body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { pending: [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }] }));
+    assert.deepEqual(y.posted, []);
+  });
+  await check('the voice workflow\'s HTTP calls: two GETs to the read routes, the screen turn, and the two write calls - whose URL and body only confirmRecord builds; no Code node calls out', async () => {
     const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
-    assert.equal(httpNodes.length, 2);
+    assert.equal(httpNodes.length, 5);
     for (const n of httpNodes) {
+      if (n.name === 'backend: record the status' || n.name === 'backend: recompute') {
+        assert.equal(n.parameters.method, 'POST');
+        assert.equal(n.parameters.url, '={{ $json.url }}');
+        assert.equal(n.parameters.jsonBody, '={{ JSON.stringify($json.body) }}');
+        continue;
+      }
+      if (n.parameters.method === 'POST') {
+        assert.equal(n.name, 'backend: voice turn for the screen');
+        assert.equal(n.parameters.url, "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}");
+        assert.equal(n.parameters.jsonBody, "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}");
+        continue;
+      }
       assert.equal(n.parameters.method, 'GET', n.name);
       assert.ok(n.parameters.url === '={{ $json.dosesUrl }}' || /\/api\/agent\/check-in-eligibility$/.test(n.parameters.url), n.name + ' -> ' + n.parameters.url);
     }

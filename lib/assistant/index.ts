@@ -13,9 +13,12 @@
 import { AGENT_CHAT_URL, AGENT_INBOUND_SECRET } from '@/lib/config';
 import { getSession } from '@/lib/session';
 import { getAlerts } from '@/lib/data';
+import { selectedBackend } from '@/lib/db/client';
+import { latestVoiceTurnSeq, voiceTurnsAfter } from '@/lib/data/pg/voice';
 import type { Locale } from '@/i18n/locale';
 import {
-  chatConfigured, chatPayload, cleanMessage, guestTopic, pageForGuest, patientOf, readReply, type AssistantAudience, type AssistantResult,
+  chatConfigured, chatPayload, cleanMessage, guestTopic, pageForGuest, patientOf, readReply, readVoiceTurn,
+  type AssistantAudience, type AssistantResult, type VoiceTurn,
 } from './core';
 
 /** Who the panel is talking to — decides its intro and suggestions. Never throws: unknown is a guest. */
@@ -56,5 +59,23 @@ export async function askAssistant(text: string, locale: Locale): Promise<Assist
     return readReply(res.status, await res.json().catch(() => null));
   } catch {
     return { ok: false, reason: 'unavailable' };
+  }
+}
+
+/**
+ * CR-069 — the patient's Alexa turns after `after` (a seq). `after: null` asks only for the starting
+ * point, so the panel never replays old turns. Anyone but a signed-in patient, the mock backend, or
+ * any failure → nothing. Read-only, under the verified session (RLS: the patient's own rows only).
+ */
+export async function voiceTurns(after: number | null): Promise<{ latest: number; turns: VoiceTurn[] }> {
+  try {
+    const session = await getSession();
+    if (!patientOf(session) || !session || selectedBackend() !== 'postgres') return { latest: after ?? 0, turns: [] };
+    if (after === null || !Number.isInteger(after) || after < 0) return { latest: await latestVoiceTurnSeq(session), turns: [] };
+    const rows = await voiceTurnsAfter(session, after);
+    const turns = rows.map(readVoiceTurn).filter((x): x is VoiceTurn => x !== null);
+    return { latest: rows.reduce((m, r) => Math.max(m, r.seq), after), turns };
+  } catch {
+    return { latest: after ?? 0, turns: [] };
   }
 }

@@ -101,7 +101,8 @@ Setup (the Amazon account the Echo is registered to):
    **Arabic (SA)**; then Language settings → add **English (US)**.
 2. Build → JSON Editor → paste `interaction-model.ar-SA.json` (and the en-US one in English) → Build.
 3. Endpoint → HTTPS → `https://mohammad-aljry.app.n8n.cloud/webhook/jurah/alexa`, certificate
-   option "a certificate from a trusted certificate authority".
+   option "a sub-domain of a domain that has a wildcard certificate" — the host serves
+   `*.app.n8n.cloud` (Google Trust Services), checked 2026-09-23.
 4. Test tab → **Development**. Copy the skill id (`amzn1.ask.skill…`).
 5. The skill id and the device's Alexa `userId` → `pt-03` are set inside the live n8n node
    `alexa request (deterministic)` — the repository ships both empty, so it fails closed.

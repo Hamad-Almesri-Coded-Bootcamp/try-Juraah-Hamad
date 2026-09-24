@@ -276,3 +276,24 @@ export function parsePatientIdQuery(value: string | null): Validation<string> {
 export function parseDateQuery(value: string | null): Validation<string> {
   return isIsoDate(value) ? good(value) : bad('date', 'not_an_iso_date');
 }
+
+/**
+ * CR-069 — POST /api/agent/patients/{id}/voice-turns: one Alexa turn for the patient's open web
+ * app. `topic` is from agents/lib/voice.js screenTopic (a fixed list), `reply` the sentence Alexa
+ * just spoke. Not clinical data; nothing here names a dose status.
+ */
+export const VOICE_TOPICS = ['launch', 'next_dose', 'dose_amount', 'today', 'forgot', 'record', 'unclear', 'bye'] as const;
+export type VoiceTopic = (typeof VOICE_TOPICS)[number];
+export interface VoiceTurnInput { topic: VoiceTopic; language: 'ar' | 'en'; reply: string }
+
+export function parseVoiceTurnBody(body: unknown): Validation<VoiceTurnInput> {
+  if (!isObj(body)) return bad('body', 'not_an_object');
+  const extra = unknownKey(body, ['topic', 'language', 'reply']);
+  if (extra) return extra;
+  const { topic, language, reply } = body;
+  if (typeof topic !== 'string' || !(VOICE_TOPICS as readonly string[]).includes(topic)) return bad('topic', 'not_a_voice_topic');
+  if (language !== 'ar' && language !== 'en') return bad('language', 'must_be_ar_or_en');
+  if (!isNonEmpty(reply)) return bad('reply', 'required');
+  if (reply.length > 2000) return bad('reply', 'too_long');
+  return good({ topic: topic as VoiceTopic, language, reply: reply.trim() });
+}

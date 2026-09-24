@@ -7,7 +7,7 @@
  * carries only what the Safety screen already shows, and anything unexpected is "unavailable".
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chatConfigured, chatPayload, cleanMessage, guestTopic, PAGE_PATH, pageForGuest, pageForIntent, patientOf, readReply, WEBCHAT_INTENTS } from '@/lib/assistant/core';
+import { chatConfigured, chatPayload, cleanMessage, guestTopic, PAGE_PATH, pageForGuest, pageForIntent, patientOf, readReply, readVoiceTurn, WEBCHAT_INTENTS } from '@/lib/assistant/core';
 import type { InteractionAlert } from '@/types/contracts';
 
 const h = vi.hoisted(() => ({ fetch: vi.fn(async (url: string, init?: RequestInit): Promise<Response> => { void url; void init; return Response.json({ reply: 'جرعتك الجاية Calcium…', intent: 'next_dose', telegramPrompted: false }); }) }));
@@ -74,6 +74,22 @@ describe('core', () => {
   });
 });
 
+describe('CR-069 readVoiceTurn — a row from voice_turns as the panel receives it', () => {
+  it('doses → Today, "I forgot" → Activity; launch, unclear and bye open no screen', () => {
+    const page = (topic: string) => readVoiceTurn({ seq: 1, topic, language: 'ar', reply: 'x' })?.page;
+    expect(['next_dose', 'dose_amount', 'today'].map(page)).toEqual(['today', 'today', 'today']);
+    expect(page('forgot')).toBe('activity');
+    expect(page('record')).toBe('activity'); // CR-070: recorded by voice -> where the recorded rows are
+    expect(['launch', 'unclear', 'bye'].map(page)).toEqual([null, null, null]);
+  });
+  it('a topic outside the list, an empty reply or a bad seq is dropped, never guessed', () => {
+    expect(readVoiceTurn({ seq: 1, topic: 'record_dose', language: 'ar', reply: 'x' })).toBeNull();
+    expect(readVoiceTurn({ seq: 1, topic: 'today', language: 'ar', reply: '' })).toBeNull();
+    expect(readVoiceTurn({ seq: Number.NaN, topic: 'today', language: 'ar', reply: 'x' })).toBeNull();
+    expect(readVoiceTurn({ seq: 2, topic: 'today', language: 'xx', reply: 'x' })?.language).toBe('ar');
+  });
+});
+
 describe('askAssistant (mock backend, seed store)', () => {
   beforeEach(async () => {
     vi.resetModules();
@@ -114,6 +130,14 @@ describe('askAssistant (mock backend, seed store)', () => {
       expect(await ask('كيف أربط تيليقرام؟', 'ar')).toEqual({ ok: true, guestTopic: 'guestTelegram', page: s ? null : 'signin' });
     }
     expect(h.fetch).not.toHaveBeenCalled();
+  });
+  it('CR-069 voiceTurns: nothing under the mock backend, and nothing for anyone but a patient', async () => {
+    for (const s of [{ subjectId: 'pt-03', role: 'patient' as const }, { subjectId: 'cg-01', role: 'caregiver' as const, linkedPatientId: 'pt-01' }, null]) {
+      (await import('@/lib/session/cookie')).setScriptSession(s);
+      const { voiceTurns } = await import('@/lib/assistant');
+      expect(await voiceTurns(null)).toEqual({ latest: 0, turns: [] });
+      expect(await voiceTurns(5)).toEqual({ latest: 5, turns: [] });
+    }
   });
   it('assistantAudience: patient for a patient session, guest for everyone else', async () => {
     const audienceAs = async (session: Parameters<typeof import('@/lib/session/cookie')['setScriptSession']>[0]) => {

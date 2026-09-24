@@ -7,7 +7,8 @@
  * no LLM runs on this path at all. Every sentence spoken here is built from the backend's data -
  * GET /api/agent/patients/{id}/doses?date= - so no time, name or amount is ever invented.
  *
- * The one rule: VOICE NEVER RECORDS A DOSE. An Echo sits in a room; it cannot tell the patient
+ * The one rule: VOICE NEVER RECORDS A DOSE here. (CR-070: agents/lib/voice-actions.js can, behind
+ * the workflow's VOICE_RECORDS switch - OFF in the repository, on only in the live demo node.) An Echo sits in a room; it cannot tell the patient
  * from a caregiver or a child (TC-AD-14), and dose status comes only from the patient's own chat
  * (CLAUDE.md rule 1). "I forgot my medicine" is therefore answered by (a) saying which dose it was
  * and what comes next, and (b) sending the patient that dose's three buttons in THEIR Telegram
@@ -104,7 +105,13 @@ function parseAlexaRequest({ body, nowIso, skillId, links }) {
     : req.type === 'IntentRequest' ? (req.intent && req.intent.name) || 'AMAZON.FallbackIntent'
     : 'unknown';
   if (!patientId) return { ok: false, kind: 'not_linked', language, userId, reason: 'this Alexa user is not linked to a patient' };
-  return { ok: true, kind, language, userId, patientId, needsDoses: VOICE_INTENTS.includes(kind) };
+  // CR-070: the free sentence (FreeTalkIntent's one AMAZON.SearchQuery slot) and the list a "yes" confirms
+  // (Alexa hands our own session attributes back) - both raw here, cleaned in voice-actions.js.
+  const slot = req.intent && req.intent.slots && req.intent.slots.utterance;
+  const utterance = slot && typeof slot.value === 'string' ? slot.value.trim().slice(0, 300) : '';
+  const pending = b.session && b.session.attributes && Array.isArray(b.session.attributes.pending) ? b.session.attributes.pending : [];
+  return { ok: true, kind, language, userId, patientId, utterance, pending,
+    needsDoses: VOICE_INTENTS.includes(kind) || (kind === 'AMAZON.YesIntent' && pending.length > 0) };
 }
 
 /**
@@ -128,7 +135,8 @@ function voiceReply({ kind, language, doses, nowIso, hasChat }) {
 
   if (kind === 'TodayDosesIntent') {
     const word = (d) => d.status === OPEN_V ? S.open : d.status === 'taken_on_time' ? S.taken : d.status === 'taken_late' ? S.late : S.missedRec;
-    const lines = all.map((d) => spokenTime(d.scheduledAt, language) + ' ' + medName(d) + '، ' + word(d));
+    const comma = language === 'en' ? ', ' : '، ';
+    const lines = all.map((d) => spokenTime(d.scheduledAt, language) + ' ' + medName(d) + comma + word(d));
     const head = language === 'en' ? 'Today you have ' + all.length + ' doses: ' : 'عندك اليوم ' + all.length + ' جرعات: ';
     return out(head + lines.join('. ') + '.' + S.askMore);
   }
@@ -161,10 +169,26 @@ function voiceReply({ kind, language, doses, nowIso, hasChat }) {
 }
 
 /** The Alexa response envelope. */
-function alexaResponse({ speech, endSession, language }) {
+function alexaResponse({ speech, endSession, language, sessionAttributes }) {
   const r = { version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: !!endSession } };
+  if (sessionAttributes && !endSession) r.sessionAttributes = sessionAttributes;
   if (!endSession) r.response.reprompt = { outputSpeech: { type: 'PlainText', text: SAY[language === 'en' ? 'en' : 'ar'].reprompt } };
   return r;
 }
 
-module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, VOICE_INTENTS };
+/**
+ * CR-069 - the screen follows the voice. Which topic a voice turn is about, for the patient's open
+ * web app (POST /api/agent/patients/{id}/voice-turns after Alexa has answered): the app maps the
+ * topic to a screen and shows the turn in its assistant panel. null = nothing to show (a closed
+ * session). Deterministic, from Alexa's own intent; the words are the reply Alexa already spoke.
+ */
+const SCREEN_TOPIC = {
+  launch: 'launch', NextDoseIntent: 'next_dose', DoseAmountIntent: 'dose_amount', TodayDosesIntent: 'today',
+  ForgotDoseIntent: 'forgot', record: 'record', 'AMAZON.YesIntent': 'record', 'AMAZON.HelpIntent': 'unclear', 'AMAZON.FallbackIntent': 'unclear', unknown: 'unclear',
+  'AMAZON.StopIntent': 'bye', 'AMAZON.CancelIntent': 'bye', 'AMAZON.NoIntent': 'bye', 'AMAZON.NavigateHomeIntent': 'bye',
+};
+function screenTopic(kind) {
+  return Object.prototype.hasOwnProperty.call(SCREEN_TOPIC, kind) ? SCREEN_TOPIC[kind] : kind === 'ended' ? null : 'unclear';
+}
+
+module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, screenTopic, VOICE_INTENTS };

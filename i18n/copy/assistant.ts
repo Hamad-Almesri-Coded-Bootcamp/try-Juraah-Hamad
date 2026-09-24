@@ -19,9 +19,9 @@ export const assistant = {
   inputPlaceholder: { ar: 'اكتب سؤالك…', en: 'Type your question…', placeholder: true },
   send: { ar: 'إرسال', en: 'Send', placeholder: true },
   suggestionsLabel: { ar: 'أسئلة مقترحة', en: 'Suggested questions', placeholder: true },
-  suggestNext: { ar: 'متى الجرعة القادمة؟', en: 'When is my next dose?', placeholder: true },
+  suggestNext: { ar: 'متى الجرعة القادمة؟', en: 'What is my next dose?', placeholder: true },
   suggestAmount: { ar: 'كم آخذ؟', en: 'How much do I take?', placeholder: true },
-  suggestToday: { ar: 'ماذا في جدول أدويتي اليوم؟', en: 'What’s on my schedule today?', placeholder: true },
+  suggestToday: { ar: 'ماذا في جدول أدويتي اليوم؟', en: 'What are my medicines today?', placeholder: true },
   suggestSafety: { ar: 'هل يوجد تعارض بين أدويتي؟', en: 'Do my medicines interact?', placeholder: true },
   youLabel: { ar: 'أنت', en: 'You', placeholder: true },
   assistantLabel: { ar: 'المساعد', en: 'Assistant', placeholder: true },
@@ -57,6 +57,24 @@ export const assistant = {
   clarifyLabel: { ar: 'اختر ما تقصده', en: 'Pick what you mean', placeholder: true },
   suggestTelegram: { ar: 'كيف أربط تيليجرام؟', en: 'How do I connect Telegram?', placeholder: true },
   suggestRefill: { ar: 'كيف أطلب تجديد الوصفة؟', en: 'How do I ask for a refill?', placeholder: true },
+
+  // CR-069 — the screen follows the voice (a turn the patient had with Alexa on the Echo).
+  // The four voice chips (suggestNext, suggestAmount, suggestToday, suggestForgot) are tapped AND said.
+  // A tap goes to the web assistant, whose fast path (agents/lib/webchat.js quickIntent) knows each one.
+  // Said to the Echo, the English four, «كم آخذ» and «نسيت الدواء» are exact samples of
+  // agents/alexa/interaction-model.*.json; the Arabic next-dose and today chips are Fusha close to them
+  // (the model's own Fusha samples open with «ما», which quickIntent reads as a negation). CR-071.
+  suggestForgot: { ar: 'نسيت الدواء', en: 'I forgot my medicine', placeholder: true },
+  voiceAskedLaunch: { ar: 'افتح مساعد جرعة', en: 'Open medicine helper', placeholder: true },
+  voiceAskedRecord: { ar: 'سجّل جرعاتي', en: 'Record my doses', placeholder: true },
+  voiceSaid: { ar: '🎙️ قلتها لأليكسا', en: '🎙️ You said it to Alexa', placeholder: true },
+  voiceAnswered: { ar: '🎙️ رد أليكسا', en: '🎙️ Alexa’s answer', placeholder: true },
+  clarifyVoiceAsk: {
+    ar: 'لم تفهم أليكسا ما قلت. قل لها إحدى هذه العبارات، أو اضغطها هنا:',
+    en: 'Alexa didn’t catch that. Say one of these to her, or tap it here:',
+    placeholder: true,
+  },
+  voiceEnded: { ar: 'انتهت المحادثة مع أليكسا.', en: 'The conversation with Alexa has ended.', placeholder: true },
 
   // Visitors who are not a signed-in patient (landing, sign-in, caregiver, clinic): app help only.
   guestIntro: {

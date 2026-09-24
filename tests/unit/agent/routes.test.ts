@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   recipients: vi.fn(async (): Promise<unknown> => null),
   dosesForDay: vi.fn(async (): Promise<unknown> => []),
   activeRx: vi.fn(async (): Promise<unknown> => []),
+  voiceTurn: vi.fn(async (): Promise<string | null> => 'vt_01TEST'),
   push: vi.fn(async (target: unknown, payload: unknown) => { void target; void payload; return { sent: true, statusCode: 201 }; }),
 }));
 
@@ -41,6 +42,7 @@ vi.mock('@/lib/data/pg/agent', () => ({
   recipientsFor: h.recipients,
   trackedDosesForDay: h.dosesForDay,
   activePrescriptions: h.activeRx,
+  insertVoiceTurn: h.voiceTurn,
 }));
 vi.mock('@/lib/push/send', async (orig) => ({ ...(await orig<typeof import('@/lib/push/send')>()), sendPush: h.push }));
 
@@ -103,7 +105,8 @@ beforeEach(() => {
   vi.stubEnv('JURAH_BOT_TOKEN', '');
   h.session = null;
   h.sessionThrows = false;
-  for (const f of [...writes(), h.push]) f.mockClear();
+  for (const f of [...writes(), h.push, h.voiceTurn]) f.mockClear();
+  h.voiceTurn.mockResolvedValue('vt_01TEST');
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -357,6 +360,42 @@ describe('GET /api/agent/patients/{patientId}/doses and /prescriptions (CR-062)'
   });
 });
 
+describe('CR-069 POST /api/agent/patients/{id}/voice-turns — one Alexa turn for the patient’s screen', () => {
+  const load = () => import('@/app/api/agent/patients/[patientId]/voice-turns/route');
+  const TURN = { topic: 'today', language: 'ar', reply: 'عندك اليوم 3 جرعات…' };
+  const call = async (body: unknown, headers: Record<string, string> = auth(), patientId = 'pt-03') =>
+    (await load()).POST(post(`/api/agent/patients/${patientId}/voice-turns`, body, headers), params({ patientId }));
+
+  it('every user session is 403 and no bearer is 401 — nothing is written', async () => {
+    for (const s of Object.values(USERS)) {
+      h.session = s;
+      expect((await call(TURN, { 'content-type': 'application/json', cookie: 'jurah.session=x' })).status).toBe(403);
+    }
+    h.session = null;
+    expect((await call(TURN, { 'content-type': 'application/json' })).status).toBe(401);
+    expect(h.voiceTurn).not.toHaveBeenCalled();
+  });
+  it('422 before the database: a topic outside the list, another language, an empty or too long reply, an extra key', async () => {
+    for (const bad of [{ ...TURN, topic: 'record_dose' }, { ...TURN, language: 'fr' }, { ...TURN, reply: '  ' }, { ...TURN, reply: 'x'.repeat(2001) }, { ...TURN, status: 'taken_on_time' }, 'nope']) {
+      expect((await call(bad)).status, JSON.stringify(bad).slice(0, 60)).toBe(422);
+    }
+    expect(h.voiceTurn).not.toHaveBeenCalled();
+  });
+  it('201 with the id; the patient comes from the path; an unknown patient is 404', async () => {
+    const r = await call(TURN);
+    expect(r.status).toBe(201);
+    expect(await r.json()).toEqual({ id: 'vt_01TEST' });
+    expect(h.voiceTurn).toHaveBeenCalledWith('pt-03', TURN);
+    h.voiceTurn.mockResolvedValueOnce(null);
+    expect((await call(TURN, auth(), 'pt-99')).status).toBe(404);
+  });
+  it('503 under the mock backend, after auth and validation', async () => {
+    vi.stubEnv('JURAH_DATA_BACKEND', 'mock');
+    expect((await call(TURN)).status).toBe(503);
+    expect(h.voiceTurn).not.toHaveBeenCalled();
+  });
+});
+
 describe('the HTTP surface — asserted absent', () => {
   it('no route under app/api accepts a dose status except app/api/agent/doses/{id}/status; no /api/doses exists', async () => {
     const { readdirSync, statSync } = await import('node:fs');
@@ -370,8 +409,8 @@ describe('the HTTP surface — asserted absent', () => {
     expect(routes.filter((f) => f.startsWith('app/api/agent/')).sort()).toEqual([
       'app/api/agent/alert-recipients/route.ts', 'app/api/agent/alerts/route.ts', 'app/api/agent/check-in-eligibility/route.ts',
       'app/api/agent/doses/[doseId]/status/route.ts', 'app/api/agent/patients/[patientId]/doses/route.ts',
-      'app/api/agent/patients/[patientId]/prescriptions/route.ts', 'app/api/agent/prescriptions/route.ts',
-      'app/api/agent/schedule/recompute/route.ts',
+      'app/api/agent/patients/[patientId]/prescriptions/route.ts', 'app/api/agent/patients/[patientId]/voice-turns/route.ts',
+      'app/api/agent/prescriptions/route.ts', 'app/api/agent/schedule/recompute/route.ts',
     ]);
   });
 });

@@ -28,7 +28,7 @@ const req = (type, intentName, over = {}) => ({
 
 test('parse: the right skill, a fresh timestamp and a linked user -> ok, with the patient', () => {
   const p = V.parseAlexaRequest({ body: req('IntentRequest', 'NextDoseIntent'), nowIso: '2026-09-24T09:00:30Z', skillId: SKILL, links: { [USER]: 'pt-03' } });
-  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', needsDoses: true });
+  assert.deepEqual(p, { ok: true, kind: 'NextDoseIntent', language: 'ar', userId: USER, patientId: 'pt-03', utterance: '', pending: [], needsDoses: true });
 });
 
 test('parse fails closed: no skill id configured, another skill, a stale or replayed request', () => {
@@ -67,6 +67,13 @@ test('today: every tracked dose in time order with its state', () => {
   const doses = DAY(); doses[0] = dose('rx-008-20260924-0700', 'rx-008', '07:00', TAKEN);
   const r = V.voiceReply({ kind: 'TodayDosesIntent', language: 'ar', doses, nowIso: at('09:00'), hasChat: true });
   assert.match(r.speech, /^عندك اليوم 3 جرعات: الساعة 7 الصبح Eltroxin، أخذتها\. الساعة 1 الظهر .*باقية\. الساعة 9 بالليل .*باقية\./);
+});
+
+test('today in English: an English comma, never the Arabic one', () => {
+  const doses = DAY(); doses[0] = dose('rx-008-20260924-0700', 'rx-008', '07:00', TAKEN);
+  const r = V.voiceReply({ kind: 'TodayDosesIntent', language: 'en', doses, nowIso: at('09:00'), hasChat: true });
+  assert.match(r.speech, /^Today you have 3 doses: 7 in the morning Eltroxin, taken\. /);
+  assert.doesNotMatch(r.speech, /،/);
 });
 
 test('I forgot: names the passed dose and the next one, records NOTHING, prompts the patient’s own chat', () => {
@@ -120,4 +127,15 @@ test('spokenTime covers the day parts and minutes', () => {
 test('alexaResponse: PlainText speech, a reprompt only while the session stays open', () => {
   assert.deepEqual(V.alexaResponse({ speech: 'x', endSession: true, language: 'ar' }), { version: '1.0', response: { outputSpeech: { type: 'PlainText', text: 'x' }, shouldEndSession: true } });
   assert.ok(V.alexaResponse({ speech: 'x', endSession: false, language: 'ar' }).response.reprompt);
+});
+
+test('CR-069 screenTopic: each voice turn names the topic the screen should follow; a closed session names none', () => {
+  assert.equal(V.screenTopic('launch'), 'launch');
+  assert.equal(V.screenTopic('NextDoseIntent'), 'next_dose');
+  assert.equal(V.screenTopic('DoseAmountIntent'), 'dose_amount');
+  assert.equal(V.screenTopic('TodayDosesIntent'), 'today');
+  assert.equal(V.screenTopic('ForgotDoseIntent'), 'forgot');
+  for (const k of ['AMAZON.HelpIntent', 'AMAZON.FallbackIntent', 'unknown', 'SomethingNew']) assert.equal(V.screenTopic(k), 'unclear', k);
+  for (const k of ['AMAZON.StopIntent', 'AMAZON.CancelIntent', 'AMAZON.NoIntent', 'AMAZON.NavigateHomeIntent']) assert.equal(V.screenTopic(k), 'bye', k);
+  assert.equal(V.screenTopic('ended'), null);
 });
