@@ -29,25 +29,41 @@ test('seed سارة (pt-03): Levothyroxine x "Calcium carbonate + vitamin D3" fi
   assert.match(graded[0].sourceCitation, /DDInter271/);
   assert.match(graded[0].sourceCitation, /DDInter1064/);
   assert.match(graded[0].sourceCitation, /level "Moderate"/);
-  // vitamin D3 is not in the demo index: said, never cleared (TC-IX-03)
-  const cv = r.alerts.find((a) => a.severity === 'info');
-  assert.ok(cv, 'a cannot-verify alert');
-  assert.equal(cv.reviewStatus, 'pending_medical_review');
-  assert.match(cv.description, /vitamin D3/);
+  // F2: vitamin D3 is in the index now (Cholecalciferol, DDInter367) and DDInter records no
+  // interaction with Levothyroxine - nothing is left unverifiable, so nothing is raised for it.
+  assert.equal(r.alerts.filter((a) => a.severity === 'info').length, 0);
+  assert.equal(r.alerts.length, 1);
   for (const a of r.alerts) assertBackendShape(a, 'pt-03');
 });
 
-test('seed حمد (pt-01): Warfarin, Ibuprofen, Metformin are not in the demo index -> ONE cannot-verify alert, never "no interaction" (TC-IX-03)', () => {
+test('seed حمد (pt-01): adding Ibuprofen finds Warfarin x Ibuprofen as DANGER (DDInter "Major") and Ibuprofen x Metformin as a warning - both to a human first (F2)', () => {
   const r = screen({ patientId: 'pt-01', newPrescriptionId: 'rx-002', prescriptions: seedActive('pt-01') });
+  assert.equal(r.alerts.length, 2);
+  const danger = r.alerts.find((a) => a.severity === 'danger');
+  assert.ok(danger, 'the demo\'s danger case');
+  assert.deepEqual([...danger.involvedPrescriptionIds].sort(), ['rx-001', 'rx-002']);
+  assert.match(danger.description, /Warfarin/);
+  assert.match(danger.description, /Ibuprofen/);
+  assert.match(danger.sourceCitation, /level "Major"/);
+  assert.match(danger.sourceCitation, /DDInter 2\.0/);
+  const warning = r.alerts.find((a) => a.severity === 'warning');
+  assert.deepEqual([...warning.involvedPrescriptionIds].sort(), ['rx-002', 'rx-003']);
+  for (const a of r.alerts) {
+    assert.equal(a.reviewStatus, 'pending_medical_review');
+    assertBackendShape(a, 'pt-01');
+  }
+  assert.equal(r.report.graded, 2);
+});
+
+test('a drug the index still lacks (Gliclazide) -> ONE cannot-verify alert, never "no interaction" (TC-IX-03)', () => {
+  const r = screen({ patientId: 't', newPrescriptionId: 't-2', prescriptions: [rx('t-1', 'Warfarin'), rx('t-2', 'Gliclazide')] });
   assert.equal(r.alerts.length, 1);
   const [a] = r.alerts;
   assert.equal(a.severity, 'info');
   assert.equal(a.reviewStatus, 'pending_medical_review');
-  assert.deepEqual([...a.involvedPrescriptionIds].sort(), ['rx-001', 'rx-002', 'rx-003']);
-  for (const d of ['Warfarin', 'Ibuprofen', 'Metformin']) assert.match(a.description, new RegExp(d));
+  assert.match(a.description, /Gliclazide/);
   assert.doesNotMatch(a.description, /لم نجد تعارضاً/, 'never the nothing-found wording');
   assert.equal(r.report.graded, 0);
-  assertBackendShape(a, 'pt-01');
 });
 
 test('seed حمد: the discontinued rx-004 is never screened (the route returns active only; screening re-checks)', () => {

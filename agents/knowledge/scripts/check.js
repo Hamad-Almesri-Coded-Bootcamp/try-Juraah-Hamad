@@ -152,7 +152,8 @@ async function screeningScenarios() {
     assert.ok(inbound.includes('newPrescriptionId: created.id, language: v.language'), 'the inbound workflow still sends this body');
   });
 
-  await check('seed pt-03, new rx-009: two alerts POSTed (warning + cannot-verify), summary reports both 201', async () => {
+  // F2: vitamin D3 is in the index now (no interaction with Levothyroxine) - only the graded row remains.
+  await check('seed pt-03, new rx-009: one alert POSTed (the DDInter Moderate warning), summary reports it 201', async () => {
     const r = runner(wf);
     const [inp] = await r.code('input (deterministic)', webhookItem({ patientId: 'pt-03', newPrescriptionId: 'rx-009', language: 'ar' }));
     assert.equal(inp.json.valid, true);
@@ -160,14 +161,29 @@ async function screeningScenarios() {
     assert.match(inp.json.rxUrl, /^https:\/\/tryjuraaah\.vercel\.app\/api\/agent\/patients\/pt-03\/prescriptions$/);
     const rx = r.set('backend: active prescriptions', http(200, { patientId: 'pt-03', prescriptions: active('pt-03') }));
     const items = await r.code('screen (deterministic)', rx);
-    assert.equal(items.length, 2);
+    assert.equal(items.length, 1);
     assert.ok(items.every((i) => i.json.post === true));
-    assert.deepEqual(items.map((i) => i.json.alert.severity), ['warning', 'info']);
+    assert.deepEqual(items.map((i) => i.json.alert.severity), ['warning']);
     const posted = items.map((i, n) => ({ json: { statusCode: 201, body: { alert: Object.assign({ id: 'ia_' + n }, i.json.alert), delivered: [] } } }));
     r.set('backend: raise the alert', posted);
     const [sum] = await r.code('summary (deterministic)', posted);
     assert.equal(sum.json.ok, true);
-    assert.deepEqual(sum.json.sent.map((s) => [s.statusCode, s.alertId]), [[201, 'ia_0'], [201, 'ia_1']]);
+    assert.deepEqual(sum.json.sent.map((s) => [s.statusCode, s.alertId]), [[201, 'ia_0']]);
+  });
+
+  await check('F2 - the demo case: seed pt-01 adds Ibuprofen (rx-002) -> Warfarin x Ibuprofen POSTed as DANGER and Ibuprofen x Metformin as a warning, both for a human first', async () => {
+    const r = runner(wf);
+    const [inp] = await r.code('input (deterministic)', webhookItem({ patientId: 'pt-01', newPrescriptionId: 'rx-002', language: 'ar' }));
+    assert.equal(inp.json.valid, true);
+    const rx = r.set('backend: active prescriptions', http(200, { patientId: 'pt-01', prescriptions: active('pt-01') }));
+    const items = await r.code('screen (deterministic)', rx);
+    assert.deepEqual(items.map((i) => i.json.alert.severity).sort(), ['danger', 'warning']);
+    const danger = items.find((i) => i.json.alert.severity === 'danger').json.alert;
+    assert.deepEqual([...danger.involvedPrescriptionIds].sort(), ['rx-001', 'rx-002']);
+    assert.match(danger.sourceCitation, /DDInter 2\.0/);
+    assert.match(danger.sourceCitation, /level "Major"/);
+    assert.ok(items.every((i) => i.json.alert.reviewStatus === 'pending_medical_review'));
+    console.log('        -> ' + danger.description);
   });
 
   await check('a refused danger alert (422) is escalated, never reported as done', async () => {
@@ -288,11 +304,12 @@ async function travelScenarios() {
     assert.ok(!('alertId' in a.json.appOutcome));
   });
 
-  await check('seed pt-01 photographs ZOCOR -> cannot_verify (Warfarin/Ibuprofen/Metformin not covered), app could_not_identify', async () => {
+  // F2: Warfarin, Ibuprofen and Metformin are in the index now, so the seed profile is checkable.
+  await check('seed pt-01 photographs ZOCOR -> interaction_found (Simvastatin x Warfarin is in DDInter), app names Simvastatin', async () => {
     const { r, check: c } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-01') }), geminiText('ZOCOR'));
-    assert.equal(c.result.verdict, 'cannot_verify');
+    assert.equal(c.result.verdict, 'interaction_found');
     const [a] = await r.code('answer (deterministic)', [{ json: c }]);
-    assert.deepEqual(a.json.appOutcome, { kind: 'could_not_identify' });
+    assert.deepEqual(a.json.appOutcome, { kind: 'identified', drugName: 'Simvastatin', verdict: 'interaction_found' });
   });
 
   await check('profile unreadable (backend 503) -> never "no interaction"', async () => {

@@ -56,11 +56,17 @@ test('already taking: EUTHYROX photographed by سارة (on Levothyroxine) -> al
   assert.equal(r.alert, null, 'only a danger finding raises an alert');
 });
 
-test('cannot verify: a covered candidate against a profile drug the index lacks (حمد) -> cannot_verify, app could_not_identify', () => {
-  const r = check({ patientId: 'pt-01', visionText: 'ZOCOR', prescriptions: seedActive('pt-01') });
+test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app could_not_identify', () => {
+  const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Gliclazide')] });
   assert.equal(r.verdict, 'cannot_verify');
   assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
-  assert.ok(r.notCovered.includes('Warfarin'));
+  assert.ok(r.notCovered.includes('Gliclazide'));
+});
+
+test('F2: ZOCOR against the seed profile of حمد is now checkable - Simvastatin x Warfarin is in DDInter -> interaction_found', () => {
+  const r = check({ patientId: 'pt-01', visionText: 'ZOCOR', prescriptions: seedActive('pt-01') });
+  assert.equal(r.verdict, 'interaction_found');
+  assert.deepEqual(r.notCovered, []);
 });
 
 test('an ungraded (Unknown) row -> cannot_verify with the ungraded message, never no_interaction', () => {
@@ -129,9 +135,9 @@ test('already_taking names only the ingredient the patient already takes', () =>
 });
 
 test('patient-facing travel text never shows a raw normalised key', () => {
-  const r = check({ visionText: 'KLACID', prescriptions: [rx('t-1', 'Warfarin')], language: 'en' });
+  const r = check({ visionText: 'KLACID', prescriptions: [rx('t-1', 'Gliclazide')], language: 'en' });
   assert.equal(r.verdict, 'cannot_verify');
-  assert.match(r.message, /but our drug-interaction database does not include Warfarin,/);
+  assert.match(r.message, /but our drug-interaction database does not include Gliclazide,/);
 });
 
 test('a generic box is named by its ingredient, not by the brand row that owns the key', () => {
