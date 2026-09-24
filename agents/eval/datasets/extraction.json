@@ -1,0 +1,6 @@
+{
+  "$schema": "./extraction.schema.json",
+  "set": "extraction",
+  "owed": "[TO BE SUPPLIED] by Hamad and Mohammad: at least 10 synthetic prescriptions (typed and handwritten, Arabic and English) with their ground-truth fields. See README.md.",
+  "items": []
+}
