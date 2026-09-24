@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jur'ah evaluation set: verified non-interacting pairs",
+  "description": "Drug pairs verified to have no known interaction. Each pair is screened as two active prescriptions of one patient and the result is reported: a pair should raise no interaction alert (TC-IX-02). The spec sets no threshold for this set, only its minimum size (AI Agents Acceptance Criteria section 4).",
+  "type": "object",
+  "required": ["set", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "set": { "const": "screening-non-interacting" },
+    "owed": { "type": "string", "description": "The owed-value marker of an empty set. Delete it once the set holds its minimum." },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "drugA", "drugB", "basis", "verifiedBy"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "drugA": { "type": "string", "minLength": 2 },
+          "drugB": { "type": "string", "minLength": 2 },
+          "basis": { "type": "string", "minLength": 10, "description": "How the absence of an interaction was verified (the source checked)." },
+          "verifiedBy": { "type": "string", "minLength": 2 },
+          "suppliedBy": { "type": "string", "minLength": 2 },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

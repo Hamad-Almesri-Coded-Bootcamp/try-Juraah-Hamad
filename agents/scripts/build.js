@@ -45,6 +45,9 @@ function inline(file) {
   const src = read(file)
     // A Windows checkout (core.autocrlf=true) hands us CRLF; the committed workflows are LF.
     .replace(/\r\n/g, '\n')
+    // A lib file's model contract (a model's prompt and schema) belongs to the model node, never to a
+    // Code node: it is cut here, so no Code node's source changes when a prompt moves into agents/lib.
+    .replace(/\n*\/\* ===== model contract[\s\S]*$/, '')
     .replace(/^'use strict';\s*/m, '')
     .replace(/^const \{[^}]*\} = require\('[^']+'\);\n/gm, '')
     .replace(/module\.exports\s*=\s*\{[\s\S]*?\};\s*$/m, '')
@@ -168,32 +171,10 @@ return [{ json: {
   dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + kuwaitDate(p.sentAt),
 } }];`;
 
-const CLASSIFY_PROMPT = `You classify ONE short reply from a patient about a medicine dose.
-The patient writes Kuwaiti colloquial Arabic first, then Modern Standard Arabic, then English.
-
-Return ONE intent:
-- taken_on_time - they took it on time. «أخذته» «خذيته» «تناولته» «اخذتها»
-- taken_late - they took it, but late. «أخذته متأخر» «خذيته بس متأخر شوي» «تأخرت شوي»
-- missed - they did not take it. «ما خذيته» «نسيت» «نسيت أخذه» «فاتتني»
-- ran_out - the medicine has run out. «خلص الدوا» «ما بقى عندي» «انتهى»
-- discontinued_by_doctor - a doctor told them to stop. «دكتوري قال أوقف الدواء» «الدكتور وقفه»
-- unclear - anything else, a question, or you are not sure
-
-RULES
-1. If you are not confident, return unclear. Never guess: a wrong guess changes a medical record.
-2. confidence is 0 to 1. Below 0.7 the system treats it as unclear anyway, so do not inflate it.
-3. quote is the exact words that made you decide. Copy them, do not paraphrase.
-4. You classify language only. You never decide times, doses or schedules, and you never answer a medical question.`;
-
-const CLASSIFY_SCHEMA = JSON.stringify({
-  type: 'object',
-  properties: {
-    intent: { type: 'string', enum: ['taken_on_time', 'taken_late', 'missed', 'ran_out', 'discontinued_by_doctor', 'unclear'] },
-    confidence: { type: 'number' },
-    quote: { type: 'string' },
-  },
-  required: ['intent', 'confidence', 'quote'],
-}, null, 2);
+// The classifier's prompt and schema live in agents/lib/adherence.js beside the rules that trust
+// its answer, so this node and agents/eval send one string.
+const { CLASSIFY_PROMPT } = require('../lib/adherence.js');
+const CLASSIFY_SCHEMA = JSON.stringify(require('../lib/adherence.js').CLASSIFY_SCHEMA, null, 2);
 
 const DECIDE = CONFIG + '\n' + ADHERENCE + `
 
@@ -546,40 +527,10 @@ return [{ json: {
   log: { kind: p.kind, userId: p.userId, reason: p.reason || null },
 } }];`;
 
-const AX_PROMPT_TEXT = `You read ONE sentence a patient said to the Jur'ah voice assistant (usually English, sometimes Arabic).
-The sentence may be missing its first word (Alexa keeps it as a carrier), e.g. "is my next dose" means "what is my next dose",
-and "should I have my Eltroxin" / "do I need to take my calcium" mean "WHEN should I ..." - that is next_dose.
-
-Return ONE intent:
-- next_dose - when/what is the next dose.
-- dose_amount - how much / how many to take.
-- today - the list of today's medicines or doses, "check my medicines".
-- forgot - they forgot or missed a dose but do not say which one.
-- record - they say they took a dose, name a dose they took or missed, or ask to mark one, e.g. "mark it taken", "mark the first two taken and
-  the third missed", "I took my Eltroxin", "the 7 am one I took late", "I missed the evening calcium".
-  Give one item per dose they named (none if they named none), naming it the way THEY did: position (1 = the first dose of today by time),
-  or time as "HH:MM" 24-hour, or medicine (the name they said). status is taken_on_time (took it, taken, done),
-  taken_late (took it late) or missed (missed, forgot it, did not take it).
-- help - what the assistant can do, greetings, thanks.
-- unclear - anything else, a medical question, or you are not sure.
-
-RULES
-1. If you are not confident, return unclear. Never guess a dose the patient did not name.
-2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
-3. You read language only. You never answer, never give medical advice, never decide doses or times.`;
-
-const AX_SCHEMA = JSON.stringify({
-  type: 'object',
-  properties: {
-    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'record', 'help', 'unclear'] },
-    confidence: { type: 'number' },
-    items: { type: 'array', items: { type: 'object', properties: {
-      position: { type: 'integer' }, time: { type: 'string' }, medicine: { type: 'string' },
-      status: { type: 'string', enum: ['taken_on_time', 'taken_late', 'missed'] },
-    }, required: ['status'] } },
-  },
-  required: ['intent', 'confidence'],
-}, null, 2);
+// Free talk's prompt and schema live in agents/lib/voice-actions.js beside trustFreeTalk, so this
+// node and agents/eval send one string.
+const AX_PROMPT_TEXT = require('../lib/voice-actions.js').FREE_TALK_PROMPT;
+const AX_SCHEMA = JSON.stringify(require('../lib/voice-actions.js').FREE_TALK_SCHEMA, null, 2);
 
 const AX_PROMPT = ADHERENCE + `
 
@@ -705,34 +656,10 @@ const head = s.language === 'en' ? 'From the Jur\\'ah app: confirm your dose her
 return [{ json: { chatId: s.chatId, text: head, buttons: null } }]
   .concat(c.messages.slice(1).map((m) => ({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } })));`;
 
-const WC_PROMPT_TEXT = `You classify ONE message a patient typed into the Jur'ah app's assistant.
-The patient writes Kuwaiti colloquial Arabic first, then Modern Standard Arabic, then English.
-
-Return ONE intent:
-- next_dose - when/what is the next dose. «شنو جرعتي الجاية» «متى الدوا الجاي» "what's my next dose"
-- dose_amount - how much / how many to take. «كم آخذ» «كم حبة» "how much do I take"
-- today - the list of today's medicines or doses. «شنو أدويتي اليوم» «جدولي اليوم»
-- forgot - they missed or forgot a dose. «نسيت دواي» «فاتتني الجرعة» "I forgot my medicine"
-- took_it - they say they took a dose. «أخذته» «خذيت الدوا» "I took it"
-- safety - interactions, safety alerts, whether medicines conflict. «فيه تعارض بين أدويتي؟» «تنبيهات السلامة»
-- help_telegram - how to connect or use Telegram or the daily messages. «كيف أربط تيليقرام»
-- help_refill - refills, running out, reordering. «كيف أطلب إعادة صرف» «خلص الدوا»
-- help_general - what the assistant can do, greetings, thanks. «هلا» «شنو تقدر تسوي»
-- unclear - anything else, a medical question, or you are not sure
-
-RULES
-1. If you are not confident, return unclear. Never guess.
-2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
-3. You classify language only. You never answer, never give medical advice, never decide doses or times.`;
-
-const WC_SCHEMA = JSON.stringify({
-  type: 'object',
-  properties: {
-    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'took_it', 'safety', 'help_telegram', 'help_refill', 'help_general', 'unclear'] },
-    confidence: { type: 'number' },
-  },
-  required: ['intent', 'confidence'],
-}, null, 2);
+// The web chat's prompt and schema live in agents/lib/webchat.js beside trustWebchatIntent, so this
+// node and agents/eval send one string.
+const WC_PROMPT_TEXT = require('../lib/webchat.js').WEBCHAT_PROMPT;
+const WC_SCHEMA = JSON.stringify(require('../lib/webchat.js').WEBCHAT_SCHEMA, null, 2);
 
 const webchat = {
   name: 'agent-webchat',

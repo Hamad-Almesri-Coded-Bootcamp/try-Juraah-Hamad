@@ -177,3 +177,44 @@ module.exports = {
   trustFreeTalk, quickFreeTalk, resolveItem, recordPromptDoses, recordReply,
   RECORD_WORDS, FREE_INTENTS, FREE_MIN_CONFIDENCE, ACT,
 };
+
+/* ===== model contract ===== (agents/scripts/build.js cuts this block out of every Code node)
+ * The prompt and the output schema that the n8n node "Gemini: understand the sentence"
+ * (agent-alexa) sends, kept beside FREE_INTENTS and trustFreeTalk. agents/eval sends the same
+ * two, unchanged. */
+const FREE_TALK_PROMPT = `You read ONE sentence a patient said to the Jur'ah voice assistant (usually English, sometimes Arabic).
+The sentence may be missing its first word (Alexa keeps it as a carrier), e.g. "is my next dose" means "what is my next dose",
+and "should I have my Eltroxin" / "do I need to take my calcium" mean "WHEN should I ..." - that is next_dose.
+
+Return ONE intent:
+- next_dose - when/what is the next dose.
+- dose_amount - how much / how many to take.
+- today - the list of today's medicines or doses, "check my medicines".
+- forgot - they forgot or missed a dose but do not say which one.
+- record - they say they took a dose, name a dose they took or missed, or ask to mark one, e.g. "mark it taken", "mark the first two taken and
+  the third missed", "I took my Eltroxin", "the 7 am one I took late", "I missed the evening calcium".
+  Give one item per dose they named (none if they named none), naming it the way THEY did: position (1 = the first dose of today by time),
+  or time as "HH:MM" 24-hour, or medicine (the name they said). status is taken_on_time (took it, taken, done),
+  taken_late (took it late) or missed (missed, forgot it, did not take it).
+- help - what the assistant can do, greetings, thanks.
+- unclear - anything else, a medical question, or you are not sure.
+
+RULES
+1. If you are not confident, return unclear. Never guess a dose the patient did not name.
+2. confidence is 0 to 1; below 0.7 the system treats it as unclear anyway.
+3. You read language only. You never answer, never give medical advice, never decide doses or times.`;
+
+const FREE_TALK_SCHEMA = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['next_dose', 'dose_amount', 'today', 'forgot', 'record', 'help', 'unclear'] },
+    confidence: { type: 'number' },
+    items: { type: 'array', items: { type: 'object', properties: {
+      position: { type: 'integer' }, time: { type: 'string' }, medicine: { type: 'string' },
+      status: { type: 'string', enum: ['taken_on_time', 'taken_late', 'missed'] },
+    }, required: ['status'] } },
+  },
+  required: ['intent', 'confidence'],
+};
+
+Object.assign(module.exports, { FREE_TALK_PROMPT, FREE_TALK_SCHEMA });
