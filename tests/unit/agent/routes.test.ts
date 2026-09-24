@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
   dose: vi.fn(async (): Promise<unknown> => ({ kind: 'ok', dose: { id: 'rx-009-20260921-1300', status: 'taken_on_time' } })),
   recompute: vi.fn(async (): Promise<unknown> => ({ kind: 'recomputed', changed: false, addedIds: [], droppedIds: [] })),
   alert: vi.fn(async (): Promise<unknown> => ({ kind: 'ok', alert: { id: 'ia_X', patientId: 'pt-01', severity: 'danger' } })),
-  rx: vi.fn(async (): Promise<unknown> => ({ kind: 'ok', prescription: { id: 'rx_X' }, doseCount: 21 })),
+  rx: vi.fn(async (): Promise<unknown> => ({ kind: 'ok', prescription: { id: 'rx_X' }, doseCount: 21, screening: 'screened' })),
   elig: vi.fn(async (): Promise<unknown> => [{ patientId: 'pt-03', chatId: 'c', language: 'ar', frequency: 'daily' }]),
   recipients: vi.fn(async (): Promise<unknown> => null),
   dosesForDay: vi.fn(async (): Promise<unknown> => []),
@@ -283,7 +283,10 @@ describe('POST /api/agent/prescriptions', () => {
     const { POST } = await load();
     const ok = await POST(post('/x', RX_BODY));
     expect(ok.status).toBe(201);
-    expect(await ok.json()).toEqual({ prescription: { id: 'rx_X' }, doseCount: 21 });
+    // AP-10 / CR-090: what the backend did about screening travels back, so the workflow never screens it twice.
+    expect(await ok.json()).toEqual({ prescription: { id: 'rx_X' }, doseCount: 21, screening: 'screened' });
+    h.rx.mockResolvedValueOnce({ kind: 'ok', prescription: { id: 'rx_Y' }, doseCount: 0, screening: 'held' });
+    expect(await (await POST(post('/x', RX_BODY))).json()).toEqual({ prescription: { id: 'rx_Y' }, doseCount: 0, screening: 'held' });
     h.rx.mockResolvedValueOnce({ kind: 'refused', constraint: 'rx_dose_times_match_frequency' });
     const bad = await POST(post('/x', RX_BODY));
     expect(bad.status).toBe(422);

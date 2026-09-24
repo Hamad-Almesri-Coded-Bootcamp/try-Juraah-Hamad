@@ -34,6 +34,10 @@ import {
 } from '@/lib/agent/messages';
 import type { AlertInput, DoseStatusInput, PrescriptionInput, RecomputeInput, VoiceTurnInput } from '@/lib/agent/validate';
 import type { Dose, InteractionAlert, Prescription, Settings } from '@/types/contracts';
+// AP-10: a cycle with ./screening.ts (which raises its hold through insertAlert below), safe by
+// construction: each module uses the other's bindings only inside function bodies, never while it
+// is being evaluated, and the functions involved are hoisted declarations.
+import { screenOrHold, type ScreeningOutcome } from './screening';
 
 /** Parameterised ($n). Exported so a gate proof runs the very same text through the MCP connector. */
 export const PG_QUERIES_AGENT = {
@@ -81,6 +85,9 @@ export const PG_QUERIES_AGENT = {
     returning ${PRESCRIPTION_COLUMNS}`,
   // withAgent. Tracking state now (rule 3: `tracked` is fixed at generation). No row → false.
   trackingOn: `select adherence_check_in_enabled as tracking_on from settings where patient_id = $1`,
+  // withAgent. AP-10: the language screening writes the patient's alerts in (the recipients query
+  // below reads the same column under the same role). No row → 'ar', the settings default.
+  patientLanguage: `select language::text as language from settings where patient_id = $1`,
   // withAgent. Tracking on AND the patient's LATEST link connected (the same "latest" rule as
   // settings_tracking_requires_link, p2-wp1 §3.12).
   checkInEligibility: `
@@ -273,7 +280,7 @@ export async function insertAlert(input: AlertInput): Promise<AlertWriteResult> 
 // POST /api/agent/prescriptions
 // -------------------------------------------------------------------------------------------
 export type PrescriptionWriteResult =
-  | { kind: 'ok'; prescription: Prescription; doseCount: number }
+  | { kind: 'ok'; prescription: Prescription; doseCount: number; screening: ScreeningOutcome }
   | { kind: 'refused'; constraint: string };
 
 /** The jsonb record of PG_QUERIES_AGENT.insertPrescription (snake_case columns, null for absent). Exported for the gate proof. */
@@ -298,9 +305,18 @@ export function prescriptionRecord(id: string, input: PrescriptionInput): Record
   };
 }
 
+/**
+ * POST /api/agent/prescriptions' write, then (AP-10, CR-090) its screening. The insert commits first
+ * (the screening agent reads the prescription back); an UNFLAGGED one is then handed to screening,
+ * or held for a specialist when n8n does not accept it (./screening.ts). A flagged one is screened
+ * when the reviewer confirms it (writes.ts confirmPrescriptionFields), never before (TC-IX-06).
+ * `screening` goes back in the 201 body, so the calling workflow knows the backend has already
+ * handed it over and does not screen it a second time.
+ */
 export async function insertExtractedPrescription(input: PrescriptionInput): Promise<PrescriptionWriteResult> {
+  let saved: { prescription: Prescription; doseCount: number };
   try {
-    return await withAgent(async (sql): Promise<PrescriptionWriteResult> => {
+    saved = await withAgent(async (sql) => {
       const [row] = await sql.unsafe(PG_QUERIES_AGENT.insertPrescription, [prescriptionRecord(newId('rx'), input) as JsonValue]);
       const rx = prescriptionFromRow(row!);
       const [t] = await sql.unsafe(PG_QUERIES_AGENT.trackingOn, [rx.patientId]);
@@ -311,12 +327,24 @@ export async function insertExtractedPrescription(input: PrescriptionInput): Pro
         scope: 'patient', patientId: rx.patientId, actor: { role: 'agent' }, type: 'prescription_added',
         message: prescriptionAddedMessage(rx.drug.genericName), relatedId: rx.id,
       });
-      return { kind: 'ok', prescription: rx, doseCount: doses.length };
+      return { prescription: rx, doseCount: doses.length };
     });
   } catch (e) {
     const name = refusalOf(e);
     if (name) return { kind: 'refused', constraint: name };
     throw e;
+  }
+  const screening = await screenOrHold(saved.prescription.patientId, saved.prescription);
+  return { kind: 'ok', ...saved, screening };
+}
+
+/** AP-10: the patient's own language, for the alerts screening writes. Any failure → 'ar' (the default). */
+export async function patientLanguage(patientId: string): Promise<'ar' | 'en'> {
+  try {
+    const [row] = await withAgent((sql) => sql.unsafe(PG_QUERIES_AGENT.patientLanguage, [patientId]));
+    return row?.language === 'en' ? 'en' : 'ar';
+  } catch {
+    return 'ar';
   }
 }
 
