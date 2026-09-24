@@ -9,9 +9,10 @@
  *
  * Every refusal below is a row that 0005's policies and the table's CHECKs ACCEPT, so the only
  * thing that can refuse it is audit_insert_actor, and each assertion names that policy (a
- * restrictive policy's name is in its error message). Every acceptance is a writer the seam uses
- * today. Probes roll back; only the last test commits (the real recomputeSchedule), and the next
- * file re-seeds.
+ * restrictive policy's name is in its error message). The one other refusal is the premise of
+ * the dose_status_recorded rule: jurah_app cannot update doses.status (0005's grant). Every
+ * acceptance is a writer the seam uses today. Probes roll back; only the last test commits (the
+ * real recomputeSchedule), and the next file re-seeds.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSql } from '@/lib/db/client';
@@ -81,12 +82,19 @@ describe('audit: who may write a row naming which actor (CR-061)', () => {
     }
   });
 
-  it('CR-061 · a user session cannot write a dose_status_recorded row naming the system either', async () => {
-    // audit_dose_status_actor admits 'system', so before 0014 a patient session could forge the
-    // demo's proof row. The trigger writes that row only under jurah_agent or the system session.
-    for (const s of [S.hamad, S.abdullah, S.khalidReviewer]) {
-      await rejects(app(s), row('ae_cr061_dose_system', 'system', 'dose_status_recorded', 'pt-03'), POLICY);
+  it('CR-061 · no jurah_app session writes a dose_status_recorded row naming the system, the system session included', async () => {
+    // audit_dose_status_actor admits 'system', so before 0014 any jurah_app session could forge the
+    // demo's proof row. Its one writer is the trigger on `update of status on doses`, and jurah_app
+    // holds no UPDATE on doses.status (0005), so under jurah_app the trigger never fires: the row
+    // comes from jurah_agent or the owner (the seed) only. jurah.session is a setting any caller
+    // can set, so the system session is refused as well.
+    for (const as of [app(S.hamad), app(S.abdullah), app(S.khalidReviewer), app(S.dana), app(S.naserPending), SYSTEM_APP]) {
+      await rejects(as, row('ae_cr061_dose_system', 'system', 'dose_status_recorded', 'pt-03'), POLICY);
     }
+    // the premise, at runtime: the system session cannot reach the trigger at all
+    await rejects(SYSTEM_APP,
+      `update doses set status = 'taken_on_time', recorded_at = '2026-09-21T13:05:00+03:00', source = 'adherence_agent' where id = 'rx-009-20260921-1300'`,
+      'permission denied for table doses');
   });
 
   it('CR-061 · the agent role still writes rows naming the agent, raw and through the dose trigger', async () => {
@@ -116,7 +124,6 @@ describe('audit: who may write a row naming which actor (CR-061)', () => {
       ['pending-only · system signed_out', app(S.naserPending), row('ae_cr061_w8', 'system', 'signed_out', null)],
       ['system · patient messaging_connected (webhook)', SYSTEM_APP, row('ae_cr061_w9', 'patient', 'messaging_connected')],
       ['system · schedule_recomputed', SYSTEM_APP, row('ae_cr061_w10', 'system', 'schedule_recomputed')],
-      ['system · dose_status_recorded naming the system (the trigger on the system path)', SYSTEM_APP, row('ae_cr061_w11', 'system', 'dose_status_recorded', 'pt-03')],
     ];
     for (const [what, as, statement] of writers) {
       expect({ what, count: (await accepts(as, statement)).count }).toEqual({ what, count: 1 });

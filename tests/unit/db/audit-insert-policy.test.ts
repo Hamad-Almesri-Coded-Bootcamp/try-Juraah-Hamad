@@ -7,12 +7,14 @@
  *  1. The migration is what the notes say: the last file, one restrictive INSERT policy for
  *     jurah_app, idempotent, and nothing that weakens RLS.
  *  2. The seam's writers fit the policy. 0014 refuses, from jurah_app, a row naming the agent
- *     unless it comes from withSystem() as prescription_discontinued (D-025), and any
- *     dose_status_recorded row from a user session. So every append() in product code that names
- *     the agent must run under withAgent(), or be that one D-025 row under withSystem(); and no
- *     append() may write dose_status_recorded (the trigger alone writes it). A new writer that
- *     breaks this would work until 0014 is applied and then fail in production, so it fails here
- *     first.
+ *     unless it comes from withSystem() as prescription_discontinued (D-025), and every
+ *     dose_status_recorded row, the system session's included. So every append() in product code
+ *     that names the agent must run under withAgent(), or be that one D-025 row under
+ *     withSystem(); and no append() may write dose_status_recorded (the trigger alone writes it,
+ *     and under jurah_app it never fires, because jurah_app holds no UPDATE on doses.status). A
+ *     new writer that breaks this would work until 0014 is applied and then fail in production,
+ *     so it fails here first. The scan fails loudly on an actor or a type it cannot read: an input
+ *     it cannot see is never counted as "does not name the agent".
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -46,9 +48,32 @@ describe('CR-061 · migration 0014, as written', () => {
     expect(statements[0]).toBe('drop policy if exists audit_insert_actor on audit_events');
     expect(statements[1]).toMatch(/^create policy audit_insert_actor on audit_events as restrictive for insert to jurah_app with check \(/);
     // the rule itself, clause by clause
-    expect(statements[1]).toContain('jurah_session() is not null');
-    expect(statements[1]).toContain("when jurah_session_is('system') then actor_role <> 'agent' or type = 'prescription_discontinued'");
-    expect(statements[1]).toContain("else actor_role <> 'agent' and type <> 'dose_status_recorded'");
+    // the rule itself, whole: no other clause may sit beside these three
+    expect(statements[1]).toBe(
+      'create policy audit_insert_actor on audit_events as restrictive for insert to jurah_app with check ( '
+      + 'jurah_session() is not null '
+      + "and type <> 'dose_status_recorded' "
+      + "and (actor_role <> 'agent' or (jurah_session_is('system') and type = 'prescription_discontinued')) )",
+    );
+  });
+
+  it('the premise of refusing dose_status_recorded from every jurah_app session: jurah_app cannot update doses.status', () => {
+    // The row's one writer is the trigger `after update of status on doses`. If jurah_app ever gains
+    // the status column, the trigger would fire under jurah_app and 0014 would refuse its row; this
+    // fails first, so the grant and the policy are revisited together.
+    const grants = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort().flatMap((f) =>
+      sqlBody(readFileSync(`${MIGRATIONS}/${f}`, 'utf8')).split(';').map((s) => s.trim())
+        // any privilege grant that names doses, or every table at once, in any form
+        .filter((s) => /^grant\b(?!\s+execute\b)/.test(s) && /\bdoses\b|\ball tables\b/.test(s)).map((s) => `${f}: ${s}`));
+    expect(grants).toEqual([
+      '0005_rls.sql: grant select, insert, delete on doses to jurah_app',
+      '0005_rls.sql: grant update (scheduled_at, tracked) on doses to jurah_app',
+      '0005_rls.sql: grant select, insert on doses to jurah_agent',
+      '0005_rls.sql: grant update (status, recorded_at, source) on doses to jurah_agent',
+    ]);
+    expect(sqlBody(readFileSync(MIGRATIONS + '/0004_constraints_and_triggers.sql', 'utf8'))).toContain(
+      'create or replace trigger doses_status_recorded_audit after update of status on doses for each row execute function doses_status_recorded_audit()',
+    );
   });
 
   it('weakens nothing: no disabled or forced-off RLS, no always-true check, no grant, no row written', () => {
@@ -60,8 +85,36 @@ describe('CR-061 · migration 0014, as written', () => {
   });
 });
 
-/** `type` is the event type literal; a conditional (`now ? 'a' : 'b'`) lists both, joined by `|`. */
-interface AppendSite { file: string; wrapper: string; namesAgent: boolean; type: string }
+/**
+ * `type` is the event type literal; a conditional (`now ? 'a' : 'b'`) lists both, joined by `|`.
+ * `actorRole` is the actor's role literal, or the roles an allow-listed typed expression can take,
+ * joined by `|`. Anything else, a missing `actor: {` object included, is '(not a literal)'.
+ */
+interface AppendSite { file: string; wrapper: string; actorRole: string; type: string }
+
+/**
+ * The typed, non-literal actor roles the seam writes today, and the roles each one can take. A form
+ * not listed here is '(not a literal)', which fails the scan: a new form is read, then added here.
+ */
+const DYNAMIC_ACTOR_ROLES: Record<string, string> = {
+  // lib/session/pg/index.ts (sign-in, sign-out): s is a Session and s.role a Role (types/views.ts),
+  // the four user roles only; the last test asserts that declaration.
+  "s.role ?? 'system'": 'patient|caregiver|reviewer|admin|system',
+  // lib/data/pg/channels.ts (messaging_connected)
+  "patient ? 'patient' : 'caregiver'": 'patient|caregiver',
+};
+
+function actorRoleOf(obj: string): string {
+  const expr = /actor:\s*\{\s*role:\s*([^,}]+?)\s*[,}]/.exec(obj)?.[1];
+  if (expr === undefined) return '(not a literal)';
+  const literal = /^'([a-z_]+)'$/.exec(expr)?.[1];
+  if (literal !== undefined) return literal;
+  return Object.hasOwn(DYNAMIC_ACTOR_ROLES, expr) ? DYNAMIC_ACTOR_ROLES[expr]! : '(not a literal)';
+}
+
+function namesAgent(s: AppendSite): boolean {
+  return s.actorRole.split('|').includes('agent');
+}
 
 /** Every append(sql, {...}) call in product code, with the nearest enclosing with*() before it. */
 function appendSites(): AppendSite[] {
@@ -78,11 +131,10 @@ function appendSites(): AppendSite[] {
       // the object literal of this call: up to the first `})` after it
       const end = src.indexOf('})', at);
       const obj = src.slice(at, end === -1 ? undefined : end);
-      const actor = /actor:\s*\{([^}]*)\}/.exec(obj)?.[1] ?? '';
       const typeExpr = /(?<![\w.])type:\s*([^,\n]+)/.exec(obj)?.[1] ?? '';
       const literals = [...typeExpr.matchAll(/'([a-z_]+)'/g)].map((t) => t[1]);
       const type = literals.length > 0 ? literals.join('|') : '(not a literal)';
-      sites.push({ file, wrapper, namesAgent: /'agent'/.test(actor), type });
+      sites.push({ file, wrapper, actorRole: actorRoleOf(obj), type });
     }
   }
   return sites;
@@ -101,11 +153,14 @@ describe('CR-061 · the seam writes only rows 0014 admits', () => {
   });
 
   it('a row naming the agent comes from withAgent(), or is D-025\'s prescription_discontinued under withSystem()', () => {
-    const agentRows = appendSites().filter((s) => s.namesAgent);
+    const sites = appendSites();
+    // an actor the scan cannot read fails here; it never counts as "does not name the agent"
+    expect(sites.filter((s) => s.actorRole === '(not a literal)')).toEqual([]);
+    const agentRows = sites.filter(namesAgent);
     expect(agentRows).toEqual([
-      { file: 'lib/data/pg/agent.ts', wrapper: 'withSystem', namesAgent: true, type: 'prescription_discontinued' },
-      { file: 'lib/data/pg/agent.ts', wrapper: 'withAgent', namesAgent: true, type: 'alert_raised' },
-      { file: 'lib/data/pg/agent.ts', wrapper: 'withAgent', namesAgent: true, type: 'prescription_added' },
+      { file: 'lib/data/pg/agent.ts', wrapper: 'withSystem', actorRole: 'agent', type: 'prescription_discontinued' },
+      { file: 'lib/data/pg/agent.ts', wrapper: 'withAgent', actorRole: 'agent', type: 'alert_raised' },
+      { file: 'lib/data/pg/agent.ts', wrapper: 'withAgent', actorRole: 'agent', type: 'prescription_added' },
     ]);
     for (const s of agentRows) {
       expect(s.wrapper === 'withAgent' || (s.wrapper === 'withSystem' && s.type === 'prescription_discontinued'), JSON.stringify(s)).toBe(true);
@@ -123,5 +178,7 @@ describe('CR-061 · the seam writes only rows 0014 admits', () => {
     expect(src).toMatch(/export function withSystem<T>\(fn: \(sql: Tx\) => Promise<T>\): Promise<T> \{\s*return run\('jurah_app', async \(\) => \(\{ role: 'system' \}\), fn\);/);
     // and no cookie can carry role 'system' into withSession(): verify.ts admits the four user roles only
     expect(readFileSync('lib/session/verify.ts', 'utf8')).toContain("const ROLES: readonly Role[] = ['patient', 'caregiver', 'reviewer', 'admin'];");
+    // and the allow-listed `s.role ?? 'system'` can never be 'agent': Role is the four user roles
+    expect(readFileSync('types/views.ts', 'utf8')).toContain("export type Role = 'patient' | 'caregiver' | 'reviewer' | 'admin';");
   });
 });
