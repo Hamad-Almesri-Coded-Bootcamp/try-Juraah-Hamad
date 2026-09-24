@@ -5,9 +5,11 @@
  * Rule 7's one hard line: `MessagingLink.linkToken` never reaches the DOM at any step.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { NotificationsScreen } from '@/features/ambient/NotificationsScreen';
-import { getMessagingLink } from '@/lib/data';
+import { getMessagingLink, startMessagingLink } from '@/lib/data';
+import { linkForScreen, TELEGRAM_OPEN_PATH } from '@/lib/messaging/link';
+import { LINK_POLL_MS, LINK_POLL_TRIES } from '@/features/ambient/TelegramLinkForm';
 import { getStore, reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
 import { copy } from '@/i18n';
@@ -20,8 +22,23 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }
 function expectNoTokenInDom() {
   const store = getStore();
   for (const link of store.messagingLinks) {
-    if (link.linkToken) expect(document.body.textContent).not.toContain(link.linkToken);
+    // innerHTML, not textContent: a hidden input or an attribute would leak it just as well.
+    if (link.linkToken) expect(document.body.innerHTML).not.toContain(link.linkToken);
   }
+}
+
+/** The form an "Open Telegram" button submits: a plain POST to the link route, locale and screen only. */
+function formOf(button: HTMLElement): HTMLFormElement {
+  const form = button.closest('form');
+  expect(form, 'the button sits in a form').not.toBeNull();
+  return form as HTMLFormElement;
+}
+function expectLinkForm(button: HTMLElement, locale: 'ar' | 'en', from: string) {
+  const form = formOf(button);
+  expect(button).toHaveAttribute('type', 'submit');
+  expect(form.getAttribute('method')).toBe('post');
+  expect(form.getAttribute('action')).toBe(TELEGRAM_OPEN_PATH);
+  expect(Object.fromEntries(new FormData(form))).toEqual({ locale, from });
 }
 
 beforeEach(() => {
@@ -158,6 +175,7 @@ describe('Browser section — four permission states', () => {
 
 describe('Chat section — round trip: not_connected → pending → connected → send test → disconnect', () => {
   it('never renders the link token in the DOM at any step, and the mock’s own delayed confirm is polled for rather than slept for', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     setScriptSession({ subjectId: 'pt-01', role: 'patient' });
 
     const notConnected = await getMessagingLink({ subjectType: 'patient', subjectId: 'pt-01' });
@@ -175,10 +193,14 @@ describe('Chat section — round trip: not_connected → pending → connected �
     expect(screen.getByTestId('chat-not-connected')).toBeInTheDocument();
     expectNoTokenInDom();
 
-    fireEvent.click(screen.getByRole('button', { name: A.e5OpenChatAction.en }));
-    await vi.waitFor(() => expect(getStore().messagingLinks.some((l) => l.subjectId === 'pt-01' && l.status === 'pending')).toBe(true));
+    // AP-09: "Open Telegram" is a form that posts to the route; the component itself mints nothing.
+    expectLinkForm(screen.getByRole('button', { name: A.e5OpenChatAction.en }), 'en', 'notifications');
+    // What the route does with that post, through the same seam call (tests/unit/api/telegram-open.test.ts
+    // covers the route itself); the page then hands the screen the link WITHOUT its token.
+    await startMessagingLink({ subjectType: 'patient', subjectId: 'pt-01' });
     const pending = getStore().messagingLinks.find((l) => l.subjectId === 'pt-01' && l.status === 'pending')!;
     expect(pending.linkToken).toBeTruthy(); // the mock does generate one — it must never surface
+    expect(linkForScreen(pending)).not.toHaveProperty('linkToken');
 
     rerender(
       <NotificationsScreen
@@ -186,7 +208,7 @@ describe('Chat section — round trip: not_connected → pending → connected �
         permission="default"
         active={false}
         iosNeedsInstall={false}
-        messaging={pending}
+        messaging={linkForScreen(pending)}
         botHandle="@jurah_bot"
         locale="en"
       />,
@@ -197,6 +219,7 @@ describe('Chat section — round trip: not_connected → pending → connected �
     // The polling effect calls router.refresh() on a real timer while pending, and the mock's own
     // setTimeout confirms the link a little after that — both real delays, waited for rather than
     // guessed at with a fixed sleep.
+    vi.advanceTimersByTime(LINK_POLL_MS);
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled(), { timeout: 2000 });
     await vi.waitFor(
       () => expect(getStore().messagingLinks.find((l) => l.subjectId === 'pt-01' && l.id === pending.id)?.status).toBe('connected'),
@@ -210,7 +233,7 @@ describe('Chat section — round trip: not_connected → pending → connected �
         permission="default"
         active={false}
         iosNeedsInstall={false}
-        messaging={connected}
+        messaging={linkForScreen(connected)}
         botHandle="@jurah_bot"
         locale="en"
       />,
@@ -290,25 +313,82 @@ describe('E5 — test sends and the demo line', () => {
   });
 });
 
-describe('F1 — opening Telegram without the token ever reaching the page', () => {
-  const pendingLink = { id: 'ml-09', subjectType: 'patient' as const, subjectId: 'pt-03', channel: 'telegram' as const, status: 'pending' as const, linkToken: 'tok_SECRET_123' };
-  it('pending (real bot): "Open Telegram" opens our own route in a new tab — never t.me, never the token', () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
-    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_real_bot" locale="ar" />);
-    fireEvent.click(screen.getByRole('button', { name: A.e5OpenChatAction.ar }));
-    expect(open).toHaveBeenCalledWith('/api/messaging/telegram/open?locale=ar', '_blank', 'noopener');
-    expect(document.body.innerHTML).not.toContain('tok_SECRET_123');
+describe('AP-09 — opening Telegram: a form to the route, the token never on the page', () => {
+  const pendingView = { id: 'ml-09', subjectType: 'patient' as const, subjectId: 'pt-03', channel: 'telegram' as const, status: 'pending' as const };
+  const props = { patientId: 'pt-03', permission: 'granted' as const, active: false, iosNeedsInstall: false, botHandle: '@jurah_real_bot', locale: 'ar' as const };
+
+  it('every way to start a link (not connected, expired, the iOS "chat instead", pending "open again") is the same form, and never names t.me or a token', () => {
+    const { rerender } = render(<NotificationsScreen {...props} messaging={{ ...pendingView, status: 'not_connected' }} />);
+    expectLinkForm(screen.getByRole('button', { name: A.e5OpenChatAction.ar }), 'ar', 'notifications');
+    rerender(<NotificationsScreen {...props} messaging={{ ...pendingView, status: 'expired' }} />);
+    expectLinkForm(screen.getByRole('button', { name: copy.vocabulary.retry.ar }), 'ar', 'notifications');
+    rerender(<NotificationsScreen {...props} permission="unsupported" iosNeedsInstall messaging={{ ...pendingView, status: 'not_connected' }} />);
+    expectLinkForm(screen.getByRole('button', { name: A.e5IosChatInsteadAction.ar }), 'ar', 'notifications');
+    rerender(<NotificationsScreen {...props} messaging={pendingView} />);
+    expectLinkForm(screen.getByRole('button', { name: A.e5ChatOpenAgainAction.ar }), 'ar', 'notifications');
     expect(document.body.innerHTML).not.toContain('t.me');
-    open.mockRestore();
+    expect(document.body.innerHTML).not.toContain('start=');
   });
-  it('pending while the bot is simulated: no "Open Telegram" (there is no bot to open)', () => {
-    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_bot" simulated locale="ar" />);
-    expect(screen.queryByRole('button', { name: A.e5OpenChatAction.ar })).toBeNull();
+
+  it('a real bot: the form opens Telegram in a new tab, so this page stays and starts waiting; simulated: it posts in place', () => {
+    const { rerender } = render(<NotificationsScreen {...props} messaging={{ ...pendingView, status: 'not_connected' }} />);
+    expect(formOf(screen.getByRole('button', { name: A.e5OpenChatAction.ar })).getAttribute('target')).toBe('_blank');
+    rerender(<NotificationsScreen {...props} simulated messaging={{ ...pendingView, status: 'not_connected' }} />);
+    expect(formOf(screen.getByRole('button', { name: A.e5OpenChatAction.ar })).hasAttribute('target')).toBe(false);
   });
-  it('pending keeps checking for 5 minutes (a person has to switch apps and press Start), then stops', () => {
+
+  it('a real bot: submitting the form starts the wait at once (this tab re-reads the page for the link the new tab minted)', () => {
     vi.useFakeTimers();
-    render(<NotificationsScreen patientId="pt-03" permission="granted" active={false} iosNeedsInstall={false} messaging={pendingLink} botHandle="@jurah_real_bot" locale="ar" />);
-    vi.advanceTimersByTime(2000);
+    render(<NotificationsScreen {...props} messaging={{ ...pendingView, status: 'not_connected' }} />);
+    fireEvent.submit(formOf(screen.getByRole('button', { name: A.e5OpenChatAction.ar })));
+    vi.advanceTimersByTime(LINK_POLL_MS);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('pending: "I pressed Start" checks now, and says so, calmly, when the link is still waiting (never an error, rule 2)', () => {
+    const { container } = render(<NotificationsScreen {...props} messaging={pendingView} />);
+    expect(screen.queryByTestId('chat-still-waiting')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: A.e5ChatCheckAction.ar }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('chat-still-waiting')).toHaveTextContent(A.e5ChatStillWaiting.ar);
+    expect(screen.getByTestId('chat-still-waiting')).toHaveAttribute('role', 'status');
+    expect(container.querySelector('.wsf-notice--warning, .wsf-notice--danger, [role="alert"]')).toBeNull();
+  });
+
+  it('pending: exactly one primary on the screen: "I pressed Start" steps down to secondary while "Enable notifications" is still offered', () => {
+    const { container, rerender } = render(<NotificationsScreen {...props} permission="default" messaging={pendingView} />);
+    expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: A.e5ChatCheckAction.ar })).toHaveClass('wsf-btn--secondary');
+    rerender(<NotificationsScreen {...props} permission="denied" messaging={pendingView} />);
+    expect(container.querySelectorAll('.wsf-btn--primary')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: A.e5ChatCheckAction.ar })).toHaveClass('wsf-btn--primary');
+  });
+
+  it('pending keeps checking for five minutes, not twelve seconds (a person has to switch apps and press Start), then says it stopped', () => {
+    vi.useFakeTimers();
+    render(<NotificationsScreen {...props} messaging={pendingView} />);
+    for (let i = 0; i < LINK_POLL_TRIES + 5; i++) act(() => void vi.advanceTimersByTime(LINK_POLL_MS));
+    expect(LINK_POLL_MS * LINK_POLL_TRIES).toBe(5 * 60_000);
+    expect(refresh).toHaveBeenCalledTimes(LINK_POLL_TRIES);
+    expect(screen.getByTestId('chat-pending')).toHaveTextContent(A.e5ChatStoppedChecking.ar);
+    // "I pressed Start" still checks, and gives the wait a fresh five minutes.
+    fireEvent.click(screen.getByRole('button', { name: A.e5ChatCheckAction.ar }));
+    act(() => void vi.advanceTimersByTime(LINK_POLL_MS));
+    expect(refresh).toHaveBeenCalledTimes(LINK_POLL_TRIES + 2);
+    expect(screen.getByTestId('chat-pending')).toHaveTextContent(A.e5ChatWaitingBody.ar);
+  });
+
+  it('pending: coming back to the tab from Telegram re-reads the page at once', () => {
+    render(<NotificationsScreen {...props} messaging={pendingView} />);
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('pending while simulated: the demo line is still there, and both actions are still offered (the preview can restart its link)', () => {
+    render(<NotificationsScreen {...props} botHandle="@jurah_bot" simulated messaging={pendingView} />);
+    expect(screen.getByRole('button', { name: A.e5ChatCheckAction.ar })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: A.e5ChatOpenAgainAction.ar })).toBeInTheDocument();
+    expect(screen.getByTestId('chat-section')).toHaveTextContent(A.e5SimulatedNote.ar);
+    expect(screen.getByTestId('chat-section')).toHaveTextContent('@jurah_bot');
   });
 });

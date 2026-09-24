@@ -7,6 +7,12 @@
  * patient and since when · own browser-notification/chat state, scoped to `subjectType: 'caregiver'`
  * · unlink myself (Sheet-confirmed) · sign out. No `Settings` row exists here (CLAUDE.md rule 8).
  * Daylight (CR-071): each part is one grouped card under its own heading.
+ *
+ * AP-09 (CR-086, CR-087): "Connect Telegram" is the same TelegramLinkForm as E5, a form that posts
+ * to the link route; the route mints this caregiver's own link only while the invitation is active
+ * (rule 5) and answers with the t.me redirect, so no token reaches this page (rule 7; the page
+ * passes linkForScreen). While the link waits for Start, the row polls for five minutes and offers
+ * "I pressed Start" and "Open Telegram again". Each row has its own busy state.
  */
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,7 +21,8 @@ import { MenuRow } from '@/components/ui/MenuRow';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { SignOutButton } from '@/features/shell/SignOutButton';
-import { disablePush, disconnectMessaging, requestPushPermission, selfUnlink, startMessagingLink } from '@/lib/data';
+import { disablePush, disconnectMessaging, requestPushPermission, selfUnlink } from '@/lib/data';
+import { TelegramLinkForm, useLinkConfirmation } from '@/features/ambient/TelegramLinkForm';
 import { formatDate } from '@/i18n/format';
 import { localizeFirstName } from '@/i18n/localize';
 import { interpolate } from '@/features/shell/interpolate';
@@ -44,6 +51,7 @@ export function CaregiverProfile({
   pushCapabilitySupported,
   push,
   messaging,
+  simulated,
   locale,
 }: {
   caregiverId: string;
@@ -52,12 +60,18 @@ export function CaregiverProfile({
   pushCapabilitySupported: boolean;
   push: PushSubscription | null;
   messaging: MessagingLink;
+  /** The server's BOT_IS_SIMULATED. */
+  simulated: boolean;
   locale: Locale;
 }) {
   const router = useRouter();
   const [unlinking, setUnlinking] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [pushBusy, startPush] = useTransition();
+  // A real bot: the form opened Telegram in another tab, and the link it minted is on its way here.
+  const [opened, setOpened] = useState(false);
+  const confirmation = useLinkConfirmation(messaging.status === 'pending' || (opened && messaging.status !== 'connected'));
 
   const subject = { subjectType: 'caregiver' as const, subjectId: caregiverId };
   const permission = push?.permission ?? (pushCapabilitySupported ? 'default' : 'unsupported');
@@ -66,7 +80,7 @@ export function CaregiverProfile({
   const patientName = localizeFirstName(patientFirstName, locale);
 
   function togglePush() {
-    startTransition(() => {
+    startPush(() => {
       void (async () => {
         if (pushOn) await disablePush(subject);
         else await requestPushPermission(subject);
@@ -75,16 +89,13 @@ export function CaregiverProfile({
     });
   }
 
-  function connectChat() {
-    startTransition(() => {
-      void (async () => {
-        await startMessagingLink(subject);
-        router.refresh();
-      })();
-    });
+  function handleTelegramOpened() {
+    setOpened(true);
+    confirmation.restart();
   }
 
   function confirmDisconnect() {
+    setOpened(false); // the link this page waited for is being taken down: stop waiting
     startTransition(() => {
       void (async () => {
         await disconnectMessaging(subject);
@@ -124,7 +135,7 @@ export function CaregiverProfile({
             description={t(copy.caregiving[PUSH_LABEL_KEY[permission]], locale)}
             trailing={
               permission === 'unsupported' ? undefined : (
-                <Button variant="secondary" lang={locale} loading={pending} onClick={togglePush}>
+                <Button variant="secondary" lang={locale} loading={pushBusy} onClick={togglePush}>
                   {t(copy.caregiving[pushOn ? 'f4PushDisableAction' : 'f4PushEnableAction'], locale)}
                 </Button>
               )
@@ -139,14 +150,28 @@ export function CaregiverProfile({
                 <Button variant="secondary" lang={locale} onClick={() => setDisconnecting(true)}>
                   {t(copy.caregiving.f4ChatDisconnectAction, locale)}
                 </Button>
-              ) : messaging.status === 'pending' ? undefined : (
-                <Button variant="secondary" lang={locale} loading={pending} onClick={connectChat}>
+              ) : messaging.status === 'pending' ? (
+                <div className="flex flex-wrap items-center justify-end gap-2" data-testid="f4-chat-pending">
+                  <Button variant="secondary" lang={locale} icon="refresh" loading={confirmation.checking} onClick={confirmation.checkNow}>
+                    {t(copy.ambient.e5ChatCheckAction, locale)}
+                  </Button>
+                  <TelegramLinkForm from="profile" locale={locale} simulated={simulated} onOpen={handleTelegramOpened} variant="secondary" icon="link">
+                    {t(copy.ambient.e5ChatOpenAgainAction, locale)}
+                  </TelegramLinkForm>
+                </div>
+              ) : (
+                <TelegramLinkForm from="profile" locale={locale} simulated={simulated} onOpen={handleTelegramOpened} variant="secondary">
                   {t(copy.caregiving.f4ChatConnectAction, locale)}
-                </Button>
+                </TelegramLinkForm>
               )
             }
           />
         </div>
+        {messaging.status === 'pending' && (confirmation.checked || confirmation.stopped) && (
+          <p role="status" aria-live="polite" className="m-0 px-1 type-body-small text-ink-muted" data-testid="chat-still-waiting">
+            {t(confirmation.checked ? copy.ambient.e5ChatStillWaiting : copy.ambient.e5ChatStoppedChecking, locale)}
+          </p>
+        )}
         <p className="px-1 type-body-small text-ink-muted">{t(copy.caregiving.f4AlertsOnlyNote, locale)}</p>
       </section>
 

@@ -17,18 +17,20 @@
  * recorded in `docs/backend-notes/wp4g.md` since the contract's four `permission` values don't name
  * this fifth combination on their own.
  *
- * Chat section: `not_connected` / `pending` / `connected` / `expired`, rule 7's one strict line —
- * `MessagingLink.linkToken` is never read by this component, so it can never reach the DOM at any
- * step of the round trip. While `pending`, this component polls (`router.refresh()`) until the bot's
- * webhook confirms, rather than sleeping a fixed guess.
+ * Chat section: `not_connected` / `pending` / `connected` / `expired`, rule 7's one strict line:
+ * this component never receives a link token at all (the page passes `linkForScreen(link)`, which
+ * drops it on the server), so it can never reach the DOM or the page's RSC payload.
  *
- * F1 — opening Telegram: the tap opens a tab AT ONCE (a tab opened after an await is a blocked
- * pop-up), and once the link is minted that tab goes to /api/messaging/telegram/open, which reads
- * the token on the server and redirects to t.me/<bot>?start=<token>. The page never holds the token;
- * while pending, "Open Telegram" reopens the same route. Polling runs for 5 minutes (the token lives
- * 15), long enough to switch apps, press Start and come back.
+ * AP-09 (CR-083, CR-086, CR-087): every "Open Telegram" is a TelegramLinkForm, a form that POSTs to
+ * /api/messaging/telegram/open. That route mints the person's own link and answers 303 to
+ * t.me/<bot>?start=<token>; the token is only in that Location header. With a real bot the form
+ * opens in a new tab and this page starts waiting at once; simulated, the form posts in place and
+ * the route sends the person back here. While `pending`, useLinkConfirmation re-reads the page every
+ * few seconds for five minutes (the token lives fifteen), at once on returning to the tab, and on
+ * "I pressed Start", which also says so when the link is still waiting. "Open Telegram again" mints
+ * a fresh link (the old token is superseded, one live token per subject).
  */
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
@@ -41,18 +43,13 @@ import {
   requestPushPermission,
   sendTestMessage,
   sendTestNotification,
-  startMessagingLink,
 } from '@/lib/data';
+import { TelegramLinkForm, useLinkConfirmation } from '@/features/ambient/TelegramLinkForm';
 import { formatDate, formatNumber } from '@/i18n/format';
 import { interpolate } from '@/features/shell/interpolate';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 import type { MessagingLink, PushSubscription } from '@/types/contracts';
-
-const POLL_MS = 2000;
-const POLL_MAX_TRIES = 150; // 5 minutes: a person has to switch to Telegram, press Start and come back
-/** The server route that redirects to the bot with this person's own pending link (the token stays server-side). */
-const openTelegramUrl = (locale: string) => '/api/messaging/telegram/open?locale=' + (locale === 'en' ? 'en' : 'ar');
 
 export function NotificationsScreen({
   patientId,
@@ -78,11 +75,16 @@ export function NotificationsScreen({
   locale: Locale;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  // One busy state per section: an action in one never puts a spinner on the other's buttons.
+  const [pushBusy, startPush] = useTransition();
+  const [chatBusy, startChat] = useTransition();
   const [testSent, setTestSent] = useState(false);
   const [testMessageSent, setTestMessageSent] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const pollTries = useRef(0);
+  // A real bot: the form opened Telegram in another tab, and the link it minted is on its way here.
+  const [opened, setOpened] = useState(false);
+  const awaiting = messaging.status === 'pending' || (opened && messaging.status !== 'connected');
+  const confirmation = useLinkConfirmation(awaiting);
 
   const subject = { subjectType: 'patient' as const, subjectId: patientId };
   const showGranted = permission === 'granted' && active;
@@ -90,23 +92,8 @@ export function NotificationsScreen({
   const showDenied = permission === 'denied' && !showUnsupported;
   const showDefault = !showGranted && !showDenied && !showUnsupported;
 
-  // The mock confirms `pending → connected` after its own short server-side delay (startMessagingLink's
-  // setTimeout) — polled for here rather than slept for a guessed duration.
-  useEffect(() => {
-    if (messaging.status !== 'pending') {
-      pollTries.current = 0;
-      return;
-    }
-    if (pollTries.current >= POLL_MAX_TRIES) return;
-    const id = setTimeout(() => {
-      pollTries.current += 1;
-      router.refresh();
-    }, POLL_MS);
-    return () => clearTimeout(id);
-  }, [messaging.status, router]);
-
   function handleEnablePush() {
-    startTransition(() => {
+    startPush(() => {
       void (async () => {
         await requestPushPermission(subject);
         router.refresh();
@@ -115,7 +102,7 @@ export function NotificationsScreen({
   }
 
   function handleDisablePush() {
-    startTransition(() => {
+    startPush(() => {
       void (async () => {
         await disablePush(subject);
         router.refresh();
@@ -124,7 +111,7 @@ export function NotificationsScreen({
   }
 
   function handleSendTestNotification() {
-    startTransition(() => {
+    startPush(() => {
       void (async () => {
         await sendTestNotification(subject);
         setTestSent(true);
@@ -132,27 +119,14 @@ export function NotificationsScreen({
     });
   }
 
-  function handleConnectChat() {
-    // Opened during the tap itself, so the browser allows it; pointed at the bot once the link exists.
-    const tab = simulated ? null : window.open('', '_blank');
-    startTransition(() => {
-      void (async () => {
-        const link = await startMessagingLink(subject);
-        if (tab) {
-          if (link.status === 'pending') tab.location.href = openTelegramUrl(locale);
-          else tab.close();
-        }
-        router.refresh();
-      })();
-    });
-  }
-
-  function handleReopenTelegram() {
-    window.open(openTelegramUrl(locale), '_blank', 'noopener');
+  /** A real bot's form just opened Telegram in a new tab: wait here for the link it minted. */
+  function handleTelegramOpened() {
+    setOpened(true);
+    confirmation.restart();
   }
 
   function handleSendTestMessage() {
-    startTransition(() => {
+    startChat(() => {
       void (async () => {
         await sendTestMessage(subject);
         setTestMessageSent(true);
@@ -161,7 +135,8 @@ export function NotificationsScreen({
   }
 
   function confirmDisconnect() {
-    startTransition(() => {
+    setOpened(false); // the link this page waited for is being taken down: stop waiting
+    startChat(() => {
       void (async () => {
         await disconnectMessaging(subject);
         setDisconnecting(false);
@@ -180,7 +155,7 @@ export function NotificationsScreen({
         {showDefault && (
           <div className="jr-group flex flex-col gap-4 p-4" data-testid="push-default">
             <p className="m-0 type-body">{t(copy.ambient.e5DefaultBody, locale)}</p>
-            <Button variant="primary" size="lg" fullWidth lang={locale} icon="bell" loading={pending} onClick={handleEnablePush}>
+            <Button variant="primary" size="lg" fullWidth lang={locale} icon="bell" loading={pushBusy} onClick={handleEnablePush}>
               {t(copy.ambient.e5EnableAction, locale)}
             </Button>
           </div>
@@ -205,10 +180,10 @@ export function NotificationsScreen({
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-2">
-              <Button variant="secondary" lang={locale} icon="bell" loading={pending} onClick={handleSendTestNotification}>
+              <Button variant="secondary" lang={locale} icon="bell" loading={pushBusy} onClick={handleSendTestNotification}>
                 {t(copy.ambient.e5SendTestAction, locale)}
               </Button>
-              <Button variant="quiet" lang={locale} loading={pending} onClick={handleDisablePush}>
+              <Button variant="quiet" lang={locale} loading={pushBusy} onClick={handleDisablePush}>
                 {t(copy.ambient.e5DisableAction, locale)}
               </Button>
             </div>
@@ -258,9 +233,9 @@ export function NotificationsScreen({
                 </li>
               ))}
             </ol>
-            <Button variant="secondary" size="lg" fullWidth lang={locale} icon="link" loading={pending} onClick={handleConnectChat}>
+            <TelegramLinkForm from="notifications" locale={locale} simulated={simulated} onOpen={handleTelegramOpened} variant="secondary" size="lg" fullWidth icon="link">
               {t(copy.ambient.e5IosChatInsteadAction, locale)}
-            </Button>
+            </TelegramLinkForm>
           </div>
         )}
       </section>
@@ -277,21 +252,46 @@ export function NotificationsScreen({
             {/* One primary per screen (UX §2, audit M19): while the browser section still offers its
                 own primary "Enable notifications", the chat's action steps down to secondary; once
                 that choice is made (granted/denied/unsupported), this is the screen's one primary. */}
-            <Button variant={showDefault ? 'secondary' : 'primary'} size="lg" fullWidth lang={locale} icon="link" loading={pending} onClick={handleConnectChat}>
+            <TelegramLinkForm
+              from="notifications"
+              locale={locale}
+              simulated={simulated}
+              onOpen={handleTelegramOpened}
+              variant={showDefault ? 'secondary' : 'primary'}
+              size="lg"
+              fullWidth
+              icon="link"
+            >
               {t(copy.ambient.e5OpenChatAction, locale)}
-            </Button>
+            </TelegramLinkForm>
           </div>
         )}
 
         {messaging.status === 'pending' && (
           <div className="flex flex-col gap-3" data-testid="chat-pending">
             <InlineNotice tone="info" title={t(copy.ambient.e5ChatWaitingTitle, locale)}>
-              {t(copy.ambient.e5ChatWaitingBody, locale)}
+              {t(confirmation.stopped ? copy.ambient.e5ChatStoppedChecking : copy.ambient.e5ChatWaitingBody, locale)}
             </InlineNotice>
-            {!simulated && (
-              <Button variant="secondary" size="lg" fullWidth lang={locale} icon="link" onClick={handleReopenTelegram}>
-                {t(copy.ambient.e5OpenChatAction, locale)}
-              </Button>
+            {/* The next step is the person's own: they pressed Start, so check. It follows the
+                screen's one-primary rule exactly as "Open Telegram" does in the state before. */}
+            <Button
+              variant={showDefault ? 'secondary' : 'primary'}
+              size="lg"
+              fullWidth
+              lang={locale}
+              icon="refresh"
+              loading={confirmation.checking}
+              onClick={confirmation.checkNow}
+            >
+              {t(copy.ambient.e5ChatCheckAction, locale)}
+            </Button>
+            <TelegramLinkForm from="notifications" locale={locale} simulated={simulated} onOpen={handleTelegramOpened} variant="secondary" size="lg" fullWidth icon="link">
+              {t(copy.ambient.e5ChatOpenAgainAction, locale)}
+            </TelegramLinkForm>
+            {confirmation.checked && (
+              <p role="status" aria-live="polite" className="m-0 px-1 type-body-small text-ink-muted" data-testid="chat-still-waiting">
+                {t(copy.ambient.e5ChatStillWaiting, locale)}
+              </p>
             )}
           </div>
         )}
@@ -305,7 +305,7 @@ export function NotificationsScreen({
               })}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" lang={locale} loading={pending} onClick={handleSendTestMessage}>
+              <Button variant="secondary" lang={locale} loading={chatBusy} onClick={handleSendTestMessage}>
                 {t(copy.ambient.e5SendTestMessageAction, locale)}
               </Button>
               <Button variant="quiet" lang={locale} onClick={() => setDisconnecting(true)}>
@@ -326,9 +326,9 @@ export function NotificationsScreen({
             <InlineNotice tone="info" title={t(copy.ambient.e5ChatExpiredTitle, locale)}>
               {t(copy.ambient.e5ChatExpiredBody, locale)}
             </InlineNotice>
-            <Button variant="secondary" size="lg" fullWidth lang={locale} loading={pending} onClick={handleConnectChat}>
+            <TelegramLinkForm from="notifications" locale={locale} simulated={simulated} onOpen={handleTelegramOpened} variant="secondary" size="lg" fullWidth icon="link">
               {t(copy.vocabulary.retry, locale)}
-            </Button>
+            </TelegramLinkForm>
           </div>
         )}
 
@@ -345,10 +345,10 @@ export function NotificationsScreen({
         closeLabel={t(copy.ambient.e3SheetCloseLabel, locale)}
         footer={
           <>
-            <Button variant="danger" fullWidth lang={locale} loading={pending} onClick={confirmDisconnect}>
+            <Button variant="danger" fullWidth lang={locale} loading={chatBusy} onClick={confirmDisconnect}>
               {t(copy.ambient.e5DisconnectConfirm, locale)}
             </Button>
-            <Button variant="quiet" fullWidth lang={locale} onClick={() => setDisconnecting(false)} disabled={pending}>
+            <Button variant="quiet" fullWidth lang={locale} onClick={() => setDisconnecting(false)} disabled={chatBusy}>
               {t(copy.ambient.e5DisconnectCancel, locale)}
             </Button>
           </>

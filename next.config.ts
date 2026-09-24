@@ -34,6 +34,11 @@ const nextConfig: NextConfig = {
       // P2-WP6 (E-46): the calendar feed exports GET alone, so Next answers every other method with
       // 405 — but that 405 carries no Allow header (RFC 9110 §15.5.6 requires one). This names it.
       { source: '/api/calendar/:token', headers: [{ key: 'Allow', value: 'GET' }] },
+      // AP-09 (CR-086): the link route's 303 carries the Telegram link token in its Location, so the
+      // hop to t.me sends no Referer at all. Later entries win for the same key, so this overrides the
+      // site-wide strict-origin-when-cross-origin above for this one path (it replaced the route's own
+      // no-referrer header, seen in a local curl on 2026-09-24).
+      { source: '/api/messaging/telegram/open', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
     ];
   },
 };
