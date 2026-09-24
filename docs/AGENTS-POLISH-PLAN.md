@@ -55,7 +55,7 @@ Paste everything inside the block. Change only the three lines under `RUN`.
 
 ```
 RUN
-  RUN MODE: GATE A            (one of: GATE A · AP-02 … AP-19 · PHASE B · PHASE C · PHASE D · PHASE E · PHASE F · ALL)
+  RUN MODE: GATE A            (one of: GATE A · AP-NN · GATE B · GATE C · GATE D · ALL)
   OPERATOR: Mohammad
   BRANCH PREFIX: polish/
 
@@ -86,8 +86,11 @@ WHAT YOU DO FOR THE RUN MODE
 - GATE A: run AP-00 and AP-01, then write the decision sheet of section 6 as a pull request
   that adds the decisions to docs/DECISIONS.md, and STOP until Hamad answers in that PR.
 - AP-NN: do exactly that work package, on its own branch, and stop at its acceptance.
-- PHASE X or ALL: run the phase's packages in the dependency order of section 7, in parallel
-  where the plan allows, and stop at each gate for the owner.
+- GATE B: run AP-02 to AP-12 in the lane order of section 7.2, lanes in parallel, packages
+  inside a lane one after another, and stop at Gate B.
+- GATE C: run AP-13, then AP-14, and stop at Gate C.
+- GATE D: run AP-15 to AP-19 and stop at Gate D.
+- ALL: GATE A, B, C and D in that order, stopping at each gate until Hamad passes it.
 
 HOW YOU WORK
 - One work package, one branch named BRANCH PREFIX + "ap-NN-<slug>", one pull request to main.
@@ -158,6 +161,8 @@ Check them at the start of every session with `session_connectors_status` and li
 | **Built-in browser** | Checking app screens on a local server (`.claude/launch.json`: `next-dev-3100` real backend, `next-dev-mock-3100` mock) and on production, screenshots for the journeys | Signing in with real credentials, anything on a claude.ai page |
 | **scheduled-tasks** | Optional: a daily drift check once AP-01's script exists | Anything that writes |
 | **Humans** | Secrets, BotFather, `setWebhook`, the n8n credential screen, the phone, the Echo, the Alexa console, SFDA verification, the datasets in section 9 | |
+
+**Access comes before the run.** The Vercel team and the Supabase project are Hamad's. Hamad adds Mohammad to both before Gate A, or else every Vercel and Supabase check in this plan becomes Hamad's step: Hamad runs it and pastes the result into the pull request.
 
 **The environment variables the agents need.** Names only; Hamad pastes every value in Vercel, Mohammad binds every credential in n8n.
 
@@ -247,18 +252,16 @@ The lead writes these into a pull request that appends them to `docs/DECISIONS.m
 flowchart LR
   A0["AP-00 Baseline"] --> A1["AP-01 Drift audit"] --> GA{"Gate A<br/>owner decisions"}
   GA --> B2["AP-02 Voice inside rule 1"]
-  GA --> B3["AP-03 One extraction core"]
-  GA --> B5["AP-05 Adherence hardening"]
+  B2 --> B3["AP-03 One extraction core"]
+  B3 --> B5["AP-05 Adherence hardening"]
   GA --> C6["AP-06 DDInter rebuild"]
-  GA --> C7["AP-07 SFDA brands"]
+  C6 --> C7["AP-07 SFDA brands"]
   GA --> C8["AP-08 Evaluation harness"]
   GA --> D9["AP-09 Telegram link in the app"]
   GA --> D10["AP-10 Screening on every path"]
   GA --> D12["AP-12 Audit insert policy"]
-  C6 --> B4["AP-04 One screening"]
-  C7 --> B4
-  B3 --> D11["AP-11 Orchestrator"]
-  B5 --> D11
+  C7 --> B4["AP-04 One screening"]
+  B5 --> D11["AP-11 Orchestrator"]
   B2 --> GB{"Gate B<br/>code merged"}
   B4 --> GB
   D9 --> GB
