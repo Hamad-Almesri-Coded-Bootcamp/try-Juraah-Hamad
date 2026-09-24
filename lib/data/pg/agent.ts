@@ -33,7 +33,7 @@ import {
   alertRaisedMessage, prescriptionAddedMessage, prescriptionDiscontinuedMessage, scheduleRecomputedMessage,
 } from '@/lib/agent/messages';
 import type { AlertInput, DoseStatusInput, PrescriptionInput, RecomputeInput, VoiceTurnInput } from '@/lib/agent/validate';
-import type { Dose, InteractionAlert, Prescription } from '@/types/contracts';
+import type { Dose, InteractionAlert, Prescription, Settings } from '@/types/contracts';
 
 /** Parameterised ($n). Exported so a gate proof runs the very same text through the MCP connector. */
 export const PG_QUERIES_AGENT = {
@@ -95,6 +95,9 @@ export const PG_QUERIES_AGENT = {
   // each with the chat id of its latest link when that link is connected and its push target when
   // the subscription is active + granted + attached. A pending/declined/expired/revoked caregiver
   // is not a row of this result at all (E-07). No row at all → the patient does not exist.
+  // notification_channel (AP-18/CR-105) is the PATIENT's chat-channel setting only — it gates the
+  // patient's own Telegram send in lib/agent/notify.ts, never a caregiver's (no Settings row exists
+  // for a caregiver at all) and never push (governed by the granted subscription, contracts.ts:224).
   recipients: `
     with subjects as (
       select 'patient'::text as subject_type, p.id as subject_id, 0::bigint as ord from patients p where p.id = $1
@@ -108,7 +111,8 @@ export const PG_QUERIES_AGENT = {
              where l.subject_type::text = s.subject_type and l.subject_id = s.subject_id
              order by l.seq desc limit 1) as chat_id,
            ps.endpoint, ps.p256dh, ps.auth,
-           (select st.language::text from settings st where st.patient_id = $1) as language
+           (select st.language::text from settings st where st.patient_id = $1) as language,
+           (select st.notification_channel::text from settings st where st.patient_id = $1) as notification_channel
       from subjects s
       left join push_subscriptions ps
         on ps.subject_type::text = s.subject_type and ps.subject_id = s.subject_id
@@ -351,17 +355,29 @@ export interface RecipientTarget {
 export interface Recipients {
   patientId: string;
   language: 'ar' | 'en';
+  /** The PATIENT's chat-channel setting (CR-105). A missing settings row or any value the column
+   * cannot hold reads as 'none' — never invented as "probably telegram" (fail closed). It gates only
+   * the patient's own Telegram send in lib/agent/notify.ts: a caregiver has no Settings row and is
+   * unaffected, and so is push (contracts.ts:224, "the CHAT channel"). */
+  notificationChannel: Settings['notificationChannel'];
   /** The patient first, then ACTIVE caregivers only, in invitation order. */
   targets: RecipientTarget[];
 }
+
+const NOTIFICATION_CHANNELS: readonly Settings['notificationChannel'][] = ['none', 'telegram', 'whatsapp', 'email'];
 
 /** null ⇔ no such patient. The targets carry push keys: server-side use only, never returned raw. */
 export async function recipientsFor(patientId: string): Promise<Recipients | null> {
   const rows = await withAgent((sql) => sql.unsafe(PG_QUERIES_AGENT.recipients, [patientId]));
   if (rows.length === 0) return null;
+  const channel = String(rows[0]?.notification_channel ?? '');
   return {
     patientId,
     language: String(rows[0]?.language) === 'en' ? 'en' : 'ar',
+    // A missing settings row reads as SQL null; anything the column cannot hold is not ours to guess
+    // at either (D-82 lets a write-path bug store a stray value) — both fall closed to 'none'.
+    notificationChannel: (NOTIFICATION_CHANNELS as readonly string[]).includes(channel)
+      ? (channel as Settings['notificationChannel']) : 'none',
     targets: rows.map((r) => ({
       subjectType: String(r.subject_type) as RecipientTarget['subjectType'],
       subjectId: String(r.subject_id),
