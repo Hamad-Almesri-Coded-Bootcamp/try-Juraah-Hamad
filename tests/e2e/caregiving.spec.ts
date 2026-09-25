@@ -12,6 +12,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { e2eBackend, inactiveCaregiverCookieFor, pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { linkTokenLeaks } from './helpers/link-token';
 import { copy } from '../../i18n';
 import { localizeDrugName, localizeFirstName, localizeRelationship } from '../../i18n/localize';
 
@@ -325,11 +326,11 @@ test.describe('axe clean', () => {
 // ---------------------------------------------------------------------------------------------
 const LINK_ROUTE = '/api/messaging/telegram/open';
 
-/** Rule 7: no link token anywhere in the document, the RSC payload included. */
+/** Rule 7: no link token anywhere in the document, the RSC payload included (AP-16 row 4's scan:
+ * tests/e2e/helpers/link-token.ts also catches the raw `linkToken` / `chatId` field names). */
 async function expectNoLinkToken(page: import('@playwright/test').Page) {
   const html = await page.content();
-  expect(html).not.toMatch(/mock-token-/);
-  expect(html).not.toMatch(/t\.me\/[A-Za-z0-9_]+\?start=/);
+  expect(linkTokenLeaks(html), 'rule 7').toEqual([]);
 }
 
 const chatRow = (page: import('@playwright/test').Page) => page.locator('.jr-menu-row', { hasText: cg.f4ChatRow.ar });
@@ -391,4 +392,19 @@ test.describe('F4 — the Telegram link works only while the invitation is activ
     expect(r.headers()['location']).not.toMatch(/t\.me|start=/);
     expect(await r.text()).toBe('');
   });
+
+  // AP-16 row 4, read-only, both locales (F4 was Arabic-only before this): the profile page itself
+  // carries no link token or chat id for an active caregiver either way — سارة (cg-02, active, no
+  // link row yet) and عبدالله (cg-01, connected). Separate `test`s give each its own context, so
+  // neither needs the other's cookies cleared.
+  for (const locale of LOCALES) {
+    for (const who of ['sara_caregiver', 'abdullah'] as const) {
+      test(`F4 (${locale}, ${who}): the profile page carries no link token or chat id`, async ({ page, context, baseURL }) => {
+        await addSession(context, baseURL, who);
+        await page.goto(`/${locale}/care/more/profile`);
+        await expect(page.locator('.jr-menu-row', { hasText: cg.f4ChatRow[locale] })).toBeVisible();
+        await expectNoLinkToken(page);
+      });
+    }
+  }
 });

@@ -14,6 +14,7 @@
 import { test, expect, type BrowserContext } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { linkTokenLeaks } from './helpers/link-token';
 import { copy } from '../../i18n';
 import { formatNumber } from '../../i18n/format';
 
@@ -264,27 +265,29 @@ test.describe('A2 — first-run setup (بدر)', () => {
   // route answers (303 to the invite step), because a real mint would change بدر's activity feed,
   // which other specs read as empty. Read-only for the store, so it runs on every project, and before
   // the one test that finishes his setup.
-  test('the Telegram offer posts a form to the link route (locale and screen only, same origin), lands on the next step, and no token is ever on the page', async ({ page, context, baseURL }) => {
-    await addSession(context, baseURL, 'badr');
-    await page.goto('/ar/app/setup?step=1');
-    let html = await page.content();
-    expect(html).not.toMatch(/mock-token-|t\.me\/[A-Za-z0-9_]+\?start=/);
+  for (const locale of LOCALES) {
+    test(`the Telegram offer posts a form to the link route (locale and screen only, same origin), lands on the next step, and no token is ever on the page — ${locale}`, async ({ page, context, baseURL }) => {
+      await addSession(context, baseURL, 'badr');
+      await page.goto(`/${locale}/app/setup?step=1`);
+      let html = await page.content();
+      expect(linkTokenLeaks(html), 'rule 7').toEqual([]);
 
-    const posted: { method: string; body: string | null; origin: string | undefined }[] = [];
-    await page.route('**/api/messaging/telegram/open', async (route) => {
-      const request = route.request();
-      posted.push({ method: request.method(), body: request.postData(), origin: request.headers()['origin'] });
-      await route.fulfill({ status: 303, headers: { location: '/ar/app/setup?step=2', 'cache-control': 'no-store' } });
+      const posted: { method: string; body: string | null; origin: string | undefined }[] = [];
+      await page.route('**/api/messaging/telegram/open', async (route) => {
+        const request = route.request();
+        posted.push({ method: request.method(), body: request.postData(), origin: request.headers()['origin'] });
+        await route.fulfill({ status: 303, headers: { location: `/${locale}/app/setup?step=2`, 'cache-control': 'no-store' } });
+      });
+      const offer = page.getByRole('button', { name: id.telegramOfferButton[locale], exact: true });
+      await expect(offer).toHaveAttribute('type', 'submit');
+      await offer.click();
+      await expect(page).toHaveURL(/step=2/);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(id.inviteStepTitle[locale]);
+      expect(posted).toEqual([{ method: 'POST', body: `locale=${locale}&from=setup`, origin: new URL(baseURL ?? 'http://localhost:3100').origin }]);
+      html = await page.content();
+      expect(linkTokenLeaks(html), 'rule 7').toEqual([]);
     });
-    const offer = page.getByRole('button', { name: id.telegramOfferButton.ar, exact: true });
-    await expect(offer).toHaveAttribute('type', 'submit');
-    await offer.click();
-    await expect(page).toHaveURL(/step=2/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(id.inviteStepTitle.ar);
-    expect(posted).toEqual([{ method: 'POST', body: 'locale=ar&from=setup', origin: new URL(baseURL ?? 'http://localhost:3100').origin }]);
-    html = await page.content();
-    expect(html).not.toMatch(/mock-token-|t\.me\/[A-Za-z0-9_]+\?start=/);
-  });
+  }
 
   test('setup never runs twice: a completed patient visiting /app/setup is sent to Today', async ({ page, context, baseURL }) => {
     await addSession(context, baseURL, 'hamad'); // onboardingCompleted: true already, unaffected by بدر's state

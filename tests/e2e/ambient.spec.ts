@@ -24,8 +24,10 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { linkTokenLeaks } from './helpers/link-token';
 import { copy } from '@/i18n';
 import { localizePersonName } from '@/i18n/localize';
+import { LINK_FROM, linkReturnPath } from '@/lib/messaging/link';
 
 const LOCALES = [
   ['ar', 'rtl'],
@@ -59,11 +61,12 @@ async function clickWhenLive(locator: import('@playwright/test').Locator) {
  * document (page.content(), not the body's text), because a token in a client component's props is
  * serialised into the page's flight data even when nothing renders it. Seed tokens are
  * `mock-token-ml-NN`, live ones `mock-token-live-N`; a real one would only ever sit in a t.me URL.
+ * The scan (tests/e2e/helpers/link-token.ts, AP-16 row 4) also catches the raw `linkToken` /
+ * `chatId` field names, so a real, non-mock-shaped token still fails this.
  */
 async function expectNoLinkToken(page: Page) {
   const html = await page.content();
-  expect(html).not.toMatch(/mock-token-/);
-  expect(html).not.toMatch(/t\.me\/[A-Za-z0-9_]+\?start=/);
+  expect(linkTokenLeaks(html), 'rule 7').toEqual([]);
 }
 
 async function noOverflowAndAxeClean(page: Page) {
@@ -387,16 +390,21 @@ test.describe('E5 — chat round trip (one-shot)', () => {
 });
 
 test.describe('E5 — the link route refuses everything but a same-origin post (AP-09, read-only)', () => {
-  test('a cross-site post, a post with no Origin and a GET mint nothing and carry no token', async ({ page, context, baseURL }) => {
+  test('a cross-site post, a post with no Origin and a GET mint nothing and carry no token — every return page (E5, A2 step 2, F4), both locales', async ({ page, context, baseURL }) => {
     // بدر has no link row at all, so any mint would show on his E5 (and nothing else of his is touched).
     await addSession(context, baseURL, 'badr');
-    const form = { locale: 'en', from: 'notifications' };
-    for (const headers of [{ origin: 'https://evil.example' }, {}] as Record<string, string>[]) {
-      const r = await page.request.post('/api/messaging/telegram/open', { form, headers, maxRedirects: 0 });
-      expect(r.status()).toBe(303);
-      expect(r.headers()['location']).toBe('/en/app/more/notifications');
-      expect(r.headers()['cache-control']).toBe('no-store');
-      expect(await r.text()).toBe('');
+    for (const locale of ['ar', 'en'] as const) {
+      for (const from of LINK_FROM) {
+        const form = { locale, from };
+        for (const headers of [{ origin: 'https://evil.example' }, {}] as Record<string, string>[]) {
+          const r = await page.request.post('/api/messaging/telegram/open', { form, headers, maxRedirects: 0 });
+          expect(r.status()).toBe(303);
+          expect(r.headers()['location']).toBe(linkReturnPath(locale, from));
+          expect(r.headers()['cache-control']).toBe('no-store');
+          expect(await r.text()).toBe('');
+          expect(linkTokenLeaks(r.headers()['location'] ?? ''), 'rule 7').toEqual([]);
+        }
+      }
     }
     // One way in: F1's GET (which read the pending token) no longer exists.
     const get = await page.request.get('/api/messaging/telegram/open?locale=en', { maxRedirects: 0 });
