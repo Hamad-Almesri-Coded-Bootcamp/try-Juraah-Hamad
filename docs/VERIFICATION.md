@@ -832,7 +832,7 @@ rows it produced (read-only `execute_sql`) and a screenshot.
 | J9 | A prescription photo sent on Telegram | Mohammad | The same, from the chat | | | | NOT RUN |
 | J10 | A medicine box sent on Telegram | Mohammad | Travel-check reply; a danger alert pending review when it applies | | | | NOT RUN |
 | J11 | The web assistant: "my next dose", then "I took it" | Mohammad (browser) | The right screen opens; buttons arrive in Telegram; no status written | | | | NOT RUN |
-| J12 | Alexa: "my next dose", then "mark it taken" | Mohammad (Echo) | Spoken answer; refusal; no `dose_status_recorded` row (AP-02's runtime proof) | | | | NOT RUN |
+| J12 | Alexa: "I forgot my dose"; then "I took my Eltroxin", "yes"; then "mark it taken", "no" | Mohammad (Echo) | Spoken answers; one `dose_status_recorded` row per recorded dose with actor `agent`, and a `schedule_recomputed` row for the miss; the "From your Alexa: I recorded …" message with three buttons in Telegram; "no" writes nothing (CR-108's runtime proof) | | | | NOT RUN |
 | J13 | The reviewer confirms a flagged prescription | Hamad (reviewer seat) | A screening execution follows the confirmation (AP-10) | | | | NOT RUN |
 
 **The closing proof,** the demo's own moment, run before and after the journeys:

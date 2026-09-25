@@ -9,7 +9,7 @@ Trigger in n8n.
 |---|---|---|---|---|
 | `agent-telegram-inbound` | `POST jurah/telegram-inbound`, from the app's relay (CR-063) | Gemini: classifies a reply, reads a prescription, asks what a photo is (AP-11) | the doses of the day and of the previous day, the active prescriptions, the alert recipients | the dose status, the recompute, prescriptions (the backend itself screens an unflagged save, AP-04/AP-10 — this workflow no longer calls the screening webhook); calls n8n `jurah/travel-check` |
 | `agent-checkin-daily` | 08:00 Asia/Kuwait, and `POST jurah/checkin-now` | none | check-in eligibility, the doses of the day | nothing to the backend; sends Telegram |
-| `agent-alexa` | `POST jurah/alexa` | Gemini, English free talk only | the doses of the day, who is eligible | one voice turn; never a dose status |
+| `agent-alexa` | `POST jurah/alexa` | Gemini, English free talk only | the doses of the day, who is eligible | one voice turn; a dose status (CR-108: «نسيت دواي», and a confirmed record request), plus its recompute for a miss |
 | `agent-webchat` | `POST jurah/webchat`, from the app's assistant (CR-067) | Gemini picks one of the 10 `WEBCHAT_INTENTS` | the doses of the day, who is eligible | nothing to the backend; sends one dose's buttons to the patient's own Telegram |
 | `agent-error` | the n8n Error Trigger (AP-18) | none | nothing | one Telegram message to the team chat, whose id Mohammad still owes |
 
@@ -108,10 +108,10 @@ and device links - a file id is a low-value secret, but it is not this repositor
 
 ## What is proven, and what is not
 
-Proven here: the decision layers (`agents/test`, 178 tests), every generated Code node compiles and
+Proven here: the decision layers (`agents/test`, 192 tests), every generated Code node compiles and
 runs the spec's scenarios (`scripts/check.js`, `scripts/check-error-workflow.js`), and every request
 body passes the backend's validators (`tests/unit/agent/agents-contract.test.ts` and
-`tests/unit/agent/knowledge-contract.test.ts`, 37 tests). The backend's two new reads and the relay
+`tests/unit/agent/knowledge-contract.test.ts`, 40 tests). The backend's two new reads and the relay
 were run against the real seeded database by hand (docs/DECISIONS.md CR-062, CR-063).
 
 **Not yet proven**: anything end to end.
@@ -124,7 +124,7 @@ were run against the real seeded database by hand (docs/DECISIONS.md CR-062, CR-
 
 Extraction's ≥90% accuracy target needs the ≥10 ground-truth samples; none exist.
 
-## Voice — Alexa / Echo Dot (demo, read-only)
+## Voice — Alexa / Echo Dot (demo)
 
 `agent-alexa` answers an Alexa custom skill in **Arabic (ar-SA, Gulf)** and **English (en-US)**:
 «شنو جرعتي الجاية؟» · «كم آخذ؟» · «شنو أدويتي اليوم؟» · «نسيت دواي». Alexa's own NLU picks the intent
@@ -133,24 +133,46 @@ from `agents/alexa/interaction-model.*.json`; `agents/lib/voice.js` builds every
 sentence to Gemini, which only names the intent and, for a record request, the doses the patient
 meant; `agents/lib/voice-actions.js` does the rest.
 
-**Voice never records a dose** (CR-073, which reverses the recording in the agents entry CR-070;
-CLAUDE.md rule 1, TC-AD-14/15). An Echo cannot tell the patient from anyone else in the room, and a
-dose status comes only from the patient's own chat. «نسيت دواي» says which dose passed and what is
-next, then sends that dose's three buttons to the patient's **Telegram**. A record request ("mark it
-taken", "I took the first two and missed the third") is answered "I can't record by voice; I've sent
-the buttons to your Telegram" («ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»), and the buttons
-of the doses the patient meant (open and due; every open due dose if none was named) go to the
-patient's own chat. The Arabic skill has no free talk, so its model carries a slotless
-`RecordDoseIntent` («سجل الجرعة», «خذيت دواي», «خذيت الأولى والثانية وفاتتني الثالثة»): it names no
-dose and runs no model, and it gets the same fixed line and the buttons of every open dose that is
-due. A tap on one of those buttons in Telegram records it through the adherence path. There is no recording
-switch and no write node: `scripts/check.js` asserts the workflow makes exactly two GETs (the doses
-of the day, who is eligible) and the one CR-069 voice-turn POST, and no call whose URL contains
-`/doses/` or `/schedule/`, and shows that assertion going red on copies edited to break it. There is
-no read-back and no confirming "yes" step any more (CR-101 d): the pending list that used to travel
-in Alexa's session attributes is gone, `parseAlexaRequest` does not read one and `alexaResponse`
-does not write one, so a bare "yes" is answered with the help text (screen topic `unclear`, never
-`record`).
+**Voice records a dose through the adherence agent's own route** (CR-108, the owner, 2026-09-25,
+superseding CR-073/CR-101). «نسيت دواي» names the most recent of today's tracked doses whose time
+has passed and is still open, and the workflow's plan node (`agents/scripts/build.js`) records it
+missed - the status write first, and its recompute only after that write answers 200, run after
+Alexa has already answered so the recompute never sits inside her 8-second budget. Alexa then says
+"I recorded it as missed and sent it to your Telegram" («سجّلتها إنها فاتتك وأرسلتها لك في
+تيليقرام»), and the patient's own Telegram chat gets "From your Alexa: I recorded ‹drug› ‹HH:MM› as
+‹word› ✖. Not right? Tap the right one 👇" with three **correction** buttons (`c:<doseId>:<word>`,
+which - unlike the plain `d:` buttons - may overwrite an already-recorded status with a *different*
+word only; CR-081/D9, the audit trigger records every change). Any OTHER passed, still-open dose
+keeps today's plain buttons. A write that does not answer 200 (a refusal, a timeout, a thrown error)
+is never spoken or sent as recorded - fail closed: Alexa says she could not record it, and sends
+today's plain buttons instead. No dose has passed yet: today's reply, unchanged. No Telegram linked:
+the dose is still recorded, and Alexa says the chat is not linked (no message is sent).
+
+A record request ("mark it taken", "I took my Eltroxin", "I took the first two and missed the
+third") is read back - "I will record: ‹dose(s)›. Shall I? Say yes, or no." - and needs a "yes"
+(`AMAZON.YesIntent`, the pending list carried in Alexa's session attributes); "no" records nothing.
+"Yes" re-checks the SAME list against FRESH doses (a dose recorded, no longer due, or a tampered
+prescriptionId since the read-back is skipped, never written) before writing anything, exactly the
+Telegram path's own two calls. A request naming no dose ("mark it taken") is read back as the one
+dose due now (open, and due - a miss only from its own time on, anything else up to an hour early);
+more than one candidate is refused as ambiguous, never guessed. If the model gave nothing usable at
+all (an outage), the AP-02 button fallback stands: the due doses' buttons go to Telegram instead of
+a read-back. The Arabic skill has no free talk, so its model carries a slotless `RecordDoseIntent`
+(«سجل الجرعة», «خذيت دواي», «خذيت الأولى والثانية وفاتتني الثالثة»): no model runs for it, and it is
+read back as "the one dose due now, taken" - a mixed report must be corrected with «لا» (CR-108
+added the ar-SA `AMAZON.YesIntent`, below). After a confirmed write, Alexa says "Done. I recorded:
+‹dose(s)›. I sent it to your Telegram." and the same kind of correction notice goes to the chat.
+
+The two write nodes are named `backend: record the status` and `backend: recompute`, never retried
+(a retry could write twice) and `onError: continueRegularOutput` (a timeout or network error arrives
+as an item with no `statusCode` at all - read as not recorded, never a stopped execution that leaves
+Alexa unanswered). `scripts/check.js`'s `assertVoiceCalls` asserts the workflow makes exactly these
+five calls (the three AP-02 reads and these two writes), that neither write node names a literal
+`/doses/` or `/schedule/` URL (only the resolved `$json.url` expression does), that both fail closed
+and that the graph feeding each write is exactly one path - computed from the workflow's own
+connections, never assumed from a node's name - and shows that assertion going red on copies edited
+to break any of it (a third write node, a literal URL, a mis-wired feed, `onError`/`retryOnFail`
+dropped, ...).
 
 **The screen follows the voice, page only** (CR-069, amended by CR-102). After Alexa has already
 replied, `agent-alexa` POSTs `{topic, language, reply}` to
@@ -177,15 +199,24 @@ change, note, I, I want, I need, can you, could you, please, tell me, what, when
 the, show me, for — with `fallbackIntentSensitivity` set to LOW. `quickFreeTalk`
 (`agents/lib/voice-actions.js`) answers a plain next-dose, how-much or today question with no model
 call, and "what are my medicines today" and its variants (`TODAY_ASKED`) always get today's list
-without one. A sentence containing took, taken, missed, skipped, mark, record or log is a record
-request — the fixed line plus the Telegram buttons — even when the model gives no usable answer at
-all (an outage, a timeout, an intent outside the list).
+without one. A plain "I forgot my dose"/"I forgot my medicine" sentence is answered in code too
+(`FORGOT_ASKED`) - straight to `ForgotDoseIntent`, so the model's ~5 s never sits in front of a
+forgot turn's one write. A sentence naming what the patient did ("I took my Eltroxin", "the 7 am one
+I took late") is read back by name and needs a "yes"; a sentence naming no dose ("mark it taken") is
+read back as the one dose due now; either way "no" records nothing, and the list is re-checked
+against fresh doses before anything is written. If the model gives no usable answer at all (an
+outage, a timeout, an intent outside the list), the AP-02 button fallback stands: the buttons go to
+Telegram instead of a read-back.
 
 **Arabic (`interaction-model.ar-SA.json`) has no free talk.** `NextDoseIntent` (24 samples),
 `DoseAmountIntent` (17 samples), `TodayDosesIntent` (19 samples) and `ForgotDoseIntent` (17 samples)
 each carry a plain sample list, and `RecordDoseIntent`'s 15 samples («سجل الجرعة», «خذيت دواي»,
 «خذيت الأولى والثانية وفاتتني الثالثة» and twelve more) map straight to a record request that names
-no dose: no model call, the fixed Arabic line, and the buttons of every open dose that is due.
+no dose: no model call, read back as "the one dose due now, taken", confirmed with «إي» / «أيوه»
+(CR-108's `AMAZON.YesIntent`) or cancelled with «لا». A mixed report («خذيت الأولى والثانية وفاتتني
+الثالثة») is still read back this same way, so the patient must correct it with «لا» if it is wrong
+- the samples stay on the intent on purpose (removing them risks the sentence falling to
+`ForgotDoseIntent` instead and recording a miss with no confirmation at all).
 AP-17 added two Fusha-register samples to the ar-SA model (CR-071 item viii): «متى الجرعة القادمة»
 (`NextDoseIntent`) and «ماذا في جدول أدويتي اليوم» (`TodayDosesIntent`). Alexa otherwise keeps the
 Kuwaiti register in both languages (CR-079/D7 — the app's own Fusha rule covers what the app
@@ -196,7 +227,8 @@ Setup (the Amazon account the Echo is registered to):
    **Arabic (SA)**; then Language settings → add **English (US)**.
 2. Build → JSON Editor → paste `interaction-model.ar-SA.json` (and the en-US one in English) → Build.
    Paste and build again whenever a model file changes (AP-02 added the ar-SA `RecordDoseIntent`;
-   AP-17 later added its two Fusha samples, "What to say" above).
+   AP-17 later added its two Fusha samples; CR-108 added the ar-SA `AMAZON.YesIntent` - "What to
+   say" above).
 3. Endpoint → HTTPS → `https://mohammad-aljry.app.n8n.cloud/webhook/jurah/alexa`, certificate
    option "a sub-domain of a domain that has a wildcard certificate" — the host serves
    `*.app.n8n.cloud` (Google Trust Services), checked 2026-09-23.
@@ -211,4 +243,10 @@ Setup (the Amazon account the Echo is registered to):
 Known demo limits: Alexa's request **signature** is not verified (the skill id, a 150-second
 timestamp window and the userId link are); certification would need it. There is no OAuth account
 linking — one device is linked by hand. The signature gap and the two build options for closing it
-are CR-104 (`docs/DECISIONS.md`) and `docs/backend-notes/ap-18.md`.
+are CR-104 (`docs/DECISIONS.md`) and `docs/backend-notes/ap-18.md`. CR-108 (2026-09-25) makes this
+gap guard a WRITE path, not only a read: a caller who knows the skill id and a linked device's
+`userId` can record a miss for that patient (never another patient's - the session's own pending
+list only ever resolves against that patient's own open, due doses). An Echo also cannot tell who is
+speaking, so anyone in the room can say "I forgot my medicine" with no confirmation at all; the
+Telegram correction notice and its buttons are the only check. Both are accepted, disclosed demo
+limits (docs/DECISIONS.md CR-108), not bugs.

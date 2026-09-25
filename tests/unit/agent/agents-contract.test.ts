@@ -10,6 +10,7 @@ import { parseDoseStatusBody, parsePrescriptionBody, parseRecomputeBody, RECORDE
 
 const require = createRequire(import.meta.url);
 const A = require('../../../agents/lib/adherence.js');
+const V = require('../../../agents/lib/voice-actions.js');
 const E = require('../../../agents/lib/extraction.js');
 
 type Write = { op: 'dose_status' | 'recompute'; doseId?: string; body: unknown };
@@ -46,6 +47,37 @@ describe('agents/lib/adherence.js → the backend validators', () => {
       tap: null, stopTap: A.parseStopTap('s:rx-008'), classification: null });
     const [w] = tapped.writes as Write[];
     expect(parseRecomputeBody(w!.body)).toMatchObject({ ok: true, value: { reason: 'discontinued' } });
+  });
+});
+
+describe('agents/lib/voice-actions.js (CR-108) → the backend validators', () => {
+  const doseAt = (id: string, prescriptionId: string, hhmm: string) => ({
+    id, prescriptionId, scheduledAt: `2026-09-24T${hhmm}:00+03:00`, status: OPEN, recordedAt: null,
+    genericName: 'Levothyroxine', brandName: 'Eltroxin', strengthMg: 50, strengthUnit: 'mcg', dosePerAdministration: 1, timingRelativeToFood: null,
+  });
+  it('writeFor: a miss\'s status body is accepted, and its recompute body is accepted with reason reported_miss', () => {
+    const [MISSED] = [...A.RECORDED_WORDS].slice(2);
+    const w = V.writeFor(doseAt('rx-008-20260924-0700', 'rx-008', '07:00'), MISSED, 'https://x/api/agent', '2026-09-24T09:00:00+03:00');
+    expect(parseDoseStatusBody(w.body)).toMatchObject({ ok: true });
+    expect(parseRecomputeBody(w.recompute.body)).toMatchObject({ ok: true, value: { reason: 'reported_miss' } });
+  });
+  it('confirmRecord: a taken_on_time pending resolved against fresh doses gives one accepted write, and no recompute', () => {
+    const [ON_TIME] = A.RECORDED_WORDS;
+    const doses = [doseAt('rx-008-20260924-0700', 'rx-008', '07:00')];
+    const pending = [{ doseId: 'rx-008-20260924-0700', prescriptionId: 'rx-008', status: ON_TIME }];
+    const { writes } = V.confirmRecord({ pending, doses, nowIso: '2026-09-24T07:20:00+03:00', api: 'https://x/api/agent', recordedAtIso: '2026-09-24T07:20:00+03:00' });
+    expect(writes.length).toBe(1);
+    expect(parseDoseStatusBody(writes[0]!.body)).toMatchObject({ ok: true });
+    expect(writes[0]!.recompute).toBeNull();
+  });
+  it('a CR-108 correction tap (c:) that overwrites a MISSED dose to taken_on_time still produces a write the validators accept', () => {
+    const [ON_TIME, , MISSED] = A.RECORDED_WORDS;
+    const dose = { ...doseAt('rx-008-20260924-0700', 'rx-008', '07:00'), status: MISSED };
+    const d = A.decide({ subjectType: 'patient', language: 'en', sentAt: '2026-09-24T09:00:00+03:00', doses: [dose], prescriptions: RX,
+      tap: A.parseTap('c:rx-008-20260924-0700:' + ON_TIME), stopTap: null, classification: null });
+    expect(d.outcome).toBe('record');
+    const [w] = d.writes as Write[];
+    expect(parseDoseStatusBody(w!.body)).toMatchObject({ ok: true });
   });
 });
 

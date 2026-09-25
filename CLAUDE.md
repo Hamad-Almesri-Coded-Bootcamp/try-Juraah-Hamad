@@ -34,8 +34,9 @@ Criteria.md` (the other track) are context, not your work.
 
 1. **Nothing in the interface may record a dose status.** No button, checkbox, swipe, long-press,
    context menu **or notification action** may create or change `Dose.status`. Adherence is
-   recorded only in the patient's chat with the Adherence Agent — another track's code. This is
-   the product's core safety claim, and the audit log exists to prove it.
+   recorded only in the patient's chat with the Adherence Agent, or by voice on the patient's
+   linked Alexa through the same agent (CR-108) — another track's code. This is the product's core
+   safety claim, and the audit log exists to prove it.
 2. **The chat and browser notifications are optional and off by default.** Not connected is a
    normal state, never an error, never a warning, never a blocked screen.
 3. **With tracking off, doses carry no status pill** — and the pill's absence keys off

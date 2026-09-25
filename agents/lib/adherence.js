@@ -52,6 +52,13 @@ const TAP_PREFIX = 'd:';
 const TAP_INTENTS = ['taken_on_time', 'taken_late', 'missed'];
 
 /**
+ * CR-108 - a CORRECTION tap `c:<doseId>:<word>`, sent only under an Alexa "I recorded ..." notice.
+ * Unlike `d:`, it may overwrite a status already recorded with a DIFFERENT word (CR-081/D9; the
+ * audit trigger writes each change). A `d:` tap on a recorded dose still refuses, exactly as today.
+ */
+const CORRECT_PREFIX = 'c:';
+
+/**
  * AP-05 step 1 (TC-RS-03) - a discontinuation confirmation names a PRESCRIPTION, never a dose:
  * `s:<prescriptionId>` for "yes, stop this one", `n:none` for "none of these". The two namespaces
  * (`d:`, `s:`) and the none token never collide: `n:none` starts with neither `d:` nor `s:`, so it
@@ -172,21 +179,31 @@ function trustClassification({ intent, confidence, quote }, minConfidence = MIN_
   };
 }
 
-/** `d:<doseId>:<intent>` -> { doseId, intent }, or null for anything else. */
+/** `d:<doseId>:<intent>` -> { doseId, intent }; `c:<doseId>:<intent>` (CR-108) -> the same, plus
+ * `correct: true`; anything else -> null. Both prefixes are 2 characters, so one cut serves both. */
 function parseTap(data) {
-  if (typeof data !== 'string' || !data.startsWith(TAP_PREFIX)) return null;
-  const rest = data.slice(TAP_PREFIX.length);
+  const correct = typeof data === 'string' && data.startsWith(CORRECT_PREFIX);
+  if (typeof data !== 'string' || !(correct || data.startsWith(TAP_PREFIX))) return null;
+  const rest = data.slice(TAP_PREFIX.length); // TAP_PREFIX and CORRECT_PREFIX are both 2 chars
   const cut = rest.lastIndexOf(':');
   if (cut <= 0) return null;
   const doseId = rest.slice(0, cut);
   const intent = rest.slice(cut + 1);
   if (!/^[A-Za-z0-9_-]{1,48}$/.test(doseId) || !TAP_INTENTS.includes(intent)) return null;
-  return { doseId, intent };
+  return correct ? { doseId, intent, correct: true } : { doseId, intent };
 }
 
 /** The callback data for one quick-reply button. Telegram allows 64 bytes. */
 function tapData(doseId, intent) {
   const data = TAP_PREFIX + doseId + ':' + intent;
+  if (data.length > 64) throw new Error('callback data over 64 bytes for ' + doseId);
+  return data;
+}
+
+/** CR-108 - the callback data for one CORRECTION button (an Alexa "I recorded ..." notice). Same
+ * shape and the same 64-byte limit as `tapData`, under the `c:` namespace instead of `d:`. */
+function correctionTapData(doseId, intent) {
+  const data = CORRECT_PREFIX + doseId + ':' + intent;
   if (data.length > 64) throw new Error('callback data over 64 bytes for ' + doseId);
   return data;
 }
@@ -308,7 +325,9 @@ function decide({ subjectType, language, sentAt, doses, prescriptions, tap, stop
       return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',
                reason: 'the tapped dose is not one of this patient\'s tracked doses' };
     }
-    if (dose.status !== OPEN_WORD) {
+    // CR-108: a `c:` correction tap may overwrite a dose already recorded, but only with a
+    // DIFFERENT word (CR-081/D9) - the same word taps "already recorded" exactly like a `d:` tap.
+    if (dose.status !== OPEN_WORD && (!tap.correct || dose.status === tap.intent)) {
       return { ...base, outcome: 'already_recorded', dose, reply: L.already, reason: 'the tapped dose already carries ' + dose.status };
     }
     if (tap.intent === 'missed' && new Date(dose.scheduledAt).getTime() > new Date(sentAt).getTime()) {
@@ -444,6 +463,35 @@ function buildCheckIn({ patientId, chatId, language, doses, referenceDate }) {
 }
 
 /**
+ * CR-108 - the Telegram notice for a dose Alexa just recorded: "From your Alexa: I recorded <drug>
+ * <HH:MM> as <word>. Not right? Tap the right one 👇", with that ONE dose's three CORRECTION
+ * buttons (`c:<doseId>:<word>` - `parseTap`/`decide`, above, let a correction overwrite with a
+ * DIFFERENT word). Only ever sent for the one dose the workflow's plan node actually wrote.
+ */
+function buildVoiceNotice({ chatId, language, dose, status }) {
+  const l = lang(language);
+  const labels = l === 'en'
+    ? { taken: 'Taken ✅', late: 'Taken late ⏰', missed: 'Missed ✖' }
+    : { taken: 'أخذته ✅', late: 'أخذته متأخر ⏰', missed: 'نسيت ✖' };
+  const word = l === 'en'
+    ? { taken_on_time: 'taken ✅', taken_late: 'taken late ⏰', missed: 'missed ✖' }
+    : { taken_on_time: 'إنك أخذتها ✅', taken_late: 'إنك أخذتها متأخر ⏰', missed: 'إنها فاتتك ✖' };
+  if (!Object.prototype.hasOwnProperty.call(word, status)) throw new Error('buildVoiceNotice: unknown status ' + status);
+  const what = drugLabel(dose) + ' ' + kuwaitHHMM(dose.scheduledAt);
+  const text = l === 'en'
+    ? 'From your Alexa: I recorded ' + what + ' as ' + word[status] + '. Not right? Tap the right one 👇'
+    : 'من أليكسا: سجّلت ' + what + ' ' + word[status] + '. مو صح؟ اضغط الصح تحت 👇';
+  return {
+    chatId, text,
+    buttons: [
+      { text: labels.taken, data: correctionTapData(dose.id, RECORDED_WORDS[0]) },
+      { text: labels.late, data: correctionTapData(dose.id, RECORDED_WORDS[1]) },
+      { text: labels.missed, data: correctionTapData(dose.id, RECORDED_WORDS[2]) },
+    ],
+  };
+}
+
+/**
  * AP-05 step 1 - the confirmation buttons for a discontinuation: one "Stop <drug>?" message per
  * active prescription, each with exactly ONE button, plus a final "none of these" message. Nothing
  * here writes anything; only a tap on one of these buttons (parseStopTap, above) does.
@@ -484,12 +532,14 @@ module.exports = {
   decide,
   replyAfterWrites,
   buildCheckIn,
+  buildVoiceNotice,
   buildStopOptions,
   planCheckIns,
   trustClassification,
   candidateDoses,
   parseTap,
   tapData,
+  correctionTapData,
   parseStopTap,
   stopTapData,
   rxLabel,

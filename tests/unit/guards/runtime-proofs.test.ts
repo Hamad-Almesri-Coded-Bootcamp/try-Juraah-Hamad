@@ -42,10 +42,10 @@ describe('guard A goes red on a deliberately edited copy', () => {
     ]);
   });
 
-  it('the guarded call itself removed from check.js ("await assertVoiceCallsReadOnly(wf);")', () => {
-    const r = check(edited('agents/scripts/check.js', 'await assertVoiceCallsReadOnly(wf);', 'void wf;'));
+  it('the guarded call itself removed from check.js ("await assertVoiceCalls(wf);")', () => {
+    const r = check(edited('agents/scripts/check.js', 'await assertVoiceCalls(wf);', 'void wf;'));
     expect(r.violations).toEqual([
-      { file: 'agents/scripts/check.js', line: 0, text: `${ROWS[0]!.label}: missing "await assertVoiceCallsReadOnly(wf);"`, rule: 'runtime proof missing' },
+      { file: 'agents/scripts/check.js', line: 0, text: `${ROWS[0]!.label}: missing "await assertVoiceCalls(wf);"`, rule: 'runtime proof missing' },
     ]);
   });
 

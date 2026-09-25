@@ -1,18 +1,19 @@
 'use strict';
 
 /**
- * Jur'ah - the voice channel (Alexa / Echo) deterministic layer. DEMO SCOPE, READ-ONLY.
+ * Jur'ah - the voice channel (Alexa / Echo) deterministic layer.
  *
  * Alexa's own NLU picks the intent from a fixed list (agents/alexa/interaction-model.ar-SA.json);
  * no LLM runs on this path at all. Every sentence spoken here is built from the backend's data -
  * GET /api/agent/patients/{id}/doses?date= - so no time, name or amount is ever invented.
  *
- * The one rule: VOICE NEVER RECORDS A DOSE (CR-073; agents/lib/voice-actions.js answers a request
- * to record the same way). An Echo sits in a room; it cannot tell the patient from a caregiver or a child (TC-AD-14), and dose status comes only from the patient's own chat
- * (CLAUDE.md rule 1). "I forgot my medicine" is therefore answered by (a) saying which dose it was
- * and what comes next, and (b) sending the patient that dose's three buttons in THEIR Telegram
- * chat - one tap there records it through the adherence path. Jur'ah gives no medical advice, so
- * the missed-dose answer points to the pharmacist and never says "take it now" or "skip it".
+ * CR-108 (the owner, 2026-09-25): voice records a dose again, through the agent route the Telegram
+ * buttons use. «نسيت دواي» names the most recent of today's tracked doses whose time has passed and
+ * is still open (forgotTarget, below). The workflow's plan node (agents/scripts/build.js) records
+ * exactly that dose as missed - the status write first, the recompute only after that write answers
+ * 200 - then tells the patient's own Telegram chat, with correction buttons (agents/lib/adherence.js
+ * buildVoiceNotice). voiceReply only words the outcome it is handed (`forgot`); it writes nothing
+ * itself. Jur'ah gives no medical advice, so the missed-dose answer points to the pharmacist.
  */
 
 const HOUR_MS_V = 3600 * 1000;
@@ -53,6 +54,19 @@ function spokenAmount(d, language) {
 
 const byTime = (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt);
 
+/**
+ * CR-108 - the dose «نسيت دواي» records: the most recent of today's TRACKED doses whose time has
+ * passed and that is still open ('upcoming'). null when none has passed, or `doses` is not an
+ * array (the backend could not be read). This is the SAME dose voiceReply names in its "the dose
+ * that passed is ..." line, so the workflow's plan node and the spoken answer never disagree.
+ */
+function forgotTarget({ doses, nowIso }) {
+  if (!Array.isArray(doses)) return null;
+  const t = Date.parse(nowIso);
+  const passed = doses.filter((d) => d && d.status === OPEN_V && Date.parse(d.scheduledAt) <= t).sort(byTime);
+  return passed.length ? passed[passed.length - 1] : null;
+}
+
 // CR-106 (the owner, 2026-09-25): opening the skill is answered with the greeting alone; "help" still lists the questions.
 const SAY = {
   ar: {
@@ -66,8 +80,10 @@ const SAY = {
     noneLeft: 'ما باقي لك جرعات اليوم. ',
     taken: 'أخذتها', late: 'أخذتها متأخر', missedRec: 'فاتتك', open: 'باقية',
     forgotNone: 'ما لقيت جرعة فاتت وقتها ولسه مو مسجّلة. ',
-    forgotTail: ' ما سجّلت شي بالصوت. أرسلت لك الأزرار في تيليقرام، أكّد منها بنفسك. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
-    forgotNoChat: ' ما سجّلت شي بالصوت، وتيليقرام مو مربوط عندك، فسجّلها من محادثتك لما تربطها. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
+    forgotRecorded: ' سجّلتها إنها فاتتك وأرسلتها لك في تيليقرام. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
+    forgotRecordedNoChat: ' سجّلتها إنها فاتتك. تيليقرام مو مربوط عندك، فما أرسلت لك رسالة. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
+    forgotFailed: ' ما قدرت أسجّلها الحين، فأرسلت لك الأزرار في تيليقرام. سجّلها من هناك. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
+    forgotFailedNoChat: ' ما قدرت أسجّلها الحين، وتيليقرام مو مربوط عندك، فسجّلها من محادثتك لما تربطها. وإذا عندك سؤال عن الجرعة الفايتة، اسأل الصيدلاني.',
     askMore: ' تبي شي ثاني؟',
   },
   en: {
@@ -81,8 +97,10 @@ const SAY = {
     noneLeft: 'You have no doses left today. ',
     taken: 'taken', late: 'taken late', missedRec: 'missed', open: 'still open',
     forgotNone: 'I could not find a dose whose time has passed that is still unrecorded. ',
-    forgotTail: ' Nothing was recorded by voice. I sent the buttons to your Telegram chat - please confirm there yourself. If you have a question about the missed dose, ask your pharmacist.',
-    forgotNoChat: ' Nothing was recorded by voice, and your Telegram is not linked, so record it from your chat once it is. If you have a question about the missed dose, ask your pharmacist.',
+    forgotRecorded: ' I recorded it as missed and sent it to your Telegram. If you have a question about the missed dose, ask your pharmacist.',
+    forgotRecordedNoChat: ' I recorded it as missed. Your Telegram is not linked, so I sent no message. If you have a question about the missed dose, ask your pharmacist.',
+    forgotFailed: ' I could not record it just now, so I sent the buttons to your Telegram chat. Please record it there. If you have a question about the missed dose, ask your pharmacist.',
+    forgotFailedNoChat: ' I could not record it just now, and your Telegram is not linked, so record it from your chat once it is. If you have a question about the missed dose, ask your pharmacist.',
     askMore: ' Anything else?',
   },
 };
@@ -105,18 +123,22 @@ function parseAlexaRequest({ body, nowIso, skillId, links }) {
     : req.type === 'IntentRequest' ? (req.intent && req.intent.name) || 'AMAZON.FallbackIntent'
     : 'unknown';
   if (!patientId) return { ok: false, kind: 'not_linked', language, userId, reason: 'this Alexa user is not linked to a patient' };
-  // CR-070: the free sentence (FreeTalkIntent's one AMAZON.SearchQuery slot), raw here, read in voice-actions.js.
+  // CR-070/CR-108: the free sentence and the list a "yes" confirms - both raw here, cleaned in voice-actions.js.
   const slot = req.intent && req.intent.slots && req.intent.slots.utterance;
   const utterance = slot && typeof slot.value === 'string' ? slot.value.trim().slice(0, 300) : '';
-  return { ok: true, kind, language, userId, patientId, utterance, needsDoses: VOICE_INTENTS.includes(kind) };
+  const pending = b.session && b.session.attributes && Array.isArray(b.session.attributes.pending) ? b.session.attributes.pending.slice(0, 10) : [];
+  return { ok: true, kind, language, userId, patientId, utterance, pending,
+    needsDoses: VOICE_INTENTS.includes(kind) || (kind === 'AMAZON.YesIntent' && pending.length > 0) };
 }
 
 /**
  * What Alexa says. `doses` are the patient's TRACKED doses of today (null if the backend failed).
  * Returns { speech, endSession, promptDoses } - promptDoses are the doses whose buttons go to the
- * patient's Telegram chat (ForgotDoseIntent only). Nothing here writes anything.
+ * patient's Telegram chat. `forgot` is ForgotDoseIntent's write outcome (CR-108): 'recorded' when
+ * the status call answered 200, anything else (undefined, a refusal, a timeout) means NOT recorded
+ * - fail closed, never guessed as success. Nothing here writes anything itself.
  */
-function voiceReply({ kind, language, doses, nowIso, hasChat }) {
+function voiceReply({ kind, language, doses, nowIso, hasChat, forgot }) {
   const S = SAY[language === 'en' ? 'en' : 'ar'];
   const t = Date.parse(nowIso);
   const out = (speech, endSession = false, promptDoses = []) => ({ speech, endSession, promptDoses });
@@ -153,22 +175,31 @@ function voiceReply({ kind, language, doses, nowIso, hasChat }) {
       : 'حسب وصفتك، ' + medName(due) + ' ' + spokenTime(due.scheduledAt, language) + ': ' + spokenAmount(due, language) + '.';
     return out(say + S.askMore);
   }
-  // ForgotDoseIntent - which dose(s) passed unrecorded; buttons to the patient's own chat.
+  // ForgotDoseIntent - the most recent passed, still-open dose is what the workflow's plan node
+  // RECORDS as missed (forgotTarget, same dose). `forgot` says whether that write actually landed.
   const passed = open.filter((d) => Date.parse(d.scheduledAt) <= t);
   const nextLine = next ? (language === 'en' ? ' Your next dose is ' + medName(next) + ' at ' + spokenTime(next.scheduledAt, language) + '.'
                                              : ' جرعتك الجاية ' + medName(next) + ' ' + spokenTime(next.scheduledAt, language) + '.') : '';
   if (passed.length === 0) return out(S.forgotNone + nextLine.trim() + S.askMore);
-  const last = passed[passed.length - 1];
+  const last = forgotTarget({ doses: all, nowIso });
   const which = language === 'en'
     ? 'The dose that passed is ' + medName(last) + ' at ' + spokenTime(last.scheduledAt, language) + '.'
     : 'الجرعة اللي فات وقتها ' + medName(last) + ' ' + spokenTime(last.scheduledAt, language) + '.';
-  return out(which + nextLine + (hasChat ? S.forgotTail : S.forgotNoChat), true, hasChat ? passed : []);
+  if (forgot === 'recorded') {
+    return out(which + nextLine + (hasChat ? S.forgotRecorded : S.forgotRecordedNoChat), true, hasChat ? passed.filter((d) => d.id !== last.id) : []);
+  }
+  return out(which + nextLine + (hasChat ? S.forgotFailed : S.forgotFailedNoChat), true, hasChat ? passed : []);
 }
 
-/** The Alexa response envelope. */
-function alexaResponse({ speech, endSession, language }) {
+/**
+ * The Alexa response envelope. `sessionAttributes` (CR-108's record turn 1 -> turn 2 pending list)
+ * is written only while the session stays open. `reprompt` overrides the default reprompt text
+ * (the record turn's "Shall I? Say yes, or no."); omitted, the default per-language reprompt is used.
+ */
+function alexaResponse({ speech, endSession, language, sessionAttributes, reprompt }) {
   const r = { version: '1.0', response: { outputSpeech: { type: 'PlainText', text: speech }, shouldEndSession: !!endSession } };
-  if (!endSession) r.response.reprompt = { outputSpeech: { type: 'PlainText', text: SAY[language === 'en' ? 'en' : 'ar'].reprompt } };
+  if (sessionAttributes && !endSession) r.sessionAttributes = sessionAttributes;
+  if (!endSession) r.response.reprompt = { outputSpeech: { type: 'PlainText', text: reprompt || SAY[language === 'en' ? 'en' : 'ar'].reprompt } };
   return r;
 }
 
@@ -187,4 +218,4 @@ function screenTopic(kind) {
   return Object.prototype.hasOwnProperty.call(SCREEN_TOPIC, kind) ? SCREEN_TOPIC[kind] : kind === 'ended' ? null : 'unclear';
 }
 
-module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, screenTopic, VOICE_INTENTS };
+module.exports = { parseAlexaRequest, voiceReply, alexaResponse, spokenTime, spokenAmount, screenTopic, forgotTarget, VOICE_INTENTS };

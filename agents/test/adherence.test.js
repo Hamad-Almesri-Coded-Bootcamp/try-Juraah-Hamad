@@ -138,6 +138,62 @@ test('parseTap accepts only d:<id>:<recorded word>; tapData stays under 64 bytes
   assert.ok(A.tapData('rx-009-20260924-1300', ON_TIME).length <= 64);
 });
 
+test('CR-108: parseTap also accepts c:<id>:<word> with correct:true; a d: tap never carries it; a malformed c: tap is still null; correctionTapData stays under 64 bytes', () => {
+  assert.deepEqual(A.parseTap('c:rx-009-20260924-1300:missed'), { doseId: 'rx-009-20260924-1300', intent: MISSED, correct: true });
+  assert.deepEqual(A.parseTap('d:rx-009-20260924-1300:missed'), { doseId: 'rx-009-20260924-1300', intent: MISSED });
+  for (const bad of ['c::missed', 'c:x:ran_out', 'c:a b:missed']) assert.equal(A.parseTap(bad), null);
+  assert.ok(A.correctionTapData('rx-009-20260924-1300', ON_TIME).length <= 64);
+  assert.ok(A.correctionTapData('rx-009-20260924-1300', ON_TIME).startsWith('c:'));
+});
+
+test('CR-108 (CR-081/D9): a c: correction tap may overwrite a dose already recorded, but ONLY with a DIFFERENT word; the SAME word, a miss before its time, another patient\'s dose, or a caregiver\'s tap all still refuse and write nothing; a d: tap on a recorded dose is unchanged', () => {
+  const doses = DAY();
+  doses[0] = dose('rx-008-20260924-0700', 'rx-008', '07:00', MISSED);
+  // Different word: overwrites, exactly the same write shape a fresh tap would produce.
+  const overwrite = A.decide(patient({ doses, sentAt: at('09:00'), tap: A.parseTap('c:rx-008-20260924-0700:taken_on_time') }));
+  assert.equal(overwrite.outcome, 'record');
+  assert.deepEqual(overwrite.writes, [{ op: 'dose_status', doseId: 'rx-008-20260924-0700',
+    body: { status: ON_TIME, recordedAt: '2026-09-24T06:00:00.000Z', source: 'adherence_agent' } }]);
+  // A miss overwritten by a c: tap after its time still gets the recompute, exactly like a fresh miss.
+  const doses2 = DAY(); doses2[0] = dose('rx-008-20260924-0700', 'rx-008', '07:00', ON_TIME);
+  const toMissed = A.decide(patient({ doses: doses2, sentAt: at('09:00'), tap: A.parseTap('c:rx-008-20260924-0700:missed') }));
+  assert.deepEqual(toMissed.writes.map((w) => w.op), ['dose_status', 'recompute']);
+  // The SAME word: already_recorded, no writes - a correction tap is not a re-confirmation.
+  const same = A.decide(patient({ doses, sentAt: at('09:00'), tap: A.parseTap('c:rx-008-20260924-0700:missed') }));
+  assert.equal(same.outcome, 'already_recorded');
+  assert.deepEqual(same.writes, []);
+  // A miss before the dose's own time: refused, whatever tap namespace asks for it.
+  const stillOpen = DAY();
+  const tooEarly = A.decide(patient({ doses: stillOpen, sentAt: at('06:30'), tap: A.parseTap('c:rx-008-20260924-0700:missed') }));
+  assert.equal(tooEarly.outcome, 'refused');
+  assert.deepEqual(tooEarly.writes, []);
+  // A c: tap naming a dose that is not this patient's: no_dose, exactly like a d: tap would refuse.
+  const foreign = A.decide(patient({ doses, sentAt: at('09:00'), tap: A.parseTap('c:rx-999-20260924-0700:taken_on_time') }));
+  assert.equal(foreign.outcome, 'no_dose');
+  assert.deepEqual(foreign.writes, []);
+  // A caregiver's c: tap: refused exactly like any other caregiver write attempt, never overwrites.
+  const byCaregiver = A.decide(patient({ subjectType: 'caregiver', doses, sentAt: at('09:00'), tap: A.parseTap('c:rx-008-20260924-0700:taken_on_time') }));
+  assert.equal(byCaregiver.outcome, 'caregiver_refused');
+  assert.deepEqual(byCaregiver.writes, []);
+  // A plain d: tap on a recorded dose is unaffected by any of this - unchanged from before CR-108.
+  const plainD = A.decide(patient({ doses, sentAt: at('09:00'), tap: A.parseTap('d:rx-008-20260924-0700:taken_on_time') }));
+  assert.equal(plainD.outcome, 'already_recorded');
+  assert.deepEqual(plainD.writes, []);
+});
+
+test('CR-108 buildVoiceNotice: exact en/ar text, the three button labels as in buildCheckIn, correction (c:) callback data; an unknown status throws', () => {
+  const d = dose('rx-008-20260924-0700', 'rx-008', '07:00', MISSED);
+  const en = A.buildVoiceNotice({ chatId: 'c-1', language: 'en', dose: d, status: MISSED });
+  assert.equal(en.chatId, 'c-1');
+  assert.equal(en.text, 'From your Alexa: I recorded Eltroxin 07:00 as missed ✖. Not right? Tap the right one 👇');
+  assert.deepEqual(en.buttons.map((b) => b.text), ['Taken ✅', 'Taken late ⏰', 'Missed ✖']);
+  assert.deepEqual(en.buttons.map((b) => b.data), ['c:rx-008-20260924-0700:taken_on_time', 'c:rx-008-20260924-0700:taken_late', 'c:rx-008-20260924-0700:missed']);
+  const ar = A.buildVoiceNotice({ chatId: 'c-1', language: 'ar', dose: d, status: MISSED });
+  assert.equal(ar.text, 'من أليكسا: سجّلت Eltroxin 07:00 إنها فاتتك ✖. مو صح؟ اضغط الصح تحت 👇');
+  assert.deepEqual(ar.buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
+  assert.throws(() => A.buildVoiceNotice({ chatId: 'c-1', language: 'en', dose: d, status: 'raise_dose' }));
+});
+
 test('TC-RS-03: "the doctor told me to stop it" writes nothing; one Stop <drug>? button per active prescription plus none of these (callback data <= 64 bytes); only a tap s:<rxId> of this patient discontinues', () => {
   const asked = A.decide(patient({ sentAt: at('08:00'), classification: said('discontinued_by_doctor', 0.9, 'دكتوري قال أوقف الدواء') }));
   assert.equal(asked.outcome, 'confirm_discontinue');
