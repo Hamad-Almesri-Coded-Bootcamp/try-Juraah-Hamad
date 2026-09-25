@@ -82,13 +82,18 @@ export function compile(tokens: Tokens): string {
 
 const tokens = JSON.parse(readFileSync(SRC, 'utf8')) as Tokens;
 const css = compile(tokens);
+// A Windows checkout (`* text=auto` + core.autocrlf) holds the file with CRLF; compile() emits LF, and git
+// stores LF either way. Line endings are not content, so the file on disk is compared with LF.
+const current = existsSync(OUT) ? readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
 if (process.argv.includes('--check')) {
-  const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
   if (current !== css) {
     console.error(`✗ styles/tokens.css is stale against docs/design-system/tokens.json — run npm run build:tokens`);
     process.exit(1);
   }
   console.log('✓ styles/tokens.css is in sync with docs/design-system/tokens.json');
+} else if (current === css) {
+  // Rewriting an in-sync CRLF checkout as LF would leave git status calling it modified, with an empty diff.
+  console.log('✓ styles/tokens.css is already in sync with docs/design-system/tokens.json — not rewritten');
 } else {
   writeFileSync(OUT, css);
   console.log(`✓ wrote ${OUT} (${css.split('\n').length} lines)`);
