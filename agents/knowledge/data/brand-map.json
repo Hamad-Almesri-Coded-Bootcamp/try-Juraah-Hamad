@@ -190,10 +190,46 @@
       "strength": "500",
       "dosageForm": "Tablet",
       "verified": true
+    },
+    {
+      "brand": "BRUFEN",
+      "sfdaTradeName": "BRUFEN 400 MG TAB",
+      "ingredients": [
+        "Ibuprofen"
+      ],
+      "strength": "400",
+      "dosageForm": "Coated tablet",
+      "verified": true,
+      "aliases": [
+        "BRUFEN TAB 600MG"
+      ],
+      "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
+      "retrievedAt": "2026-09-24",
+      "retrievedBy": "filtered by Trade Name (BRUFEN) in the SFDA public register; both rows (400 MG TAB, TAB 600MG) copied verbatim; read by the lead session from the public register; approved by the owner (Mohammad) on 2026-09-25"
+    },
+    {
+      "brand": "GLUCOPHAGE",
+      "sfdaTradeName": "GLUCOPHAGE 500 mg tablet",
+      "ingredients": [
+        "Metformin"
+      ],
+      "strength": "500",
+      "dosageForm": "Film-coated tablet",
+      "verified": true,
+      "aliases": [
+        "GLUCOPHAGE 850 mg tablet",
+        "GLUCOPHAGE 1 g tablet",
+        "GLUCOPHAGE XR 750MG TABLET",
+        "Glucophage XR"
+      ],
+      "ingredientNote": "SFDA lists the scientific name as METFORMIN HYDROCHLORIDE. DDInter indexes the same molecule as Metformin.",
+      "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
+      "retrievedAt": "2026-09-24",
+      "retrievedBy": "filtered by Trade Name (GLUCOPHAGE) in the SFDA public register; all five rows copied verbatim; read by the lead session from the public register; approved by the owner (Mohammad) on 2026-09-25"
     }
   ],
   "pendingVerification": {
-    "note": "Candidate trade names NOT yet confirmed against the SFDA register. tools/build-brand-index.js refuses to ship these. To promote one: filter the SFDA drugs list by its scientific name, copy the trade name verbatim, set verified:true.",
+    "note": "Candidate trade names NOT yet confirmed against the SFDA register. buildBrandIndex (src/resolve.js) skips any row here whose verified is not exactly true, so nothing in this section is ever loaded. To promote one: filter the SFDA drugs list by its scientific name, copy the trade name verbatim, set verified:true.",
     "brands": [
       {
         "brand": "NORVASC",
@@ -221,7 +257,22 @@
         "ingredients": [
           "Warfarin"
         ],
-        "verified": false
+        "verified": false,
+        "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
+        "retrievedAt": "2026-09-24",
+        "retrievedBy": "filtered by Trade Name (MAREVAN, MAREV) in the SFDA public register; read by the lead session from the public register; owner approval requested in PR",
+        "note": "Not in the SFDA drugs list on 2026-09-24 (Trade Name MAREVAN and MAREV: No Results Found). Stays unverified; see docs/backend-notes/ap-07.md."
+      },
+      {
+        "brand": "LIPITOR",
+        "ingredients": [
+          "Atorvastatin"
+        ],
+        "verified": false,
+        "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
+        "retrievedAt": "2026-09-24",
+        "retrievedBy": "filtered by Trade Name (LIPITOR, LIPIT) in the SFDA public register; read by the lead session from the public register; owner approval requested in PR",
+        "note": "Not in the SFDA drugs list on 2026-09-24 (Trade Name LIPITOR and LIPIT: No Results Found). Stays unverified; see docs/backend-notes/ap-07.md."
       },
       {
         "brand": "AMOXIL",
