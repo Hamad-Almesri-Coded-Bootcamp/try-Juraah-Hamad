@@ -1072,6 +1072,27 @@ CR-069 amended: a voice turn moves the page only; the chat no longer opens. Deci
 
 ---
 
+## Gate B · AP-05 · Adherence hardening (docs/AGENTS-POLISH-PLAN.md § 7.3)
+
+### CR-092 · AP-05 · The CR-063 relay payload carries whether tracking is on — `Accepted by the lead session under the owner's instruction of 2026-09-24 to run the plan end to end` (raised by AP-05, 2026-09-24; built the same day, branch `polish/ap-05-adherence-hardening`)
+**What the documents say.** CR-063 fixed the relay payload as `{ …reply, channel, subjectType, subjectId, patientId, language }`. D9 (CR-081) keeps overwrite for a recorded status but says nothing about the patient's check-ins being off; today a patient whose tracking is off and who types into the bot at a moment nothing is open reads the same generic "no open dose" line as anyone else with an empty schedule, which reads as a bug ("did I miss something?") instead of the true state ("check-ins aren't switched on for you").
+
+**Why it is contained, and why this is built rather than only proposed.** The field needs no schema change: `settings.adherence_check_in_enabled` already exists (0003), `jurah_agent` already holds `SELECT` on `settings` (`supabase/migrations/0005_rls.sql:249`'s grant, and the `settings_agent` policy at `:263`, `for select to jurah_agent using (true)`), and `subjectForChat`'s own query already reads a sibling column (`s.language`) under `withAgent` in exactly the same shape. The only two files this needs (`lib/data/pg/channels.ts`'s `subjectForChat`, `lib/agent/inbound.ts`'s `InboundPayload`/`inboundPayload`) are AP-05's alone: `git log origin/main` shows no other package touching either in this gate, and AP-09/AP-10 (the other packages the plan names near this area) touch `lib/messaging/*`, `app/api/messaging/telegram/webhook/**` and `lib/agent/handlers.ts`/`messages.ts` instead, never `inbound.ts` or `channels.ts`.
+
+**What is built.** `subjectForChat`'s SQL gains one more correlated subquery, `(select s.adherence_check_in_enabled from settings s where s.patient_id = <the same patient expression already used for language>) as tracking_on`; `ChatSubject` gains `trackingOn: boolean`, mapped `row.tracking_on === true` — so both `false` and no settings row at all (`null`) read `false`, never "probably on". `InboundPayload` and `inboundPayload()` carry it straight through, unedited by anything in between. `agents/lib/adherence.js#decide()` takes an optional `trackingOn` (AP-05 step 4): where it would otherwise answer `no_dose` (nothing open) and `trackingOn === false`, it answers a new `tracking_off` outcome instead, with its own Kuwaiti-register reply naming where to turn check-ins back on (`i18n/copy/ambient.ts`'s existing `e3GroupCheckIns`, "متابعة الجرعات" / "Dose check-ins" — no new app-side copy invented). `trackingOn` absent or `true` keeps today's reply exactly. Recording itself is still gated only by a dose's own `tracked` column (rule 3), fixed at generation — this flag never touches that.
+
+**Proof.** `npx vitest run tests/unit/agent/inbound.test.ts tests/unit/api/channel-routes.test.ts` — both green, including the new case that the relay payload carries `trackingOn` through unchanged (true / false; a patient with no settings row is proved at the `subjectForChat`/SQL layer only by code inspection and the existing `!!row.x` pattern used elsewhere in this file, since no live database is reached from a subagent run — owed to `npm run test:integration` on a Supabase branch, D8). `cd agents && node --test test/adherence.test.js` — `TC-AD-09 (CR-092)`. `cd agents && node scripts/check.js` — the workflow-level `TC-AD-09` scenario.
+
+**What it costs.** No production schema change (the grant and the policy are already in 0005 and already applied in production — confirmed by inspection of the migration file, not by a live query, since this run never touches a database). No human-owed value.
+
+**What breaks if we don't.** A patient whose check-ins are off keeps reading "no open dose to record" instead of the true reason, which reads as the product being broken rather than a setting being off.
+
+**Not built.** CR-093 is reserved (a later change to let a discontinuation's callback-data tap carry the patient's own quote, past Telegram's 64-byte limit) and stays unused here: no contract change of that shape appeared in this package.
+
+**Live steps (the lead, after merge).** None beyond the ordinary deploy: the relay already reads `s.language` under the identical query shape, so no migration and no Vercel variable is needed. The production effect (the relay actually sending `trackingOn`) arrives only once this branch is merged and Vercel redeploys; until the rebuilt `agent-telegram-inbound` is republished to the live n8n instance (the lead's step, not this package's), the live agent ignores the field and today's behaviour is unchanged.
+
+---
+
 ## Gate B · AP-18 · Robustness (docs/AGENTS-POLISH-PLAN.md § 7.3)
 
 ### CR-104 · The Alexa request signature is not verified — `PROPOSED` (raised by AP-18, 2026-09-24)

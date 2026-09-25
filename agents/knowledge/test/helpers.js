@@ -13,7 +13,7 @@
 
 const path = require('node:path');
 const { loadIndex } = require('../src/interactions');
-const { buildBrandIndex } = require('../src/resolve');
+const { buildBrandIndex, buildPendingNames } = require('../src/resolve');
 
 const INDEX_JSON = require(path.join(__dirname, '..', 'data', 'interaction-index.json'));
 const BRANDS_JSON = require(path.join(__dirname, '..', 'data', 'brand-map.json'));
@@ -21,6 +21,9 @@ const SEED = require('./seed-prescriptions.json');
 
 const index = loadIndex(INDEX_JSON);
 const brandIndex = buildBrandIndex(BRANDS_JSON.brands, index);
+// CR-078: the unverified rows (MAREVAN et al.) - never loaded into brandIndex, but a box that
+// matches one answers cannot_verify/brand_not_verified rather than a plain could_not_identify.
+const pendingNames = buildPendingNames(BRANDS_JSON.pendingVerification.brands);
 
 /** The active prescriptions of a seed patient, as the backend route returns them (status = active). */
 const seedActive = (patientId) => SEED.filter((p) => p.patientId === patientId && p.status === 'active');
@@ -33,4 +36,4 @@ function rx(id, genericName, extra) {
   }, extra || {});
 }
 
-module.exports = { index, brandIndex, INDEX_JSON, BRANDS_JSON, SEED, seedActive, rx };
+module.exports = { index, brandIndex, pendingNames, INDEX_JSON, BRANDS_JSON, SEED, seedActive, rx };
