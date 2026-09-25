@@ -16,9 +16,17 @@ n8n agent-telegram-inbound  (x-jurah-secret)
          → POST /api/agent/doses/{id}/status               (taken_on_time | taken_late | missed)
          → POST /api/agent/schedule/recompute              (after a recorded miss; or a discontinuation)
          → Telegram reply chosen from fixed text by what the backend ACTUALLY answered
-   photo → Gemini vision reads it → validate (agents/lib/extraction.js)
-         → POST /api/agent/prescriptions (needsReview + uncertainFields when unsure)
-         → n8n agent-interaction-screening, when saved and unflagged
+   caregiver (any kind: text, tap, photo, document) → GET /api/agent/alert-recipients (AP-05's re-check,
+         TC-AD-16) → confirmed active: a fixed reply; not confirmed: nothing sent, one log item.
+         No dose read, no model, nothing written, nothing stored
+   photo/document (patient) → the Orchestrator (AP-11, agents/lib/orchestrator.js): one narrow vision
+         question - prescription | medicine_package | other | unsure, confidence floor 0.7
+       prescription      → Gemini vision reads it → validate (agents/lib/extraction.js)
+                          → POST /api/agent/prescriptions (needsReview + uncertainFields when unsure)
+                          → n8n agent-interaction-screening, when saved and unflagged
+       medicine_package  → n8n agent-travel-check (jurah/travel-check) → one fixed reply by verdict
+       other             → a fixed explanation; unsure → two buttons (a prescription / a medicine box),
+                           the choice remembered for 24 h, keyed by the patient's id and the message id
 n8n agent-checkin-daily  08:00 Kuwait (+ POST /webhook/jurah/checkin-now for the demo)
          → GET /api/agent/check-in-eligibility → doses of the day → one message per open dose,
            three buttons each: d:<doseId>:taken_on_time | taken_late | missed
@@ -63,11 +71,23 @@ Nothing below may be typed by an assistant: every value is a secret the owner pa
 4. Rebuild with `JURAH_API_BASE`, import the three files, bind the credentials:
    every `backend:` node → agent bearer; the three webhooks and `n8n: screen the new
    prescription` → inbound secret; `Telegram:` nodes → bot; `Gemini` nodes and
-   `Gemini: read the prescription` → Gemini.
+   `Gemini: read the prescription` → Gemini. **AP-11 (the Orchestrator, `agent-telegram-inbound`
+   only):** `Gemini: what is this photo?` → the SAME *Google Gemini (PaLM) API* credential as
+   `Gemini: read the prescription` (no new credential); `n8n: travel check` → the SAME *Jur'ah
+   inbound secret* as `n8n: screen the new prescription` (agent-travel-check, `agents/knowledge`,
+   must already be imported and activated on `jurah/travel-check` - AP-11 does not import it).
 5. Activate all three with `POST /rest/workflows/<id>/activate {versionId}` (a `PATCH {active:true}`
    returns 200 and does nothing), and read the URLs back: `/webhook/`, never `/webhook-test/`.
 6. **Hamad registers the app as the bot's webhook**: `setWebhook` to
    `https://<app>/api/messaging/telegram/webhook/<first 40 hex of sha256(JURAH_BOT_TOKEN)>`.
+
+**AP-11 warning for any live export.** `agent-telegram-inbound` now holds a `$getWorkflowStaticData`
+store keyed by patient id and message id, holding a Telegram **file id** per pending "which is it?"
+choice (never a caption, never a chat id - rule 6/7, one-shot, 24 hours, capped at ~100). n8n's own
+workflow export includes this static data. Before sharing, committing or attaching any export of
+this workflow taken after it has run live, strip its `staticData` (or the `pinData`/static-data
+block the export tool names) the same way `agents/scripts/drift.js` already masks the Alexa skill id
+and device links - a file id is a low-value secret, but it is not this repository's to publish.
 
 ## What is proven, and what is not
 

@@ -73,6 +73,11 @@ describe('readDrugCheck ← agent-travel-check', () => {
   const active = (id: string) => seed.filter((p) => p.patientId === id && p.status === 'active');
 
   it('every appOutcome the real agent produces is read back unchanged', () => {
+    // D6/CR-078: the agent produces its own cannot_verify kind (CR-095, agents/knowledge/src/
+    // travel-check.js) and, now that PR #13/AP-11a has landed, readDrugCheck (lib/agent-webhooks/
+    // core.ts) passes it through unchanged too, so this assertion needs no exception any more - the
+    // dedicated "cannot_verify (CR-078) passes through ..." test below covers its extra-fields and
+    // non-200 cases.
     for (const patientId of ['pt-01', 'pt-02', 'pt-03']) {
       for (const text of ['KLACID', 'Euthyrox', 'ZOCOR', 'Panadol', 'UNKNOWNXYZ', '']) {
         const { appOutcome } = T.travelCheck({ patientId, visionText: text, prescriptions: active(patientId), index, brandIndex });

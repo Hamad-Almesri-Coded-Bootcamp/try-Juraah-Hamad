@@ -57,6 +57,10 @@ function inline(file) {
     src + '\n/* ===== end generated ===== */';
 }
 const ADHERENCE = inline('lib/adherence.js');
+// AP-11: no model-contract marker (PHOTO_PROMPT/PHOTO_SCHEMA are built into the vision request by
+// plain Code, like agents/knowledge/src/extraction.js's PROMPT/RESPONSE_SCHEMA - there is no chain
+// node here to carry them instead), so this inlines whole, after ADHERENCE (it reads REPLIES).
+const ORCHESTRATOR = inline('lib/orchestrator.js');
 const SCREENING = inline('lib/screening.js');
 // AP-03/D3: the Telegram copy is now built on the drug-knowledge core (agents/knowledge/src/extraction.js),
 // which agents/lib/extraction.js requires and re-exports; both are inlined here, core first.
@@ -118,6 +122,21 @@ function telegramButtons(id, name, position) {
   };
 }
 
+/** AP-11: the Orchestrator's own "is it a prescription or a medicine box?" - exactly two buttons,
+ * never three. The three-button helper above is untouched. */
+function telegramTwoButtons(id, name, position) {
+  const button = (i) => ({ text: '={{ $json.buttons[' + i + '].text }}', additionalFields: { callback_data: '={{ $json.buttons[' + i + '].data }}' } });
+  return {
+    parameters: {
+      chatId: '={{ $json.chatId }}', text: '={{ $json.text }}',
+      replyMarkup: 'inlineKeyboard',
+      inlineKeyboard: { rows: [{ row: { buttons: [button(0), button(1)] } }] },
+      additionalFields: { appendAttribution: false },
+    },
+    id, name, type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position, onError: 'continueRegularOutput',
+  };
+}
+
 const gemini = (id, name, model, position) => ({
   parameters: { modelName: model, options: { temperature: 0 } },
   retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
@@ -145,7 +164,7 @@ const CONFIG = "const API = " + JSON.stringify(API_BASE) + ";\nconst N8N = " + J
 // =============================================================== 1. agent-telegram-inbound
 const IN = (n) => uuid('b1000000-0000-4000-8000-', n);
 
-const ROUTE = CONFIG + '\n' + ADHERENCE + `
+const ROUTE = CONFIG + '\n' + ADHERENCE + '\n' + ORCHESTRATOR + `
 
 // The relay (CR-063) already resolved WHO this chat is, server-side, and only forwards a patient's
 // or an ACTIVE caregiver's chat. Re-check the shape anyway: fail closed on anything unexpected.
@@ -161,7 +180,35 @@ const tap = p.kind === 'callback' ? parseTap(p.text) : null;
 const stopTap = p.kind === 'callback' && !tap ? parseStopTap(p.text) : null;
 // A tap carries the CHECK-IN message's time, not the tap's: the tap happened now (n8n's receipt).
 const eventAt = p.kind === 'callback' ? new Date().toISOString() : p.sentAt;
-const route = (p.photoFileId || p.documentFileId) && p.subjectType === 'patient' && p.kind === 'message' ? 'extraction' : 'adherence';
+
+// AP-11 - the Orchestrator decides the route; it never decides a dose, a time or a drug (D23).
+const store = $getWorkflowStaticData('global');
+const routeOpts = { store, now: Date.now() };
+const route = routeInbound(p, routeOpts);
+if (route === null) return [];
+
+// A resumed or:rx / or:box tap names no file of its own - the remembered one (never trusted from
+// the tap's own text) takes its place, so the EXISTING download nodes pick it up unchanged.
+let photoFileId = p.photoFileId || null;
+let documentFileId = p.documentFileId || null;
+if (route === 'extraction' || route === 'travel') {
+  const resumed = routeOpts.resumedFile;
+  photoFileId = resumed && resumed.kind === 'photo' ? resumed.fileId : null;
+  documentFileId = resumed && resumed.kind === 'document' ? resumed.fileId : null;
+}
+// 'reply' at THIS stage (before any download) is only ever a caregiver's own message, or an
+// or:rx/or:box tap that is missing or has expired; 'other'/'unsure'/a file problem are decided
+// later, only after the photo is downloaded and classified.
+let reason = null;
+let caregiverKind = null;
+if (route === 'reply') {
+  if (p.subjectType !== 'patient') {
+    reason = 'caregiver';
+    caregiverKind = p.photoFileId ? 'photo' : (p.documentFileId ? 'document' : 'text');
+  } else {
+    reason = 'photo_expired';
+  }
+}
 // AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads the previous day's
 // open doses. This applies to a TAP too: a tap names its own dose id, but the button carrying that
 // id can have been SENT before midnight and TAPPED after it (eventAt/p.sentAt is the tap's own
@@ -174,7 +221,7 @@ const dates = readDates(p.sentAt);
 const date = dates[dates.length - 1];
 const prevDate = dates.length > 1 ? dates[0] : null;
 return [{ json: {
-  route,
+  route, reason, caregiverKind, messageId: p.messageId || null,
   subjectType: p.subjectType, subjectId: typeof p.subjectId === 'string' ? p.subjectId : null,
   patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
   text: typeof p.text === 'string' ? p.text.slice(0, 500) : '',
@@ -185,7 +232,7 @@ return [{ json: {
   date,
   needsModel: route === 'adherence' && p.subjectType === 'patient' && p.kind !== 'callback' && typeof p.text === 'string' && p.text.trim().length > 0,
   callbackQueryId: p.callbackQueryId || null,
-  photoFileId: p.photoFileId || null, documentFileId: p.documentFileId || null,
+  photoFileId, documentFileId,
   dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date,
   prevDosesUrl: prevDate ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + prevDate : null,
   prescriptionsUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/prescriptions',
@@ -295,9 +342,14 @@ return ($input.all() || [])
 }
 
 // AP-05 step 3b (TC-AD-16) - one item whenever decide() dropped an unverified caregiver, never a chat id.
+// Merge of AP-05 into AP-11: two nodes feed this one - 'decide (deterministic)' (the adherence lane,
+// which no caregiver reaches any more; kept as defence in depth) and 'orchestrator: caregiver check
+// (deterministic)' (the caregiver lane every caregiver message now takes). Both carry the same
+// { patientId, decision }, so this reads $input rather than one named node (the same reason
+// 'orchestrator: reply (deterministic)' does).
 const CAREGIVER_LOG = `
-const d = $('decide (deterministic)').first().json;
-if (d.decision.outcome !== 'caregiver_unverified') return [];
+const d = ($input.first() || {}).json;
+if (!d || !d.decision || d.decision.outcome !== 'caregiver_unverified') return [];
 return [{ json: { patientId: d.patientId, reason: 'non_active_caregiver' } }];`;
 
 const EX_REQUEST = EXTRACTION + `
@@ -344,6 +396,124 @@ return [{ json: { chatId: v.chatId, text, buttons: null,
   screen, screeningUrl: N8N + '/jurah/screen-prescription',
   screeningBody: screen ? { patientId: v.patientId, newPrescriptionId: created.id, language: v.language } : null,
   log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode } } }];`;
+
+// ---- AP-11: the Orchestrator's own photo branch (a real router: one narrow vision question, then
+// a fixed set of deterministic outcomes - never a model deciding a route on its own say-so).
+const ORCH_ASK = ORCHESTRATOR + `
+
+// Downloaded once, whether the message was a photo or a document (routeInbound could not tell
+// which without this). A PDF or anything unsupported is decided from its mime type alone - never
+// asked to the model (Travel Check reads images only, so a PDF can only be a prescription).
+const r = $('route (deterministic)').first().json;
+const bin = $input.first().binary || {};
+const key = Object.keys(bin)[0];
+const buffer = key ? await this.helpers.getBinaryDataBuffer(0, key) : null;
+const mime = key ? (bin[key].mimeType || 'application/octet-stream') : '';
+const q = photoQuestion(mime, buffer);
+if (!q.ok) return [{ json: { ...r, visionBody: null, mimeShortcut: null, fileProblem: q.reason } }];
+return [{ json: { ...r, visionBody: q.visionBody, mimeShortcut: q.mimeShortcut, fileProblem: null } }];`;
+
+const ORCH_DECIDE = ORCHESTRATOR + `
+
+// THE DETERMINISTIC LAYER for the photo question. A PDF or a file problem is already decided
+// (photoQuestion said so, above) and never reads the model's answer at all; everything else goes
+// through decidePhoto's own floor (MIN_ROUTE_CONFIDENCE) - never a guess below it.
+const a = $('orchestrator: ask what the photo is').first().json;
+const res = $input.first().json;
+let decided;
+if (a.mimeShortcut) decided = { kind: a.mimeShortcut, confidence: 1, claimed: a.mimeShortcut, guardrail: null };
+else if (a.fileProblem) decided = { kind: 'unsure', confidence: 0, claimed: null, guardrail: a.fileProblem };
+else decided = decidePhoto(res);
+// An unsure photo (never a file problem - there is nothing to resume against) is remembered ONCE,
+// keyed by the ORIGINAL message id, so a later tap can resume it. Never the file id (it never
+// appears in a callback), never the caption, never the chat id (rule 6/7).
+if (decided.kind === 'unsure' && !a.fileProblem && a.messageId) {
+  rememberPhoto($getWorkflowStaticData('global'), a.patientId, a.messageId, a.photoFileId || a.documentFileId,
+    a.photoFileId ? 'photo' : 'document', Date.now());
+}
+let reason = null;
+if (decided.kind === 'other') reason = 'other';
+else if (decided.kind === 'unsure') reason = a.fileProblem ? 'file_problem' : 'unsure';
+return [{ json: { ...a, decidedKind: decided.kind, reason } }];`;
+
+// ---- The caregiver lane: the merge of AP-05 (adherence hardening) into AP-11 (the Orchestrator).
+// AP-11's rule: every caregiver message - text, tap, photo or document - is routed 'reply' by
+// routeInbound and read no further: it never reaches a dose read, the adherence model, a dose write,
+// extraction or Travel Check. AP-05's rule (TC-AD-16, plan step 3): an alleged caregiver is
+// re-checked against GET /api/agent/alert-recipients even though the relay already checked; one the
+// check cannot confirm ACTIVE gets nothing at all and leaves one 'log: non-active caregiver' item,
+// and an active one gets the plain refusal (TC-AD-14, never a recorded status).
+// The smallest wiring that keeps both: the re-check moves onto AP-11's reply lane, in front of the
+// fixed reply, for caregivers only -
+//   fixed reply? -> a caregiver (fixed reply)? --yes--> backend: alert recipients (caregiver reply)
+//     -> orchestrator: caregiver check (deterministic) -> orchestrator: reply (deterministic)
+//                                                       + log: non-active caregiver (deterministic)
+//   a caregiver (fixed reply)? --no (a patient's expired or:rx/or:box tap)--> the reply, unchanged.
+// The one call on the lane is that GET: nothing on it can write, call a model, download a file or
+// reach extraction or Travel Check (agents/scripts/check.js walks the graph to prove it). The
+// verdict is AP-05's own decide() - its caregiver branch returns before it reads a dose, a time or a
+// classification - so the TC-AD-14/TC-AD-16 rule still lives in one function; AP-11 only picks the
+// words (a photo or document gets its own line). AP-05's adherence-lane re-check ('a caregiver
+// chat?' -> 'backend: alert recipients (caregiver check)') is kept as it was: no caregiver reaches
+// it now, and it still refuses one if a later routing change ever let one through.
+const ORCH_CAREGIVER = ADHERENCE + `
+
+const r = $('route (deterministic)').first().json;
+if (r.subjectType !== 'caregiver') return []; // never on this lane (route (deterministic) sets reason 'caregiver' for a caregiver only): fail closed
+// The same test DECIDE runs on the adherence lane: is this chat's subjectId one of the patient's
+// ACTIVE caregivers? A refused or failed read is "not confirmed" - rule 5, fail closed.
+let caregiverVerified = false;
+try {
+  const cf = $input.first().json;
+  caregiverVerified = !!(cf.statusCode === 200 && cf.body && Array.isArray(cf.body.caregivers)
+    && cf.body.caregivers.some((c) => c && c.caregiverId === r.subjectId));
+} catch (e) { caregiverVerified = false; }
+// decide()'s caregiver branch returns before it reads any of these - none is handed over at all.
+const decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: [], prescriptions: [],
+                          tap: null, stopTap: null, classification: null, caregiverVerified });
+return [{ json: { ...r, caregiverVerified, decision } }];`;
+
+const ORCH_REPLY = ADHERENCE + '\n' + ORCHESTRATOR + `
+
+// Fed by any of three nodes - a caregiver, from 'orchestrator: caregiver check (deterministic)'
+// (AP-05's re-check, above); an expired or:rx/or:box tap, straight from route (deterministic); or
+// other/unsure/a file problem, from 'orchestrator: decide (deterministic)' - all carry the same
+// core fields, so this reads $input rather than a named node.
+const j = $input.first().json;
+// A caregiver is answered only on decide()'s own caregiver_refused (the re-check confirmed them
+// ACTIVE): caregiver_unverified sends nothing (TC-AD-16), and a caregiver item that never passed
+// the re-check at all carries no decision - fail closed, never a message to an unconfirmed chat.
+if (j.reason === 'caregiver' && !(j.decision && j.decision.outcome === 'caregiver_refused')) return [];
+const built = orchestratorReply({ reason: j.reason, kind: j.caregiverKind, language: j.language, messageId: j.messageId });
+return [{ json: { chatId: j.chatId, text: built.text, buttons: built.buttons, callbackQueryId: j.callbackQueryId,
+  log: { route: 'reply', reason: j.reason, patientId: j.patientId } } }];`;
+
+const ORCH_TRAVEL_REQUEST = ORCHESTRATOR + '\n' + CONFIG + `
+
+// The candidate for Travel Check - freshly classified as a medicine box, or a resumed or:box tap.
+// Re-downloaded here rather than threaded through from classification (extraction does the same
+// for a re-confirmed prescription): one clear source of the bytes that are actually sent.
+const r = $('route (deterministic)').first().json;
+const bin = $input.first().binary || {};
+const key = Object.keys(bin)[0];
+const travelUrl = N8N + '/jurah/travel-check';
+if (!key) return [{ json: { ...r, travelUrl, travelBody: null, fileProblem: 'file_not_downloaded' } }];
+const buffer = await this.helpers.getBinaryDataBuffer(0, key);
+const mime = bin[key].mimeType || 'image/jpeg';
+return [{ json: { ...r, travelUrl, fileProblem: null,
+  travelBody: travelBody({ patientId: r.patientId, imageBase64: buffer.toString('base64'), mimeType: mime, language: r.language }) } }];`;
+
+const ORCH_TRAVEL_REPLY = ORCHESTRATOR + `
+
+// THE DETERMINISTIC LAYER for Travel Check's answer: one fixed line, chosen by verdict alone -
+// never a direct instruction, never an all-clear when the call itself did not go cleanly.
+const r = $('orchestrator: build the travel request').first().json;
+const res = $input.first().json;
+const text = r.fileProblem ? ORCH_TEXT[r.language === 'en' ? 'en' : 'ar'].file_problem
+  : travelReply({ statusCode: res.statusCode, body: res.body, language: r.language });
+return [{ json: { chatId: r.chatId, text, buttons: null, callbackQueryId: r.callbackQueryId,
+  log: { route: 'travel', patientId: r.patientId, statusCode: res.statusCode,
+         verdict: res.body && res.body.verdict, alertId: res.body && res.body.alertId, error: (res.body && res.body.error) || r.fileProblem } } }];`;
 
 const inbound = {
   name: 'agent-telegram-inbound',
@@ -410,11 +580,83 @@ const inbound = {
     code(IN(38), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: reply with buttons'), [2400, 40]),
     code(IN(39), 'log: failed Telegram send (text)', failedSendLog('Telegram: reply'), [2620, 380]),
     code(IN(40), 'log: failed Telegram send (extraction reply)', failedSendLog('Telegram: extraction reply'), [1520, -400]),
+    // ---- AP-11: the Orchestrator (a real router: prescription | medicine_package | other | unsure)
+    // Ids IN(41)..IN(60): AP-11 was built with IN(32)..IN(51), which AP-05 took first on main (and the
+    // live n8n instance holds main's nodes under those ids), so AP-11's nodes moved up past main's
+    // last id, in the same order. Every id and every name in this workflow is unique (check.js).
+    ifNode(IN(41), 'photo?', "={{ $json.route === 'photo' }}", [-460, -420]),
+    ifNode(IN(42), 'medicine box?', "={{ $json.route === 'travel' }}", [-460, -560]),
+    ifNode(IN(43), 'fixed reply?', "={{ $json.route === 'reply' }}", [-460, -680]),
+    { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
+      id: IN(44), name: 'orchestrator: download the photo', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [-240, -420],
+      onError: 'continueRegularOutput' },
+    code(IN(45), 'orchestrator: ask what the photo is', ORCH_ASK, [-20, -420]),
+    { parameters: { method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/' + VISION_MODEL_PATH + ':generateContent',
+                    authentication: 'predefinedCredentialType', nodeCredentialType: 'googlePalmApi',
+                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.visionBody) }}',
+                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
+      id: IN(46), name: 'Gemini: what is this photo?', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [200, -420],
+      retryOnFail: true, maxTries: 2, waitBetweenTries: 2000 },
+    code(IN(47), 'orchestrator: decide (deterministic)', ORCH_DECIDE, [420, -420]),
+    ifNode(IN(48), 'a prescription (photo)?', "={{ $json.decidedKind === 'prescription' }}", [640, -420]),
+    ifNode(IN(49), 'a medicine box (photo)?', "={{ $json.decidedKind === 'medicine_package' }}", [640, -560]),
+    { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
+      id: IN(50), name: 'Telegram: download for travel check', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [860, -560],
+      onError: 'continueRegularOutput' },
+    code(IN(51), 'orchestrator: build the travel request', ORCH_TRAVEL_REQUEST, [1080, -560]),
+    { parameters: { method: 'POST', url: '={{ $json.travelUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.travelBody) }}',
+                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 60000 } },
+      id: IN(52), name: 'n8n: travel check', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1300, -560] },
+    code(IN(53), 'orchestrator: travel reply (deterministic)', ORCH_TRAVEL_REPLY, [1520, -560]),
+    telegramText(IN(54), 'Telegram: travel reply', [1740, -560]),
+    code(IN(55), 'orchestrator: reply (deterministic)', ORCH_REPLY, [860, -680]),
+    ifNode(IN(56), 'with two buttons?', '={{ Array.isArray($json.buttons) }}', [1080, -680]),
+    telegramTwoButtons(IN(57), 'Telegram: orchestrator choice', [1300, -760]),
+    telegramText(IN(58), 'Telegram: orchestrator text', [1300, -600]),
+    ifNode(IN(59), 'an orchestrator tap?', '={{ !!$json.callbackQueryId }}', [1520, -680]),
+    { parameters: { resource: 'callback', queryId: '={{ $json.callbackQueryId }}', additionalFields: {} },
+      id: IN(60), name: 'Telegram: close the photo tap', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [1740, -680],
+      onError: 'continueRegularOutput', executeOnce: true },
+    // ---- the merge of AP-05 into AP-11: the caregiver lane (ORCH_CAREGIVER above says why).
+    ifNode(IN(61), 'a caregiver (fixed reply)?', "={{ $json.reason === 'caregiver' }}", [-240, -900]),
+    api(IN(62), 'backend: alert recipients (caregiver reply)', 'GET', "={{ $('route (deterministic)').first().json.alertRecipientsUrl }}", [200, -900]),
+    code(IN(63), 'orchestrator: caregiver check (deterministic)', ORCH_CAREGIVER, [420, -900]),
+    // AP-05 step 3c on AP-11's three new sends: every Telegram send node fans out to a failed-send
+    // log (AP-05 wrote it for "a failed Telegram send"; AP-11's sends did not exist yet).
+    code(IN(64), 'log: failed Telegram send (travel reply)', failedSendLog('Telegram: travel reply'), [1960, -560]),
+    code(IN(65), 'log: failed Telegram send (orchestrator choice)', failedSendLog('Telegram: orchestrator choice'), [1520, -820]),
+    code(IN(66), 'log: failed Telegram send (orchestrator text)', failedSendLog('Telegram: orchestrator text'), [1960, -680]),
   ],
   connections: {
     'Relay from the app (CR-063)': main('route (deterministic)'),
     'route (deterministic)': main('a prescription photo?'),
-    'a prescription photo?': main('Telegram: download the file', 'backend: doses of the day'),
+    // AP-11's branches first: extraction, then the photo, the medicine box and the fixed reply...
+    'a prescription photo?': main('Telegram: download the file', 'photo?'),
+    'photo?': main('orchestrator: download the photo', 'medicine box?'),
+    'medicine box?': main('Telegram: download for travel check', 'fixed reply?'),
+    'fixed reply?': main('a caregiver (fixed reply)?', 'backend: doses of the day'),
+    // ...the caregiver lane (the merge: AP-05's re-check in front of AP-11's fixed reply)...
+    'a caregiver (fixed reply)?': main('backend: alert recipients (caregiver reply)', 'orchestrator: reply (deterministic)'),
+    'backend: alert recipients (caregiver reply)': main('orchestrator: caregiver check (deterministic)'),
+    'orchestrator: caregiver check (deterministic)': main(['orchestrator: reply (deterministic)', 'log: non-active caregiver (deterministic)']),
+    'orchestrator: download the photo': main('orchestrator: ask what the photo is'),
+    'orchestrator: ask what the photo is': main('Gemini: what is this photo?'),
+    'Gemini: what is this photo?': main('orchestrator: decide (deterministic)'),
+    'orchestrator: decide (deterministic)': main('a prescription (photo)?'),
+    'a prescription (photo)?': main('Telegram: download the file', 'a medicine box (photo)?'),
+    'a medicine box (photo)?': main('Telegram: download for travel check', 'orchestrator: reply (deterministic)'),
+    'Telegram: download for travel check': main('orchestrator: build the travel request'),
+    'orchestrator: build the travel request': main('n8n: travel check'),
+    'n8n: travel check': main('orchestrator: travel reply (deterministic)'),
+    'orchestrator: travel reply (deterministic)': main(['Telegram: travel reply', 'an orchestrator tap?']),
+    'Telegram: travel reply': main('log: failed Telegram send (travel reply)'),
+    'orchestrator: reply (deterministic)': main(['with two buttons?', 'an orchestrator tap?']),
+    'with two buttons?': main('Telegram: orchestrator choice', 'Telegram: orchestrator text'),
+    'Telegram: orchestrator choice': main('log: failed Telegram send (orchestrator choice)'),
+    'Telegram: orchestrator text': main('log: failed Telegram send (orchestrator text)'),
+    'an orchestrator tap?': main('Telegram: close the photo tap'),
+    // ...then AP-05's adherence chain, from 'backend: doses of the day' onwards, exactly as main has it.
     'backend: doses of the day': main('backend: active prescriptions'),
     'backend: active prescriptions': main('after midnight?'),
     'after midnight?': main('backend: doses of the previous day', 'a caregiver chat?'),

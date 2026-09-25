@@ -94,7 +94,7 @@ test('no_interaction_found only when every pair was checkable - and the words ne
   assert.doesNotMatch(r.message, /\bsafe\b/i);
 });
 
-test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction', () => {
+test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction; app cannot_verify (D6/CR-078)', () => {
   for (const [box, onFile] of [['Ezetimibe', 'Amlodipine'], ['Ibuprofen 400 mg', 'Ciprofloxacin']]) {
     const r = check({ visionText: box, prescriptions: [rx('t-1', onFile)], language: 'en' });
     assert.equal(r.verdict, 'cannot_verify', box);
@@ -138,7 +138,7 @@ test('a generic box resolves only by the index\'s own ingredient name, exactly',
 });
 
 // ---------------------------------------------------------------- regressions from the adversarial review
-test('a flagged or returned prescription in the profile -> cannot_verify, never a false all-clear', () => {
+test('a flagged or returned prescription in the profile -> cannot_verify, never a false all-clear; app cannot_verify (D6/CR-078)', () => {
   for (const extra of [{ needsReview: true, fieldReviewStatus: 'pending' }, { needsReview: true, fieldReviewStatus: 'returned' }, { fieldReviewStatus: 'returned' }]) {
     const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Clarithromycin', extra)] });
     assert.equal(r.verdict, 'cannot_verify', JSON.stringify(extra));
