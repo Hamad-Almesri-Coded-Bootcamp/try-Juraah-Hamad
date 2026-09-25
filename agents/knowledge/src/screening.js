@@ -26,7 +26,10 @@
  *   - a pair the source lists, ungraded   -> ONE `info` alert to the reviewer (G8)
  *   - the same ingredient twice           -> a duplicate-therapy `warning`, pending
  *   - a prescription flagged needsReview  -> excluded, and the exclusion is returned (TC-IX-06);
- *     (or fieldReviewStatus pending/returned)  a flagged NEW prescription is not screened yet
+ *     (or fieldReviewStatus returned)          a flagged NEW prescription is not screened yet.
+ *     fieldReviewStatus "pending" beside needsReview:false (CR-054: a confident save keeps that
+ *     field set) does NOT exclude - nobody ever reviews it, so excluding it left it silently
+ *     unscreened forever (CR-090 ii).
  *   - no channel is consulted at all      -> TC-IX-05
  *
  * Scope: only pairs that include the NEW prescription, so a re-run never
@@ -47,7 +50,7 @@ function exclusionReason(p) {
   if (!p || typeof p !== 'object' || typeof p.id !== 'string') return 'malformed';
   if (p.status !== 'active') return 'not_active';
   if (p.needsReview !== false) return 'needs_review';
-  if (p.fieldReviewStatus === 'pending' || p.fieldReviewStatus === 'returned') return 'field_review_' + p.fieldReviewStatus;
+  if (p.fieldReviewStatus === 'returned') return 'field_review_returned';
   return null;
 }
 

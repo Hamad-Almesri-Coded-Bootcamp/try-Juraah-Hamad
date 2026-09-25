@@ -44,6 +44,15 @@ test('a committed workflow with no live counterpart, and a live one with no file
   assert.ok(r.problems.some((p) => /agent-mystery: live, but no committed workflow file/.test(p)));
 });
 
+test('AP-04: the repository no longer expects agent-interaction-screening', () => {
+  const repo = D.repoHashes();
+  assert.ok(!('agent-interaction-screening' in repo), 'the legacy workflow is retired (CR-074/D2)');
+  assert.ok('agent-interaction-screening-ddinter' in repo, 'the DDInter workflow is the only one on jurah/screen-prescription');
+  // A live instance still running the retired workflow must fail loudly, not read as fine.
+  const r = D.compare(repo, { 'agent-interaction-screening': D.hashesOf(WF) });
+  assert.ok(r.problems.some((p) => p === 'agent-interaction-screening: live, but no committed workflow file'));
+});
+
 test('CRLF in live code is not drift; a changed connection is', () => {
   const live = copy(WF);
   for (const n of live.nodes) if (typeof n.parameters.jsCode === 'string') n.parameters.jsCode = n.parameters.jsCode.replace(/\n/g, '\r\n');

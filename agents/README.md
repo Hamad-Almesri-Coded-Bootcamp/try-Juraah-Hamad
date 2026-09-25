@@ -1,6 +1,6 @@
 # agents/ — the AI agents track, wired to the Phase 2 backend
 
-6 n8n workflows in `workflows/`, generated from tested source, that talk to this repository's
+5 n8n workflows in `workflows/`, generated from tested source, that talk to this repository's
 backend **only** through `/api/agent/**` (agent bearer) and receive Telegram replies **only**
 through the app's webhook relay (CR-063). No database credential, no service key and no Telegram
 Trigger in n8n.
@@ -12,7 +12,6 @@ Trigger in n8n.
 | `agent-alexa` | `POST jurah/alexa` | Gemini, English free talk only | the doses of the day, who is eligible | one voice turn; never a dose status |
 | `agent-webchat` | `POST jurah/webchat`, from the app's assistant (CR-067) | Gemini picks one of the 10 `WEBCHAT_INTENTS` | the doses of the day, who is eligible | nothing |
 | `agent-error` | the n8n Error Trigger (AP-18) | none | nothing | one Telegram message to the team chat, whose id Mohammad still owes |
-| `agent-interaction-screening` (legacy) | `POST jurah/screen-prescription` | none | the active prescriptions | raises alerts, always `pending_medical_review` (retired by AP-04 / CR-074; this row goes once PR #22 lands) |
 
 The three further workflows in `agents/knowledge/workflows/` — `agent-extraction`,
 `agent-interaction-screening-ddinter`, `agent-travel-check` — are the drug-knowledge agents,
@@ -37,25 +36,25 @@ n8n agent-telegram-inbound  (x-jurah-secret)
          question - prescription | medicine_package | other | unsure, confidence floor 0.7
        prescription      → Gemini vision reads it → validate (agents/lib/extraction.js)
                           → POST /api/agent/prescriptions (needsReview + uncertainFields when unsure)
-                          → n8n agent-interaction-screening, when saved and unflagged
+                          → the backend itself screens it (or holds it) before the 201 answers, and
+                            says so in the body (AP-10/AP-04); an unflagged save whose outcome is
+                            neither 'screened' nor 'held' -> Stop and Error, a human must look
        medicine_package  → n8n agent-travel-check (jurah/travel-check) → one fixed reply by verdict
        other             → a fixed explanation; unsure → two buttons (a prescription / a medicine box),
                            the choice remembered for 24 h, keyed by the patient's id and the message id
 n8n agent-checkin-daily  08:00 Kuwait (+ POST /webhook/jurah/checkin-now for the demo)
          → GET /api/agent/check-in-eligibility → doses of the day → one message per open dose,
            three buttons each: d:<doseId>:taken_on_time | taken_late | missed
-n8n agent-interaction-screening  (x-jurah-secret)  { patientId, newPrescriptionId }
-         → GET /api/agent/patients/{id}/prescriptions → screen (agents/lib/screening.js, no model)
-         → POST /api/agent/alerts, always pending_medical_review
 ```
 
 ## Drug-knowledge agents (agents/knowledge/)
 
 Interaction Screening on DDInter, Travel Check and app-side Extraction live in `agents/knowledge/`
-(its own `npm run verify`, README and workflows). Its `agent-interaction-screening-ddinter` answers the
-same `jurah/screen-prescription` path, body and auth as `workflows/agent-interaction-screening.json`
-here, so `agent-telegram-inbound` is unchanged: deactivate this folder's screening workflow before
-activating that one (docs/DECISIONS.md CR-065).
+(its own `npm run verify`, README and workflows). `agent-interaction-screening-ddinter` is the only
+workflow on `jurah/screen-prescription` (AP-04/CR-074 retired the legacy screening that used to
+share it, `workflows/agent-interaction-screening.json`). Its only caller today is the backend's own
+`requestScreening` (`lib/agent-webhooks/core.ts` `screeningPayload`), after a save, an agent's save,
+a reviewer's confirmation or a refill (AP-10) - no n8n workflow calls it directly any more.
 
 ## Commands
 
@@ -85,14 +84,14 @@ Nothing below may be typed by an assistant: every value is a secret the owner pa
    - the existing *Telegram* bot credential, and the existing *Google Gemini (PaLM) API* credential.
 3. **Deactivate the old `agent-adherence-inbound`** (`WVwsQLwVFgeC2VHV`). Its Telegram Trigger
    holds the bot's only webhook; while it is active the app never sees a reply.
-4. Rebuild with `JURAH_API_BASE`, import the three files, bind the credentials:
-   every `backend:` node → agent bearer; the three webhooks and `n8n: screen the new
-   prescription` → inbound secret; `Telegram:` nodes → bot; `Gemini` nodes and
-   `Gemini: read the prescription` → Gemini. **AP-11 (the Orchestrator, `agent-telegram-inbound`
+4. Rebuild with `JURAH_API_BASE`, import the files, bind the credentials:
+   every `backend:` node → agent bearer; the webhooks → inbound secret; `Telegram:` nodes → bot;
+   `Gemini` nodes and `Gemini: read the prescription` → Gemini. **AP-11 (the Orchestrator, `agent-telegram-inbound`
    only):** `Gemini: what is this photo?` → the SAME *Google Gemini (PaLM) API* credential as
    `Gemini: read the prescription` (no new credential); `n8n: travel check` → the SAME *Jur'ah
-   inbound secret* as `n8n: screen the new prescription` (agent-travel-check, `agents/knowledge`,
-   must already be imported and activated on `jurah/travel-check` - AP-11 does not import it).
+   inbound secret* the webhooks use (agent-travel-check, `agents/knowledge`, must already be
+   imported and activated on `jurah/travel-check` - AP-11 does not import it). The old
+   `n8n: screen the new prescription` node is gone (AP-04): nothing else to bind.
 5. Activate each imported workflow with `POST /rest/workflows/<id>/activate {versionId}` (a
    `PATCH {active:true}` returns 200 and does nothing), and read the URLs back: `/webhook/`, never
    `/webhook-test/`.
@@ -109,10 +108,10 @@ and device links - a file id is a low-value secret, but it is not this repositor
 
 ## What is proven, and what is not
 
-Proven here: the decision layers (`agents/test`, 175 tests), every generated Code node compiles and
+Proven here: the decision layers (`agents/test`, 167 tests), every generated Code node compiles and
 runs the spec's scenarios (`scripts/check.js`, `scripts/check-error-workflow.js`), and every request
 body passes the backend's validators (`tests/unit/agent/agents-contract.test.ts` and
-`tests/unit/agent/knowledge-contract.test.ts`, 38 tests). The backend's two new reads and the relay
+`tests/unit/agent/knowledge-contract.test.ts`, 37 tests). The backend's two new reads and the relay
 were run against the real seeded database by hand (docs/DECISIONS.md CR-062, CR-063).
 
 **Not yet proven**: anything end to end.
@@ -123,10 +122,7 @@ were run against the real seeded database by hand (docs/DECISIONS.md CR-062, CR-
 - No end-to-end run is recorded (`docs/VERIFICATION.md` "Agents, live", AP-14).
 - No accuracy threshold is measured ("Agents, accuracy", AP-15).
 
-The screening reference set holds only the two pairs the seed already asserts, with citations
-`[TO BE SUPPLIED]`, and every unmatched profile goes to the reviewer rather than being cleared — a
-real drug database needs the human-supplied pairs the spec asks for. Extraction's ≥90% accuracy
-target needs the ≥10 ground-truth samples; none exist.
+Extraction's ≥90% accuracy target needs the ≥10 ground-truth samples; none exist.
 
 ## Voice — Alexa / Echo Dot (demo, read-only)
 

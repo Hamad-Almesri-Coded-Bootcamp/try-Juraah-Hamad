@@ -6,11 +6,10 @@
  */
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { parseAlertBody, parseDoseStatusBody, parsePrescriptionBody, parseRecomputeBody, RECORDED_DOSE_WORDS } from '@/lib/agent/validate';
+import { parseDoseStatusBody, parsePrescriptionBody, parseRecomputeBody, RECORDED_DOSE_WORDS } from '@/lib/agent/validate';
 
 const require = createRequire(import.meta.url);
 const A = require('../../../agents/lib/adherence.js');
-const S = require('../../../agents/lib/screening.js');
 const E = require('../../../agents/lib/extraction.js');
 
 type Write = { op: 'dose_status' | 'recompute'; doseId?: string; body: unknown };
@@ -50,16 +49,9 @@ describe('agents/lib/adherence.js → the backend validators', () => {
   });
 });
 
-describe('agents/lib/screening.js → parseAlertBody', () => {
-  it('every alert it builds is accepted, and none is reviewed or auto-cleared', () => {
-    const rx = (id: string, genericName: string) => ({ id, drug: { genericName }, needsReview: false });
-    for (const profile of [[rx('rx-001', 'Warfarin'), rx('rx-002', 'Ibuprofen')], [rx('rx-001', 'Warfarin'), rx('rx-002', 'Zzqx')], [rx('rx-001', 'Warfarin'), rx('rx-002', 'Levothyroxine')]]) {
-      const r = S.screenNewPrescription({ patientId: 'pt-01', newPrescriptionId: 'rx-002', prescriptions: profile, language: 'ar' });
-      expect(r.alerts.length).toBeGreaterThan(0);
-      for (const a of r.alerts) expect(parseAlertBody(a), JSON.stringify(a)).toMatchObject({ ok: true, value: { reviewStatus: 'pending_medical_review' } });
-    }
-  });
-});
+// AP-04/CR-074: agents/lib/screening.js is retired (the DDInter workflow, agents/knowledge, is the
+// only screening on the path). Its parseAlertBody contract is already covered by
+// tests/unit/agent/knowledge-contract.test.ts, which runs every DDInter alert body through it.
 
 describe('agents/lib/extraction.js → parsePrescriptionBody', () => {
   const SURE = Object.fromEntries(E.CONFIDENCE_KEYS.map((k: string) => [k, 0.95]));
