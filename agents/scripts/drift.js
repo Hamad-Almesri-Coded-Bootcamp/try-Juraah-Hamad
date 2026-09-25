@@ -2,6 +2,12 @@
 
 /**
  * AP-01 - the drift check: does the live n8n instance run exactly what the repository generates?
+ * AP-16 (row 3, "no drift") adds the STATIC half below: do the committed workflows regenerate
+ * byte-identically from the source that is actually committed? The live half (does the live n8n
+ * instance match the committed workflows?) is unchanged - --live / --api / --snippet, exactly as
+ * before. Runtime proof: the AP-13 read-back (npm run drift -- --live <hashes.json>, run after every
+ * publish) - the static half below has no live counterpart to prove; it either regenerates
+ * byte-identically or it does not.
  *
  * Both sides are reduced to one sha-256 per node by the SAME normalisation (NORMALISE_SOURCE below):
  * ids, positions, credential ids, versionId and timestamps are dropped; node type, typeVersion,
@@ -16,6 +22,8 @@
  *   node scripts/drift.js --snippet            print the snippet to run in the n8n page (it prints the live hashes)
  *   node scripts/drift.js --live live.json     compare the repository with those live hashes; exit 1 on any drift
  *   N8N_BASE_URL=... N8N_API_KEY=... node scripts/drift.js --api   the same, reading the live side from the n8n API
+ *   node scripts/drift.js --static              regenerate every committed workflow in a scratch copy
+ *                                                and diff it against the committed JSON; exit 1 on any diff
  *
  * It FAILS (exit 1) when a node differs, when a committed workflow has no live counterpart, and when a
  * live Jur'ah workflow (name starting "agent-") has no committed file. A missing input is a failure,
@@ -23,9 +31,16 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 
+const ROOT = path.join(__dirname, '..');
 const DIRS = [path.join(__dirname, '..', 'workflows'), path.join(__dirname, '..', 'knowledge', 'workflows')];
+/** A build-time value, not a secret: the API base every committed workflow carries once generated
+ * for the demo. The static half always regenerates against this, never against N8N_WEBHOOK_BASE or
+ * whatever else happens to be in the shell's environment, so the check is the same on every machine. */
+const PROD_API_BASE = 'https://tryjuraaah.vercel.app/api/agent';
 
 /** One source of truth for the normalisation: eval'd here, and pasted verbatim into the n8n page. */
 const NORMALISE_SOURCE = String.raw`(function normaliseNode(n) {
@@ -88,6 +103,112 @@ async function liveFromApi() {
   return out;
 }
 
+const foldCRLF = (s) => s.replace(/\r\n/g, '\n');
+
+function copyDir(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) copyDir(s, d);
+    else fs.copyFileSync(s, d);
+  }
+}
+
+function clearJsonFiles(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const f of fs.readdirSync(dir)) if (f.endsWith('.json')) fs.unlinkSync(path.join(dir, f));
+}
+
+/**
+ * Runs one package's own generator - `scripts.build` in `<dir>/package.json`, in `dir` - against
+ * PROD_API_BASE, with N8N_WEBHOOK_BASE removed from the child's environment so nothing but that base
+ * can reach a committed workflow. `scripts.build` may chain several commands with `&&`
+ * (agents/package.json does: build.js, then build-error-workflow.js); every part must be exactly
+ * `node <script>`, or it is reported as a problem, never silently skipped or run anyway. A generator
+ * that exits non-zero is caught here and reported too, named by the package (never left to crash the
+ * caller, so a second package still gets checked). Returns a list of problems - empty is success.
+ */
+function regenerate(dir) {
+  let pkg;
+  try {
+    pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+  } catch (e) {
+    return [`${dir}: cannot read package.json (${e.message})`];
+  }
+  const label = pkg.name || dir;
+  const build = (pkg.scripts && pkg.scripts.build) || '';
+  const parts = build.split('&&').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return [`${label}: package.json has no scripts.build`];
+  const env = { ...process.env, JURAH_API_BASE: PROD_API_BASE };
+  delete env.N8N_WEBHOOK_BASE;
+  const problems = [];
+  for (const part of parts) {
+    const m = /^node\s+(\S+)$/.exec(part);
+    if (!m) { problems.push(`${label}: scripts.build has a part that is not "node <script>": ${part}`); continue; }
+    try {
+      execFileSync(process.execPath, [m[1]], { cwd: dir, env, stdio: 'pipe' });
+    } catch (e) {
+      const detail = (e.stderr && e.stderr.toString().trim().split('\n')[0]) || e.message;
+      problems.push(`${label}: ${part} failed: ${detail}`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * The static half of "no drift" (AP-16 row 3): does every committed workflow regenerate
+ * byte-identically from the generator that is actually committed? Copies `agentsRoot` into a scratch
+ * temp directory (never writes under `agentsRoot` itself, and removes the copy in a finally block),
+ * deletes the copy's own workflows/*.json and knowledge/workflows/*.json, regenerates both packages,
+ * then compares the copy's freshly generated files against the ORIGINAL committed ones. The committed
+ * side is read with CRLF folded to LF (the generated JSON is ASCII-only LF; git ls-files --eol shows
+ * some of these files checked out as CRLF on Windows even though the repository stores them as LF).
+ * A committed file no generator wrote, a generated file that is not committed, any byte difference and
+ * a generator that failed are all "problems" - never silently skipped. Returns { report, problems }.
+ */
+function staticDrift(agentsRoot = ROOT) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jurah-drift-'));
+  const report = [];
+  const problems = [];
+  try {
+    copyDir(agentsRoot, tmp);
+    clearJsonFiles(path.join(tmp, 'workflows'));
+    clearJsonFiles(path.join(tmp, 'knowledge', 'workflows'));
+
+    problems.push(...regenerate(tmp));
+    if (fs.existsSync(path.join(tmp, 'knowledge', 'package.json'))) problems.push(...regenerate(path.join(tmp, 'knowledge')));
+
+    for (const sub of ['workflows', path.join('knowledge', 'workflows')]) {
+      const committedDir = path.join(agentsRoot, sub);
+      const generatedDir = path.join(tmp, sub);
+      const committed = fs.existsSync(committedDir) ? fs.readdirSync(committedDir).filter((f) => f.endsWith('.json')) : [];
+      const generated = fs.existsSync(generatedDir) ? fs.readdirSync(generatedDir).filter((f) => f.endsWith('.json')) : [];
+      const names = [...new Set([...committed, ...generated])].sort();
+      for (const name of names) {
+        const label = path.join(sub, name).split(path.sep).join('/');
+        if (committed.includes(name) && !generated.includes(name)) {
+          report.push(`DIFF   ${label}  (committed, no generator wrote it)`);
+          problems.push(`${label}: committed, but no generator wrote it`);
+          continue;
+        }
+        if (!committed.includes(name) && generated.includes(name)) {
+          report.push(`DIFF   ${label}  (generated, not committed)`);
+          problems.push(`${label}: generated, but not committed`);
+          continue;
+        }
+        const c = foldCRLF(fs.readFileSync(path.join(committedDir, name), 'utf8'));
+        const g = fs.readFileSync(path.join(generatedDir, name), 'utf8');
+        if (c === g) report.push(`same   ${label}`);
+        else { report.push(`DIFF   ${label}`); problems.push(`${label}: differs from the committed file`); }
+      }
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  return { report, problems };
+}
+
 function compare(repo, live) {
   const problems = [];
   const report = [];
@@ -111,11 +232,25 @@ function compare(repo, live) {
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--snippet')) { console.log(SNIPPET); return; }
+  if (args.includes('--static')) {
+    const { report, problems } = staticDrift();
+    for (const line of report) console.log(line);
+    if (problems.length) {
+      console.log('\nSTATIC DRIFT: ' + problems.length + ' problem(s)');
+      for (const p of problems) console.log('  - ' + p);
+      console.log('\nrebuild: JURAH_API_BASE=' + PROD_API_BASE + ' npm run build; never hand-edit a workflow');
+      process.exitCode = 1;
+    } else {
+      console.log('\nno static drift (' + report.length + ' workflows regenerate byte-identically)');
+      console.log('the live half is not checked here: after every publish, run npm run drift -- --live <hashes.json> (the AP-13 read-back)');
+    }
+    return;
+  }
   let live;
   if (args.includes('--api')) live = await liveFromApi();
   else {
     const i = args.indexOf('--live');
-    if (i < 0 || !args[i + 1]) throw new Error('usage: drift.js --snippet | --live <live-hashes.json> | --api');
+    if (i < 0 || !args[i + 1]) throw new Error('usage: drift.js --snippet | --live <live-hashes.json> | --api | --static');
     live = JSON.parse(fs.readFileSync(args[i + 1], 'utf8'));
   }
   const { report, problems } = compare(repoHashes(), live);
@@ -128,4 +263,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; });
-module.exports = { normaliseNode, hashesOf, repoHashes, compare, NORMALISE_SOURCE };
+module.exports = { normaliseNode, hashesOf, repoHashes, compare, NORMALISE_SOURCE, staticDrift, regenerate, PROD_API_BASE };

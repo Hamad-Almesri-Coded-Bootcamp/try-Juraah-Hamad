@@ -9,7 +9,8 @@
     "build": "node scripts/build.js && node scripts/build-error-workflow.js",
     "check": "node scripts/check.js && node scripts/check-error-workflow.js",
     "verify": "npm run test && npm run build && npm run check",
-    "drift": "node scripts/drift.js"
+    "drift": "node scripts/drift.js",
+    "drift:static": "node scripts/drift.js --static"
   },
   "engines": {
     "node": ">=22"
