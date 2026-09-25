@@ -7,7 +7,7 @@ Trigger in n8n.
 
 | Workflow | Trigger | Model | Backend reads | Writes or sends |
 |---|---|---|---|---|
-| `agent-telegram-inbound` | `POST jurah/telegram-inbound`, from the app's relay (CR-063) | Gemini: classifies a reply, reads a prescription, asks what a photo is (AP-11) | the doses of the day and of the previous day, the active prescriptions, the alert recipients | the dose status, the recompute, prescriptions; calls n8n `jurah/screen-prescription` and `jurah/travel-check` |
+| `agent-telegram-inbound` | `POST jurah/telegram-inbound`, from the app's relay (CR-063) | Gemini: classifies a reply, reads a prescription, asks what a photo is (AP-11) | the doses of the day and of the previous day, the active prescriptions, the alert recipients | the dose status, the recompute, prescriptions (the backend itself screens an unflagged save, AP-04/AP-10 — this workflow no longer calls the screening webhook); calls n8n `jurah/travel-check` |
 | `agent-checkin-daily` | 08:00 Asia/Kuwait, and `POST jurah/checkin-now` | none | check-in eligibility, the doses of the day | nothing to the backend; sends Telegram |
 | `agent-alexa` | `POST jurah/alexa` | Gemini, English free talk only | the doses of the day, who is eligible | one voice turn; never a dose status |
 | `agent-webchat` | `POST jurah/webchat`, from the app's assistant (CR-067) | Gemini picks one of the 10 `WEBCHAT_INTENTS` | the doses of the day, who is eligible | nothing |
