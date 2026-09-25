@@ -66,25 +66,48 @@ describe('F4 — profile: only the enumerated relationship-writes appear as butt
         pushCapabilitySupported
         push={{ id: 'ps-x', subjectType: 'caregiver', subjectId: 'cg-01', status: 'active', permission: 'default', createdAt: '2026-09-01T00:00:00+03:00' }}
         messaging={{ id: 'ml-x', subjectType: 'caregiver', subjectId: 'cg-01', channel: 'telegram', status: 'not_connected' }}
+        simulated
         locale="ar"
       />,
     );
-    const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim());
-    // Read from the catalogue, so a wording change cannot silently widen or narrow the set.
-    const ALLOWED = [
-      t(copy.caregiving.f4PushEnableAction, 'ar'),
-      t(copy.caregiving.f4PushDisableAction, 'ar'),
-      t(copy.caregiving.f4ChatConnectAction, 'ar'),
-      t(copy.caregiving.f4ChatDisconnectAction, 'ar'),
-      t(copy.caregiving.f4UnlinkAction, 'ar'),
-      t(copy.shell.signOut, 'ar'),
-    ];
-    for (const label of buttons) {
-      expect(ALLOWED.some((allowed) => label?.includes(allowed)), `unexpected button: ${label}`).toBe(true);
-    }
-    // None of the allowed labels mention a patient-data noun — a structural sanity check.
-    for (const label of buttons) {
-      expect(label).not.toMatch(/جرعة|وصفة|دواء|تنبيه/);
-    }
+    expectOnlyOwnRelationshipButtons(container);
+  });
+
+  it('AP-09: the chat row while waiting for Start adds only the caregiver’s own "I pressed Start" and "Open Telegram again"', () => {
+    const { container } = render(
+      <CaregiverProfile
+        caregiverId="cg-01"
+        patientFirstName="حمد"
+        acceptedAt="2026-09-03T18:20:00+03:00"
+        pushCapabilitySupported
+        push={null}
+        messaging={{ id: 'ml-x', subjectType: 'caregiver', subjectId: 'cg-01', channel: 'telegram', status: 'pending' }}
+        simulated={false}
+        locale="ar"
+      />,
+    );
+    expectOnlyOwnRelationshipButtons(container);
   });
 });
+
+function expectOnlyOwnRelationshipButtons(container: HTMLElement) {
+  const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim());
+  // Read from the catalogue, so a wording change cannot silently widen or narrow the set.
+  const ALLOWED = [
+    t(copy.caregiving.f4PushEnableAction, 'ar'),
+    t(copy.caregiving.f4PushDisableAction, 'ar'),
+    t(copy.caregiving.f4ChatConnectAction, 'ar'),
+    t(copy.caregiving.f4ChatDisconnectAction, 'ar'),
+    t(copy.ambient.e5ChatCheckAction, 'ar'),
+    t(copy.ambient.e5ChatOpenAgainAction, 'ar'),
+    t(copy.caregiving.f4UnlinkAction, 'ar'),
+    t(copy.shell.signOut, 'ar'),
+  ];
+  for (const label of buttons) {
+    expect(ALLOWED.some((allowed) => label?.includes(allowed)), `unexpected button: ${label}`).toBe(true);
+  }
+  // None of the allowed labels mention a patient-data noun — a structural sanity check.
+  for (const label of buttons) {
+    expect(label).not.toMatch(/جرعة|وصفة|دواء|تنبيه/);
+  }
+}

@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { updateSettings, completeOnboarding, requestPushPermission, startMessagingLink } from '@/lib/data';
+import { updateSettings, completeOnboarding, requestPushPermission } from '@/lib/data';
 import { Brand } from '@/components/ui/Brand';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { InviteSheet } from '@/features/caregiving/InviteSheet';
+import { TelegramLinkForm } from '@/features/ambient/TelegramLinkForm';
 import { copy, t } from '@/i18n';
 import type { Locale } from '@/i18n/locale';
 
@@ -19,6 +20,8 @@ export interface SetupFlowProps {
   locale: Locale;
   patientId: string;
   initialLanguage: 'ar' | 'en';
+  /** The server's BOT_IS_SIMULATED: the Telegram offer's form posts in place while it is true. */
+  simulated: boolean;
 }
 
 const LAST_STEP = 3;
@@ -38,6 +41,11 @@ function clampStep(value: string | null): number {
  * only the wordmark and the language switch in a light bar, the step indicator, and each step's
  * question as the screen's one h1. The three reminder offers are three equal cards with three equal
  * buttons, "Later" among them (UX §2/§13); inviting a caregiver and skipping are drawn equal too.
+ *
+ * AP-09 (CR-086): the Telegram offer is the same TelegramLinkForm as E5 and F4, a form that posts
+ * to the link route (the token only ever in its redirect). With a real bot it opens Telegram in a
+ * new tab and this tab moves on to the next step; simulated, the route mints the link and answers
+ * with the next step itself. Each offer has its own busy state, so one tap never spins another.
  */
 function SetupBar({ locale, patientId }: { locale: Locale; patientId?: string }) {
   return (
@@ -68,7 +76,7 @@ function SetupFlowSkeleton({ locale }: { locale: Locale }) {
   );
 }
 
-function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) {
+function SetupFlowInner({ locale, patientId, initialLanguage, simulated }: SetupFlowProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const step = clampStep(searchParams.get('step'));
@@ -105,15 +113,6 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
     });
   }
 
-  function handleTelegramOffer() {
-    startTransition(() => {
-      void (async () => {
-        await startMessagingLink({ subjectType: 'patient', subjectId: patientId });
-        goToStep(2);
-      })();
-    });
-  }
-
   function handleLaterOffer() {
     goToStep(2);
   }
@@ -131,7 +130,8 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
     });
   }
 
-  const offers: ReadonlyArray<{ icon: IconName; title: string; body: string; button: string; onClick: () => void; busy: boolean }> = [
+  // The Telegram offer carries no onClick: it is a form (TelegramLinkForm), rendered below.
+  const offers: ReadonlyArray<{ icon: IconName; title: string; body: string; button: string; onClick?: () => void; busy: boolean }> = [
     {
       icon: 'bell',
       title: t(copy.identity.browserOfferTitle, locale),
@@ -145,8 +145,7 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
       title: t(copy.identity.telegramOfferTitle, locale),
       body: t(copy.identity.telegramOfferBody, locale),
       button: t(copy.identity.telegramOfferButton, locale),
-      onClick: handleTelegramOffer,
-      busy: pending,
+      busy: false,
     },
     {
       icon: 'clock',
@@ -207,9 +206,23 @@ function SetupFlowInner({ locale, patientId, initialLanguage }: SetupFlowProps) 
                     <h2 className="type-h2 m-0 text-navy tablet:col-start-2">{offer.title}</h2>
                     <p className="type-body-small m-0 text-ink-muted tablet:col-start-2">{offer.body}</p>
                     <div className="w-full tablet:col-start-3 tablet:row-span-2 tablet:row-start-1 tablet:w-rail-wide">
-                      <Button variant="secondary" size="lg" fullWidth lang={locale} loading={offer.busy} onClick={offer.onClick}>
-                        {offer.button}
-                      </Button>
+                      {offer.onClick ? (
+                        <Button variant="secondary" size="lg" fullWidth lang={locale} loading={offer.busy} onClick={offer.onClick}>
+                          {offer.button}
+                        </Button>
+                      ) : (
+                        <TelegramLinkForm
+                          from="setup"
+                          locale={locale}
+                          simulated={simulated}
+                          onOpen={simulated ? undefined : () => goToStep(2)}
+                          variant="secondary"
+                          size="lg"
+                          fullWidth
+                        >
+                          {offer.button}
+                        </TelegramLinkForm>
+                      )}
                     </div>
                   </Card>
                 </li>

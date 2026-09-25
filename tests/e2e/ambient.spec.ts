@@ -54,6 +54,18 @@ async function clickWhenLive(locator: import('@playwright/test').Locator) {
   await locator.click();
 }
 
+/**
+ * Rule 7 / AP-09 (CR-083): no link token anywhere in the page, the RSC payload included. The whole
+ * document (page.content(), not the body's text), because a token in a client component's props is
+ * serialised into the page's flight data even when nothing renders it. Seed tokens are
+ * `mock-token-ml-NN`, live ones `mock-token-live-N`; a real one would only ever sit in a t.me URL.
+ */
+async function expectNoLinkToken(page: Page) {
+  const html = await page.content();
+  expect(html).not.toMatch(/mock-token-/);
+  expect(html).not.toMatch(/t\.me\/[A-Za-z0-9_]+\?start=/);
+}
+
 async function noOverflowAndAxeClean(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow, 'horizontal overflow in px').toBeLessThanOrEqual(0);
@@ -226,7 +238,7 @@ for (const [locale, dir] of LOCALES) {
       await noOverflowAndAxeClean(page);
     });
 
-    test('فاطمة — push denied: neutral tone, no warning/danger class, never a nag; chat: her retry link is the current, most-recently-created row (pending)', async ({ page, context, baseURL }) => {
+    test('فاطمة — push denied: neutral tone, no warning/danger class, never a nag; chat: her retry link is the current, most-recently-created row (pending)', async ({ page, context, baseURL }, testInfo) => {
       await addSession(context, baseURL, 'fatima');
       await page.goto(`/${locale}/app/more/notifications`);
       await expect(page.getByTestId('push-denied')).toBeVisible();
@@ -237,7 +249,18 @@ for (const [locale, dir] of LOCALES) {
       // so her CURRENT chat state resolves to `pending`, not `expired` (no seeded patient's current
       // state ever resolves to `expired` — recorded in docs/backend-notes/wp4g.md).
       await expect(page.getByTestId('chat-pending')).toBeVisible();
+      // AP-09: ml-05 carries a live seed token (mock-token-ml-05); the page holds none of it, and the
+      // waiting state offers "I pressed Start" and "Open Telegram again" (a form to the link route).
+      await expectNoLinkToken(page);
+      const pendingState = page.getByTestId('chat-pending');
+      await expect(pendingState.getByRole('button', { name: copy.ambient.e5ChatCheckAction[locale] })).toBeVisible();
+      await expect(pendingState.locator('form[action="/api/messaging/telegram/open"][method="post"]')).toHaveCount(1);
       await noOverflowAndAxeClean(page);
+      if (testInfo.project.name === 'phone-390') {
+        // The chat section at 390 px (the shell scrolls inside its own container, so a full-page shot
+        // would stop at the first screen); copied to docs/backend-notes/ap-09/ as the acceptance proof.
+        await page.getByTestId('chat-section').screenshot({ path: testInfo.outputPath(`e5-pending-${locale}-390.png`) });
+      }
     });
 
     test('iOS Safari not installed (dev-only render fixture, ?view=ios) — Home Screen install steps, never a bare promise', async ({ page, context, baseURL }) => {
@@ -317,21 +340,33 @@ test.describe('E5 — chat round trip (one-shot)', () => {
     await expect(page.getByTestId('chat-not-connected')).toBeVisible(); // still pristine at this point in the run
     let body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
+    await expectNoLinkToken(page);
 
-    // The mock confirms `pending → connected` only ~50ms after `startMessagingLink` — often faster
-    // than this click's own `router.refresh()` round trip, so the `pending` render is not reliably
-    // observable here (it IS observable, statically and without a race, on فاطمة's own retry link —
-    // the `pending` test above). Accept either transient render, then wait for the real settle.
+    // AP-09: "Open Telegram" is a form POST to the link route, which mints حمد's own link. The bot is
+    // simulated in this run (no JURAH_BOT_TOKEN), so its answer is a 303 straight back to E5, with no
+    // token and no t.me anywhere in it; with a real bot the same answer's Location is the t.me link
+    // (tests/unit/api/telegram-open.test.ts). The mock confirms ~50ms later, often before E5 has
+    // re-rendered, so either transient state is accepted before waiting for the real settle.
+    const answer = page.waitForResponse((r) => r.url().endsWith('/api/messaging/telegram/open') && r.request().method() === 'POST');
     await clickWhenLive(page.getByRole('button', { name: copy.ambient.e5OpenChatAction.ar }));
+    const routeAnswer = await answer;
+    expect(routeAnswer.status()).toBe(303);
+    expect(routeAnswer.headers()['location']).toBe('/ar/app/more/notifications');
+    expect(routeAnswer.headers()['cache-control']).toBe('no-store');
+    expect(routeAnswer.headers()['referrer-policy']).toBe('no-referrer');
+    expect(routeAnswer.request().headers()['origin']).toBe(new URL(baseURL ?? 'http://localhost:3100').origin);
+    expect(routeAnswer.request().postData()).toBe('locale=ar&from=notifications');
     await expect(page.getByTestId('chat-pending').or(page.getByTestId('chat-connected'))).toBeVisible();
     body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
+    await expectNoLinkToken(page);
 
     // The mock confirms after its own short server-side delay — waited for, never slept for a
     // fixed guess (this file's own polling effect re-requests the page's data on a timer).
     await expect(page.getByTestId('chat-connected')).toBeVisible({ timeout: 15_000 });
     body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
+    await expectNoLinkToken(page);
 
     await page.getByRole('button', { name: copy.ambient.e5SendTestMessageAction.ar }).click();
     // Daylight: the screen says the test message went, in its own words (no longer the clipboard's "Copied").
@@ -347,5 +382,28 @@ test.describe('E5 — chat round trip (one-shot)', () => {
     await expect(page.getByTestId('chat-not-connected')).toBeVisible();
     body = await page.locator('body').innerHTML();
     expect(body).not.toMatch(/mock-token-live-/);
+    await expectNoLinkToken(page);
+  });
+});
+
+test.describe('E5 — the link route refuses everything but a same-origin post (AP-09, read-only)', () => {
+  test('a cross-site post, a post with no Origin and a GET mint nothing and carry no token', async ({ page, context, baseURL }) => {
+    // بدر has no link row at all, so any mint would show on his E5 (and nothing else of his is touched).
+    await addSession(context, baseURL, 'badr');
+    const form = { locale: 'en', from: 'notifications' };
+    for (const headers of [{ origin: 'https://evil.example' }, {}] as Record<string, string>[]) {
+      const r = await page.request.post('/api/messaging/telegram/open', { form, headers, maxRedirects: 0 });
+      expect(r.status()).toBe(303);
+      expect(r.headers()['location']).toBe('/en/app/more/notifications');
+      expect(r.headers()['cache-control']).toBe('no-store');
+      expect(await r.text()).toBe('');
+    }
+    // One way in: F1's GET (which read the pending token) no longer exists.
+    const get = await page.request.get('/api/messaging/telegram/open?locale=en', { maxRedirects: 0 });
+    expect(get.status()).toBe(405);
+    // Nothing was minted: بدر's chat is still not connected.
+    await page.goto('/en/app/more/notifications');
+    await expect(page.getByTestId('chat-not-connected')).toBeVisible();
+    await expectNoLinkToken(page);
   });
 });
