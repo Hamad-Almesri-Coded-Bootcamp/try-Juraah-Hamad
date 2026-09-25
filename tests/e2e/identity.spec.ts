@@ -211,6 +211,12 @@ test.describe('A1b — role chooser (سارة)', () => {
 // A2 — first-run setup (بدر)
 // ---------------------------------------------------------------------------------------------
 test.describe('A2 — first-run setup (بدر)', () => {
+  // The app's service worker (public/sw.js) answers every navigation, and a form post is one. Once
+  // it controls the page (at once on a production build; a cold `next dev` is often too slow to
+  // install it in time), page.route never sees the post: it goes to the real route and mints a real
+  // link for بدر, which the specs that read his state as untouched then see. The route's own answer
+  // is proven elsewhere, so this block runs without a service worker.
+  test.use({ serviceWorkers: 'block' });
   // بدر (`onboardingCompleted: false`) is the seed's ONE never-onboarded patient (CR-004), and
   // `completeOnboarding` has no undo — the mock store is a server-side singleton that survives for
   // the life of the dev server (D-002), shared by every project this file runs under. Any test that
