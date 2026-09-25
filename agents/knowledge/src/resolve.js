@@ -142,4 +142,27 @@ function resolveToIngredient(rawName, brandIndex, opts) {
   return { outcome: OUTCOME.UNRESOLVED, reason: 'not_in_mapping_table', input: rawName, normalised: normaliseDrugName(rawName) };
 }
 
-module.exports = { OUTCOME, buildBrandIndex, resolveToIngredient };
+/**
+ * A lookup from a normalised candidate key to an UNVERIFIED brand's own label (data/brand-map.json
+ * pendingVerification.brands), so a box we refuse to resolve can still be told apart from a name we
+ * have never heard of at all (CR-078: cannot_verify, reason brand_not_verified).
+ *
+ * Built only from brand / sfdaTradeName / aliases - NEVER from ingredients, because a pending row is
+ * exactly the one we are not willing to say is Warfarin (or anything else) yet. AP-07 promotes a row
+ * by setting verified:true, which moves it out of this list and into buildBrandIndex's.
+ */
+function buildPendingNames(rows) {
+  const byKey = new Map();
+  for (const row of rows || []) {
+    if (!row || row.verified === true) continue;
+    const names = [row.brand, row.sfdaTradeName, ...(row.aliases || [])].filter(Boolean);
+    for (const n of names) {
+      for (const key of candidateKeys(n)) {
+        if (!byKey.has(key)) byKey.set(key, row.brand);
+      }
+    }
+  }
+  return byKey;
+}
+
+module.exports = { OUTCOME, buildBrandIndex, resolveToIngredient, buildPendingNames };
