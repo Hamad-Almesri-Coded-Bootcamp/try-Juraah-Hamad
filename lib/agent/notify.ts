@@ -11,6 +11,15 @@
  * Copy comes from the catalogue (i18n/copy); there is no alert-notification entry, so the app name
  * and the existing severity labels are reused (copy-deck item, docs/backend-notes/p2-wp7.md).
  * A caregiver has no Settings row: its locale is the linked patient's language.
+ *
+ * AP-18/CR-105: the PATIENT's Telegram send additionally respects `Settings.notificationChannel`
+ * ("AI Agents Acceptance Criteria.md" line 193 — `"none"` means send nothing). `recipientsFor`
+ * already reads it as exactly one of 'none' | 'telegram' | 'whatsapp' | 'email' (a missing settings
+ * row or an unrecognised value normalised to 'none' there, never guessed here); only 'telegram' has
+ * a transport, so 'whatsapp' and 'email' fail closed the same as 'none' until one exists. This never
+ * gates a caregiver (no Settings row exists for one — an ACTIVE caregiver's chat always receives
+ * alerts) or push (contracts.ts:224: notificationChannel is "the CHAT channel" only; push is
+ * governed by the granted subscription alone).
  */
 import { APP_ORIGIN, BOT_IS_SIMULATED, PUSH_IS_SIMULATED } from '@/lib/config';
 import { sendPush, type PushPayload } from '@/lib/push/send';
@@ -57,7 +66,11 @@ export async function deliverAlert(alert: InteractionAlert): Promise<Delivery[]>
       const r = await sendPush(t.push, alertPushPayload(alert, t.subjectType, locale));
       if (r.sent) delivered.push({ subjectType: t.subjectType, subjectId: t.subjectId, channel: 'push' });
     }
-    if (t.chatId && !BOT_IS_SIMULATED) {
+    // CR-105: 'none' (or an unrecognised value, already normalised to 'none') sends nothing; only
+    // 'telegram' has a transport today. This is the PATIENT's own setting only — a caregiver target
+    // here has no Settings row and is never gated by it.
+    const chatAllowed = t.subjectType !== 'patient' || recipients.notificationChannel === 'telegram';
+    if (t.chatId && !BOT_IS_SIMULATED && chatAllowed) {
       const r = await sendMessage(t.chatId, alertChatText(alert, t.subjectType, locale));
       if (r.sent) delivered.push({ subjectType: t.subjectType, subjectId: t.subjectId, channel: 'telegram' });
     }

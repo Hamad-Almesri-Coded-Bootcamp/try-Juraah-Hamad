@@ -15,6 +15,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 
+/**
+ * One fixed clock for the whole run. Every scenario and every Code node (they run in this realm, via
+ * AsyncFunction) reads "now" from here, so no run depends on the real time of day. Before this, a run
+ * that crossed Kuwait midnight computed "today" before it and walked the scenario after it, and the
+ * "next open dose" scenarios failed. CHECK_NOW sits on the fixture day (2026-09-24), in the afternoon.
+ * Only a no-argument `new Date()` and `Date.now()` are frozen; any explicit date is unchanged.
+ */
+const CHECK_NOW = '2026-09-24T15:00:00+03:00';
+{
+  const RealDate = Date;
+  const fixedMs = RealDate.parse(CHECK_NOW);
+  class FrozenDate extends RealDate {
+    constructor(...args) { if (args.length === 0) super(fixedMs); else super(...args); }
+    static now() { return fixedMs; }
+  }
+  globalThis.Date = FrozenDate;
+}
+
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
 const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa', 'agent-webchat'];
@@ -104,19 +122,32 @@ const DAY = { patientId: 'pt-03', date: '2026-09-24', doses: [
   dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN),
   dose('rx-009-20260924-2100', 'rx-009', '21:00', OPEN),
 ] };
+// pt-03's active prescriptions, exactly as GET /api/agent/patients/{id}/prescriptions answers.
+const RX_BODY = { patientId: 'pt-03', prescriptions: [
+  { id: 'rx-008', patientId: 'pt-03', drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin' }, status: 'active', needsReview: false },
+  { id: 'rx-009', patientId: 'pt-03', drug: { genericName: 'Calcium carbonate + vitamin D3' }, status: 'active', needsReview: false },
+] };
+// pt-01's ACTIVE caregivers, exactly as GET /api/agent/alert-recipients?patientId= answers (§B).
+const RECIPIENTS_BODY = { patientId: 'pt-01', patient: { chatId: '5550009', push: false }, caregivers: [{ caregiverId: 'cg-01', chatId: '5550002', push: false }] };
 const relay = (over) => [{ json: { body: {
   kind: 'message', chatId: '5550001', messageId: 1, sentAt: '2026-09-24T07:20:00+03:00', text: 'خذيته',
   photoFileId: null, documentFileId: null, callbackQueryId: null,
   channel: 'telegram', subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', ...over } } }];
 
 /** Walk the adherence path of agent-telegram-inbound exactly as its connections do. */
-async function inbound({ payload, dosesResponse = http(200, DAY), model, write1 = 200, write2 = 200 }) {
+async function inbound({
+  payload, dosesResponse = http(200, DAY), prevDosesResponse, prescriptionsResponse = http(200, RX_BODY),
+  recipientsResponse = http(200, RECIPIENTS_BODY), model, write1 = 200, write2 = 200,
+}) {
   const wf = WF('agent-telegram-inbound');
   const r = runner(wf);
   const routed = await r.code('route (deterministic)', payload);
   if (routed.length === 0) return { dropped: true };
   assert.equal(routed[0].json.route, 'adherence');
   r.set('backend: doses of the day', dosesResponse);
+  r.set('backend: active prescriptions', prescriptionsResponse);
+  if (routed[0].json.prevDosesUrl) r.set('backend: doses of the previous day', prevDosesResponse === undefined ? dosesResponse : prevDosesResponse);
+  if (routed[0].json.subjectType === 'caregiver') r.set('backend: alert recipients (caregiver check)', recipientsResponse);
   const decideInput = routed[0].json.needsModel ? [{ json: { output: model } }] : dosesResponse;
   const [d] = await r.code('decide (deterministic)', decideInput);
   const calls = [];
@@ -130,7 +161,8 @@ async function inbound({ payload, dosesResponse = http(200, DAY), model, write1 
     }
   }
   const replies = await r.code('reply (deterministic)', [{ json: {} }]);
-  return { routed: routed[0].json, decision: d.json.decision, calls, replies: replies.map((x) => x.json) };
+  const caregiverLog = await r.code('log: non-active caregiver (deterministic)', [{ json: {} }]);
+  return { routed: routed[0].json, decision: d.json.decision, calls, replies: replies.map((x) => x.json), caregiverLog: caregiverLog.map((x) => x.json) };
 }
 
 async function scenarios() {
@@ -200,6 +232,127 @@ async function scenarios() {
       const s = await inbound({ payload: [{ json: { body } }] });
       assert.equal(s.dropped, true);
     }
+  });
+
+  console.log('\n######## agent-telegram-inbound (AP-05 - adherence hardening)');
+  await check('TC-RS-03: "الدكتور قال أوقف الدواء" writes nothing; one Stop <drug>? button per active prescription plus none of these; an unparseable callback never reaches the model', async () => {
+    const asked = await inbound({ payload: relay({ text: 'الدكتور قال أوقف الدواء' }), model: { intent: 'discontinued_by_doctor', confidence: 0.9, quote: 'الدكتور قال أوقف الدواء' } });
+    assert.equal(asked.calls.length, 0);
+    assert.equal(asked.decision.outcome, 'confirm_discontinue');
+    assert.equal(asked.replies.length, 4); // header + rx-008 + rx-009 + "none of these"
+    assert.equal(asked.replies[0].buttons, null);
+    assert.deepEqual(asked.replies.slice(1).map((m) => m.buttons.length), [1, 1, 1]);
+    assert.equal(asked.replies[1].buttons[0].data, 's:rx-008');
+    assert.equal(asked.replies[2].buttons[0].data, 's:rx-009');
+    assert.equal(asked.replies[3].buttons[0].data, 'n:none');
+    console.log('        -> ' + asked.replies[0].text + ' | ' + asked.replies.slice(1).map((m) => m.text).join(' / '));
+    // A callback with unparseable data (neither d: nor s:/n:none) never reaches Gemini.
+    const garbled = await inbound({ payload: relay({ kind: 'callback', text: 'garbage', callbackQueryId: 'cbq-g' }) });
+    assert.equal(garbled.routed.needsModel, false);
+    assert.equal(garbled.calls.length, 0);
+  });
+  await check('TC-RS-03: a tap s:<rxId> of THIS patient discontinues that one prescription, with a fixed reason (no quote fits in 64 bytes)', async () => {
+    const tapped = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-008', callbackQueryId: 'cbq-s1', sentAt: '2026-09-24T08:01:00+03:00' }) });
+    assert.equal(tapped.routed.needsModel, false);
+    assert.equal(tapped.calls.length, 1);
+    assert.match(tapped.calls[0].url, /\/schedule\/recompute$/);
+    assert.deepEqual(tapped.calls[0].body, { prescriptionId: 'rx-008', reason: 'discontinued', discontinuedReason: tapped.calls[0].body.discontinuedReason });
+    assert.ok(tapped.calls[0].body.discontinuedReason.length > 0);
+    assert.match(tapped.replies[0].text, /Eltroxin/);
+  });
+  await check('TC-RS-03: "none of these" writes nothing; an unknown or foreign prescription id writes nothing; a caregiver’s stop tap is refused', async () => {
+    const none = await inbound({ payload: relay({ kind: 'callback', text: 'n:none', callbackQueryId: 'cbq-n' }) });
+    assert.equal(none.calls.length, 0);
+    assert.equal(none.decision.outcome, 'discontinue_none');
+    const unknown = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-999', callbackQueryId: 'cbq-u' }) });
+    assert.equal(unknown.calls.length, 0);
+    assert.equal(unknown.decision.outcome, 'no_dose');
+    const byCaregiver = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-008', callbackQueryId: 'cbq-c', subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(byCaregiver.calls.length, 0);
+    assert.equal(byCaregiver.decision.outcome, 'caregiver_refused');
+  });
+  await check('TC-AD-12 (after midnight): 00:40 with only YESTERDAY’s dose open -> the previous day is fetched and that dose is recorded; the fetch is required (missing or refused -> refused, never a silent fall back to today alone)', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    const emptyToday = { patientId: 'pt-03', date: '2026-09-24', doses: [] };
+    const s = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, emptyToday), prevDosesResponse: http(200, yesterday),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.match(s.routed.prevDosesUrl, /doses\?date=2026-09-23$/);
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].url, /rx-009-y-2100\/status$/);
+    const refused = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, emptyToday), prevDosesResponse: http(503, { error: 'unavailable' }),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.equal(refused.calls.length, 0);
+    assert.equal(refused.decision.outcome, 'refused');
+  });
+  await check('TC-AD-12: two open doses across both days (after midnight) -> ask which, one button message per dose, yesterday’s marked; 03:00 reads today only', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    // 00:15 today - due (within the 1-hour grace) by the time the reply arrives at 00:40.
+    const today = { patientId: 'pt-03', date: '2026-09-24', doses: [dose('rx-008-20260924-0015', 'rx-008', '00:15', OPEN, 'Eltroxin')] };
+    const s = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, today), prevDosesResponse: http(200, yesterday),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.equal(s.decision.outcome, 'ask_which');
+    assert.equal(s.calls.length, 0);
+    assert.match(s.replies[1].text, /^أمس 21:00/);
+    assert.doesNotMatch(s.replies[2].text, /^أمس/);
+    // From 03:00 on, no previous-day fetch is even requested.
+    const late = await inbound({ payload: relay({ sentAt: '2026-09-24T03:00:00+03:00', text: 'خذيته' }), dosesResponse: http(200, today), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(late.routed.prevDosesUrl, null);
+  });
+  await check('TC-AD-12: a tap on the ASK\'s yesterday button, itself sent after midnight, still fetches the previous day (the tap\'s own sentAt is the tap time, not the check-in message\'s) and records that dose, never no_dose', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    const today = { patientId: 'pt-03', date: '2026-09-24', doses: [dose('rx-008-20260924-0015', 'rx-008', '00:15', OPEN, 'Eltroxin')] };
+    const s = await inbound({
+      payload: relay({ kind: 'callback', text: 'd:rx-009-y-2100:taken_on_time', callbackQueryId: 'cbq-y1', sentAt: '2026-09-24T00:41:00+03:00' }),
+      dosesResponse: http(200, today), prevDosesResponse: http(200, yesterday),
+    });
+    assert.equal(s.routed.needsModel, false);
+    assert.match(s.routed.prevDosesUrl, /doses\?date=2026-09-23$/);
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].url, /rx-009-y-2100\/status$/);
+    assert.equal(s.calls[0].body.status, W_ON);
+    assert.notEqual(s.decision.outcome, 'no_dose');
+  });
+  await check('TC-AD-09 (CR-092): trackingOn false and nothing open -> "check-ins are not switched on", no write; trackingOn absent -> the plain no-dose reply', async () => {
+    const empty = { patientId: 'pt-03', date: '2026-09-24', doses: [] };
+    const off = await inbound({ payload: relay({ trackingOn: false }), dosesResponse: http(200, empty), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(off.decision.outcome, 'tracking_off');
+    assert.equal(off.calls.length, 0);
+    assert.match(off.replies[0].text, /متابعة الجرعات/);
+    const absent = await inbound({ payload: relay({}), dosesResponse: http(200, empty), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(absent.decision.outcome, 'no_dose');
+  });
+  await check('TC-AD-16: an alleged caregiver NOT confirmed active (alert-recipients) -> nothing sent, nothing written, one log item, never a chat id; an ACTIVE caregiver keeps the plain refusal and logs nothing; the check itself failing is ALSO unverified (fail closed)', async () => {
+    const unverified = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-99', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(unverified.decision.outcome, 'caregiver_unverified');
+    assert.equal(unverified.replies.length, 0);
+    assert.equal(unverified.calls.length, 0);
+    assert.deepEqual(unverified.caregiverLog, [{ patientId: 'pt-01', reason: 'non_active_caregiver' }]);
+    assert.ok(!JSON.stringify(unverified.caregiverLog).includes('chatId'));
+    const active = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(active.decision.outcome, 'caregiver_refused');
+    assert.equal(active.replies.length, 1);
+    assert.deepEqual(active.caregiverLog, []);
+    const down = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(503, { error: 'unavailable' }) });
+    assert.equal(down.decision.outcome, 'caregiver_unverified');
+  });
+  await check('G10: a failed Telegram send (onError: continueRegularOutput) -> one log item, never a chat id or the message text', async () => {
+    const wf = WF('agent-telegram-inbound');
+    const r = runner(wf);
+    const failedSend = [{ json: { error: { message: 'Bad Request: chat not found' } } }];
+    const log = await r.code('log: failed Telegram send (text)', failedSend);
+    assert.deepEqual(log.map((x) => x.json), [{ node: 'Telegram: reply', doseId: null, error: 'Bad Request: chat not found' }]);
+    assert.ok(!JSON.stringify(log).includes('chatId') && !JSON.stringify(log).includes('text'));
+    const okSend = [{ json: { chatId: '1', text: 'hi' } }];
+    assert.deepEqual(await r.code('log: failed Telegram send (buttons)', okSend), []);
   });
 
   console.log('\n######## agent-telegram-inbound (extraction)');
@@ -273,6 +426,60 @@ async function scenarios() {
     const r = runner(WF('agent-checkin-daily'));
     assert.equal((await r.code('plan (deterministic)', http(200, []))).length, 0);
     assert.equal((await r.code('plan (deterministic)', http(401, { error: 'unauthorized' }))).length, 0);
+  });
+  await check('TC-AD-08: an eligible patient without a chat id, or with nothing open, or a refused doses fetch -> no message and exactly one log item each; a real day is never logged; the log still runs when the plan is empty', async () => {
+    const eligibility = [
+      { patientId: 'pt-01', chatId: null, language: 'ar', frequency: 'daily' }, // no chat id (plan-time skip)
+      { patientId: 'pt-02', chatId: '5550002', language: 'ar', frequency: 'daily' }, // nothing open
+      { patientId: 'pt-04', chatId: '5550004', language: 'ar', frequency: 'daily' }, // refused fetch
+      { patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }, // a real day - never logged
+    ];
+    const r = runner(WF('agent-checkin-daily'));
+    r.set('backend: who is eligible', http(200, eligibility));
+    r.set('backend: doses of the day', [
+      { json: { statusCode: 200, body: { doses: [] } } },
+      { json: { statusCode: 503, body: {} } },
+      { json: { statusCode: 200, body: DAY } },
+    ]);
+    const log = await r.code('log: skipped patients (deterministic)', [{ json: {} }]);
+    assert.deepEqual(log.map((x) => x.json), [
+      { patientId: 'pt-01', reason: 'no_chat_id' },
+      { patientId: 'pt-02', reason: 'no_open_doses' },
+      { patientId: 'pt-04', reason: 'doses_fetch_refused' },
+    ]);
+    assert.ok(!JSON.stringify(log).includes('chatId'));
+    // The plan is empty (nobody survives) -> 'backend: doses of the day' never runs, and the log still does.
+    const r2 = runner(WF('agent-checkin-daily'));
+    r2.set('backend: who is eligible', http(200, [{ patientId: 'pt-05', chatId: null, language: 'ar', frequency: 'daily' }]));
+    const log2 = await r2.code('log: skipped patients (deterministic)', [{ json: {} }]);
+    assert.deepEqual(log2.map((x) => x.json), [{ patientId: 'pt-05', reason: 'no_chat_id' }]);
+  });
+  await check('AP-05: the named log nodes exist in both workflows and are wired from a node that always runs; agent-checkin-daily makes no POST and no call whose URL contains /doses/ or /schedule/', () => {
+    const in_ = WF('agent-telegram-inbound');
+    const inNames = in_.nodes.map((n) => n.name);
+    for (const name of ['log: non-active caregiver (deterministic)', 'log: failed Telegram send (buttons)', 'log: failed Telegram send (text)', 'log: failed Telegram send (extraction reply)']) {
+      assert.ok(inNames.includes(name), name + ' is missing from agent-telegram-inbound');
+    }
+    const wired = (conns, from, to) => (conns[from].main[0] || []).some((c) => c.node === to);
+    assert.ok(wired(in_.connections, 'decide (deterministic)', 'log: non-active caregiver (deterministic)'));
+    assert.ok(wired(in_.connections, 'Telegram: reply with buttons', 'log: failed Telegram send (buttons)'));
+    assert.ok(wired(in_.connections, 'Telegram: reply', 'log: failed Telegram send (text)'));
+    assert.ok(wired(in_.connections, 'Telegram: extraction reply', 'log: failed Telegram send (extraction reply)'));
+
+    const ck = WF('agent-checkin-daily');
+    const ckNames = ck.nodes.map((n) => n.name);
+    for (const name of ['log: skipped patients (deterministic)', 'log: failed Telegram send (buttons)', 'log: failed Telegram send (header)']) {
+      assert.ok(ckNames.includes(name), name + ' is missing from agent-checkin-daily');
+    }
+    assert.ok(wired(ck.connections, 'backend: who is eligible', 'log: skipped patients (deterministic)'));
+    assert.ok(wired(ck.connections, 'Telegram: dose with buttons', 'log: failed Telegram send (buttons)'));
+    assert.ok(wired(ck.connections, 'Telegram: header', 'log: failed Telegram send (header)'));
+    const httpNodes = ck.nodes.filter((n) => n.type === 'n8n-nodes-base.httpRequest');
+    assert.ok(httpNodes.length > 0);
+    for (const n of httpNodes) {
+      assert.equal(n.parameters.method, 'GET', n.name + ' is not a GET - agent-checkin-daily only ever reads and sends Telegram messages');
+      assert.ok(!/\/(doses|schedule)\//.test(JSON.stringify(n.parameters)), n.name + ' names a /doses/ or /schedule/ URL');
+    }
   });
 
   console.log('\n######## agent-interaction-screening');
