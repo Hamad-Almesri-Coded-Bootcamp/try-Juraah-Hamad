@@ -2,9 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { index, brandIndex, pendingNames, seedActive, rx } = require('./helpers');
+const { index, brandIndex, pendingNames, seedActive, rx, BRANDS_JSON } = require('./helpers');
 const { travelCheck, appOutcomeFor, VERDICT } = require('../src/travel-check');
-const { buildBrandIndex } = require('../src/resolve');
+const { buildBrandIndex, resolveToIngredient } = require('../src/resolve');
 
 const check = (over) => travelCheck(Object.assign({ index, brandIndex, language: 'ar', patientId: 't-patient' }, over));
 
@@ -17,7 +17,9 @@ test('G5: empty or unreadable text -> could_not_identify, app outcome could_not_
 });
 
 test('G2: a name not in the verified map or the index is a refusal, never a guess', () => {
-  const r = check({ visionText: 'Brufen 400', prescriptions: seedActive('pt-01') });
+  // Lipitor really is absent from the SFDA register on 2026-09-24 (AP-07), so this still exercises
+  // the refusal with a genuinely unverified name. Brufen 400 now resolves - see the AP-07 tests below.
+  const r = check({ visionText: 'Lipitor 20', prescriptions: seedActive('pt-01') });
   assert.equal(r.verdict, 'could_not_identify');
   assert.equal(r.reason, 'not_in_mapping_table');
 });
@@ -34,6 +36,74 @@ test('unverified (pendingVerification) brands are never loaded - MAREVAN never r
   assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
   // Without the pending-brand list (the default in every other test here), the same box is simply unknown.
   assert.equal(check({ visionText: 'Marevan', prescriptions: [] }).verdict, 'could_not_identify');
+});
+
+// ---------------------------------------------------------------- AP-07: SFDA brand verification
+test('AP-07: BRUFEN resolves to Ibuprofen', () => {
+  for (const name of ['BRUFEN', 'Brufen 400', 'BRUFEN 400 MG TAB', 'BRUFEN TAB 600MG']) {
+    const r = resolveToIngredient(name, brandIndex);
+    assert.equal(r.outcome, 'resolved', name);
+    assert.deepEqual(r.ingredientLabels, ['Ibuprofen'], name);
+    assert.equal(r.via, 'brand', name);
+    assert.equal(r.sfdaTradeName, 'BRUFEN 400 MG TAB', name);
+    assert.ok(index.drugs.has(r.ingredients[0]), name + ': key is in index.drugs');
+  }
+
+  // BRUFEN photographed by حمد, whose active profile already carries Marevan (Warfarin, rx-001):
+  // Warfarin x Ibuprofen is the seed's own DDInter Major row (ia-001, AP-06).
+  const danger = check({ patientId: 'pt-01', visionText: 'BRUFEN', prescriptions: seedActive('pt-01') });
+  assert.equal(danger.verdict, 'interaction_found');
+  assert.ok(danger.alert);
+  assert.equal(danger.alert.reviewStatus, 'pending_medical_review');
+  assert.match(danger.alert.sourceCitation, /level "Major"/);
+
+  const row = BRANDS_JSON.brands.find((b) => b.brand === 'BRUFEN');
+  assert.equal(row.source, BRANDS_JSON.meta.source);
+  assert.equal(row.retrievedAt, '2026-09-24');
+  assert.match(row.retrievedBy, /approved by the owner \(Mohammad\) on 2026-09-25/);
+});
+
+test('AP-07: GLUCOPHAGE resolves to Metformin', () => {
+  for (const name of ['GLUCOPHAGE', 'Glucophage XR', 'GLUCOPHAGE 850 mg tablet', 'GLUCOPHAGE 1 g tablet', 'GLUCOPHAGE XR 750MG TABLET']) {
+    const r = resolveToIngredient(name, brandIndex);
+    assert.equal(r.outcome, 'resolved', name);
+    assert.deepEqual(r.ingredientLabels, ['Metformin'], name);
+    assert.equal(r.via, 'brand', name);
+  }
+
+  const clean = check({ visionText: 'GLUCOPHAGE', prescriptions: [rx('t-1', 'Calcium carbonate')] });
+  assert.equal(clean.verdict, 'no_interaction_found');
+  assert.deepEqual(clean.appOutcome, { kind: 'identified', drugName: 'Metformin', verdict: 'no_interaction' });
+
+  const row = BRANDS_JSON.brands.find((b) => b.brand === 'GLUCOPHAGE');
+  assert.equal(row.source, BRANDS_JSON.meta.source);
+  assert.equal(row.retrievedAt, '2026-09-24');
+  assert.match(row.retrievedBy, /approved by the owner \(Mohammad\) on 2026-09-25/);
+});
+
+test('AP-07: MAREVAN and LIPITOR fail closed - not in the SFDA list on 2026-09-24', () => {
+  const pending = BRANDS_JSON.pendingVerification.brands;
+  const marevan = pending.find((b) => b.brand === 'MAREVAN');
+  const lipitor = pending.find((b) => b.brand === 'LIPITOR');
+  // The input this test needs must actually exist, so it cannot pass on a row that was never added.
+  assert.ok(marevan && marevan.verified === false, 'MAREVAN must be present in pendingVerification, unverified');
+  assert.ok(lipitor && lipitor.verified === false, 'LIPITOR must be present in pendingVerification, unverified');
+  assert.equal(BRANDS_JSON.brands.some((b) => b.brand === 'MAREVAN'), false, 'MAREVAN must not be in the verified brands list');
+  assert.equal(BRANDS_JSON.brands.some((b) => b.brand === 'LIPITOR'), false, 'LIPITOR must not be in the verified brands list');
+
+  // The verified:false flag is what gates them, not merely which section of the file they sit in.
+  const everything = buildBrandIndex(BRANDS_JSON.brands.concat(pending), index);
+  assert.equal(everything.has('marevan'), false);
+  assert.equal(everything.has('lipitor'), false);
+
+  for (const text of ['Marevan 5 mg', 'Lipitor 20 mg']) {
+    const r = check({ visionText: text, prescriptions: seedActive('pt-01') });
+    assert.equal(r.verdict, 'could_not_identify', text);
+    assert.equal(r.reason, 'not_in_mapping_table', text);
+    assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' }, text);
+    assert.deepEqual(r.findings, [], text);
+    assert.equal(r.alert, null, text);
+  }
 });
 
 test('one near match -> needs_confirmation (the chat may ask), app outcome could_not_identify', () => {
@@ -178,6 +248,12 @@ test('patient-facing travel text never shows a raw normalised key', () => {
 test('a generic box is named by its ingredient, not by the brand row that owns the key', () => {
   const r = check({ visionText: 'Acetaminophen 500 mg', prescriptions: [], language: 'en' });
   assert.equal(r.candidate.brandLabel, 'Acetaminophen');
+});
+
+test('AP-07 regression: BRUFEN now owns the ibuprofen key, as PANADOL owns acetaminophen - a generic box still names itself', () => {
+  const r = check({ visionText: 'Ibuprofen 400 mg', prescriptions: [rx('t-1', 'Ciprofloxacin')], language: 'en' });
+  assert.equal(r.candidate.brandLabel, 'Ibuprofen');
+  assert.equal(r.candidate.via, 'generic');
 });
 
 test('singular/plural: one or two unconfirmed prescriptions read correctly', () => {
