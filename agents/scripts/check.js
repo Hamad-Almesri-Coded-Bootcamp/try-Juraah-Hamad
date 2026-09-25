@@ -880,6 +880,23 @@ async function alexaScenarios() {
     assert.match(text(s), /مو مربوط/);
     assert.equal(s.spoken.log.userId, USER);
   });
+  await check('CR-106: "Alexa, ask medicine helper" -> the greeting alone, in each language; the session stays open with the same reprompt; nothing read', async () => {
+    for (const [locale, language, greeting, reprompt] of [
+      ['ar-SA', 'ar', 'هلا، معك جرعة AI. شلون أقدر أساعدك؟', 'شنو تبي تعرف عن أدويتك؟'],
+      ['en-US', 'en', 'Hi, Jur\'ah AI. How can I help?', 'What would you like to know about your medicines?'],
+    ]) {
+      const s = await walk(linked, body('LaunchRequest', null, locale));
+      assert.equal(text(s), greeting);
+      assert.equal(s.spoken.alexa.response.shouldEndSession, false);
+      assert.equal(s.spoken.alexa.response.reprompt.outputSpeech.text, reprompt);
+      assert.equal(s.intent.needsDoses, false);
+      assert.deepEqual(s.calls.map((c) => c.method), ['POST']); // only the screen turn
+      assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.language, s.spoken.screen.reply], ['launch', language, greeting]);
+      assert.deepEqual(s.prompts, []);
+      readOnly(s);
+      console.log('        -> ' + text(s));
+    }
+  });
   await check('«شنو جرعتي الجاية» -> the next OPEN dose, spoken in Arabic, session stays open', async () => {
     const s = await walk(linked, body('IntentRequest', 'NextDoseIntent'));
     assert.match(s.parsed.dosesUrl, /\/api\/agent\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/);
