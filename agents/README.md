@@ -108,7 +108,7 @@ and device links - a file id is a low-value secret, but it is not this repositor
 
 ## What is proven, and what is not
 
-Proven here: the decision layers (`agents/test`, 167 tests), every generated Code node compiles and
+Proven here: the decision layers (`agents/test`, 178 tests), every generated Code node compiles and
 runs the spec's scenarios (`scripts/check.js`, `scripts/check-error-workflow.js`), and every request
 body passes the backend's validators (`tests/unit/agent/agents-contract.test.ts` and
 `tests/unit/agent/knowledge-contract.test.ts`, 37 tests). The backend's two new reads and the relay
