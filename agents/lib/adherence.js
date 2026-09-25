@@ -11,14 +11,18 @@
  *   POST /api/agent/doses/{id}/status   { status, recordedAt, source: 'adherence_agent' }
  *   POST /api/agent/schedule/recompute  { prescriptionId, reason: 'reported_miss', missedDoseId }
  *                                       { prescriptionId, reason: 'discontinued', discontinuedReason }
- * and the doses come from GET /api/agent/patients/{id}/doses?date= (CR-062), TRACKED doses only.
+ * and the doses come from GET /api/agent/patients/{id}/doses?date= (CR-062), TRACKED doses only;
+ * the active prescriptions come from GET /api/agent/patients/{id}/prescriptions (CR-062).
  *
  * Rules that live here and nowhere else (docs/AI Agents Acceptance Criteria.md, section 2):
  *   - a status is written only on an explicit reply FROM THE PATIENT'S OWN CHAT (TC-AD-14);
  *   - silence is never a status; this file is only ever run on a reply (TC-AD-10);
  *   - below MIN_CONFIDENCE, or an intent that does not exist, is `unclear` - ask, write nothing;
  *   - a reply that could mean more than one dose is asked about, never guessed (TC-AD-12);
- *   - `missed` only for a dose whose time has come; `taken` never for a dose hours away.
+ *   - `missed` only for a dose whose time has come; `taken` never for a dose hours away;
+ *   - a report that "the doctor stopped it" NEVER writes by itself (TC-RS-03, AP-05 step 1): it
+ *     offers one button per active prescription, plus "none of these", and only a tap on one of
+ *     those buttons discontinues anything.
  *
  * Plain CommonJS, no dependencies, no clock: every time comes from the reply's own timestamp.
  * The build inlines this file into an n8n Code node (agents/scripts/build.js).
@@ -48,6 +52,19 @@ const TAP_PREFIX = 'd:';
 const TAP_INTENTS = ['taken_on_time', 'taken_late', 'missed'];
 
 /**
+ * AP-05 step 1 (TC-RS-03) - a discontinuation confirmation names a PRESCRIPTION, never a dose:
+ * `s:<prescriptionId>` for "yes, stop this one", `n:none` for "none of these". The two namespaces
+ * (`d:`, `s:`) and the none token never collide: `n:none` starts with neither `d:` nor `s:`, so it
+ * can never be read back as a prescription id.
+ */
+const STOP_PREFIX = 's:';
+const STOP_NONE_DATA = 'n:none';
+
+/** A fixed reason: Telegram's 64-byte callback data has no room for the patient's own words, so the
+ * quote that first named "the doctor stopped it" is never carried into the write (CR-093, later). */
+const DISCONTINUED_REASON = 'Patient confirmed by a Telegram button that the doctor told them to stop this medicine';
+
+/**
  * What the patient reads. Chosen by outcome, never written by a model, so no branch can produce
  * free text and none can tell anyone a medicine is safe. `ar` is Kuwaiti; `en` for Patient.language.
  */
@@ -61,7 +78,10 @@ const REPLIES = {
     discontinued: 'تمام، أوقفنا جرعات {drug} الجاية. راجع دكتورك أو الصيدلاني لو عندك سؤال.',
     unclear: 'ما فهمت عليك تمام 🙏 اضغط على الزر تحت الجرعة، أو اكتب: «أخذته» أو «أخذته متأخر» أو «نسيت».',
     which_dose: 'عندك أكثر من جرعة مفتوحة الحين. اختر الجرعة من الأزرار تحت 👇',
+    confirm_discontinue: 'وش الدواء اللي تبي توقفه؟ اختر من الأزرار تحت 👇',
+    discontinue_none: 'تمام، ما وقفنا شي. لو تبي توقف دواء معين قول لي وش هو.',
     no_dose: 'ما لقينا جرعة مفتوحة نسجّل عليها الحين. لو تعتقد فيه شي غلط، راجع طبيبك أو الصيدلاني.',
+    tracking_off: 'تتبع الجرعات مو مفعّل لك الحين، فما عندنا شي نسجّله. تقدر تشغّله من التطبيق: الإشعارات، متابعة الجرعات.',
     already: 'هذي الجرعة مسجّلة من قبل ✅',
     failed: 'صار خلل عندنا وما قدرنا نسجّل الحين. حاول مرة ثانية بعد شوي.',
     caregiver: 'شكراً لك 🙏 الجرعات يسجّلها المريض بنفسه فقط من محادثته. تقدر تتابع جدوله من التطبيق.',
@@ -75,7 +95,10 @@ const REPLIES = {
     discontinued: 'Done - we stopped the upcoming {drug} doses. Ask your doctor or pharmacist if you have questions.',
     unclear: 'Sorry, I did not catch that 🙏 Tap a button under the dose, or write: "taken", "taken late" or "missed".',
     which_dose: 'You have more than one open dose right now. Pick the dose with the buttons below 👇',
+    confirm_discontinue: 'Which medicine do you want to stop? Pick from the buttons below 👇',
+    discontinue_none: 'Okay, nothing was stopped. Tell me which medicine if you want to stop one.',
     no_dose: 'There is no open dose to record right now. If something looks wrong, check with your doctor or pharmacist.',
+    tracking_off: 'Check-ins are not switched on for you right now, so there is nothing to record. You can turn them on from the app: Notifications, Dose check-ins.',
     already: 'That dose is already recorded ✅',
     failed: 'Something went wrong on our side and nothing was recorded. Please try again shortly.',
     caregiver: 'Thank you 🙏 Only the patient can confirm a dose, from their own chat. You can follow the schedule in the app.',
@@ -106,10 +129,28 @@ function previousDate(isoDate) {
   return new Date(t - 24 * HOUR_MS).toISOString().slice(0, 10);
 }
 
-/** The name the patient knows the medicine by: brand first, then generic. */
+/**
+ * AP-05 step 2 (TC-AD-12) - the Kuwait date(s) a reply might be about. Between 00:00 and 02:59 a
+ * patient is very likely answering about a dose from the night before, so the previous day's open
+ * doses are read too; from 03:00 on, only today's. Pure: no clock, only the reply's own timestamp.
+ */
+function readDates(sentAt) {
+  const d = kuwaitDate(sentAt);
+  if (!d) return [];
+  const hh = Number(kuwaitHHMM(sentAt).slice(0, 2));
+  return hh <= 2 ? [previousDate(d), d] : [d];
+}
+
+/** The name the patient knows the medicine by: brand first, then generic - from a DOSE row. */
 function drugLabel(dose) {
   if (!dose) return '';
   return dose.brandName || dose.genericName || '';
+}
+
+/** The same, from a PRESCRIPTION row (types/contracts.ts Prescription.drug). */
+function rxLabel(rx) {
+  if (!rx || !rx.drug) return '';
+  return rx.drug.brandName || rx.drug.genericName || '';
 }
 
 /**
@@ -151,15 +192,46 @@ function tapData(doseId, intent) {
 }
 
 /**
+ * `s:<prescriptionId>` for a stop confirmation. The id must already look like one of our ids
+ * (defence in depth: it is checked again against the patient's own prescriptions before anything
+ * is written). Telegram allows 64 bytes; this is checked with Buffer.byteLength, not `.length`,
+ * so a future non-ASCII id would still be measured correctly.
+ */
+function stopTapData(prescriptionId) {
+  if (!/^[A-Za-z0-9_-]{1,48}$/.test(String(prescriptionId))) throw new Error('not a prescription id: ' + prescriptionId);
+  const data = STOP_PREFIX + prescriptionId;
+  if (Buffer.byteLength(data) > 64) throw new Error('callback data over 64 bytes for ' + prescriptionId);
+  return data;
+}
+
+/** `s:<id>` -> { none: false, prescriptionId }; `n:none` -> { none: true }; anything else -> null.
+ * `n:none` is checked FIRST, so it can never be misread as a prescription id. */
+function parseStopTap(data) {
+  if (typeof data !== 'string') return null;
+  if (data === STOP_NONE_DATA) return { none: true, prescriptionId: null };
+  if (!data.startsWith(STOP_PREFIX)) return null;
+  const prescriptionId = data.slice(STOP_PREFIX.length);
+  if (!/^[A-Za-z0-9_-]{1,48}$/.test(prescriptionId)) return null;
+  return { none: false, prescriptionId };
+}
+
+/**
  * Which dose could a TYPED reply be about? Open (not yet recorded) tracked doses only.
  *   - `missed`: a dose whose time has already come;
  *   - anything else: a dose already due, or due within EARLY_GRACE_HOURS.
- * Returns every candidate, most recent first. The caller refuses to guess between two.
+ * Returns every candidate, most recent first. The caller refuses to guess between two. `doses` may
+ * span more than one Kuwait date (AP-05 step 2): each dose's own `scheduledAt` is an absolute
+ * instant, so a dose from the day before still sorts and filters correctly by real time.
  */
 function candidateDoses({ doses, sentAt, intent }) {
   const t = new Date(sentAt).getTime();
   const horizon = intent === 'missed' ? t : t + EARLY_GRACE_HOURS * HOUR_MS;
   return (doses || [])
+    // Rule 3, defence in depth - the backend's own contract already never returns an untracked dose
+    // here (docs/API-SURFACE.md), and the database refuses a status on one regardless
+    // (dose_untracked_has_no_status / lib/agent/handlers.ts 409 untracked_dose). This file adds its
+    // own filter anyway, on the `tracked` field itself, never the status word (rule 3 as written).
+    .filter((d) => d && d.tracked !== false)
     .filter((d) => d && d.status === OPEN_WORD)
     .filter((d) => new Date(d.scheduledAt).getTime() <= horizon)
     .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
@@ -172,20 +244,34 @@ function candidateDoses({ doses, sentAt, intent }) {
  *   subjectType   'patient' | 'caregiver' (from the relay - the chat's owner, resolved server-side)
  *   language      'ar' | 'en'
  *   sentAt        the reply's own Telegram timestamp (ISO)
- *   doses         today's (and, for a tap, the tapped day's) TRACKED doses from the backend
- *   tap           parseTap(...) of a quick-reply, or null for typed text
+ *   doses         today's (and, across midnight, yesterday's too) TRACKED doses from the backend
+ *   prescriptions the patient's ACTIVE prescriptions from the backend (CR-062)
+ *   tap           parseTap(...) of a dose quick-reply, or null
+ *   stopTap       parseStopTap(...) of a discontinuation-confirm tap, or null (AP-05 step 1)
  *   classification  the model's { intent, confidence, quote }, or null for a tap
+ *   trackingOn    CR-092 - true/false from the relay's settings read, or null/undefined when the
+ *                 relay did not send it (kept as today's no_dose reply exactly)
+ *   caregiverVerified  true/false once the workflow re-checked an ACTIVE caregiver against
+ *                 alert-recipients (AP-05 step 3b, TC-AD-16), or undefined when not applicable/not
+ *                 (yet) checked - which keeps today's plain caregiver_refused reply
  *
  * Output:
- *   { outcome, intent, dose, writes: [...], reply, guardrail, reason, askDoses: [...] }
+ *   { outcome, intent, dose, writes: [...], askDoses: [...], stopOptions: [...], reply, guardrail,
+ *     reason }
  *   writes[i] is { op: 'dose_status', doseId, body } or { op: 'recompute', body } - in order.
  */
-function decide({ subjectType, language, sentAt, doses, tap, classification }) {
+function decide({ subjectType, language, sentAt, doses, prescriptions, tap, stopTap, classification, trackingOn, caregiverVerified }) {
   const L = REPLIES[lang(language)];
-  const base = { intent: 'unclear', dose: null, writes: [], askDoses: [], guardrail: null, reason: null };
+  const base = { intent: 'unclear', dose: null, writes: [], askDoses: [], stopOptions: [], guardrail: null, reason: null };
 
-  // TC-AD-14 - the role boundary. A caregiver cannot report a dose, whatever they wrote or tapped.
+  // TC-AD-14 - the role boundary. A caregiver cannot report or discontinue a dose, whatever they
+  // wrote or tapped. TC-AD-16 (AP-05 step 3b): a caregiver the workflow could NOT confirm is still
+  // active against alert-recipients is dropped silently instead - rule 5, fail closed.
   if (subjectType !== 'patient') {
+    if (subjectType === 'caregiver' && caregiverVerified === false) {
+      return { ...base, outcome: 'caregiver_unverified', reply: null, guardrail: 'TC-AD-16',
+               reason: 'the caregiver could not be confirmed active against alert-recipients' };
+    }
     return { ...base, outcome: 'caregiver_refused', reply: L.caregiver, guardrail: 'TC-AD-14',
              reason: 'the chat belongs to a caregiver; only the patient may confirm a dose' };
   }
@@ -193,12 +279,31 @@ function decide({ subjectType, language, sentAt, doses, tap, classification }) {
     return { ...base, outcome: 'refused', reply: L.failed, guardrail: 'G10', reason: 'the reply carries no usable timestamp' };
   }
 
-  // A tap names its dose - but the name is checked against the patient's own doses, never trusted.
+  // AP-05 step 1 (TC-RS-03) - a stop tap names a PRESCRIPTION, checked before anything reads doses.
+  if (stopTap) {
+    if (stopTap.none) {
+      return { ...base, outcome: 'discontinue_none', reply: L.discontinue_none, reason: 'the patient tapped "none of these"' };
+    }
+    const rx = (prescriptions || []).find((p) => p && p.id === stopTap.prescriptionId && p.status === 'active');
+    if (!rx) {
+      return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',
+               reason: 'the tapped prescription is not one of this patient\'s active prescriptions' };
+    }
+    return {
+      ...base, outcome: 'discontinue',
+      writes: [{ op: 'recompute', body: { prescriptionId: rx.id, reason: 'discontinued', discontinuedReason: DISCONTINUED_REASON } }],
+      reply: fill(L.discontinued, rxLabel(rx)),
+    };
+  }
+
+  // A dose tap names its dose - but the name is checked against the patient's own doses, never trusted.
   let trusted;
   let dose = null;
   if (tap) {
     trusted = { intent: tap.intent, claimed: tap.intent, confidence: 1, quote: '', guardrail: null };
-    dose = (doses || []).find((d) => d && d.id === tap.doseId) || null;
+    // Rule 3, defence in depth (candidateDoses above has the same note) - a tap naming an untracked
+    // dose's id finds nothing here either, whatever the backend contract already guarantees.
+    dose = (doses || []).find((d) => d && d.id === tap.doseId && d.tracked !== false) || null;
     if (!dose) {
       return { ...base, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10',
                reason: 'the tapped dose is not one of this patient\'s tracked doses' };
@@ -219,17 +324,41 @@ function decide({ subjectType, language, sentAt, doses, tap, classification }) {
              reason: trusted.guardrail ? 'confidence or intent not trusted (claimed ' + trusted.claimed + ' @ ' + trusted.confidence + ')' : 'the reply is not an adherence answer' };
   }
 
+  // AP-05 step 1 - discontinued_by_doctor NEVER writes directly: it offers one button per active
+  // prescription plus "none of these"; only a tap on one of THOSE buttons discontinues anything.
+  if (!dose && intent === 'discontinued_by_doctor') {
+    const active = (prescriptions || []).filter((p) => p && p.status === 'active');
+    if (active.length === 0) {
+      return { ...base, intent, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10', reason: 'no active prescription to stop' };
+    }
+    const stopOptions = active.map((p) => ({ prescriptionId: p.id, label: rxLabel(p) }));
+    return { ...base, intent, outcome: 'confirm_discontinue', reply: L.confirm_discontinue, stopOptions,
+             reason: stopOptions.length + ' active prescription(s) offered for confirmation' };
+  }
+
   if (!dose) {
     const candidates = candidateDoses({ doses, sentAt, intent });
     if (candidates.length === 0) {
+      // CR-092 (AP-05 step 4) - nothing open AND the backend told us check-ins are off: say so,
+      // instead of the generic "no open dose". trackingOn === null/undefined keeps today's reply.
+      if (trackingOn === false) {
+        return { ...base, intent, outcome: 'tracking_off', reply: L.tracking_off,
+                 reason: 'no open tracked dose, and check-ins are switched off for this patient' };
+      }
       return { ...base, intent, outcome: 'no_dose', reply: L.no_dose, guardrail: 'G10', reason: 'no open tracked dose this reply could be about' };
     }
-    // TC-AD-12 - two open doses and a typed "I took it": ask with buttons, never pick one.
-    if (candidates.length > 1 && intent !== 'ran_out' && intent !== 'discontinued_by_doctor') {
+    // TC-AD-12 - more than one open dose (possibly across two Kuwait dates, AP-05 step 2) and a
+    // typed report: ask with buttons, never pick one. ran_out picks silently among candidates of
+    // the SAME prescription (below), because naming a specific dose does not matter for it - but
+    // never guesses which MEDICINE ran out.
+    if (candidates.length > 1 && intent !== 'ran_out') {
       return { ...base, intent, outcome: 'ask_which', reply: L.which_dose, askDoses: candidates.slice().reverse(),
                reason: candidates.length + ' open doses could be meant' };
     }
-    // A prescription-level report needs ONE prescription behind the candidates.
+    // A prescription-level report (today, only ran_out reaches here with candidates.length > 1:
+    // discontinued_by_doctor already returned above, and every other intent was just asked about)
+    // needs ONE prescription behind the candidates - "it ran out" said with two medicines open must
+    // not be read as naming whichever candidate happens to sort first.
     if (candidates.length > 1) {
       const rxIds = [...new Set(candidates.map((d) => d.prescriptionId))];
       if (rxIds.length > 1) {
@@ -253,20 +382,8 @@ function decide({ subjectType, language, sentAt, doses, tap, classification }) {
     return { ...base, outcome: 'record', intent, dose, writes, reply: fill(L[intent], drug), quote: trusted.quote };
   }
 
-  if (intent === 'ran_out') {
-    // No status and no write: a refill is the patient's request through the app (requestRefill).
-    return { ...base, outcome: 'ran_out', intent, dose, reply: fill(L.ran_out, drug) };
-  }
-
-  // discontinued_by_doctor - TC-RS-03. Cancels the remaining doses of ONE prescription, with the
-  // patient's own words as the reason (rx_discontinued_complete requires one).
-  const quote = trusted.quote ? ': «' + trusted.quote.slice(0, 200) + '»' : '';
-  return {
-    ...base, outcome: 'discontinue', intent, dose,
-    writes: [{ op: 'recompute', body: { prescriptionId: dose.prescriptionId, reason: 'discontinued',
-                                         discontinuedReason: 'Patient reported in chat that the doctor stopped it' + quote } }],
-    reply: fill(L.discontinued, drug),
-  };
+  // ran_out: no status and no write - a refill is the patient's own request through the app.
+  return { ...base, outcome: 'ran_out', intent, dose, reply: fill(L.ran_out, drug) };
 }
 
 /**
@@ -292,19 +409,23 @@ function replyAfterWrites(decision, results, language) {
 /**
  * The daily check-in for one patient: a header, then one message per open dose with three
  * quick-reply buttons naming that dose (TC-AD-07/12). Times and names come from the data only.
+ * `referenceDate` (a Kuwait YYYY-MM-DD) marks a dose from an earlier date - AP-05 step 2's
+ * across-midnight "ask which" can mix yesterday's and today's doses, and the patient must be able
+ * to tell them apart; omitted (the plain daily check-in, always one date) it marks nothing.
  */
-function buildCheckIn({ patientId, chatId, language, doses }) {
+function buildCheckIn({ patientId, chatId, language, doses, referenceDate }) {
   const l = lang(language);
   const open = (doses || []).filter((d) => d && d.status === OPEN_WORD)
     .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
   if (open.length === 0) return { patientId, skipped: true, reason: 'no open tracked doses today', messages: [] };
   const labels = l === 'en'
-    ? { head: 'Good morning 👋 Your doses today:', taken: 'Taken ✅', late: 'Taken late ⏰', missed: 'Missed ✖' }
-    : { head: 'صباح الخير 👋 جرعاتك اليوم:', taken: 'أخذته ✅', late: 'أخذته متأخر ⏰', missed: 'نسيت ✖' };
+    ? { head: 'Good morning 👋 Your doses today:', taken: 'Taken ✅', late: 'Taken late ⏰', missed: 'Missed ✖', yesterday: 'Yesterday' }
+    : { head: 'صباح الخير 👋 جرعاتك اليوم:', taken: 'أخذته ✅', late: 'أخذته متأخر ⏰', missed: 'نسيت ✖', yesterday: 'أمس' };
   const line = (d) => {
     const strength = d.strengthMg != null ? ' ' + d.strengthMg + ' ' + (d.strengthUnit || 'mg') : '';
-    const food = d.timingRelativeToFood ? ' — ' + d.timingRelativeToFood : '';
-    return kuwaitHHMM(d.scheduledAt) + ' · ' + drugLabel(d) + strength + food;
+    const food = d.timingRelativeToFood ? ' · ' + d.timingRelativeToFood : '';
+    const day = referenceDate && kuwaitDate(d.scheduledAt) !== referenceDate ? labels.yesterday + ' ' : '';
+    return day + kuwaitHHMM(d.scheduledAt) + ' · ' + drugLabel(d) + strength + food;
   };
   const messages = [{ chatId, text: labels.head + '\n' + open.map((d) => '• ' + line(d)).join('\n'), buttons: null }];
   for (const d of open) {
@@ -322,21 +443,65 @@ function buildCheckIn({ patientId, chatId, language, doses }) {
   return { patientId, skipped: false, reason: null, messages };
 }
 
+/**
+ * AP-05 step 1 - the confirmation buttons for a discontinuation: one "Stop <drug>?" message per
+ * active prescription, each with exactly ONE button, plus a final "none of these" message. Nothing
+ * here writes anything; only a tap on one of these buttons (parseStopTap, above) does.
+ */
+function buildStopOptions({ chatId, language, stopOptions }) {
+  const l = lang(language);
+  const yes = l === 'en' ? 'Yes, stop it' : 'أي، وقفها';
+  const noneText = l === 'en' ? 'None of these' : 'ولا وحدة من هذي';
+  const messages = (stopOptions || []).map((o) => ({
+    chatId,
+    text: l === 'en' ? 'Stop ' + o.label + '?' : 'نوقف ' + o.label + '؟',
+    buttons: [{ text: yes, data: stopTapData(o.prescriptionId) }],
+  }));
+  messages.push({ chatId, text: noneText, buttons: [{ text: noneText, data: STOP_NONE_DATA }] });
+  return messages;
+}
+
+/**
+ * AP-05 step 3a (TC-AD-08) - the daily check-in's plan, pulled out of the Code node so the skip log
+ * can recompute the very same thing. Eligibility is the BACKEND's (tracking on AND the latest link
+ * connected) - never decided here; this only applies the two plan-time skips: no chat id, and the
+ * every-other-day parity (a fixed, documented parity - days since 2026-01-01 even - never a guess
+ * per patient). `skipped[i]` is `{ patientId, reason }`, never a chat id (rule 6/7).
+ */
+function planCheckIns({ eligibility, dayIndex }) {
+  const plans = [];
+  const skipped = [];
+  for (const e of eligibility || []) {
+    if (!e || !e.patientId) continue; // not a real row - nothing to attribute a skip to
+    if (!e.chatId) { skipped.push({ patientId: e.patientId, reason: 'no_chat_id' }); continue; }
+    if (e.frequency === 'every_other_day' && dayIndex % 2 !== 0) { skipped.push({ patientId: e.patientId, reason: 'not_due_today' }); continue; }
+    plans.push({ patientId: e.patientId, chatId: e.chatId, language: e.language === 'en' ? 'en' : 'ar' });
+  }
+  return { plans, skipped };
+}
+
 module.exports = {
   decide,
   replyAfterWrites,
   buildCheckIn,
+  buildStopOptions,
+  planCheckIns,
   trustClassification,
   candidateDoses,
   parseTap,
   tapData,
+  parseStopTap,
+  stopTapData,
+  rxLabel,
   kuwaitDate,
   kuwaitHHMM,
   previousDate,
+  readDates,
   REPLIES,
   INTENTS,
   RECORDED_WORDS,
   MIN_CONFIDENCE,
+  STOP_NONE_DATA,
 };
 
 /* ===== model contract ===== (agents/scripts/build.js cuts this block out of every Code node)

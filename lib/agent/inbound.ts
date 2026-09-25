@@ -22,6 +22,9 @@ export interface InboundPayload extends ChatReply {
   subjectId: string;
   patientId: string;
   language: ChatSubject['language'];
+  /** CR-092 (AP-05) - passed straight through from ChatSubject so the agent can say check-ins are
+   * off instead of "no dose"; recording itself is still gated only by a dose's own `tracked`. */
+  trackingOn: ChatSubject['trackingOn'];
 }
 
 export type ForwardResult =
@@ -41,6 +44,7 @@ export function inboundPayload(reply: ChatReply, subject: ChatSubject): InboundP
     subjectId: subject.subjectId,
     patientId: subject.patientId,
     language: subject.language,
+    trackingOn: subject.trackingOn,
   };
 }
 

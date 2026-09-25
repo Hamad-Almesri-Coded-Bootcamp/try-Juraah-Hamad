@@ -16,7 +16,9 @@ n8n agent-telegram-inbound  (x-jurah-secret)
          → POST /api/agent/doses/{id}/status               (taken_on_time | taken_late | missed)
          → POST /api/agent/schedule/recompute              (after a recorded miss; or a discontinuation)
          → Telegram reply chosen from fixed text by what the backend ACTUALLY answered
-   caregiver (any kind: text, tap, photo, document) → a fixed reply; nothing read, nothing stored
+   caregiver (any kind: text, tap, photo, document) → GET /api/agent/alert-recipients (AP-05's re-check,
+         TC-AD-16) → confirmed active: a fixed reply; not confirmed: nothing sent, one log item.
+         No dose read, no model, nothing written, nothing stored
    photo/document (patient) → the Orchestrator (AP-11, agents/lib/orchestrator.js): one narrow vision
          question - prescription | medicine_package | other | unsure, confidence floor 0.7
        prescription      → Gemini vision reads it → validate (agents/lib/extraction.js)

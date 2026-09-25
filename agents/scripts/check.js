@@ -15,6 +15,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 
+/**
+ * One fixed clock for the whole run. Every scenario and every Code node (they run in this realm, via
+ * AsyncFunction) reads "now" from here, so no run depends on the real time of day. Before this, a run
+ * that crossed Kuwait midnight computed "today" before it and walked the scenario after it, and the
+ * "next open dose" scenarios failed. CHECK_NOW sits on the fixture day (2026-09-24), in the afternoon.
+ * Only a no-argument `new Date()` and `Date.now()` are frozen; any explicit date is unchanged.
+ */
+const CHECK_NOW = '2026-09-24T15:00:00+03:00';
+{
+  const RealDate = Date;
+  const fixedMs = RealDate.parse(CHECK_NOW);
+  class FrozenDate extends RealDate {
+    constructor(...args) { if (args.length === 0) super(fixedMs); else super(...args); }
+    static now() { return fixedMs; }
+  }
+  globalThis.Date = FrozenDate;
+}
+
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
 const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-interaction-screening', 'agent-alexa', 'agent-webchat'];
@@ -37,6 +55,16 @@ async function staticChecks() {
     await check(name + ': ASCII-only, parses, Arabic intact', () => {
       assert.ok([...raw].every((b) => b <= 0x7f), 'a byte above 0x7F');
       if (name !== 'agent-interaction-screening' || true) assert.match(JSON.stringify(wf), /[؀-ۿ]/, 'no Arabic survived un-escaping');
+    });
+    // Two packages each numbered new nodes from the same free id (AP-05 and AP-11 both from IN(32)):
+    // n8n keys a node by its id, and an IF node's condition id is derived from it, so a duplicate
+    // is a real collision, never a cosmetic one.
+    await check(name + ': unique node ids and IF condition ids', () => {
+      const ids = wf.nodes.map((n) => n.id);
+      const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+      assert.deepEqual(dupes, [], 'duplicate node id');
+      const condIds = wf.nodes.flatMap((n) => (((n.parameters || {}).conditions || {}).conditions || []).map((c) => c.id));
+      assert.equal(new Set(condIds).size, condIds.length, 'duplicate IF condition id');
     });
     await check(name + ': unique node names, every connection resolves', () => {
       const names = wf.nodes.map((n) => n.name);
@@ -108,19 +136,52 @@ const DAY = { patientId: 'pt-03', date: '2026-09-24', doses: [
   dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN),
   dose('rx-009-20260924-2100', 'rx-009', '21:00', OPEN),
 ] };
+// pt-03's active prescriptions, exactly as GET /api/agent/patients/{id}/prescriptions answers.
+const RX_BODY = { patientId: 'pt-03', prescriptions: [
+  { id: 'rx-008', patientId: 'pt-03', drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin' }, status: 'active', needsReview: false },
+  { id: 'rx-009', patientId: 'pt-03', drug: { genericName: 'Calcium carbonate + vitamin D3' }, status: 'active', needsReview: false },
+] };
+// pt-01's ACTIVE caregivers, exactly as GET /api/agent/alert-recipients?patientId= answers (§B).
+const RECIPIENTS_BODY = { patientId: 'pt-01', patient: { chatId: '5550009', push: false }, caregivers: [{ caregiverId: 'cg-01', chatId: '5550002', push: false }] };
 const relay = (over) => [{ json: { body: {
   kind: 'message', chatId: '5550001', messageId: 1, sentAt: '2026-09-24T07:20:00+03:00', text: 'خذيته',
   photoFileId: null, documentFileId: null, callbackQueryId: null,
   channel: 'telegram', subjectType: 'patient', subjectId: 'pt-03', patientId: 'pt-03', language: 'ar', ...over } } }];
 
-/** Walk the adherence path of agent-telegram-inbound exactly as its connections do. */
-async function inbound({ payload, dosesResponse = http(200, DAY), model, write1 = 200, write2 = 200 }) {
+/**
+ * Walk agent-telegram-inbound exactly as its connections do, for a text or a tap. A patient's takes
+ * the adherence path. A caregiver's - since AP-11 routes EVERY caregiver message off that path
+ * (route 'reply', reason 'caregiver') - takes the caregiver lane the AP-05 merge built: AP-05's own
+ * re-check against alert-recipients, decide()'s own caregiver branch, then the Orchestrator's fixed
+ * reply and AP-05's log. That lane holds no write node, no model and no dose read at all (the static
+ * "caregiver lane" check below walks the graph to prove it), so its `calls` is empty by construction.
+ */
+async function inbound({
+  payload, dosesResponse = http(200, DAY), prevDosesResponse, prescriptionsResponse = http(200, RX_BODY),
+  recipientsResponse = http(200, RECIPIENTS_BODY), model, write1 = 200, write2 = 200,
+}) {
   const wf = WF('agent-telegram-inbound');
   const r = runner(wf);
   const routed = await r.code('route (deterministic)', payload);
   if (routed.length === 0) return { dropped: true };
+  if (routed[0].json.subjectType === 'caregiver') {
+    // fixed reply? -> a caregiver (fixed reply)? -> backend: alert recipients (caregiver reply)
+    //   -> orchestrator: caregiver check (deterministic) -> orchestrator: reply (deterministic)
+    //                                                    + log: non-active caregiver (deterministic)
+    assert.equal(routed[0].json.route, 'reply');
+    assert.equal(routed[0].json.reason, 'caregiver');
+    assert.equal(routed[0].json.needsModel, false);
+    const fetched = r.set('backend: alert recipients (caregiver reply)', recipientsResponse);
+    const [c] = await r.code('orchestrator: caregiver check (deterministic)', fetched);
+    assert.deepEqual(c.json.decision.writes, [], 'decide() never writes for a caregiver');
+    const replies = await r.code('orchestrator: reply (deterministic)', [c]);
+    const caregiverLog = await r.code('log: non-active caregiver (deterministic)', [c]);
+    return { routed: routed[0].json, decision: c.json.decision, calls: [], replies: replies.map((x) => x.json), caregiverLog: caregiverLog.map((x) => x.json) };
+  }
   assert.equal(routed[0].json.route, 'adherence');
   r.set('backend: doses of the day', dosesResponse);
+  r.set('backend: active prescriptions', prescriptionsResponse);
+  if (routed[0].json.prevDosesUrl) r.set('backend: doses of the previous day', prevDosesResponse === undefined ? dosesResponse : prevDosesResponse);
   const decideInput = routed[0].json.needsModel ? [{ json: { output: model } }] : dosesResponse;
   const [d] = await r.code('decide (deterministic)', decideInput);
   const calls = [];
@@ -134,7 +195,9 @@ async function inbound({ payload, dosesResponse = http(200, DAY), model, write1 
     }
   }
   const replies = await r.code('reply (deterministic)', [{ json: {} }]);
-  return { routed: routed[0].json, decision: d.json.decision, calls, replies: replies.map((x) => x.json) };
+  // The log reads $input since the merge (two nodes feed it): here, decide's own output, as the connection runs.
+  const caregiverLog = await r.code('log: non-active caregiver (deterministic)', [d]);
+  return { routed: routed[0].json, decision: d.json.decision, calls, replies: replies.map((x) => x.json), caregiverLog: caregiverLog.map((x) => x.json) };
 }
 
 async function scenarios() {
@@ -199,6 +262,127 @@ async function scenarios() {
       const s = await inbound({ payload: [{ json: { body } }] });
       assert.equal(s.dropped, true);
     }
+  });
+
+  console.log('\n######## agent-telegram-inbound (AP-05 - adherence hardening)');
+  await check('TC-RS-03: "الدكتور قال أوقف الدواء" writes nothing; one Stop <drug>? button per active prescription plus none of these; an unparseable callback never reaches the model', async () => {
+    const asked = await inbound({ payload: relay({ text: 'الدكتور قال أوقف الدواء' }), model: { intent: 'discontinued_by_doctor', confidence: 0.9, quote: 'الدكتور قال أوقف الدواء' } });
+    assert.equal(asked.calls.length, 0);
+    assert.equal(asked.decision.outcome, 'confirm_discontinue');
+    assert.equal(asked.replies.length, 4); // header + rx-008 + rx-009 + "none of these"
+    assert.equal(asked.replies[0].buttons, null);
+    assert.deepEqual(asked.replies.slice(1).map((m) => m.buttons.length), [1, 1, 1]);
+    assert.equal(asked.replies[1].buttons[0].data, 's:rx-008');
+    assert.equal(asked.replies[2].buttons[0].data, 's:rx-009');
+    assert.equal(asked.replies[3].buttons[0].data, 'n:none');
+    console.log('        -> ' + asked.replies[0].text + ' | ' + asked.replies.slice(1).map((m) => m.text).join(' / '));
+    // A callback with unparseable data (neither d: nor s:/n:none) never reaches Gemini.
+    const garbled = await inbound({ payload: relay({ kind: 'callback', text: 'garbage', callbackQueryId: 'cbq-g' }) });
+    assert.equal(garbled.routed.needsModel, false);
+    assert.equal(garbled.calls.length, 0);
+  });
+  await check('TC-RS-03: a tap s:<rxId> of THIS patient discontinues that one prescription, with a fixed reason (no quote fits in 64 bytes)', async () => {
+    const tapped = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-008', callbackQueryId: 'cbq-s1', sentAt: '2026-09-24T08:01:00+03:00' }) });
+    assert.equal(tapped.routed.needsModel, false);
+    assert.equal(tapped.calls.length, 1);
+    assert.match(tapped.calls[0].url, /\/schedule\/recompute$/);
+    assert.deepEqual(tapped.calls[0].body, { prescriptionId: 'rx-008', reason: 'discontinued', discontinuedReason: tapped.calls[0].body.discontinuedReason });
+    assert.ok(tapped.calls[0].body.discontinuedReason.length > 0);
+    assert.match(tapped.replies[0].text, /Eltroxin/);
+  });
+  await check('TC-RS-03: "none of these" writes nothing; an unknown or foreign prescription id writes nothing; a caregiver’s stop tap is refused', async () => {
+    const none = await inbound({ payload: relay({ kind: 'callback', text: 'n:none', callbackQueryId: 'cbq-n' }) });
+    assert.equal(none.calls.length, 0);
+    assert.equal(none.decision.outcome, 'discontinue_none');
+    const unknown = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-999', callbackQueryId: 'cbq-u' }) });
+    assert.equal(unknown.calls.length, 0);
+    assert.equal(unknown.decision.outcome, 'no_dose');
+    const byCaregiver = await inbound({ payload: relay({ kind: 'callback', text: 's:rx-008', callbackQueryId: 'cbq-c', subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(byCaregiver.calls.length, 0);
+    assert.equal(byCaregiver.decision.outcome, 'caregiver_refused');
+  });
+  await check('TC-AD-12 (after midnight): 00:40 with only YESTERDAY’s dose open -> the previous day is fetched and that dose is recorded; the fetch is required (missing or refused -> refused, never a silent fall back to today alone)', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    const emptyToday = { patientId: 'pt-03', date: '2026-09-24', doses: [] };
+    const s = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, emptyToday), prevDosesResponse: http(200, yesterday),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.match(s.routed.prevDosesUrl, /doses\?date=2026-09-23$/);
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].url, /rx-009-y-2100\/status$/);
+    const refused = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, emptyToday), prevDosesResponse: http(503, { error: 'unavailable' }),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.equal(refused.calls.length, 0);
+    assert.equal(refused.decision.outcome, 'refused');
+  });
+  await check('TC-AD-12: two open doses across both days (after midnight) -> ask which, one button message per dose, yesterday’s marked; 03:00 reads today only', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    // 00:15 today - due (within the 1-hour grace) by the time the reply arrives at 00:40.
+    const today = { patientId: 'pt-03', date: '2026-09-24', doses: [dose('rx-008-20260924-0015', 'rx-008', '00:15', OPEN, 'Eltroxin')] };
+    const s = await inbound({
+      payload: relay({ sentAt: '2026-09-24T00:40:00+03:00', text: 'خذيته' }),
+      dosesResponse: http(200, today), prevDosesResponse: http(200, yesterday),
+      model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' },
+    });
+    assert.equal(s.decision.outcome, 'ask_which');
+    assert.equal(s.calls.length, 0);
+    assert.match(s.replies[1].text, /^أمس 21:00/);
+    assert.doesNotMatch(s.replies[2].text, /^أمس/);
+    // From 03:00 on, no previous-day fetch is even requested.
+    const late = await inbound({ payload: relay({ sentAt: '2026-09-24T03:00:00+03:00', text: 'خذيته' }), dosesResponse: http(200, today), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(late.routed.prevDosesUrl, null);
+  });
+  await check('TC-AD-12: a tap on the ASK\'s yesterday button, itself sent after midnight, still fetches the previous day (the tap\'s own sentAt is the tap time, not the check-in message\'s) and records that dose, never no_dose', async () => {
+    const yesterday = { patientId: 'pt-03', date: '2026-09-23', doses: [{ ...dose('rx-009-y-2100', 'rx-009', '21:00', OPEN), scheduledAt: '2026-09-23T21:00:00+03:00' }] };
+    const today = { patientId: 'pt-03', date: '2026-09-24', doses: [dose('rx-008-20260924-0015', 'rx-008', '00:15', OPEN, 'Eltroxin')] };
+    const s = await inbound({
+      payload: relay({ kind: 'callback', text: 'd:rx-009-y-2100:taken_on_time', callbackQueryId: 'cbq-y1', sentAt: '2026-09-24T00:41:00+03:00' }),
+      dosesResponse: http(200, today), prevDosesResponse: http(200, yesterday),
+    });
+    assert.equal(s.routed.needsModel, false);
+    assert.match(s.routed.prevDosesUrl, /doses\?date=2026-09-23$/);
+    assert.equal(s.calls.length, 1);
+    assert.match(s.calls[0].url, /rx-009-y-2100\/status$/);
+    assert.equal(s.calls[0].body.status, W_ON);
+    assert.notEqual(s.decision.outcome, 'no_dose');
+  });
+  await check('TC-AD-09 (CR-092): trackingOn false and nothing open -> "check-ins are not switched on", no write; trackingOn absent -> the plain no-dose reply', async () => {
+    const empty = { patientId: 'pt-03', date: '2026-09-24', doses: [] };
+    const off = await inbound({ payload: relay({ trackingOn: false }), dosesResponse: http(200, empty), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(off.decision.outcome, 'tracking_off');
+    assert.equal(off.calls.length, 0);
+    assert.match(off.replies[0].text, /متابعة الجرعات/);
+    const absent = await inbound({ payload: relay({}), dosesResponse: http(200, empty), model: { intent: 'taken_on_time', confidence: 0.95, quote: 'خذيته' } });
+    assert.equal(absent.decision.outcome, 'no_dose');
+  });
+  await check('TC-AD-16: an alleged caregiver NOT confirmed active (alert-recipients) -> nothing sent, nothing written, one log item, never a chat id; an ACTIVE caregiver keeps the plain refusal and logs nothing; the check itself failing is ALSO unverified (fail closed)', async () => {
+    const unverified = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-99', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(unverified.decision.outcome, 'caregiver_unverified');
+    assert.equal(unverified.replies.length, 0);
+    assert.equal(unverified.calls.length, 0);
+    assert.deepEqual(unverified.caregiverLog, [{ patientId: 'pt-01', reason: 'non_active_caregiver' }]);
+    assert.ok(!JSON.stringify(unverified.caregiverLog).includes('chatId'));
+    const active = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+    assert.equal(active.decision.outcome, 'caregiver_refused');
+    assert.equal(active.replies.length, 1);
+    assert.deepEqual(active.caregiverLog, []);
+    const down = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }), recipientsResponse: http(503, { error: 'unavailable' }) });
+    assert.equal(down.decision.outcome, 'caregiver_unverified');
+  });
+  await check('G10: a failed Telegram send (onError: continueRegularOutput) -> one log item, never a chat id or the message text', async () => {
+    const wf = WF('agent-telegram-inbound');
+    const r = runner(wf);
+    const failedSend = [{ json: { error: { message: 'Bad Request: chat not found' } } }];
+    const log = await r.code('log: failed Telegram send (text)', failedSend);
+    assert.deepEqual(log.map((x) => x.json), [{ node: 'Telegram: reply', doseId: null, error: 'Bad Request: chat not found' }]);
+    assert.ok(!JSON.stringify(log).includes('chatId') && !JSON.stringify(log).includes('text'));
+    const okSend = [{ json: { chatId: '1', text: 'hi' } }];
+    assert.deepEqual(await r.code('log: failed Telegram send (buttons)', okSend), []);
   });
 
   console.log('\n######## agent-telegram-inbound (extraction, via the Orchestrator\'s photo branch - AP-11)');
@@ -326,7 +510,11 @@ async function scenarios() {
       const [routed] = await r.code('route (deterministic)', relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', ...over }));
       assert.equal(routed.json.route, 'reply');
       assert.equal(routed.json.reason, 'caregiver');
-      const [reply] = await r.code('orchestrator: reply (deterministic)', [{ json: routed.json }]);
+      // Since the AP-05 merge the lane runs AP-05's re-check first (cg-01 IS pt-01's active caregiver
+      // in RECIPIENTS_BODY); its one read is alert-recipients - never the doses, never a model.
+      const [checked] = await r.code('orchestrator: caregiver check (deterministic)', r.set('backend: alert recipients (caregiver reply)', http(200, RECIPIENTS_BODY)));
+      assert.equal(checked.json.decision.outcome, 'caregiver_refused');
+      const [reply] = await r.code('orchestrator: reply (deterministic)', [checked]);
       assert.match(reply.json.text, /المريض بنفسه/);
       assert.equal(reply.json.buttons, null);
       assert.deepEqual(r.staticData, {}, 'a caregiver message is never remembered, whatever it sends');
@@ -365,6 +553,74 @@ async function scenarios() {
     }
   });
 
+  console.log('\n######## agent-telegram-inbound (the AP-05 x AP-11 merge)');
+  await check('the caregiver lane (static, by graph walk): fixed reply? -> a caregiver (fixed reply)? -> backend: alert recipients (caregiver reply), a GET and the ONLY call on the lane -> orchestrator: caregiver check (deterministic) -> the fixed reply + AP-05\'s log; nothing on it reaches a dose read, a model, a write, a download, extraction or Travel Check', () => {
+    const wf = WF('agent-telegram-inbound');
+    const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+    const out = (name, branch) => ((((wf.connections[name] || {}).main || [])[branch]) || []).map((c) => c.node).sort();
+    assert.deepEqual(out('fixed reply?', 0), ['a caregiver (fixed reply)?']);
+    assert.deepEqual(out('a caregiver (fixed reply)?', 0), ['backend: alert recipients (caregiver reply)']);
+    assert.deepEqual(out('a caregiver (fixed reply)?', 1), ['orchestrator: reply (deterministic)'], 'a patient\'s expired tap goes straight to the fixed reply');
+    assert.deepEqual(out('backend: alert recipients (caregiver reply)', 0), ['orchestrator: caregiver check (deterministic)']);
+    assert.deepEqual(out('orchestrator: caregiver check (deterministic)', 0), ['log: non-active caregiver (deterministic)', 'orchestrator: reply (deterministic)']);
+    assert.equal(byName['a caregiver (fixed reply)?'].parameters.conditions.conditions[0].leftValue, "={{ $json.reason === 'caregiver' }}");
+    const get = byName['backend: alert recipients (caregiver reply)'];
+    assert.equal(get.parameters.method, 'GET');
+    assert.equal(get.parameters.url, "={{ $('route (deterministic)').first().json.alertRecipientsUrl }}");
+    const lane = new Set();
+    const stack = ['backend: alert recipients (caregiver reply)'];
+    while (stack.length) {
+      const name = stack.pop();
+      if (lane.has(name)) continue;
+      lane.add(name);
+      for (const kind of Object.values(wf.connections[name] || {})) for (const branch of kind) for (const c of branch) stack.push(c.node);
+    }
+    assert.ok(lane.has('Telegram: orchestrator text') && lane.has('log: non-active caregiver (deterministic)'), 'sanity: the lane was actually walked');
+    const never = ['backend: doses of the day', 'backend: active prescriptions', 'needs the model?', 'Gemini: classify the reply', 'decide (deterministic)',
+      'backend: write 1', 'backend: write 2 (recompute)', 'Telegram: download the file', 'extraction: build the vision request',
+      'orchestrator: download the photo', 'Gemini: what is this photo?', 'Telegram: download for travel check', 'n8n: travel check'];
+    for (const name of lane) {
+      const n = byName[name];
+      assert.ok(!never.includes(name), name + ' is reachable from the caregiver lane');
+      if (n.type === 'n8n-nodes-base.httpRequest') assert.equal(name, 'backend: alert recipients (caregiver reply)', name + ' is a second call on the caregiver lane');
+      assert.ok(!/langchain/.test(n.type), name + ' is a model node on the caregiver lane');
+      if (n.type === 'n8n-nodes-base.telegram') assert.notEqual(n.parameters.resource, 'file', name + ' downloads a file on the caregiver lane');
+    }
+  });
+  await check('the caregiver lane, run: a caregiver PHOTO or DOCUMENT from a chat the re-check cannot confirm gets nothing and one non_active_caregiver log item; from an active caregiver, AP-11\'s own photo line - never downloaded, never classified, never remembered', async () => {
+    for (const over of [{ photoFileId: 'AgAC-cg' }, { documentFileId: 'BQAC-cg' }]) {
+      const cut = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-99', patientId: 'pt-01', ...over }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+      assert.equal(cut.routed.caregiverKind, over.photoFileId ? 'photo' : 'document');
+      assert.equal(cut.decision.outcome, 'caregiver_unverified');
+      assert.deepEqual(cut.replies, []);
+      assert.deepEqual(cut.caregiverLog, [{ patientId: 'pt-01', reason: 'non_active_caregiver' }]);
+      const ok = await inbound({ payload: relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', ...over }), recipientsResponse: http(200, RECIPIENTS_BODY) });
+      assert.equal(ok.decision.outcome, 'caregiver_refused');
+      assert.equal(ok.replies.length, 1);
+      assert.match(ok.replies[0].text, /الصور الطبية يرسلها المريض بنفسه/);
+      assert.deepEqual(ok.caregiverLog, []);
+    }
+    // A caregiver item that somehow reached the fixed reply WITHOUT the re-check carries no decision: nothing is sent.
+    const r = runner(WF('agent-telegram-inbound'));
+    const [routed] = await r.code('route (deterministic)', relay({ subjectType: 'caregiver', subjectId: 'cg-01', patientId: 'pt-01', text: 'أبوي خذ الدوا' }));
+    assert.deepEqual(await r.code('orchestrator: reply (deterministic)', [routed]), []);
+  });
+  await check('AP-05 step 3c across the merge: EVERY Telegram send in agent-telegram-inbound (AP-05\'s three and AP-11\'s three) fans out to its own "log: failed Telegram send (...)", which names it; a failed orchestrator send logs one item, never a chat id or the text', async () => {
+    const wf = WF('agent-telegram-inbound');
+    const byName = Object.fromEntries(wf.nodes.map((n) => [n.name, n]));
+    const sends = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.telegram' && !n.parameters.resource).map((n) => n.name).sort();
+    assert.deepEqual(sends, ['Telegram: extraction reply', 'Telegram: orchestrator choice', 'Telegram: orchestrator text', 'Telegram: reply', 'Telegram: reply with buttons', 'Telegram: travel reply']);
+    for (const send of sends) {
+      const logs = ((wf.connections[send] || {}).main || [[]])[0].map((c) => byName[c.node]).filter((n) => n && /^log: failed Telegram send \(/.test(n.name));
+      assert.equal(logs.length, 1, send + ' has no failed-send log');
+      assert.ok(logs[0].parameters.jsCode.includes('node: ' + JSON.stringify(send)), logs[0].name + ' does not name ' + send);
+    }
+    const r = runner(wf);
+    const log = await r.code('log: failed Telegram send (orchestrator text)', [{ json: { error: { message: 'Forbidden: bot was blocked by the user' } } }]);
+    assert.deepEqual(log.map((x) => x.json), [{ node: 'Telegram: orchestrator text', doseId: null, error: 'Forbidden: bot was blocked by the user' }]);
+    assert.deepEqual(await r.code('log: failed Telegram send (travel reply)', [{ json: { chatId: '1', text: 'hi' } }]), []);
+  });
+
   console.log('\n######## agent-checkin-daily');
   await check('eligibility -> only the backend’s patients; one header + one button message per OPEN dose', async () => {
     const r = runner(WF('agent-checkin-daily'));
@@ -382,6 +638,60 @@ async function scenarios() {
     const r = runner(WF('agent-checkin-daily'));
     assert.equal((await r.code('plan (deterministic)', http(200, []))).length, 0);
     assert.equal((await r.code('plan (deterministic)', http(401, { error: 'unauthorized' }))).length, 0);
+  });
+  await check('TC-AD-08: an eligible patient without a chat id, or with nothing open, or a refused doses fetch -> no message and exactly one log item each; a real day is never logged; the log still runs when the plan is empty', async () => {
+    const eligibility = [
+      { patientId: 'pt-01', chatId: null, language: 'ar', frequency: 'daily' }, // no chat id (plan-time skip)
+      { patientId: 'pt-02', chatId: '5550002', language: 'ar', frequency: 'daily' }, // nothing open
+      { patientId: 'pt-04', chatId: '5550004', language: 'ar', frequency: 'daily' }, // refused fetch
+      { patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }, // a real day - never logged
+    ];
+    const r = runner(WF('agent-checkin-daily'));
+    r.set('backend: who is eligible', http(200, eligibility));
+    r.set('backend: doses of the day', [
+      { json: { statusCode: 200, body: { doses: [] } } },
+      { json: { statusCode: 503, body: {} } },
+      { json: { statusCode: 200, body: DAY } },
+    ]);
+    const log = await r.code('log: skipped patients (deterministic)', [{ json: {} }]);
+    assert.deepEqual(log.map((x) => x.json), [
+      { patientId: 'pt-01', reason: 'no_chat_id' },
+      { patientId: 'pt-02', reason: 'no_open_doses' },
+      { patientId: 'pt-04', reason: 'doses_fetch_refused' },
+    ]);
+    assert.ok(!JSON.stringify(log).includes('chatId'));
+    // The plan is empty (nobody survives) -> 'backend: doses of the day' never runs, and the log still does.
+    const r2 = runner(WF('agent-checkin-daily'));
+    r2.set('backend: who is eligible', http(200, [{ patientId: 'pt-05', chatId: null, language: 'ar', frequency: 'daily' }]));
+    const log2 = await r2.code('log: skipped patients (deterministic)', [{ json: {} }]);
+    assert.deepEqual(log2.map((x) => x.json), [{ patientId: 'pt-05', reason: 'no_chat_id' }]);
+  });
+  await check('AP-05: the named log nodes exist in both workflows and are wired from a node that always runs; agent-checkin-daily makes no POST and no call whose URL contains /doses/ or /schedule/', () => {
+    const in_ = WF('agent-telegram-inbound');
+    const inNames = in_.nodes.map((n) => n.name);
+    for (const name of ['log: non-active caregiver (deterministic)', 'log: failed Telegram send (buttons)', 'log: failed Telegram send (text)', 'log: failed Telegram send (extraction reply)']) {
+      assert.ok(inNames.includes(name), name + ' is missing from agent-telegram-inbound');
+    }
+    const wired = (conns, from, to) => (conns[from].main[0] || []).some((c) => c.node === to);
+    assert.ok(wired(in_.connections, 'decide (deterministic)', 'log: non-active caregiver (deterministic)'));
+    assert.ok(wired(in_.connections, 'Telegram: reply with buttons', 'log: failed Telegram send (buttons)'));
+    assert.ok(wired(in_.connections, 'Telegram: reply', 'log: failed Telegram send (text)'));
+    assert.ok(wired(in_.connections, 'Telegram: extraction reply', 'log: failed Telegram send (extraction reply)'));
+
+    const ck = WF('agent-checkin-daily');
+    const ckNames = ck.nodes.map((n) => n.name);
+    for (const name of ['log: skipped patients (deterministic)', 'log: failed Telegram send (buttons)', 'log: failed Telegram send (header)']) {
+      assert.ok(ckNames.includes(name), name + ' is missing from agent-checkin-daily');
+    }
+    assert.ok(wired(ck.connections, 'backend: who is eligible', 'log: skipped patients (deterministic)'));
+    assert.ok(wired(ck.connections, 'Telegram: dose with buttons', 'log: failed Telegram send (buttons)'));
+    assert.ok(wired(ck.connections, 'Telegram: header', 'log: failed Telegram send (header)'));
+    const httpNodes = ck.nodes.filter((n) => n.type === 'n8n-nodes-base.httpRequest');
+    assert.ok(httpNodes.length > 0);
+    for (const n of httpNodes) {
+      assert.equal(n.parameters.method, 'GET', n.name + ' is not a GET - agent-checkin-daily only ever reads and sends Telegram messages');
+      assert.ok(!/\/(doses|schedule)\//.test(JSON.stringify(n.parameters)), n.name + ' names a /doses/ or /schedule/ URL');
+    }
   });
 
   console.log('\n######## agent-interaction-screening');

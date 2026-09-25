@@ -23,9 +23,19 @@ const DAY = () => [
   dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN),
   dose('rx-009-20260924-2100', 'rx-009', '21:00', OPEN),
 ];
+/** dose(), but for the Kuwait date BEFORE 2026-09-24 (2026-09-23), for the midnight tests. */
+const yDose = (id, prescriptionId, hhmm, word, extra = {}) => ({
+  ...dose(id, prescriptionId, hhmm, word, extra), scheduledAt: '2026-09-23T' + hhmm + ':00+03:00',
+});
 const at = (hhmm) => '2026-09-24T' + hhmm + ':00+03:00';
 const said = (intent, confidence = 0.95, quote = 'q') => ({ intent, confidence, quote });
-const patient = (over) => ({ subjectType: 'patient', language: 'ar', doses: DAY(), tap: null, ...over });
+// The patient's active prescriptions, exactly as GET /api/agent/patients/{id}/prescriptions answers
+// (types/contracts.ts Prescription: id, drug.genericName/brandName, status).
+const RX = () => [
+  { id: 'rx-008', patientId: 'pt-03', drug: { genericName: 'Levothyroxine', brandName: 'Eltroxin' }, status: 'active', needsReview: false },
+  { id: 'rx-009', patientId: 'pt-03', drug: { genericName: 'Calcium carbonate + vitamin D3' }, status: 'active', needsReview: false },
+];
+const patient = (over) => ({ subjectType: 'patient', language: 'ar', doses: DAY(), prescriptions: RX(), tap: null, stopTap: null, ...over });
 
 test('taken_on_time on the one due dose -> exactly one status write, source fixed, recordedAt = the reply time', () => {
   const d = A.decide(patient({ sentAt: at('07:20'), classification: said(ON_TIME, 0.95, 'خذيته') }));
@@ -65,6 +75,20 @@ test('TC-AD-14: a caregiver’s chat never writes - not a typed reply, not a tap
     assert.deepEqual(d.writes, []);
     assert.match(d.reply, /المريض بنفسه/);
   }
+});
+
+test('TC-AD-16: a caregiver the workflow could NOT confirm is still active (alert-recipients) -> silently dropped, never the plain refusal; an ACTIVE caregiver keeps today’s refusal reply', () => {
+  const unverified = A.decide(patient({ subjectType: 'caregiver', sentAt: at('07:20'), classification: said(ON_TIME, 1), caregiverVerified: false }));
+  assert.equal(unverified.outcome, 'caregiver_unverified');
+  assert.equal(unverified.reply, null);
+  assert.deepEqual(unverified.writes, []);
+  assert.equal(unverified.guardrail, 'TC-AD-16');
+  const verified = A.decide(patient({ subjectType: 'caregiver', sentAt: at('07:20'), classification: said(ON_TIME, 1), caregiverVerified: true }));
+  assert.equal(verified.outcome, 'caregiver_refused');
+  assert.match(verified.reply, /المريض بنفسه/);
+  // Not (yet) checked (the field is absent, as every OTHER test in this file leaves it): today's behaviour, unchanged.
+  const unchecked = A.decide(patient({ subjectType: 'caregiver', sentAt: at('07:20'), classification: said(ON_TIME, 1) }));
+  assert.equal(unchecked.outcome, 'caregiver_refused');
 });
 
 test('TC-AD-12: two open due doses and a typed "I took it" -> ask with buttons, never pick one', () => {
@@ -114,25 +138,80 @@ test('parseTap accepts only d:<id>:<recorded word>; tapData stays under 64 bytes
   assert.ok(A.tapData('rx-009-20260924-1300', ON_TIME).length <= 64);
 });
 
-test('TC-RS-03: discontinued_by_doctor cancels ONE prescription with the patient’s words as the reason', () => {
-  const d = A.decide(patient({ doses: DAY().slice(0, 1), sentAt: at('08:00'), classification: said('discontinued_by_doctor', 0.9, 'دكتوري قال أوقف الدواء') }));
-  assert.equal(d.outcome, 'discontinue');
-  assert.equal(d.writes.length, 1);
-  assert.equal(d.writes[0].body.reason, 'discontinued');
-  assert.equal(d.writes[0].body.prescriptionId, 'rx-008');
-  assert.match(d.writes[0].body.discontinuedReason, /دكتوري قال أوقف الدواء/);
+test('TC-RS-03: "the doctor told me to stop it" writes nothing; one Stop <drug>? button per active prescription plus none of these (callback data <= 64 bytes); only a tap s:<rxId> of this patient discontinues', () => {
+  const asked = A.decide(patient({ sentAt: at('08:00'), classification: said('discontinued_by_doctor', 0.9, 'دكتوري قال أوقف الدواء') }));
+  assert.equal(asked.outcome, 'confirm_discontinue');
+  assert.deepEqual(asked.writes, []);
+  assert.deepEqual(asked.stopOptions, [{ prescriptionId: 'rx-008', label: 'Eltroxin' }, { prescriptionId: 'rx-009', label: 'Calcium carbonate + vitamin D3' }]);
+  const buttons = A.buildStopOptions({ chatId: 'c-1', language: 'ar', stopOptions: asked.stopOptions });
+  assert.equal(buttons.length, 3); // one per prescription, plus "none of these"
+  for (const m of buttons) {
+    assert.equal(m.buttons.length, 1);
+    assert.ok(Buffer.byteLength(m.buttons[0].data) <= 64);
+  }
+  assert.equal(buttons[0].buttons[0].data, 's:rx-008');
+  assert.equal(buttons[2].buttons[0].data, 'n:none');
+  // ONE prescription open (the other already discontinued/completed): still asks, never assumes it.
+  const oneActive = A.decide(patient({ prescriptions: [RX()[0]], sentAt: at('08:00'), classification: said('discontinued_by_doctor', 0.9) }));
+  assert.equal(oneActive.outcome, 'confirm_discontinue');
+  assert.equal(oneActive.stopOptions.length, 1);
+  // The tap that follows: s:rx-008 discontinues that ONE prescription, with a fixed reason (no quote fits in callback data).
+  const tapped = A.decide(patient({ sentAt: at('08:01'), stopTap: A.parseStopTap('s:rx-008') }));
+  assert.equal(tapped.outcome, 'discontinue');
+  assert.equal(tapped.writes.length, 1);
+  assert.equal(tapped.writes[0].body.reason, 'discontinued');
+  assert.equal(tapped.writes[0].body.prescriptionId, 'rx-008');
+  assert.equal(typeof tapped.writes[0].body.discontinuedReason, 'string');
+  assert.ok(tapped.writes[0].body.discontinuedReason.length > 0);
+  assert.match(tapped.reply, /Eltroxin/);
+  // "none of these": no write, an acknowledgement.
+  const none = A.decide(patient({ sentAt: at('08:01'), stopTap: A.parseStopTap('n:none') }));
+  assert.equal(none.outcome, 'discontinue_none');
+  assert.deepEqual(none.writes, []);
+  // An unknown, foreign or already-inactive prescription id: refused, nothing written.
+  const unknown = A.decide(patient({ sentAt: at('08:01'), stopTap: A.parseStopTap('s:rx-999') }));
+  assert.equal(unknown.outcome, 'no_dose');
+  assert.deepEqual(unknown.writes, []);
+  // A caregiver's stop tap: refused exactly like any other caregiver write attempt.
+  const byCaregiver = A.decide(patient({ subjectType: 'caregiver', sentAt: at('08:01'), stopTap: A.parseStopTap('s:rx-008') }));
+  assert.equal(byCaregiver.outcome, 'caregiver_refused');
+  assert.deepEqual(byCaregiver.writes, []);
+  // No active prescription at all: nothing to offer.
+  const none_active = A.decide(patient({ prescriptions: [], sentAt: at('08:00'), classification: said('discontinued_by_doctor', 0.9) }));
+  assert.equal(none_active.outcome, 'no_dose');
 });
 
-test('a discontinuation that could mean two prescriptions is asked about, never applied', () => {
-  const d = A.decide(patient({ sentAt: at('22:00'), classification: said('discontinued_by_doctor', 0.95) }));
-  assert.equal(d.outcome, 'ask_which');
-  assert.deepEqual(d.writes, []);
+test('parseStopTap: only s:<id> or n:none; the none token can never parse as a prescription id; stopTapData stays under 64 bytes', () => {
+  assert.deepEqual(A.parseStopTap('s:rx-008'), { none: false, prescriptionId: 'rx-008' });
+  assert.deepEqual(A.parseStopTap('n:none'), { none: true, prescriptionId: null });
+  for (const bad of ['s:', 's:a b', 'd:rx-008:taken_on_time', 'rx-008', null, 7, '']) assert.equal(A.parseStopTap(bad), null);
+  assert.ok(Buffer.byteLength(A.stopTapData('rx-008')) <= 64);
+  assert.throws(() => A.stopTapData('not an id!'));
 });
 
 test('ran_out writes nothing (a refill is the patient’s own request in the app)', () => {
   const d = A.decide(patient({ sentAt: at('07:30'), classification: said('ran_out') }));
   assert.equal(d.outcome, 'ran_out');
   assert.deepEqual(d.writes, []);
+});
+
+test('TC-AD-12: "it ran out" with two open doses of the SAME prescription -> picks one, never asks (naming a specific dose does not matter for ran_out)', () => {
+  const doses = [
+    dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN),
+    dose('rx-009-20260924-2100', 'rx-009', '21:00', OPEN),
+  ];
+  const d = A.decide(patient({ doses, sentAt: at('22:00'), classification: said('ran_out') }));
+  assert.equal(d.outcome, 'ran_out');
+  assert.deepEqual(d.writes, []);
+  assert.match(d.reply, /Calcium carbonate/);
+});
+
+test('TC-AD-12: "it ran out" with open doses across TWO prescriptions -> ask, never guess which medicine (the prescription-level guard candidateDoses/decide relies on)', () => {
+  const d = A.decide(patient({ sentAt: at('22:00'), classification: said('ran_out', 0.95, 'خلص الدوا') }));
+  assert.equal(d.outcome, 'ask_which');
+  assert.deepEqual(d.writes, []);
+  assert.equal(d.reply, A.REPLIES.ar.unclear);
+  assert.deepEqual(d.askDoses, []);
 });
 
 test('replyAfterWrites: a refused write never reads as recorded; a failed recompute says the miss is recorded', () => {
@@ -167,4 +246,111 @@ test('kuwaitDate / previousDate never depend on the host clock or zone', () => {
   assert.equal(A.kuwaitDate('2026-09-23T22:30:00Z'), '2026-09-24');
   assert.equal(A.kuwaitHHMM('2026-09-24T04:00:00Z'), '07:00');
   assert.equal(A.previousDate('2026-09-01'), '2026-08-31');
+});
+
+// -------------------------------------------------------------------------------------------
+// AP-05 step 2 - TC-AD-12 (after midnight): a reply between 00:00 and 02:59 Kuwait also reads the
+// PREVIOUS day's open doses. readDates is pure; decide() itself just needs the merged doses array
+// (each dose's own scheduledAt is an absolute instant, so it sorts and filters correctly either way).
+test('readDates: [previous, today] between 00:00 and 02:59 Kuwait; [today] alone from 03:00 on', () => {
+  assert.deepEqual(A.readDates(at('00:40')), ['2026-09-23', '2026-09-24']);
+  assert.deepEqual(A.readDates(at('02:59')), ['2026-09-23', '2026-09-24']);
+  assert.deepEqual(A.readDates(at('03:00')), ['2026-09-24']);
+  assert.deepEqual(A.readDates(at('23:59')), ['2026-09-24']);
+  assert.equal(A.readDates('not a date').length, 0);
+});
+
+test('TC-AD-12 (after midnight): 00:40 with only yesterday’s 21:00 open -> that dose, marked as such', () => {
+  const doses = [yDose('rx-009-y-2100', 'rx-009', '21:00', OPEN)];
+  const d = A.decide(patient({ doses, sentAt: at('00:40'), classification: said(ON_TIME) }));
+  assert.equal(d.outcome, 'record');
+  assert.equal(d.writes[0].doseId, 'rx-009-y-2100');
+  const c = A.buildCheckIn({ patientId: 'pt-03', chatId: 'c-1', language: 'ar', doses, referenceDate: '2026-09-24' });
+  assert.match(c.messages[1].text, /^أمس 21:00/);
+});
+
+test('TC-AD-12 (after midnight): two open doses across both days -> ask which, never the wrong day; each button message marks yesterday’s dose', () => {
+  const doses = [yDose('rx-009-y-2100', 'rx-009', '21:00', OPEN), dose('rx-008-20260924-0700', 'rx-008', '07:00', OPEN)];
+  // 07:00 is not yet due at 00:40, so only the 1-hour early grace window matters; use 08:00 so both are due.
+  const d = A.decide(patient({ doses, sentAt: at('08:00'), classification: said(ON_TIME) }));
+  assert.equal(d.outcome, 'ask_which');
+  assert.deepEqual(d.askDoses.map((x) => x.id), ['rx-009-y-2100', 'rx-008-20260924-0700']);
+  const c = A.buildCheckIn({ patientId: 'pt-03', chatId: 'c-1', language: 'ar', doses: d.askDoses, referenceDate: '2026-09-24' });
+  assert.match(c.messages[1].text, /^أمس 21:00/);
+  assert.doesNotMatch(c.messages[2].text, /^أمس/);
+});
+
+test('TC-AD-12: 03:00 reads today only - readDates asks for no previous-day fetch at that hour, so ROUTE hands decide() only today’s doses, and a dose only open yesterday is correctly not a candidate', () => {
+  assert.deepEqual(A.readDates(at('03:00')), ['2026-09-24']);
+  // The merge is ROUTE's job (agents/scripts/build.js), proven end to end in agents/scripts/check.js;
+  // simulated here with exactly what ROUTE would fetch at 03:00 - today's doses only, none of them
+  // due yet. Contrast with the 00:40 test above, where the SAME dose (only open yesterday) is
+  // reached because ROUTE also fetched the previous day.
+  const d = A.decide(patient({ doses: DAY(), sentAt: at('03:00'), classification: said(ON_TIME) }));
+  assert.equal(d.outcome, 'no_dose');
+});
+
+// -------------------------------------------------------------------------------------------
+// AP-05 step 4 - CR-092: tracking off.
+test('TC-AD-09 (CR-092): trackingOn false and nothing open -> "check-ins are not switched on", no write; trackingOn absent -> today’s no-dose reply', () => {
+  const off = A.decide(patient({ doses: [], sentAt: at('12:00'), classification: said(ON_TIME), trackingOn: false }));
+  assert.equal(off.outcome, 'tracking_off');
+  assert.deepEqual(off.writes, []);
+  assert.match(off.reply, /متابعة الجرعات/);
+  const absent = A.decide(patient({ doses: [], sentAt: at('12:00'), classification: said(ON_TIME) }));
+  assert.equal(absent.outcome, 'no_dose');
+  const on = A.decide(patient({ doses: [], sentAt: at('12:00'), classification: said(ON_TIME), trackingOn: true }));
+  assert.equal(on.outcome, 'no_dose');
+});
+
+// -------------------------------------------------------------------------------------------
+// AP-05 step 5 - rule 3/4 invariants.
+test('TC-AD-11 (rule 3): a tracked:false dose is never a candidate or a tap target and is never written', () => {
+  const untracked = dose('rx-009-20260924-1300', 'rx-009', '13:00', OPEN, { tracked: false });
+  // The backend never RETURNS an untracked dose to the agent in the first place (CR-062,
+  // docs/API-SURFACE.md: "an untracked dose is never returned"), and the database refuses a
+  // status on one regardless of what any caller sends (dose_untracked_has_no_status,
+  // supabase/migrations/0004_constraints_and_triggers.sql:194, surfaced as 409 untracked_dose by
+  // lib/agent/handlers.ts:33). This test proves the DEFENCE IN DEPTH on top of that: even handed
+  // the tracked:false dose directly (never trusting the backend contract alone), candidateDoses
+  // and the tap lookup both refuse it - on the `tracked` field itself, never the status word
+  // (rule 3 as written: "the pill's absence keys off Dose.tracked, never off the status word").
+  const doses = [untracked];
+  const typed = A.decide(patient({ doses, sentAt: at('13:05'), classification: said(ON_TIME) }));
+  assert.equal(typed.outcome, 'no_dose');
+  assert.deepEqual(typed.writes, []);
+  const tapped = A.decide(patient({ doses, sentAt: at('13:05'), tap: A.parseTap('d:rx-009-20260924-1300:taken_on_time') }));
+  assert.equal(tapped.outcome, 'no_dose');
+  assert.deepEqual(tapped.writes, []);
+});
+
+test('TC-AD-10 (rule 4): no reply -> nothing recorded; the check-in only sends', () => {
+  const c = A.buildCheckIn({ patientId: 'pt-03', chatId: 'c-1', language: 'ar', doses: DAY() });
+  assert.equal(c.skipped, false);
+  for (const m of c.messages) assert.equal(Object.prototype.hasOwnProperty.call(m, 'status'), false);
+  // buildCheckIn never calls a write - it only shapes messages; nothing here can record anything.
+  assert.ok(!/decide|dose_status|recompute/.test(A.buildCheckIn.toString()));
+});
+
+test('AP-17: no em dash (U+2014) anywhere in the module', () => {
+  const src = require('node:fs').readFileSync(require.resolve('../lib/adherence.js'), 'utf8');
+  assert.doesNotMatch(src, /—/);
+});
+
+// -------------------------------------------------------------------------------------------
+// AP-05 step 3a - the pure plan/skip helper the daily check-in's log node reuses (TC-AD-08).
+test('TC-AD-08 (the plan-time half): no chat id, or not due today (every_other_day parity), are named skips, never a chat id; a real row survives. The other two skip reasons (nothing open, a refused doses fetch) need the daily workflow\'s own fetch and are proved in agents/scripts/check.js.', () => {
+  const eligibility = [
+    { patientId: 'pt-01', chatId: null, language: 'ar', frequency: 'daily' },
+    { patientId: 'pt-02', chatId: 'c-2', language: 'ar', frequency: 'every_other_day' },
+    { patientId: 'pt-03', chatId: 'c-3', language: 'ar', frequency: 'daily' },
+    {},
+  ];
+  const even = A.planCheckIns({ eligibility, dayIndex: 10 });
+  assert.deepEqual(even.skipped, [{ patientId: 'pt-01', reason: 'no_chat_id' }]);
+  assert.deepEqual(even.plans.map((p) => p.patientId), ['pt-02', 'pt-03']);
+  const odd = A.planCheckIns({ eligibility, dayIndex: 11 });
+  assert.deepEqual(odd.skipped, [{ patientId: 'pt-01', reason: 'no_chat_id' }, { patientId: 'pt-02', reason: 'not_due_today' }]);
+  assert.deepEqual(odd.plans.map((p) => p.patientId), ['pt-03']);
+  assert.deepEqual(A.planCheckIns({ eligibility: [], dayIndex: 1 }), { plans: [], skipped: [] });
 });

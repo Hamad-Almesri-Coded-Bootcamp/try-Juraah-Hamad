@@ -173,7 +173,11 @@ const ok = p && p.channel === 'telegram' && (p.subjectType === 'patient' || p.su
   typeof p.patientId === 'string' && p.patientId && typeof p.chatId === 'string' && p.chatId && kuwaitDate(p.sentAt);
 if (!ok) return [];
 
+// A callback is a button tap - a dose tap (d:) or a discontinuation-confirm tap (s: / n:none, AP-05
+// step 1). Either way it NEVER goes to the model: an unparseable callback is simply unclear, never
+// a sentence for Gemini to read.
 const tap = p.kind === 'callback' ? parseTap(p.text) : null;
+const stopTap = p.kind === 'callback' && !tap ? parseStopTap(p.text) : null;
 // A tap carries the CHECK-IN message's time, not the tap's: the tap happened now (n8n's receipt).
 const eventAt = p.kind === 'callback' ? new Date().toISOString() : p.sentAt;
 
@@ -205,17 +209,34 @@ if (route === 'reply') {
     reason = 'photo_expired';
   }
 }
+// AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads the previous day's
+// open doses. This applies to a TAP too: a tap names its own dose id, but the button carrying that
+// id can have been SENT before midnight and TAPPED after it (eventAt/p.sentAt is the tap's own
+// time, not the check-in message's), and a tap fetched by today's date alone would then never find
+// yesterday's dose id among the doses it gets back. Fetching both days here is always safe: the
+// dose is still looked up by its exact id (agents/lib/adherence.js decide()), never by date, so an
+// extra fetch can only widen the search, never attach the tap to the wrong day. dates' last entry
+// is always "today" (the reply's own Kuwait date); a first entry, when present, is the day before.
+const dates = readDates(p.sentAt);
+const date = dates[dates.length - 1];
+const prevDate = dates.length > 1 ? dates[0] : null;
 return [{ json: {
   route, reason, caregiverKind, messageId: p.messageId || null,
-  subjectType: p.subjectType, patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
+  subjectType: p.subjectType, subjectId: typeof p.subjectId === 'string' ? p.subjectId : null,
+  patientId: p.patientId, language: p.language === 'en' ? 'en' : 'ar', chatId: p.chatId,
   text: typeof p.text === 'string' ? p.text.slice(0, 500) : '',
-  tap, eventAt,
-  // The doses of the day the reply is about: a tap's check-in day, or the reply's own day.
-  date: kuwaitDate(p.sentAt),
-  needsModel: route === 'adherence' && p.subjectType === 'patient' && !tap && typeof p.text === 'string' && p.text.trim().length > 0,
+  tap, stopTap, eventAt,
+  // CR-092 - whether the backend's settings say check-ins are on for this patient; absent (an
+  // older relay payload, or the field genuinely unset) keeps today's plain "no open dose" reply.
+  trackingOn: typeof p.trackingOn === 'boolean' ? p.trackingOn : null,
+  date,
+  needsModel: route === 'adherence' && p.subjectType === 'patient' && p.kind !== 'callback' && typeof p.text === 'string' && p.text.trim().length > 0,
   callbackQueryId: p.callbackQueryId || null,
   photoFileId, documentFileId,
-  dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + kuwaitDate(p.sentAt),
+  dosesUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date,
+  prevDosesUrl: prevDate ? API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + prevDate : null,
+  prescriptionsUrl: API + '/patients/' + encodeURIComponent(p.patientId) + '/prescriptions',
+  alertRecipientsUrl: API + '/alert-recipients?patientId=' + encodeURIComponent(p.patientId),
 } }];`;
 
 // The classifier's prompt and schema live in agents/lib/adherence.js beside the rules that trust
@@ -229,15 +250,42 @@ const DECIDE = CONFIG + '\n' + ADHERENCE + `
 const r = $('route (deterministic)').first().json;
 const fetched = $('backend: doses of the day').first().json;
 const doses = fetched.statusCode === 200 && fetched.body && Array.isArray(fetched.body.doses) ? fetched.body.doses : null;
+const fetchedRx = $('backend: active prescriptions').first().json;
+const prescriptions = fetchedRx.statusCode === 200 && fetchedRx.body && Array.isArray(fetchedRx.body.prescriptions) ? fetchedRx.body.prescriptions : null;
+
+// AP-05 step 2 - the previous day's doses, only when ROUTE asked for them; a missing or refused
+// fetch here fails CLOSED (never a silent fall-back to today's doses alone, TC-AD-12).
+let prevDoses = [];
+let prevFetchFailed = false;
+if (r.prevDosesUrl) {
+  try {
+    const pf = $('backend: doses of the previous day').first().json;
+    if (pf.statusCode === 200 && pf.body && Array.isArray(pf.body.doses)) prevDoses = pf.body.doses;
+    else prevFetchFailed = true;
+  } catch (e) { prevFetchFailed = true; }
+}
+
+// AP-05 step 3b (TC-AD-16) - re-verify an alleged caregiver against alert-recipients (rule 5) even
+// though the relay already checked; null when not applicable (a patient's own chat).
+let caregiverVerified = null;
+if (r.subjectType === 'caregiver') {
+  try {
+    const cf = $('backend: alert recipients (caregiver check)').first().json;
+    caregiverVerified = !!(cf.statusCode === 200 && cf.body && Array.isArray(cf.body.caregivers)
+      && cf.body.caregivers.some((c) => c && c.caregiverId === r.subjectId));
+  } catch (e) { caregiverVerified = false; }
+}
+
 const classified = r.needsModel ? ($input.first().json.output || $input.first().json) : null;
 
 let decision;
-if (doses === null && r.subjectType === 'patient') {
-  decision = { outcome: 'refused', writes: [], askDoses: [], dose: null, reply: REPLIES[r.language].failed,
-               reason: 'the backend did not return the doses (HTTP ' + fetched.statusCode + ')' };
+if (r.subjectType === 'patient' && (doses === null || prescriptions === null || prevFetchFailed)) {
+  decision = { outcome: 'refused', writes: [], askDoses: [], stopOptions: [], dose: null, reply: REPLIES[r.language].failed,
+               reason: 'the backend did not return what this reply needs (HTTP ' + fetched.statusCode + ')' };
 } else {
-  decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: doses || [],
-                      tap: r.tap, classification: classified });
+  decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: (doses || []).concat(prevDoses),
+                      prescriptions: prescriptions || [], tap: r.tap, stopTap: r.stopTap, classification: classified,
+                      trackingOn: r.trackingOn, caregiverVerified });
 }
 const w = decision.writes || [];
 const url = (x) => x.op === 'dose_status' ? API + '/doses/' + encodeURIComponent(x.doseId) + '/status' : API + '/schedule/recompute';
@@ -255,21 +303,54 @@ return [{ json: { ...d, result0: { statusCode: first.statusCode }, runSecond: !!
 
 const REPLY = ADHERENCE + `
 
-// What the patient reads - after the writes, from what the backend ACTUALLY answered.
+// What the patient reads - after the writes, from what the backend ACTUALLY answered. A decision
+// with no reply at all (TC-AD-16's silently-dropped, unverified caregiver) sends nothing.
 const d = $('decide (deterministic)').first().json;
 const results = [];
 try { results[0] = { statusCode: $('backend: write 1').first().json.statusCode }; } catch (e) { /* did not run */ }
 try { results[1] = { statusCode: $('backend: write 2 (recompute)').first().json.statusCode }; } catch (e) { /* did not run */ }
 const out = replyAfterWrites(d.decision, results, d.language);
-const items = [{ json: { chatId: d.chatId, text: out.reply, buttons: null, callbackQueryId: d.callbackQueryId,
-  log: { outcome: d.decision.outcome, intent: d.decision.intent, doseId: d.decision.dose ? d.decision.dose.id : null,
-         recorded: out.recorded, statuses: results.map((x) => x && x.statusCode), reason: d.decision.reason || null } } }];
-// TC-AD-12 - more than one open dose: one message per dose, each with buttons naming it.
+const items = [];
+if (out.reply !== null) {
+  items.push({ json: { chatId: d.chatId, text: out.reply, buttons: null, callbackQueryId: d.callbackQueryId,
+    log: { outcome: d.decision.outcome, intent: d.decision.intent, doseId: d.decision.dose ? d.decision.dose.id : null,
+           recorded: out.recorded, statuses: results.map((x) => x && x.statusCode), reason: d.decision.reason || null } } });
+}
+// TC-AD-12 - more than one open dose: one message per dose, each with buttons naming it, marking
+// any dose from the day before (AP-05 step 2's across-midnight ask).
 if (d.decision.outcome === 'ask_which' && d.decision.askDoses && d.decision.askDoses.length) {
-  const c = buildCheckIn({ patientId: d.patientId, chatId: d.chatId, language: d.language, doses: d.decision.askDoses });
+  const c = buildCheckIn({ patientId: d.patientId, chatId: d.chatId, language: d.language, doses: d.decision.askDoses, referenceDate: d.date });
   for (const m of c.messages.slice(1)) items.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, callbackQueryId: null } });
 }
+// AP-05 step 1 (TC-RS-03) - one "Stop <drug>?" button per active prescription, plus "none of these".
+if (d.decision.outcome === 'confirm_discontinue' && d.decision.stopOptions && d.decision.stopOptions.length) {
+  for (const m of buildStopOptions({ chatId: d.chatId, language: d.language, stopOptions: d.decision.stopOptions })) {
+    items.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, callbackQueryId: null } });
+  }
+}
 return items;`;
+
+// AP-05 step 3c - fanned out after every Telegram send node (onError: continueRegularOutput leaves
+// a failure on the item as .error instead of throwing the execution). One log item per failed send
+// in THIS batch - never a chat id, never the message text.
+function failedSendLog(sendNodeName) {
+  return `
+return ($input.all() || [])
+  .filter((item) => item && item.json && item.json.error)
+  .map((item) => ({ json: { node: ${JSON.stringify(sendNodeName)}, doseId: item.json.doseId || null,
+    error: String((item.json.error && item.json.error.message) || item.json.error) } }));`;
+}
+
+// AP-05 step 3b (TC-AD-16) - one item whenever decide() dropped an unverified caregiver, never a chat id.
+// Merge of AP-05 into AP-11: two nodes feed this one - 'decide (deterministic)' (the adherence lane,
+// which no caregiver reaches any more; kept as defence in depth) and 'orchestrator: caregiver check
+// (deterministic)' (the caregiver lane every caregiver message now takes). Both carry the same
+// { patientId, decision }, so this reads $input rather than one named node (the same reason
+// 'orchestrator: reply (deterministic)' does).
+const CAREGIVER_LOG = `
+const d = ($input.first() || {}).json;
+if (!d || !d.decision || d.decision.outcome !== 'caregiver_unverified') return [];
+return [{ json: { patientId: d.patientId, reason: 'non_active_caregiver' } }];`;
 
 const EX_REQUEST = EXTRACTION + `
 
@@ -355,12 +436,54 @@ if (decided.kind === 'other') reason = 'other';
 else if (decided.kind === 'unsure') reason = a.fileProblem ? 'file_problem' : 'unsure';
 return [{ json: { ...a, decidedKind: decided.kind, reason } }];`;
 
+// ---- The caregiver lane: the merge of AP-05 (adherence hardening) into AP-11 (the Orchestrator).
+// AP-11's rule: every caregiver message - text, tap, photo or document - is routed 'reply' by
+// routeInbound and read no further: it never reaches a dose read, the adherence model, a dose write,
+// extraction or Travel Check. AP-05's rule (TC-AD-16, plan step 3): an alleged caregiver is
+// re-checked against GET /api/agent/alert-recipients even though the relay already checked; one the
+// check cannot confirm ACTIVE gets nothing at all and leaves one 'log: non-active caregiver' item,
+// and an active one gets the plain refusal (TC-AD-14, never a recorded status).
+// The smallest wiring that keeps both: the re-check moves onto AP-11's reply lane, in front of the
+// fixed reply, for caregivers only -
+//   fixed reply? -> a caregiver (fixed reply)? --yes--> backend: alert recipients (caregiver reply)
+//     -> orchestrator: caregiver check (deterministic) -> orchestrator: reply (deterministic)
+//                                                       + log: non-active caregiver (deterministic)
+//   a caregiver (fixed reply)? --no (a patient's expired or:rx/or:box tap)--> the reply, unchanged.
+// The one call on the lane is that GET: nothing on it can write, call a model, download a file or
+// reach extraction or Travel Check (agents/scripts/check.js walks the graph to prove it). The
+// verdict is AP-05's own decide() - its caregiver branch returns before it reads a dose, a time or a
+// classification - so the TC-AD-14/TC-AD-16 rule still lives in one function; AP-11 only picks the
+// words (a photo or document gets its own line). AP-05's adherence-lane re-check ('a caregiver
+// chat?' -> 'backend: alert recipients (caregiver check)') is kept as it was: no caregiver reaches
+// it now, and it still refuses one if a later routing change ever let one through.
+const ORCH_CAREGIVER = ADHERENCE + `
+
+const r = $('route (deterministic)').first().json;
+if (r.subjectType !== 'caregiver') return []; // never on this lane (route (deterministic) sets reason 'caregiver' for a caregiver only): fail closed
+// The same test DECIDE runs on the adherence lane: is this chat's subjectId one of the patient's
+// ACTIVE caregivers? A refused or failed read is "not confirmed" - rule 5, fail closed.
+let caregiverVerified = false;
+try {
+  const cf = $input.first().json;
+  caregiverVerified = !!(cf.statusCode === 200 && cf.body && Array.isArray(cf.body.caregivers)
+    && cf.body.caregivers.some((c) => c && c.caregiverId === r.subjectId));
+} catch (e) { caregiverVerified = false; }
+// decide()'s caregiver branch returns before it reads any of these - none is handed over at all.
+const decision = decide({ subjectType: r.subjectType, language: r.language, sentAt: r.eventAt, doses: [], prescriptions: [],
+                          tap: null, stopTap: null, classification: null, caregiverVerified });
+return [{ json: { ...r, caregiverVerified, decision } }];`;
+
 const ORCH_REPLY = ADHERENCE + '\n' + ORCHESTRATOR + `
 
-// Fed by either of two nodes (a caregiver or an expired tap, straight from route (deterministic);
-// or other/unsure/a file problem, from decide (deterministic)) - both carry the same core fields,
-// so this reads $input rather than a named node.
+// Fed by any of three nodes - a caregiver, from 'orchestrator: caregiver check (deterministic)'
+// (AP-05's re-check, above); an expired or:rx/or:box tap, straight from route (deterministic); or
+// other/unsure/a file problem, from 'orchestrator: decide (deterministic)' - all carry the same
+// core fields, so this reads $input rather than a named node.
 const j = $input.first().json;
+// A caregiver is answered only on decide()'s own caregiver_refused (the re-check confirmed them
+// ACTIVE): caregiver_unverified sends nothing (TC-AD-16), and a caregiver item that never passed
+// the re-check at all carries no decision - fail closed, never a message to an unconfirmed chat.
+if (j.reason === 'caregiver' && !(j.decision && j.decision.outcome === 'caregiver_refused')) return [];
 const built = orchestratorReply({ reason: j.reason, kind: j.caregiverKind, language: j.language, messageId: j.messageId });
 return [{ json: { chatId: j.chatId, text: built.text, buttons: built.buttons, callbackQueryId: j.callbackQueryId,
   log: { route: 'reply', reason: j.reason, patientId: j.patientId } } }];`;
@@ -401,6 +524,13 @@ const inbound = {
     ifNode(IN(3), 'a prescription photo?', "={{ $json.route === 'extraction' }}", [-460, 0]),
     // ---- adherence
     api(IN(4), 'backend: doses of the day', 'GET', '={{ $json.dosesUrl }}', [-240, 200]),
+    api(IN(32), 'backend: active prescriptions', 'GET', "={{ $('route (deterministic)').first().json.prescriptionsUrl }}", [-200, 340]),
+    // AP-05 step 2 (TC-AD-12) - a reply between 00:00 and 02:59 Kuwait also reads yesterday's doses.
+    ifNode(IN(33), 'after midnight?', "={{ !!$('route (deterministic)').first().json.prevDosesUrl }}", [-160, 480]),
+    api(IN(34), 'backend: doses of the previous day', 'GET', "={{ $('route (deterministic)').first().json.prevDosesUrl }}", [-120, 620]),
+    // AP-05 step 3b (TC-AD-16) - re-verify an alleged caregiver against alert-recipients (rule 5).
+    ifNode(IN(35), 'a caregiver chat?', "={{ $('route (deterministic)').first().json.subjectType === 'caregiver' }}", [-80, 760]),
+    api(IN(36), 'backend: alert recipients (caregiver check)', 'GET', "={{ $('route (deterministic)').first().json.alertRecipientsUrl }}", [-40, 900]),
     ifNode(IN(5), 'needs the model?', "={{ $('route (deterministic)').first().json.needsModel }}", [-20, 200]),
     gemini(IN(6), 'Gemini (chat model)', GEMINI_MODEL, [120, 420]),
     gemini(IN(7), 'Gemini (fallback model)', GEMINI_FALLBACK_MODEL, [120, 560]),
@@ -445,49 +575,71 @@ const inbound = {
                     sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
                     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
       id: IN(31), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1520, -160] },
+    // ---- logs (AP-05 step 3) - each a named Code node output, never a chat id or message text.
+    code(IN(37), 'log: non-active caregiver (deterministic)', CAREGIVER_LOG, [640, 380]),
+    code(IN(38), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: reply with buttons'), [2400, 40]),
+    code(IN(39), 'log: failed Telegram send (text)', failedSendLog('Telegram: reply'), [2620, 380]),
+    code(IN(40), 'log: failed Telegram send (extraction reply)', failedSendLog('Telegram: extraction reply'), [1520, -400]),
     // ---- AP-11: the Orchestrator (a real router: prescription | medicine_package | other | unsure)
-    ifNode(IN(32), 'photo?', "={{ $json.route === 'photo' }}", [-460, -420]),
-    ifNode(IN(33), 'medicine box?', "={{ $json.route === 'travel' }}", [-460, -560]),
-    ifNode(IN(34), 'fixed reply?', "={{ $json.route === 'reply' }}", [-460, -680]),
+    // Ids IN(41)..IN(60): AP-11 was built with IN(32)..IN(51), which AP-05 took first on main (and the
+    // live n8n instance holds main's nodes under those ids), so AP-11's nodes moved up past main's
+    // last id, in the same order. Every id and every name in this workflow is unique (check.js).
+    ifNode(IN(41), 'photo?', "={{ $json.route === 'photo' }}", [-460, -420]),
+    ifNode(IN(42), 'medicine box?', "={{ $json.route === 'travel' }}", [-460, -560]),
+    ifNode(IN(43), 'fixed reply?', "={{ $json.route === 'reply' }}", [-460, -680]),
     { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
-      id: IN(35), name: 'orchestrator: download the photo', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [-240, -420],
+      id: IN(44), name: 'orchestrator: download the photo', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [-240, -420],
       onError: 'continueRegularOutput' },
-    code(IN(36), 'orchestrator: ask what the photo is', ORCH_ASK, [-20, -420]),
+    code(IN(45), 'orchestrator: ask what the photo is', ORCH_ASK, [-20, -420]),
     { parameters: { method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/' + VISION_MODEL_PATH + ':generateContent',
                     authentication: 'predefinedCredentialType', nodeCredentialType: 'googlePalmApi',
                     sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.visionBody) }}',
                     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
-      id: IN(37), name: 'Gemini: what is this photo?', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [200, -420],
+      id: IN(46), name: 'Gemini: what is this photo?', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [200, -420],
       retryOnFail: true, maxTries: 2, waitBetweenTries: 2000 },
-    code(IN(38), 'orchestrator: decide (deterministic)', ORCH_DECIDE, [420, -420]),
-    ifNode(IN(39), 'a prescription (photo)?', "={{ $json.decidedKind === 'prescription' }}", [640, -420]),
-    ifNode(IN(40), 'a medicine box (photo)?', "={{ $json.decidedKind === 'medicine_package' }}", [640, -560]),
+    code(IN(47), 'orchestrator: decide (deterministic)', ORCH_DECIDE, [420, -420]),
+    ifNode(IN(48), 'a prescription (photo)?', "={{ $json.decidedKind === 'prescription' }}", [640, -420]),
+    ifNode(IN(49), 'a medicine box (photo)?', "={{ $json.decidedKind === 'medicine_package' }}", [640, -560]),
     { parameters: { resource: 'file', fileId: "={{ $json.photoFileId || $json.documentFileId }}", additionalFields: {} },
-      id: IN(41), name: 'Telegram: download for travel check', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [860, -560],
+      id: IN(50), name: 'Telegram: download for travel check', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [860, -560],
       onError: 'continueRegularOutput' },
-    code(IN(42), 'orchestrator: build the travel request', ORCH_TRAVEL_REQUEST, [1080, -560]),
+    code(IN(51), 'orchestrator: build the travel request', ORCH_TRAVEL_REQUEST, [1080, -560]),
     { parameters: { method: 'POST', url: '={{ $json.travelUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
                     sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.travelBody) }}',
                     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 60000 } },
-      id: IN(43), name: 'n8n: travel check', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1300, -560] },
-    code(IN(44), 'orchestrator: travel reply (deterministic)', ORCH_TRAVEL_REPLY, [1520, -560]),
-    telegramText(IN(45), 'Telegram: travel reply', [1740, -560]),
-    code(IN(46), 'orchestrator: reply (deterministic)', ORCH_REPLY, [860, -680]),
-    ifNode(IN(47), 'with two buttons?', '={{ Array.isArray($json.buttons) }}', [1080, -680]),
-    telegramTwoButtons(IN(48), 'Telegram: orchestrator choice', [1300, -760]),
-    telegramText(IN(49), 'Telegram: orchestrator text', [1300, -600]),
-    ifNode(IN(50), 'an orchestrator tap?', '={{ !!$json.callbackQueryId }}', [1520, -680]),
+      id: IN(52), name: 'n8n: travel check', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1300, -560] },
+    code(IN(53), 'orchestrator: travel reply (deterministic)', ORCH_TRAVEL_REPLY, [1520, -560]),
+    telegramText(IN(54), 'Telegram: travel reply', [1740, -560]),
+    code(IN(55), 'orchestrator: reply (deterministic)', ORCH_REPLY, [860, -680]),
+    ifNode(IN(56), 'with two buttons?', '={{ Array.isArray($json.buttons) }}', [1080, -680]),
+    telegramTwoButtons(IN(57), 'Telegram: orchestrator choice', [1300, -760]),
+    telegramText(IN(58), 'Telegram: orchestrator text', [1300, -600]),
+    ifNode(IN(59), 'an orchestrator tap?', '={{ !!$json.callbackQueryId }}', [1520, -680]),
     { parameters: { resource: 'callback', queryId: '={{ $json.callbackQueryId }}', additionalFields: {} },
-      id: IN(51), name: 'Telegram: close the photo tap', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [1740, -680],
+      id: IN(60), name: 'Telegram: close the photo tap', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [1740, -680],
       onError: 'continueRegularOutput', executeOnce: true },
+    // ---- the merge of AP-05 into AP-11: the caregiver lane (ORCH_CAREGIVER above says why).
+    ifNode(IN(61), 'a caregiver (fixed reply)?', "={{ $json.reason === 'caregiver' }}", [-240, -900]),
+    api(IN(62), 'backend: alert recipients (caregiver reply)', 'GET', "={{ $('route (deterministic)').first().json.alertRecipientsUrl }}", [200, -900]),
+    code(IN(63), 'orchestrator: caregiver check (deterministic)', ORCH_CAREGIVER, [420, -900]),
+    // AP-05 step 3c on AP-11's three new sends: every Telegram send node fans out to a failed-send
+    // log (AP-05 wrote it for "a failed Telegram send"; AP-11's sends did not exist yet).
+    code(IN(64), 'log: failed Telegram send (travel reply)', failedSendLog('Telegram: travel reply'), [1960, -560]),
+    code(IN(65), 'log: failed Telegram send (orchestrator choice)', failedSendLog('Telegram: orchestrator choice'), [1520, -820]),
+    code(IN(66), 'log: failed Telegram send (orchestrator text)', failedSendLog('Telegram: orchestrator text'), [1960, -680]),
   ],
   connections: {
     'Relay from the app (CR-063)': main('route (deterministic)'),
     'route (deterministic)': main('a prescription photo?'),
+    // AP-11's branches first: extraction, then the photo, the medicine box and the fixed reply...
     'a prescription photo?': main('Telegram: download the file', 'photo?'),
     'photo?': main('orchestrator: download the photo', 'medicine box?'),
     'medicine box?': main('Telegram: download for travel check', 'fixed reply?'),
-    'fixed reply?': main('orchestrator: reply (deterministic)', 'backend: doses of the day'),
+    'fixed reply?': main('a caregiver (fixed reply)?', 'backend: doses of the day'),
+    // ...the caregiver lane (the merge: AP-05's re-check in front of AP-11's fixed reply)...
+    'a caregiver (fixed reply)?': main('backend: alert recipients (caregiver reply)', 'orchestrator: reply (deterministic)'),
+    'backend: alert recipients (caregiver reply)': main('orchestrator: caregiver check (deterministic)'),
+    'orchestrator: caregiver check (deterministic)': main(['orchestrator: reply (deterministic)', 'log: non-active caregiver (deterministic)']),
     'orchestrator: download the photo': main('orchestrator: ask what the photo is'),
     'orchestrator: ask what the photo is': main('Gemini: what is this photo?'),
     'Gemini: what is this photo?': main('orchestrator: decide (deterministic)'),
@@ -498,16 +650,25 @@ const inbound = {
     'orchestrator: build the travel request': main('n8n: travel check'),
     'n8n: travel check': main('orchestrator: travel reply (deterministic)'),
     'orchestrator: travel reply (deterministic)': main(['Telegram: travel reply', 'an orchestrator tap?']),
+    'Telegram: travel reply': main('log: failed Telegram send (travel reply)'),
     'orchestrator: reply (deterministic)': main(['with two buttons?', 'an orchestrator tap?']),
     'with two buttons?': main('Telegram: orchestrator choice', 'Telegram: orchestrator text'),
+    'Telegram: orchestrator choice': main('log: failed Telegram send (orchestrator choice)'),
+    'Telegram: orchestrator text': main('log: failed Telegram send (orchestrator text)'),
     'an orchestrator tap?': main('Telegram: close the photo tap'),
-    'backend: doses of the day': main('needs the model?'),
+    // ...then AP-05's adherence chain, from 'backend: doses of the day' onwards, exactly as main has it.
+    'backend: doses of the day': main('backend: active prescriptions'),
+    'backend: active prescriptions': main('after midnight?'),
+    'after midnight?': main('backend: doses of the previous day', 'a caregiver chat?'),
+    'backend: doses of the previous day': main('a caregiver chat?'),
+    'a caregiver chat?': main('backend: alert recipients (caregiver check)', 'needs the model?'),
+    'backend: alert recipients (caregiver check)': main('needs the model?'),
     'needs the model?': main('Gemini: classify the reply', 'decide (deterministic)'),
     'Gemini: classify the reply': main('decide (deterministic)'),
     'Gemini (chat model)': { ai_languageModel: [[{ node: 'Gemini: classify the reply', type: 'ai_languageModel', index: 0 }]] },
     'Gemini (fallback model)': { ai_languageModel: [[{ node: 'Gemini: classify the reply', type: 'ai_languageModel', index: 1 }]] },
     'Structured output': { ai_outputParser: [[{ node: 'Gemini: classify the reply', type: 'ai_outputParser', index: 0 }]] },
-    'decide (deterministic)': main('anything to write?'),
+    'decide (deterministic)': main(['anything to write?', 'log: non-active caregiver (deterministic)']),
     'anything to write?': main('backend: write 1', 'reply (deterministic)'),
     'backend: write 1': main('after write 1'),
     'after write 1': main('second write?'),
@@ -515,7 +676,8 @@ const inbound = {
     'backend: write 2 (recompute)': main('reply (deterministic)'),
     'reply (deterministic)': main('with buttons?'),
     'with buttons?': main('Telegram: reply with buttons', 'Telegram: reply'),
-    'Telegram: reply': main('was it a tap?'),
+    'Telegram: reply with buttons': main('log: failed Telegram send (buttons)'),
+    'Telegram: reply': main(['was it a tap?', 'log: failed Telegram send (text)']),
     'was it a tap?': main('Telegram: close the tap'),
     'Telegram: download the file': main('extraction: build the vision request'),
     'extraction: build the vision request': main('Gemini: read the prescription'),
@@ -524,6 +686,7 @@ const inbound = {
     'a body to save?': main('backend: save the prescription', 'extraction: reply (deterministic)'),
     'backend: save the prescription': main('extraction: reply (deterministic)'),
     'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'screen it?']),
+    'Telegram: extraction reply': main('log: failed Telegram send (extraction reply)'),
     'screen it?': main('n8n: screen the new prescription'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
@@ -540,11 +703,8 @@ if (res.statusCode !== 200 || !Array.isArray(res.body)) return [];
 const today = kuwaitDate(new Date().toISOString());
 // every_other_day: a fixed, documented parity (days since 2026-01-01 even) - never a guess per patient.
 const dayIndex = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);
-return res.body
-  .filter((e) => e && e.patientId && e.chatId)
-  .filter((e) => e.frequency !== 'every_other_day' || dayIndex % 2 === 0)
-  .map((e) => ({ json: { patientId: e.patientId, chatId: e.chatId, language: e.language === 'en' ? 'en' : 'ar', date: today,
-                         dosesUrl: API + '/patients/' + encodeURIComponent(e.patientId) + '/doses?date=' + today } }));`;
+const { plans } = planCheckIns({ eligibility: res.body, dayIndex });
+return plans.map((e) => ({ json: { ...e, date: today, dosesUrl: API + '/patients/' + encodeURIComponent(e.patientId) + '/doses?date=' + today } }));`;
 
 const CK_BUILD = ADHERENCE + `
 
@@ -557,7 +717,32 @@ $input.all().forEach((item, i) => {
   const res = item.json;
   if (!plan || res.statusCode !== 200 || !res.body || !Array.isArray(res.body.doses)) return;
   const c = buildCheckIn({ patientId: plan.patientId, chatId: plan.chatId, language: plan.language, doses: res.body.doses });
-  for (const m of c.messages) out.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons } });
+  for (const m of c.messages) out.push({ json: { chatId: m.chatId, text: m.text, buttons: m.buttons, doseId: m.doseId || null } });
+});
+return out;`;
+
+// AP-05 step 3a (TC-AD-08) - one item per skipped patient, never a chat id: an eligibility row with
+// no chat id, the parity skip (both from planCheckIns, recomputed here so this runs even when the
+// plan is empty), a refused doses fetch, or a day with no open doses.
+const CK_LOG_SKIPS = ADHERENCE + `
+let eligible = null;
+try { const e = $('backend: who is eligible').first().json; eligible = e.statusCode === 200 && Array.isArray(e.body) ? e.body : null; } catch (e) { /* not fetched */ }
+const today = kuwaitDate(new Date().toISOString());
+const dayIndex = Math.round((Date.parse(today + 'T00:00:00Z') - Date.parse('2026-01-01T00:00:00Z')) / 86400000);
+const { plans, skipped } = planCheckIns({ eligibility: eligible || [], dayIndex });
+const out = skipped.map((s) => ({ json: s }));
+if (eligible === null) return out; // the eligibility call itself failed - nothing plan-level to add
+let dosesResults = [];
+try { dosesResults = $('backend: doses of the day').all(); } catch (e) { /* did not run: the plan was empty */ }
+plans.forEach((plan, i) => {
+  const res = dosesResults[i] && dosesResults[i].json;
+  if (!res || res.statusCode !== 200 || !res.body || !Array.isArray(res.body.doses)) {
+    out.push({ json: { patientId: plan.patientId, reason: 'doses_fetch_refused' } });
+    return;
+  }
+  if (buildCheckIn({ patientId: plan.patientId, chatId: plan.chatId, language: plan.language, doses: res.body.doses }).skipped) {
+    out.push({ json: { patientId: plan.patientId, reason: 'no_open_doses' } });
+  }
 });
 return out;`;
 
@@ -575,15 +760,20 @@ const checkin = {
     ifNode(CK(7), 'with buttons?', '={{ Array.isArray($json.buttons) }}', [640, 100]),
     telegramButtons(CK(8), 'Telegram: dose with buttons', [860, 20]),
     telegramText(CK(9), 'Telegram: header', [860, 180]),
+    code(CK(10), 'log: skipped patients (deterministic)', CK_LOG_SKIPS, [-20, 320]),
+    code(CK(11), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: dose with buttons'), [1080, 20]),
+    code(CK(12), 'log: failed Telegram send (header)', failedSendLog('Telegram: header'), [1080, 260]),
   ],
   connections: {
     'Daily 08:00 (Kuwait)': main('backend: who is eligible'),
     'Send now (demo)': main('backend: who is eligible'),
-    'backend: who is eligible': main('plan (deterministic)'),
+    'backend: who is eligible': main(['plan (deterministic)', 'log: skipped patients (deterministic)']),
     'plan (deterministic)': main('backend: doses of the day'),
     'backend: doses of the day': main('check-in (deterministic)'),
     'check-in (deterministic)': main('with buttons?'),
     'with buttons?': main('Telegram: dose with buttons', 'Telegram: header'),
+    'Telegram: dose with buttons': main('log: failed Telegram send (buttons)'),
+    'Telegram: header': main('log: failed Telegram send (header)'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
