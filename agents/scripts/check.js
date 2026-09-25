@@ -621,6 +621,36 @@ async function scenarios() {
     assert.deepEqual(await r.code('log: failed Telegram send (travel reply)', [{ json: { chatId: '1', text: 'hi' } }]), []);
   });
 
+  console.log('\n######## agent-telegram-inbound x agent-travel-check (the AP-11b merge)');
+  await check('both packages\' generated nodes, end to end: a medicine box from Telegram reaches agent-travel-check; an UNVERIFIED SFDA brand (MAREVAN) answers cannot_verify/brand_not_verified and the patient reads the "cannot verify" line; a profile outage answers cannot_verify/profile_unavailable with ok:false and the patient reads the failure line - never an all-clear', async () => {
+    const travel = JSON.parse(fs.readFileSync(path.join(ROOT, 'knowledge', 'workflows', 'agent-travel-check.json'), 'ascii'));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+    const boxName = (text) => http(200, { candidates: [{ finishReason: 'STOP', content: { parts: [{ text }] } }] });
+    const cases = [
+      { box: 'MAREVAN', profile: http(200, { prescriptions: [] }), reason: 'brand_not_verified', ok: true, reads: /ما قدرنا نتأكد من هذا الدواء مقابل أدويتك/ },
+      { box: 'Ezetimibe', profile: http(503, { error: 'unavailable' }), reason: 'profile_unavailable', ok: false, reads: /صار خلل عندنا/ },
+    ];
+    for (const c of cases) {
+      const { r } = await photoClassifiedAs('medicine_package', 0.9, relay({ patientId: 'pt-03', photoFileId: 'AgAC-' + c.box }), 'image/png', png);
+      const [req] = await r.code('orchestrator: build the travel request', [{ json: {}, binary: { data: { mimeType: 'image/png' } } }], png);
+      const t = runner(travel);
+      const [input] = await t.code('input (deterministic)', [{ json: { body: req.json.travelBody } }]);
+      assert.equal(input.json.valid, true, JSON.stringify(input.json));
+      t.set('backend: active prescriptions', c.profile);
+      const [checked] = await t.code('check (deterministic)', t.set('Gemini: read the name on the box', boxName(c.box)));
+      assert.equal(checked.json.post, false);
+      assert.equal(checked.json.result.verdict, 'cannot_verify');
+      assert.equal(checked.json.result.reason, c.reason);
+      const [answer] = await t.code('answer (deterministic)', [checked]);
+      assert.equal(answer.json.ok, c.ok);
+      assert.deepEqual(answer.json.appOutcome, { kind: 'cannot_verify' });
+      const [reply] = await r.code('orchestrator: travel reply (deterministic)', http(200, answer.json));
+      assert.match(reply.json.text, c.reads);
+      assert.equal(reply.json.log.verdict, 'cannot_verify');
+      console.log('        -> ' + c.box + ' (' + c.reason + '): ' + reply.json.text);
+    }
+  });
+
   console.log('\n######## agent-checkin-daily');
   await check('eligibility -> only the backend’s patients; one header + one button message per OPEN dose', async () => {
     const r = runner(WF('agent-checkin-daily'));

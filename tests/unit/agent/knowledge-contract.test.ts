@@ -74,10 +74,13 @@ describe('agents/knowledge/src/travel-check.js → parseAlertBody', () => {
     expect(parseAlertBody(r.alert)).toMatchObject({ ok: true, value: { severity: 'danger', reviewStatus: 'pending_medical_review' } });
   });
   it('appOutcome is always a valid DrugCheckOutcome shape', () => {
+    // CR-078: cannot_verify is exercised here too (today: pt-02 Euthyrox and ZOCOR, pt-03 KLACID,
+    // all ungraded_interaction_in_source) - the new branch cannot pass this test unhit.
+    const seenKinds = new Set<string>();
     for (const patientId of patients) {
       for (const text of ['KLACID', 'Euthyrox', 'ZOCOR', 'Panadol', 'UNKNOWNXYZ', '']) {
         const o = T.travelCheck({ patientId, visionText: text, prescriptions: activeOf(patientId), index, brandIndex }).appOutcome;
-        // D6/CR-078 (AP-11): cannot_verify is its own outcome kind now, not mapped into could_not_identify.
+        seenKinds.add(o.kind);
         if (o.kind === 'could_not_identify' || o.kind === 'cannot_verify') expect(Object.keys(o)).toEqual(['kind']);
         else {
           expect(o.kind).toBe('identified');
@@ -86,6 +89,9 @@ describe('agents/knowledge/src/travel-check.js → parseAlertBody', () => {
         }
       }
     }
+    expect(seenKinds.has('cannot_verify')).toBe(true);
+    expect(seenKinds.has('could_not_identify')).toBe(true);
+    expect(seenKinds.has('identified')).toBe(true);
   });
 });
 

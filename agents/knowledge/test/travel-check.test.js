@@ -2,8 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { index, brandIndex, seedActive, rx } = require('./helpers');
-const { travelCheck } = require('../src/travel-check');
+const { index, brandIndex, pendingNames, seedActive, rx } = require('./helpers');
+const { travelCheck, appOutcomeFor, VERDICT } = require('../src/travel-check');
 const { buildBrandIndex } = require('../src/resolve');
 
 const check = (over) => travelCheck(Object.assign({ index, brandIndex, language: 'ar', patientId: 't-patient' }, over));
@@ -22,10 +22,18 @@ test('G2: a name not in the verified map or the index is a refusal, never a gues
   assert.equal(r.reason, 'not_in_mapping_table');
 });
 
-test('unverified (pendingVerification) brands are never loaded - MAREVAN does not resolve', () => {
+test('unverified (pendingVerification) brands are never loaded - MAREVAN never resolves to Warfarin, but answers cannot_verify, not "unknown"', () => {
   assert.equal(brandIndex.has('marevan'), false);
-  const r = check({ visionText: 'Marevan', prescriptions: [] });
-  assert.equal(r.verdict, 'could_not_identify');
+  const r = check({ visionText: 'Marevan', prescriptions: [], pendingNames });
+  assert.equal(r.verdict, 'cannot_verify');
+  assert.equal(r.reason, 'brand_not_verified');
+  assert.equal(r.brandLabel, 'MAREVAN');
+  assert.equal(r.candidate, null, 'never resolved to an ingredient');
+  assert.deepEqual(r.findings, []);
+  assert.equal(r.alert, null);
+  assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
+  // Without the pending-brand list (the default in every other test here), the same box is simply unknown.
+  assert.equal(check({ visionText: 'Marevan', prescriptions: [] }).verdict, 'could_not_identify');
 });
 
 test('one near match -> needs_confirmation (the chat may ask), app outcome could_not_identify', () => {
@@ -56,7 +64,7 @@ test('already taking: EUTHYROX photographed by سارة (on Levothyroxine) -> al
   assert.equal(r.alert, null, 'only a danger finding raises an alert');
 });
 
-test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app cannot_verify (D6/CR-078)', () => {
+test('cannot verify: a covered candidate against a profile drug the index lacks (Gliclazide) -> cannot_verify, app cannot_verify', () => {
   const r = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Gliclazide')] });
   assert.equal(r.verdict, 'cannot_verify');
   assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
@@ -74,6 +82,7 @@ test('an ungraded (Unknown) row -> cannot_verify with the ungraded message, neve
   assert.equal(r.verdict, 'cannot_verify');
   assert.equal(r.reason, 'ungraded_interaction_in_source');
   assert.match(r.message, /من غير تحديد درجة شدته/);
+  assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
 });
 
 test('no_interaction_found only when every pair was checkable - and the words never say "safe"', () => {
@@ -106,6 +115,7 @@ test('AP-06: one checkable pair does not clear an uncheckable one on the same pr
   const s = check({ visionText: 'Ezetimibe', prescriptions: [rx('t-1', 'Calcium carbonate'), rx('t-2', 'Amlodipine')] });
   assert.equal(s.verdict, 'cannot_verify');
   assert.deepEqual(s.notCheckable.map((n) => n.prescriptionId), ['t-2']);
+  assert.deepEqual(s.appOutcome, { kind: 'cannot_verify' });
 });
 
 test('a combination product screens EVERY ingredient (Panadol Cold & Flu has pseudoephedrine x levothyroxine, Moderate)', () => {
@@ -162,6 +172,7 @@ test('patient-facing travel text never shows a raw normalised key', () => {
   const r = check({ visionText: 'KLACID', prescriptions: [rx('t-1', 'Gliclazide')], language: 'en' });
   assert.equal(r.verdict, 'cannot_verify');
   assert.match(r.message, /but our drug-interaction database does not include Gliclazide,/);
+  assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
 });
 
 test('a generic box is named by its ingredient, not by the brand row that owns the key', () => {
@@ -174,4 +185,34 @@ test('singular/plural: one or two unconfirmed prescriptions read correctly', () 
   assert.match(one.message, /1 of your prescriptions is still awaiting review/);
   const two = check({ visionText: 'ZOCOR', prescriptions: [rx('t-1', 'Clarithromycin', { needsReview: true }), rx('t-2', 'Amlodipine', { needsReview: true })] });
   assert.match(two.message, /وصفتان من وصفاتك ما زالتا بانتظار المراجعة/);
+});
+
+// ---------------------------------------------------------------- CR-078: cannot_verify is its own outcome
+test('a profile the backend never handed us is cannot_verify/profile_unavailable, never no_interaction (fail closed)', () => {
+  for (const prescriptions of [undefined, null]) {
+    const r = check({ visionText: 'ZOCOR', prescriptions });
+    assert.equal(r.verdict, 'cannot_verify', String(prescriptions));
+    assert.equal(r.reason, 'profile_unavailable');
+    assert.deepEqual(r.appOutcome, { kind: 'cannot_verify' });
+    assert.equal(r.alert, null, 'no screening happens, so nothing can be raised');
+    assert.deepEqual(r.findings, []);
+    assert.ok(r.candidate, 'the drug was still resolved - only the profile is unavailable');
+  }
+  // G5 (unreadable) answers first: it never even reaches the profile-availability check.
+  assert.equal(check({ visionText: '', prescriptions: null }).verdict, 'could_not_identify');
+  // A real empty profile [] is unchanged: today's behaviour, not "unavailable".
+  assert.equal(check({ visionText: 'ZOCOR', prescriptions: [] }).verdict, 'no_interaction_found');
+});
+
+test('appOutcomeFor: every VERDICT maps to exactly one DrugCheckOutcome kind; anything else stays fail-closed', () => {
+  assert.deepEqual(appOutcomeFor(VERDICT.INTERACTION_FOUND, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'interaction_found' });
+  assert.deepEqual(appOutcomeFor(VERDICT.INTERACTION_FOUND, 'X', 'ia-1'), { kind: 'identified', drugName: 'X', verdict: 'interaction_found', alertId: 'ia-1' });
+  assert.deepEqual(appOutcomeFor(VERDICT.ALREADY_TAKING, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'interaction_found' });
+  assert.deepEqual(appOutcomeFor(VERDICT.NO_INTERACTION_FOUND, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'no_interaction' });
+  assert.deepEqual(appOutcomeFor(VERDICT.CANNOT_VERIFY, 'X', null), { kind: 'cannot_verify' });
+  assert.deepEqual(appOutcomeFor(VERDICT.CANNOT_VERIFY, null, null), { kind: 'cannot_verify' });
+  assert.deepEqual(appOutcomeFor(VERDICT.NEEDS_CONFIRMATION, 'X', null), { kind: 'could_not_identify' });
+  assert.deepEqual(appOutcomeFor(VERDICT.COULD_NOT_IDENTIFY, 'X', null), { kind: 'could_not_identify' });
+  assert.deepEqual(appOutcomeFor('safe', 'X', null), { kind: 'could_not_identify' });
+  assert.deepEqual(appOutcomeFor(undefined, 'X', null), { kind: 'could_not_identify' });
 });

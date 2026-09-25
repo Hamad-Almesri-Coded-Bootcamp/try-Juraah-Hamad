@@ -9,25 +9,29 @@
  *   interaction_found   -> { kind:'identified', verdict:'interaction_found', alertId? }
  *   already_taking      -> { kind:'identified', verdict:'interaction_found' }   (duplicate dose)
  *   no_interaction_found-> { kind:'identified', verdict:'no_interaction' }     (never "safe")
- *   cannot_verify       -> { kind:'cannot_verify' }         identified, but a drug is not in the
- *                                                          index, a pair lies outside the loaded DDInter
- *                                                          category files (AP-06), a pair is ungraded, or a prescription
- *                                                          is still awaiting review - so nothing can be
- *                                                          said about the whole profile (TC-IX-03/06)
+ *   cannot_verify       -> { kind:'cannot_verify' }   (CR-078) nothing can be said about the whole
+ *                                                     profile. reason is one of: drug_not_in_index,
+ *                                                     pair_outside_loaded_categories (AP-06),
+ *                                                     ungraded_interaction_in_source,
+ *                                                     profile_has_unconfirmed_prescriptions (TC-IX-03/06),
+ *                                                     profile_unavailable (the backend's profile could
+ *                                                     not even be read - never "no interaction" for
+ *                                                     that), or brand_not_verified (the box matches an
+ *                                                     unverified SFDA brand row, AP-07 - never resolved
+ *                                                     to its ingredient until a human verifies it)
  *   needs_confirmation  -> { kind:'could_not_identify' }   one near match; the chat can ask
- *   could_not_identify  -> { kind:'could_not_identify' }   G5 - unreadable or unknown name
- * D6/CR-078 (AP-11): the app's DrugCheckOutcome gained its own cannot_verify kind, with its own
- * copy, instead of the earlier CR-066 stub's could_not_identify mapping - "not in our data" reads
- * differently from "we could not read the box", and the app's own copy says so. needs_confirmation
- * and could_not_identify stay could_not_identify: both are genuinely about the PHOTO, not the
- * profile, and the chat can still ask about the same photo (never a false all-clear either way).
+ *   could_not_identify  -> { kind:'could_not_identify' }   G5 - unreadable, or a name never seen at all
+ * cannot_verify is its own DrugCheckOutcome, never could_not_identify and never no_interaction: the
+ * app shows its own "we recognised the medicine but can't clear it" copy (C3, PR #13) instead of the
+ * plain "could not identify" one, because a name we could read is not the same finding as a name we
+ * could not.
  *
  * A danger finding is escalated: one pending_medical_review alert body is
  * produced for POST /api/agent/alerts (involving the patient's conflicting
  * prescription), so the reviewer sees it and the app can link to it (alertId).
  * ------------------------------------------------------------------------- */
 
-const { normaliseDrugName, ingredientParts, ingredientsOf } = require('./normalise');
+const { normaliseDrugName, ingredientParts, ingredientsOf, candidateKeys } = require('./normalise');
 const { OUTCOME, resolveToIngredient } = require('./resolve');
 const { isCovered, lookupPair } = require('./interactions');
 const { lang, unnamed, TRAVEL_TEXT, ALERT_TEXT, pairCitation } = require('./text');
@@ -51,9 +55,11 @@ function appOutcomeFor(verdict, drugName, alertId) {
     return o;
   }
   if (verdict === VERDICT.NO_INTERACTION_FOUND) return { kind: 'identified', drugName, verdict: 'no_interaction' };
-  // D6/CR-078: its own outcome, never mapped into could_not_identify any more.
+  // CR-078: recognised, but nothing can be said about the whole profile - its own outcome, no
+  // drugName, no verdict, no alertId. needs_confirmation, could_not_identify and any unknown verdict
+  // (a future value this code does not know yet) all stay could_not_identify: fail closed by default.
   if (verdict === VERDICT.CANNOT_VERIFY) return { kind: 'cannot_verify' };
-  return { kind: 'could_not_identify' }; // needs_confirmation | could_not_identify
+  return { kind: 'could_not_identify' };
 }
 
 /**
@@ -82,8 +88,19 @@ function travelCheck(args) {
     return out(VERDICT.NEEDS_CONFIRMATION, { reason: resolved.reason || 'near_match', candidates: resolved.candidates,
                                              message: lineExt ? TRAVEL_TEXT.line_extensions(l, resolved.candidates) : TRAVEL_TEXT.needs_confirmation(l, resolved.candidates) });
   }
-  // G2 - unresolved is a refusal. We do not screen a drug we cannot name.
+  // G2 - unresolved is a refusal. We do not screen a drug we cannot name. One exception: a name that
+  // matches an UNVERIFIED SFDA brand row (AP-07) is not "unknown" - it is "not cleared yet", and the
+  // patient should be told that, not "could not identify". Never resolved to an ingredient, never
+  // screened: brandLabel comes from the data file, never from the raw (untrusted) vision text.
   if (resolved.outcome !== OUTCOME.RESOLVED) {
+    if (resolved.reason === 'not_in_mapping_table' && args.pendingNames) {
+      let brandLabel = null;
+      for (const key of candidateKeys(visionText)) {
+        const label = args.pendingNames.get(key);
+        if (label) { brandLabel = label; break; }
+      }
+      if (brandLabel) return out(VERDICT.CANNOT_VERIFY, { reason: 'brand_not_verified', brandLabel, message: null });
+    }
     return out(VERDICT.COULD_NOT_IDENTIFY, { reason: resolved.reason, readAs: visionText, message: TRAVEL_TEXT.could_not_identify(l) });
   }
 
@@ -102,7 +119,14 @@ function travelCheck(args) {
     return i !== -1 && candidate.ingredients[i] ? candidate.ingredients[i] : key;
   };
 
-  const all = Array.isArray(args.prescriptions) ? args.prescriptions : [];
+  // Fail closed: a profile the backend could not hand us is never "no interaction" - it is exactly
+  // as unverifiable as a drug the index has no row for. An empty array is a real empty profile and
+  // keeps today's behaviour; only a non-array (the backend call failed, or was never made) stops here.
+  if (!Array.isArray(args.prescriptions)) {
+    return out(VERDICT.CANNOT_VERIFY, { candidate, reason: 'profile_unavailable', message: null });
+  }
+
+  const all = args.prescriptions;
   const excluded = [];
   const active = [];
   for (const p of all) {

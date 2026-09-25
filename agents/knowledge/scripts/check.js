@@ -342,7 +342,7 @@ async function travelScenarios() {
     assert.deepEqual(a.json.appOutcome, { kind: 'identified', drugName: 'Simvastatin', verdict: 'interaction_found' });
   });
 
-  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app cannot_verify (D6/CR-078)', async () => {
+  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app cannot_verify', async () => {
     const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Amlodipine' } }];
     const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: p }), geminiText('Ezetimibe'));
     assert.equal(c.post, false);
@@ -351,11 +351,27 @@ async function travelScenarios() {
     assert.deepEqual(c.result.appOutcome, { kind: 'cannot_verify' });
   });
 
-  await check('profile unreadable (backend 503) -> never "no interaction"', async () => {
+  await check('profile unreadable (backend 503) -> cannot_verify, profile_unavailable, never "no interaction"', async () => {
     const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText('Ezetimibe'));
     assert.equal(c.post, false);
-    assert.deepEqual(c.result.appOutcome, { kind: 'could_not_identify' });
+    assert.equal(c.result.verdict, 'cannot_verify');
+    assert.equal(c.result.reason, 'profile_unavailable');
+    assert.deepEqual(c.result.appOutcome, { kind: 'cannot_verify' });
     assert.match(c.error, /503/);
+  });
+
+  await check('UNREADABLE with the backend also down (503) -> could_not_identify (G5 answers first; the profile is never even asked about)', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText('UNREADABLE'));
+    assert.equal(c.result.verdict, 'could_not_identify');
+  });
+
+  await check('MAREVAN (unverified SFDA brand, AP-07 pending) -> cannot_verify, brand_not_verified - never resolved to Warfarin', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText('MAREVAN'));
+    assert.equal(c.post, false);
+    assert.equal(c.result.verdict, 'cannot_verify');
+    assert.equal(c.result.reason, 'brand_not_verified');
+    assert.deepEqual(c.result.appOutcome, { kind: 'cannot_verify' });
+    assert.equal(c.result.candidate, null);
   });
 
   await check('a truncated/blocked Gemini answer (finishReason != STOP) is never read as a name', async () => {
