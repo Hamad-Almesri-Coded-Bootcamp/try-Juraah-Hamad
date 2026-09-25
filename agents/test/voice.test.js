@@ -120,10 +120,16 @@ test('the backend failed -> an honest failure, never an invented schedule', () =
   }
 });
 
-test('launch carries the prototype / no-medical-advice line; stop ends the session', () => {
-  assert.match(V.voiceReply({ kind: 'launch', language: 'ar' }).speech, /نموذج طلابي.*ما نقدم استشارة طبية/);
+test('CR-106: launch is the greeting alone, in each language; the session stays open with the same reprompt; help still lists the questions; stop ends the session', () => {
+  const ar = V.voiceReply({ kind: 'launch', language: 'ar' });
+  const en = V.voiceReply({ kind: 'launch', language: 'en' });
+  assert.deepEqual(ar, { speech: 'هلا، معك جرعة AI. شلون أقدر أساعدك؟', endSession: false, promptDoses: [] });
+  assert.deepEqual(en, { speech: 'Hi, Jur\'ah AI. How can I help?', endSession: false, promptDoses: [] });
+  assert.equal(V.alexaResponse({ ...ar, language: 'ar' }).response.reprompt.outputSpeech.text, 'شنو تبي تعرف عن أدويتك؟');
+  assert.equal(V.alexaResponse({ ...en, language: 'en' }).response.reprompt.outputSpeech.text, 'What would you like to know about your medicines?');
+  assert.match(V.voiceReply({ kind: 'AMAZON.HelpIntent', language: 'ar' }).speech, /^تقدر تسألني: /);
+  assert.match(V.voiceReply({ kind: 'AMAZON.HelpIntent', language: 'en' }).speech, /^Ask me: what is my next dose/);
   assert.equal(V.voiceReply({ kind: 'AMAZON.StopIntent', language: 'ar' }).endSession, true);
-  assert.match(V.voiceReply({ kind: 'launch', language: 'en' }).speech, /student prototype.*no medical advice/);
 });
 
 test('English: same data, English words and times', () => {

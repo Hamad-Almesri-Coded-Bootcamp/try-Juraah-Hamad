@@ -165,6 +165,11 @@ itself, and no words Alexa spoke appear anywhere in the app.
 Both languages share one invocation name family: **"medicine helper"** (en-US) and **«مساعد جرعة»**
 (ar-SA), from `agents/alexa/interaction-model.*.json`.
 
+**Opening the skill** with no question yet ("Alexa, ask medicine helper", or «مساعد جرعة» in Arabic)
+is answered with the greeting alone, "Hi, Jur'ah AI. How can I help?" / «هلا، معك جرعة AI. شلون أقدر أساعدك؟»
+(CR-106). The session stays open for the question with the same reprompt, and "help" (or a question
+Alexa did not understand) still lists the four questions.
+
 **English (`interaction-model.en-US.json`).** `NextDoseIntent`, `DoseAmountIntent`,
 `TodayDosesIntent` and `ForgotDoseIntent` each carry their own sample list, plus `FreeTalkIntent`:
 one `AMAZON.SearchQuery` slot behind 24 carrier words — mark, record, log, set, update, check,
