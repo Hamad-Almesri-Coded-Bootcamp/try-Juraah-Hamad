@@ -74,6 +74,16 @@ export const supply = {
   },
   c3CouldNotIdentifyRetryLabel: { ar: 'جرّب صورة أخرى', en: 'Try another photo', placeholder: true },
 
+  // Cannot-verify (CR-078) — the medicine was recognised, but Travel Check could not screen it
+  // against the whole profile right now. Never implies the medicine is safe, and nothing here
+  // creates any record.
+  c3CannotVerifyTitle: { ar: 'لا نستطيع التحقق من هذا الدواء', en: 'We cannot verify this medicine', placeholder: true },
+  c3CannotVerifyBody: {
+    ar: 'تعرّفنا على الدواء، لكننا لا نستطيع الآن فحصه مع جميع أدويتك. هذا لا يعني أنه آمن. اسأل الصيدلي قبل أن تتناوله. لم نسجّل أو نحفظ أي شيء.',
+    en: 'We recognised the medicine, but we cannot check it against all the medicines you take right now. This does not mean it is safe. Ask your pharmacist before you take it. Nothing was recorded or saved.',
+    placeholder: true,
+  },
+
   // ---------------------------------------------------------------------------------------------
   // D1 — Refill request (`/[locale]/app/more/refill`, also pushed from B3 with `?rx=`)
   // ---------------------------------------------------------------------------------------------

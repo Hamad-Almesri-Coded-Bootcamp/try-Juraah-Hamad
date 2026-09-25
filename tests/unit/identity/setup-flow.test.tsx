@@ -39,7 +39,7 @@ afterEach(() => cleanup());
 
 describe('A2 step 1 — language (required)', () => {
   it('persists the choice via updateSettings and advances to ?step=1', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.continueLabel, 'en') }));
     await vi.waitFor(() => expect(updateSettingsMock).toHaveBeenCalledWith('pt-04', { language: 'ar' }));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/setup?step=1'));
@@ -52,14 +52,14 @@ describe('A2 step 2 — notification offer (three equal options)', () => {
   });
 
   it('shows all three options, and "later" is an ordinary choice — not an error, not a warning', () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     expect(screen.getByRole('button', { name: t(copy.identity.browserOfferButton, 'en') })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t(copy.identity.telegramOfferButton, 'en') })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t(copy.identity.laterOfferButton, 'en') })).toBeInTheDocument();
   });
 
   it('the three offers are three EQUAL buttons — same variant, same size, same width, none primary (UX §2/§13, audit M2)', () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     const offers = [copy.identity.browserOfferButton, copy.identity.telegramOfferButton, copy.identity.laterOfferButton].map((entry) =>
       screen.getByRole('button', { name: t(entry, 'en') }),
     );
@@ -75,7 +75,7 @@ describe('A2 step 2 — notification offer (three equal options)', () => {
   });
 
   it('"later" advances without calling any notification function', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.laterOfferButton, 'en') }));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/setup?step=2'));
     expect(requestPushPermissionMock).not.toHaveBeenCalled();
@@ -83,10 +83,50 @@ describe('A2 step 2 — notification offer (three equal options)', () => {
   });
 
   it('the browser offer calls requestPushPermission for this patient, then advances', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.browserOfferButton, 'en') }));
     await vi.waitFor(() => expect(requestPushPermissionMock).toHaveBeenCalledWith({ subjectType: 'patient', subjectId: 'pt-04' }));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/setup?step=2'));
+  });
+
+  // AP-09 (CR-086): the Telegram offer is the same link form as E5 and F4, posting to the route that
+  // mints the link and redirects to t.me; this screen never calls the seam for it, never holds a token.
+  const telegramButton = () => screen.getByRole('button', { name: t(copy.identity.telegramOfferButton, 'en') });
+
+  it('the Telegram offer is a form that posts locale and screen to the link route, and the component mints nothing itself', () => {
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
+    const form = telegramButton().closest('form')!;
+    expect(telegramButton()).toHaveAttribute('type', 'submit');
+    expect(form.getAttribute('method')).toBe('post');
+    expect(form.getAttribute('action')).toBe('/api/messaging/telegram/open');
+    expect(Object.fromEntries(new FormData(form))).toEqual({ locale: 'en', from: 'setup' });
+    fireEvent.submit(form);
+    expect(startMessagingLinkMock).not.toHaveBeenCalled();
+  });
+
+  it('simulated: the form posts in place and this tab does not navigate itself (the route itself answers with the invite step, ?step=2)', () => {
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
+    const form = telegramButton().closest('form')!;
+    expect(form.hasAttribute('target')).toBe(false);
+    fireEvent.submit(form);
+    expect(pushMock).not.toHaveBeenCalled();
+    // It says it is working while the page is replaced (its name now also carries the spoken "Loading").
+    expect(form.querySelector('button')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('a real bot: the form opens Telegram in a new tab and this tab moves on to the next step', () => {
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated={false} />);
+    const form = telegramButton().closest('form')!;
+    expect(form.getAttribute('target')).toBe('_blank');
+    fireEvent.submit(form);
+    expect(pushMock).toHaveBeenCalledWith('/en/app/setup?step=2');
+  });
+
+  it('one tap never spins another offer: the Telegram form does not put the browser offer in a loading state', () => {
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
+    fireEvent.submit(telegramButton().closest('form')!);
+    expect(screen.getByRole('button', { name: t(copy.identity.browserOfferButton, 'en') })).not.toHaveAttribute('aria-busy');
+    expect(screen.getByRole('button', { name: t(copy.identity.laterOfferButton, 'en') })).not.toHaveAttribute('aria-busy');
   });
 });
 
@@ -96,14 +136,14 @@ describe('A2 step 3 — optional caregiver invite (cross-bundle contract)', () =
   });
 
   it('offers the shared InviteSheet (wired by the lead at the wave-1 gate) and skipping advances', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     expect(screen.getByRole('button', { name: t(copy.identity.inviteOpenLabel, 'en') })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.skipInviteLabel, 'en') }));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/setup?step=3'));
   });
 
   it('opening the invite step mounts bundle h’s sheet and closing it stays on the step', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.inviteOpenLabel, 'en') }));
     expect(await screen.findByText(t(copy.caregiving.f1CivilIdLabel, 'en'))).toBeInTheDocument();
   });
@@ -115,7 +155,7 @@ describe('A2 step 4 — closing explainer', () => {
   });
 
   it('finishing calls completeOnboarding then lands on /app', async () => {
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     fireEvent.click(screen.getByRole('button', { name: t(copy.identity.finishSetupLabel, 'en') }));
     await vi.waitFor(() => expect(completeOnboardingMock).toHaveBeenCalledWith('pt-04'));
     await vi.waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app'));
@@ -127,14 +167,14 @@ describe('Daylight (CR-071): one h1 per step, and the invite step draws its two 
   for (const [step, title] of titles.entries()) {
     it(`step ${step} has exactly one h1, its question (no app-bar title beside it)`, () => {
       searchRef.value = `step=${step}`;
-      render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+      render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
       expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([t(title, 'en')]);
     });
   }
 
   it('inviting and "not now" are the same button (UX §2: every "later" is an equal choice)', () => {
     searchRef.value = 'step=2';
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     const invite = screen.getByRole('button', { name: t(copy.identity.inviteOpenLabel, 'en') });
     const skip = screen.getByRole('button', { name: t(copy.identity.skipInviteLabel, 'en') });
     expect([...invite.classList].sort()).toEqual([...skip.classList].sort());
@@ -145,14 +185,14 @@ describe('Daylight (CR-071): one h1 per step, and the invite step draws its two 
 describe('abandoning returns to the same step', () => {
   it('a ?step=2 URL renders the invite step directly, not step 1', () => {
     searchRef.value = 'step=2';
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     expect(screen.getByText(t(copy.identity.inviteStepTitle, 'en'))).toBeInTheDocument();
     expect(screen.queryByText(t(copy.identity.notificationsStepTitle, 'en'))).not.toBeInTheDocument();
   });
 
   it('an out-of-range step value is clamped back to step 0, never a crash', () => {
     searchRef.value = 'step=99';
-    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" />);
+    render(<SetupFlow locale="en" patientId="pt-04" initialLanguage="ar" simulated />);
     expect(screen.getByText(t(copy.identity.languageStepTitle, 'en'))).toBeInTheDocument();
   });
 });

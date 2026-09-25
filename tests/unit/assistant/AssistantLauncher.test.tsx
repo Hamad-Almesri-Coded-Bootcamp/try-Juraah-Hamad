@@ -376,4 +376,57 @@ describe('AssistantLauncher', () => {
     for (const n of names) expect(allowed.some((a) => n.includes(a))).toBe(true);
     expect(panel.querySelectorAll('[role="switch"], input[type="checkbox"], input[type="radio"]')).toHaveLength(0);
   });
+
+  // AP-18 (docs/AGENTS-POLISH-PLAN.md 7.3): the real hand-off is 4 to 11 seconds, not the instant
+  // mock the other tests use. The wait state (askAssistant's promise, not the voice poll) must hold
+  // for the WHOLE wait, never re-enable early, and a second submit while pending must never call the
+  // assistant twice. h.ask resolves through a real setTimeout(delay) under fake timers, advanced in
+  // steps so each checkpoint is checked against the actual elapsed wait, not just the end.
+  it.each([4_000, 11_000])('a %dms answer: the typing bubble and the disabled Send hold for the whole wait; a second submit is a no-op', async (delay) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reply = 'جرعتك الجاية Calcium carbonate + vitamin D3 الساعة 1 الظهر.';
+    h.ask.mockImplementationOnce(() => new Promise((resolve) => {
+      setTimeout(() => resolve({ ok: true, reply, telegramPrompted: false }), delay);
+    }));
+    render(<AssistantLauncher locale="ar" />);
+    await open();
+    // Captured once, BEFORE it goes into its loading state: while pending, the button's accessible
+    // name gains its visually-hidden "loading" text (aria-busy), so a byRole(name:) lookup taken
+    // fresh each time would stop matching — the same DOM node is reused instead, as React does.
+    const sendButton = screen.getByRole('button', { name: t(copy.assistant.send, 'ar') }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole('button', { name: t(copy.assistant.suggestNext, 'ar') }));
+    expect(h.ask).toHaveBeenCalledTimes(1);
+    // A non-empty draft, so every later "second submit" below exercises the PENDING guard, not the
+    // separate (and already-covered) empty-draft guard.
+    fireEvent.change(screen.getByLabelText(t(copy.assistant.inputLabel, 'ar')), { target: { value: 'مرة ثانية' } });
+
+    let elapsed = 0;
+    const advanceTo = async (target: number) => {
+      await act(async () => { await vi.advanceTimersByTimeAsync(target - elapsed); });
+      elapsed = target;
+    };
+    const stillWaiting = (label: string) => {
+      expect(screen.getByTestId('assistant-thinking'), label).toBeTruthy();
+      expect(sendButton.disabled, label).toBe(true);
+      // Nothing else is offered to tap while waiting: the suggestions row is gone (a message is
+      // already in the transcript) and lastAsk is forced undefined while pending, so neither the
+      // confirm nor the clarify chips can show either — no role="group" survives in the panel.
+      expect(screen.queryByRole('group'), label).toBeNull();
+      // However attempted, with a real (non-empty) draft ready to go: still exactly one call.
+      fireEvent.click(sendButton);
+      fireEvent.submit(screen.getByTestId('assistant-form'));
+      expect(h.ask, label).toHaveBeenCalledTimes(1);
+    };
+
+    stillWaiting('t=0');
+    await advanceTo(Math.floor(delay / 2));
+    stillWaiting('t=mid-wait');
+    await advanceTo(delay - 100);
+    stillWaiting('t=delay-100');
+
+    await advanceTo(delay + 50);
+    await waitFor(() => expect(screen.queryByTestId('assistant-thinking')).toBeNull());
+    expect(screen.getByText(localizeText(reply, 'ar'))).toBeTruthy();
+    expect(h.ask).toHaveBeenCalledTimes(1); // the probe draft was never sent - still one call in total
+  });
 });

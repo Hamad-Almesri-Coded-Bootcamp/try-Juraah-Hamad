@@ -103,7 +103,7 @@ function screenNewPrescription({ patientId, newPrescriptionId, prescriptions, la
   if (matched === 0 && unknown.length === 0 && mine.length > 0) {
     alerts.push(body([target.id], 'info', l === 'en'
       ? 'No interaction with your other medicines was found in our limited reference set. This is not a clearance - a medical reviewer will confirm it.'
-      : 'ما وجدنا تعارضاً مع باقي أدويتك في قائمتنا المرجعية المحدودة. هذا ليس تأكيداً بالسلامة — سيراجعه مختص طبي.', OWED_CITATION));
+      : 'لم نجد تعارضاً مع باقي أدويتك في قائمتنا المرجعية المحدودة. هذا ليس تأكيداً بالسلامة، وسيراجعه مختص طبي.', OWED_CITATION));
   }
   return { screened: true, excluded, alerts, reason: null };
 }

@@ -255,6 +255,20 @@ export const ambient = {
     en: 'Open the chat in Telegram and press Start. This page will update by itself once you’re connected.',
     placeholder: true,
   },
+  // AP-09 (CR-087): the waiting state checks again on demand, and says so when a check finds nothing
+  // yet. Shared with F4 (the caregiver's own chat row), so the same step has one wording everywhere.
+  e5ChatCheckAction: { ar: 'ضغطتُ «ابدأ»', en: 'I pressed Start', placeholder: true },
+  e5ChatOpenAgainAction: { ar: 'افتح تيليجرام مرة أخرى', en: 'Open Telegram again', placeholder: true },
+  e5ChatStillWaiting: {
+    ar: 'لم يصلنا التأكيد بعد. تأكّد أنك ضغطت «ابدأ» في محادثة جرعة، ثم تحقّق بعد لحظات.',
+    en: 'We haven’t had the confirmation yet. Make sure you pressed Start in the Jur’ah chat, then check again in a moment.',
+    placeholder: true,
+  },
+  e5ChatStoppedChecking: {
+    ar: 'توقّفت هذه الصفحة عن التحقق وحدها. بعد أن تضغط «ابدأ» في تيليجرام، ارجع إلى هنا وتحقّق من الربط.',
+    en: 'This page has stopped checking by itself. Once you press Start in Telegram, come back here and check.',
+    placeholder: true,
+  },
   e5ChatConnectedSinceTemplate: { ar: 'مربوطة منذ {date}', en: 'Connected since {date}', placeholder: true },
   e5SendTestMessageAction: { ar: 'أرسل رسالة تجريبية', en: 'Send a test message', placeholder: true },
   e5DisconnectAction: { ar: 'فصل الربط', en: 'Disconnect', placeholder: true },

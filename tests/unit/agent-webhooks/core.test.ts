@@ -73,6 +73,11 @@ describe('readDrugCheck ← agent-travel-check', () => {
   const active = (id: string) => seed.filter((p) => p.patientId === id && p.status === 'active');
 
   it('every appOutcome the real agent produces is read back unchanged', () => {
+    // D6/CR-078: the agent produces its own cannot_verify kind (CR-095, agents/knowledge/src/
+    // travel-check.js) and, now that PR #13/AP-11a has landed, readDrugCheck (lib/agent-webhooks/
+    // core.ts) passes it through unchanged too, so this assertion needs no exception any more - the
+    // dedicated "cannot_verify (CR-078) passes through ..." test below covers its extra-fields and
+    // non-200 cases.
     for (const patientId of ['pt-01', 'pt-02', 'pt-03']) {
       for (const text of ['KLACID', 'Euthyrox', 'ZOCOR', 'Panadol', 'UNKNOWNXYZ', '']) {
         const { appOutcome } = T.travelCheck({ patientId, visionText: text, prescriptions: active(patientId), index, brandIndex });
@@ -95,7 +100,17 @@ describe('readDrugCheck ← agent-travel-check', () => {
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: '', verdict: 'no_interaction' } })).toEqual(cni);
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'safe' } })).toEqual(cni);
     expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X'.repeat(201), verdict: 'no_interaction' } })).toEqual(cni);
-    expect(readDrugCheck(200, { appOutcome: { kind: 'cannot_verify' } })).toEqual(cni);
+  });
+
+  it('cannot_verify (CR-078) passes through as its own outcome, with extra fields never read', () => {
+    expect(readDrugCheck(200, { appOutcome: { kind: 'cannot_verify' } })).toEqual({ kind: 'cannot_verify' });
+    expect(
+      readDrugCheck(200, { appOutcome: { kind: 'cannot_verify', drugName: 'X', verdict: 'no_interaction', alertId: 'ia-1' } })
+    ).toEqual({ kind: 'cannot_verify' });
+    expect(readDrugCheck(500, { appOutcome: { kind: 'cannot_verify' } })).toEqual({ kind: 'could_not_identify' });
+    expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'cannot_verify' } })).toEqual({
+      kind: 'could_not_identify',
+    });
   });
 
   it('an alert id that is not an id is dropped, never followed', () => {

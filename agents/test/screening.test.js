@@ -36,6 +36,15 @@ test('no pair matched is NEVER auto-cleared: one info alert, pending_medical_rev
   assert.ok(r.alerts.every((a) => a.reviewStatus !== 'auto_cleared'));
 });
 
+test('AP-17/CR-079: the "no pair matched" alert has no em or en dash, in either language', () => {
+  const prescriptions = [rx('rx-001', 'Warfarin'), rx('rx-008', 'Levothyroxine')];
+  const ar = S.screenNewPrescription({ patientId: 'pt-01', newPrescriptionId: 'rx-001', prescriptions, language: 'ar' });
+  const en = S.screenNewPrescription({ patientId: 'pt-01', newPrescriptionId: 'rx-001', prescriptions, language: 'en' });
+  assert.doesNotMatch(ar.alerts[0].description, /[—–]/);
+  assert.doesNotMatch(en.alerts[0].description, /[—–]/);
+  assert.match(en.alerts[0].description, /not a clearance/);
+});
+
 test('TC-IX-03/04: an ingredient we cannot resolve -> "cannot verify", never silently fine; nonsense names too', () => {
   for (const name of ['Metformin', 'Zzqxblorp', '', '(unreadable)']) {
     const r = S.screenNewPrescription({ patientId: 'pt-01', newPrescriptionId: 'rx-x', language: 'ar',

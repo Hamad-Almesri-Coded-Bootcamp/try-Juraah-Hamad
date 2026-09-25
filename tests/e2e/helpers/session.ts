@@ -110,6 +110,32 @@ export function sessionCookieFor(who: Who, base: URL) {
   };
 }
 
+/** Which backend this run's server uses (playwright.config.ts pins it the same way). */
+export function e2eBackend(): 'postgres' | 'mock' {
+  return databaseConfigured() ? 'postgres' : 'mock';
+}
+
+/**
+ * AP-09: a signed CAREGIVER-role cookie for a caregiver who is NOT active (طلال, `cg-06`, revoked):
+ * the session a caregiver still holds in the browser after the patient revoked them. Mock backend
+ * only, and it says so: under the database the sessions insert policy (0007 session_row_ok) already
+ * refuses a row for a caregiver who is not active, so no such session can be issued there at all.
+ */
+export function inactiveCaregiverCookieFor(subjectId: string, linkedPatientId: string, base: URL) {
+  if (databaseConfigured()) {
+    throw new Error('inactiveCaregiverCookieFor: the database refuses a sessions row for a caregiver who is not active (session_row_ok); mock backend only');
+  }
+  const session: TestSession = { subjectId, role: 'caregiver', linkedPatientId };
+  return {
+    name: SESSION_COOKIE,
+    value: signedCookieValue(session, issue(`caregiver:${subjectId}`, session)),
+    domain: base.hostname,
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax' as const,
+  };
+}
+
 /**
  * A signed PENDING-INVITATION-ONLY cookie (ناصر, `cg-03`), for the three specs that minted an
  * unsigned one inline (identity.spec.ts:86, roles.spec.ts:117 — docs/backend-notes/p2-wp2.md CR-WP2-1;

@@ -361,14 +361,37 @@ function routingItems(dir, { box = 3, carer = 1 } = {}) {
   return items;
 }
 
-test('AP-08 step 2: routing is NOT MEASURED while no Orchestrator exists (AP-11), even with a full set', async (t) => {
+test('AP-11 step 2: routing IS measured now that the Orchestrator exists - a synthetic smoke set scores correctly through route (deterministic) and, for a photo, orchestrator: ask/decide with an injected transport', async (t) => {
   const dir = tmp(t);
   writeSet(dir, 'routing', routingItems(dir));
+  // Every box-or-prescription item here asks to be scored 'clarify' (routingItems' own expected):
+  // the model answers unsure, above the floor, so decidePhoto trusts it.
+  const transport = async () => gemini(JSON.stringify({ kind: 'unsure', confidence: 0.9 }));
   const p = printer();
-  // No key and no transport: what stops the measurement is the missing Orchestrator, and the output says so.
-  const r = await evaluate({ sets: ['routing'], datasetsDir: dir, print: p.print, env: {} });
+  const r = await evaluate({ sets: ['routing'], datasetsDir: dir, transport, sleep: noSleep, print: p.print, env: {} });
+  assert.equal(r.exitCode, 0, p.out.join('\n'));
+  assert.match(p.out[0], /^PASS routing: 15 of 15 inputs correct \(100\.0%\)/);
+});
+
+test('AP-11 step 2: a failed photo model call in routing is an ERROR, never scored as a route (a 503 is not "clarify")', async (t) => {
+  const dir = tmp(t);
+  writeSet(dir, 'routing', routingItems(dir));
+  const transport = async () => ({ statusCode: 503, body: null });
+  const p = printer();
+  const r = await evaluate({ sets: ['routing'], datasetsDir: dir, transport, sleep: noSleep, print: p.print, env: {} });
   assert.equal(r.exitCode, 1);
-  assert.match(p.out[0], /^NOT MEASURED: routing - the Telegram workflow has no Orchestrator yet/);
+  assert.match(p.out[0], /^NOT MEASURED: routing - 3 of 15 items could not be run, so this is not a measurement: box-0 \(the vision model answered HTTP 503\)/);
+});
+
+test('AP-11 step 2: an inactive caregiver is never run at all - the app\'s own relay decides it (detail.decidedBy: \'relay\')', async (t) => {
+  const dir = tmp(t);
+  const items = routingItems(dir, { carer: 0 }).map((it, i) => (i === 3 ? { ...it, from: 'inactive_caregiver', kind: 'text', text: 'أبوي خذ الدوا', expected: 'no_agent' } : it));
+  writeSet(dir, 'routing', items);
+  const transport = async () => gemini(JSON.stringify({ kind: 'unsure', confidence: 0.9 }));
+  const p = printer();
+  const r = await evaluate({ sets: ['routing'], datasetsDir: dir, transport, sleep: noSleep, print: p.print, env: {} });
+  assert.equal(r.exitCode, 0, p.out.join('\n'));
+  assert.equal(r.sets[0].results.find((x) => x.id === items[3].id).detail.decidedBy, 'relay');
 });
 
 test('AP-08 step 3: a routing set needs 3 box-or-prescription confusions and 1 caregiver message (section 6)', async (t) => {

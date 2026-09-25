@@ -65,9 +65,17 @@ const dataConst = (name, file) => 'const ' + name + ' = ' + JSON.stringify(JSON.
 const CORE = ['src/normalise.js', 'src/severity.js', 'src/interactions.js', 'src/text.js', 'src/validate.js', 'src/screening.js'];
 const SCREENING_SRC = dataConst('INDEX_JSON', 'data/interaction-index.json') + '\n' + inline(CORE) +
   '\nconst INDEX = loadIndex(INDEX_JSON);';
+// CR-078 / AP-07: buildPendingNames needs the pendingVerification list to be an array - a guard that
+// silently treated a missing or malformed list as "no pending brands" would pass with its input
+// missing, which is worse than no guard. Checked at BUILD time (Node), never inside the Code node.
+const BRAND_MAP_DATA = JSON.parse(read('data/brand-map.json'));
+if (!Array.isArray(BRAND_MAP_DATA.pendingVerification && BRAND_MAP_DATA.pendingVerification.brands)) {
+  throw new Error('data/brand-map.json: pendingVerification.brands must be an array - refusing to build agent-travel-check with the unverified-brand list missing');
+}
 const TRAVEL_SRC = dataConst('INDEX_JSON', 'data/interaction-index.json') + '\n' + dataConst('BRAND_MAP_JSON', 'data/brand-map.json') + '\n' +
   inline(['src/normalise.js', 'src/severity.js', 'src/interactions.js', 'src/resolve.js', 'src/text.js', 'src/validate.js', 'src/screening.js', 'src/travel-check.js']) +
-  '\nconst INDEX = loadIndex(INDEX_JSON);\nconst BRAND_INDEX = buildBrandIndex(BRAND_MAP_JSON.brands, INDEX);';
+  '\nconst INDEX = loadIndex(INDEX_JSON);\nconst BRAND_INDEX = buildBrandIndex(BRAND_MAP_JSON.brands, INDEX);' +
+  '\nconst PENDING_NAMES = buildPendingNames(BRAND_MAP_JSON.pendingVerification.brands);';
 const EXTRACTION_SRC = inline(['src/extraction.js']);
 const CONFIG = 'const API = ' + JSON.stringify(API_BASE) + ';\nconst N8N = ' + JSON.stringify(N8N_WEBHOOK_BASE) + ';';
 
@@ -292,11 +300,7 @@ const TC_CHECK = TRAVEL_SRC + `
 const input = $('input (deterministic)').first().json;
 const rx = $('backend: active prescriptions').first().json;
 const vision = $input.first().json;
-if (rx.statusCode !== 200 || !rx.body || !Array.isArray(rx.body.prescriptions)) {
-  // Never "no interaction" when the profile could not be read.
-  return [{ json: { post: false, error: 'backend_prescriptions_http_' + rx.statusCode,
-    result: { verdict: 'could_not_identify', reason: 'profile_unavailable', appOutcome: { kind: 'could_not_identify' } } } }];
-}
+const rxOk = rx.statusCode === 200 && !!rx.body && Array.isArray(rx.body.prescriptions);
 let text = '';
 let finish = null;
 if (vision.statusCode === 200) {
@@ -309,10 +313,15 @@ if (vision.statusCode === 200) {
 if (finish !== 'STOP') text = '';
 // G5: the model's own refusal token is honoured, never second-guessed.
 if (/^UNREADABLE\\.?$/i.test(text)) text = '';
-const result = travelCheck({ patientId: input.patientId, visionText: text, prescriptions: rx.body.prescriptions,
-  index: INDEX, brandIndex: BRAND_INDEX, language: input.language });
+// Never "no interaction" when the profile could not be read: travelCheck itself fails closed
+// (VERDICT.CANNOT_VERIFY, reason profile_unavailable) whenever prescriptions is not an array - an
+// unreadable photo (G5) or an unresolved name still answer first, unchanged, either way.
+const result = travelCheck({ patientId: input.patientId, visionText: text, prescriptions: rxOk ? rx.body.prescriptions : null,
+  index: INDEX, brandIndex: BRAND_INDEX, language: input.language, pendingNames: PENDING_NAMES });
 result.visionStatus = vision.statusCode;
-return [{ json: { post: !!result.alert, error: vision.statusCode !== 200 ? 'vision_http_' + vision.statusCode : (finish !== 'STOP' ? 'vision_not_finished_' + finish : null), alert: result.alert, result } }];`;
+return [{ json: { post: !!result.alert,
+  error: !rxOk ? 'backend_prescriptions_http_' + rx.statusCode : (vision.statusCode !== 200 ? 'vision_http_' + vision.statusCode : (finish !== 'STOP' ? 'vision_not_finished_' + finish : null)),
+  alert: result.alert, result } }];`;
 
 const TC_ANSWER = `
 const c = $('check (deterministic)').first().json;

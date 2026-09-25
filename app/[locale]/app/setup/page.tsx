@@ -3,6 +3,7 @@ import { isLocale } from '@/i18n/locale';
 import { getSession } from '@/lib/session';
 import { getPatient } from '@/lib/data';
 import { SetupFlow } from '@/features/identity/SetupFlow';
+import { BOT_IS_SIMULATED } from '@/lib/config';
 
 /**
  * A2 — first-run setup. `app/[locale]/app/layout.tsx` (WP3's) already `requireRole`s this route to
@@ -20,5 +21,5 @@ export default async function SetupPage({ params }: { params: Promise<{ locale: 
   if (!patient) notFound();
   if (patient.onboardingCompleted) redirect(`/${locale}/app`);
 
-  return <SetupFlow locale={locale} patientId={session.subjectId} initialLanguage={patient.language} />;
+  return <SetupFlow locale={locale} patientId={session.subjectId} initialLanguage={patient.language} simulated={BOT_IS_SIMULATED} />;
 }
