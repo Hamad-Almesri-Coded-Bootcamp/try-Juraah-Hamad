@@ -26,12 +26,12 @@ export const identity = {
     placeholder: true,
   },
   civilIdLabel: { ar: 'الرقم المدني', en: 'Civil ID', placeholder: true },
-  civilIdHelper: { ar: 'هذه النسخة تقبل الأرقام التجريبية فقط', en: 'This version only accepts demo numbers', placeholder: true },
+  civilIdHelper: { ar: 'يمكن الدخول هنا بأرقام مدنية محدّدة فقط', en: 'Only certain Civil IDs can sign in here', placeholder: true },
   continueLabel: { ar: 'متابعة', en: 'Continue', placeholder: true },
   backToLanding: { ar: 'العودة إلى الصفحة الرئيسية', en: 'Back to the home page', placeholder: true },
   invalidIdError: {
-    ar: 'هذا الرقم غير موجود في القائمة التجريبية لهذه النسخة',
-    en: 'This number isn’t on the demo list for this version',
+    ar: 'لا يمكن الدخول بهذا الرقم هنا',
+    en: 'This number can’t be used to sign in here',
     placeholder: true,
   },
   // Audit M14: validated on submit, never disabled-until-valid — each says what to do next (UX §5/§6).

@@ -58,7 +58,7 @@ export const vocabulary = {
   stepOf: { ar: 'الخطوة', en: 'Step', placeholder: true },
   of: { ar: 'من', en: 'of', placeholder: true },
   asOf: { ar: 'آخر تحديث', en: 'As of', placeholder: true },
-  simulatedRole: { ar: 'دور تجريبي', en: 'Simulated role', placeholder: true },
+  simulatedRole: { ar: 'دور محاكاة', en: 'Simulated role', placeholder: true },
   viewingRecordOf: { ar: 'أنت تطّلع على ملف', en: 'Viewing the record of', placeholder: true },
 
   // Strength units — ONE word per unit for every screen (audit M7; UX Principles §3: no Latin

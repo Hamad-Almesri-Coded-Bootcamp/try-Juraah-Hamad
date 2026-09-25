@@ -17,7 +17,7 @@ export const clinic = {
   // -----------------------------------------------------------------------------------------
   // X0 — clinic entry (`/clinic`) and role chooser (`/clinic/choose`)
   // -----------------------------------------------------------------------------------------
-  x0Kicker: { ar: 'دور تجريبي · نسخة أكاديمية', en: 'Simulated role · academic version', placeholder: true },
+  x0Kicker: { ar: 'دور محاكاة', en: 'Simulated role', placeholder: true },
   x0Title: { ar: 'دخول العيادة', en: 'Clinic sign-in', placeholder: true },
   x0Subtitle: { ar: 'للمراجعة الطبية وإدارة النظام', en: 'For medical review and system administration', placeholder: true },
   x0Body: {
