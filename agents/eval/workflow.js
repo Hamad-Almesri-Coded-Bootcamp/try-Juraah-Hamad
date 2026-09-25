@@ -41,24 +41,31 @@ function nodeOf(wf, name, type) {
 
 const compiled = new Map();
 /**
- * Run one committed Code node as n8n does: an async function body over `$input` and `$`.
- *   input  the JSON of the items arriving at the node
- *   refs   { "<node name>": [json, ...] } for every $('<node name>') the code reads
+ * Run one committed Code node as n8n does: an async function body over `$input`, `$` and
+ * `$getWorkflowStaticData` (AP-11 - the Orchestrator's pending-photo store).
+ *   input   the JSON of the items arriving at the node
+ *   refs    { "<node name>": [json, ...] } for every $('<node name>') the code reads
+ *   store   a plain object standing in for $getWorkflowStaticData('global'); pass the SAME object
+ *           across calls to thread it through a scenario, omit it for a call that needs none
+ *   binary  the current item's `binary` (a downloaded photo's shape), for a node that reads it
+ *   buffer  what `this.helpers.getBinaryDataBuffer(...)` resolves to, alongside `binary`
  * Returns the JSON of the items it outputs.
  */
-async function runCode(wf, name, { input, refs = {} }) {
+async function runCode(wf, name, { input, refs = {}, store = {}, binary, buffer } = {}) {
   const n = nodeOf(wf, name, 'n8n-nodes-base.code');
   const key = wf.name + '\u0000' + name;
-  if (!compiled.has(key)) compiled.set(key, new AsyncFunction('$input', '$', n.parameters.jsCode));
+  if (!compiled.has(key)) compiled.set(key, new AsyncFunction('$input', '$', '$getWorkflowStaticData', n.parameters.jsCode));
   const wrap = (list) => list.map((json) => ({ json }));
-  const items = wrap(input);
+  const items = binary ? [{ json: input[0], binary }] : wrap(input);
   const $input = { first: () => items[0], all: () => items };
   const $ = (ref) => {
     if (!Object.prototype.hasOwnProperty.call(refs, ref)) throw new Error('"' + name + '" read the node "' + ref + '", which the evaluation did not supply');
     const r = wrap(refs[ref]);
     return { first: () => r[0], all: () => r };
   };
-  const out = await compiled.get(key).call({ helpers: {} }, $input, $);
+  const getWorkflowStaticData = () => store;
+  const ctx = { helpers: { getBinaryDataBuffer: async () => buffer } };
+  const out = await compiled.get(key).call(ctx, $input, $, getWorkflowStaticData);
   return (Array.isArray(out) ? out : []).map((x) => x && x.json);
 }
 

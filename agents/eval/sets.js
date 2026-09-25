@@ -21,9 +21,7 @@
  * one: a run with any error is not a measurement.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { loadWorkflow, runCode, chainContract, visionNode, AGENTS } = require('./workflow');
+const { loadWorkflow, runCode, chainContract, visionNode } = require('./workflow');
 const { chatUrl, chatRequest, responseText, send } = require('./gemini');
 const { fileOf } = require('./datasets');
 
@@ -218,12 +216,76 @@ async function travel(items, ctx, dir) {
   return results;
 }
 
-// ------------------------------------------------------------------------------ routing
-async function routing() {
-  const orchestrator = path.join(AGENTS, 'lib', 'orchestrator.js');
-  throw new NotMeasurable(fs.existsSync(orchestrator)
-    ? 'routing - agents/lib/orchestrator.js exists, but agents/eval/sets.js is not wired to it yet (AP-11 wires it, with its prompt and routes)'
-    : 'routing - the Telegram workflow has no Orchestrator yet: every patient photo goes to extraction and no model chooses a route (AP-11 builds agents/lib/orchestrator.js and wires this set)');
+// ------------------------------------------------------------------------------ routing (AP-11)
+/** The relay's own body shape (lib/messaging/telegram.ts ChatReply + lib/agent/inbound.ts) built
+ * from one routing item. Every item resolves to the same evaluation patient and chat. */
+function routingPayload(it) {
+  const kind = it.kind === 'tap' ? 'callback' : 'message';
+  return {
+    channel: 'telegram', subjectType: it.from === 'patient' ? 'patient' : 'caregiver',
+    patientId: EVAL_PATIENT, chatId: 'eval-chat', kind, messageId: 1, sentAt: '2026-09-24T08:00:00+03:00',
+    text: it.kind === 'start' ? '/start' : (typeof it.text === 'string' ? it.text : null),
+    photoFileId: it.kind === 'photo' ? 'eval-photo' : null,
+    documentFileId: it.kind === 'document' ? 'eval-document' : null,
+    callbackQueryId: kind === 'callback' ? 'eval-cbq' : null,
+    language: 'en',
+  };
+}
+
+/** AP-11's routing labels (routing.schema.json), from route (deterministic) alone - no photo. */
+const DIRECT_ROUTE = { adherence: 'adherence', extraction: 'extraction', travel: 'travel_check' };
+
+async function routing(items, ctx, dir) {
+  const wf = loadWorkflow('agent-telegram-inbound');
+  const vision = visionNode(wf, 'Gemini: what is this photo?');
+  const results = [];
+  for (const it of items) {
+    // The app's own relay (lib/agent/inbound.ts subjectForChat) never forwards an inactive
+    // caregiver's chat at all - there is no node here to run; the rule alone decides.
+    if (it.from === 'inactive_caregiver') {
+      const got = 'no_agent';
+      results.push({ id: it.id, correct: got === it.expected, units: 1, unitsCorrect: got === it.expected ? 1 : 0,
+        expected: it.expected, got, detail: { decidedBy: 'relay' } });
+      continue;
+    }
+    const store = {};
+    const payload = routingPayload(it);
+    const [routed] = await runCode(wf, 'route (deterministic)', { input: [{ body: payload }], store });
+    if (!routed) { results.push({ id: it.id, correct: 'link' === it.expected, units: 1, unitsCorrect: 'link' === it.expected ? 1 : 0, expected: it.expected, got: 'link', detail: { route: null } }); continue; }
+    let got;
+    const detail = { route: routed.route };
+    if (DIRECT_ROUTE[routed.route]) {
+      got = DIRECT_ROUTE[routed.route];
+    } else if (routed.route === 'reply') {
+      detail.reason = routed.reason;
+      got = routed.reason === 'caregiver' ? 'caregiver_reply' : 'other_reply'; // photo_expired: nothing to resume
+    } else {
+      // route === 'photo': the one narrow vision question decides prescription | medicine_package | other | unsure.
+      const f = fileOf(dir, it);
+      const [asked] = await runCode(wf, 'orchestrator: ask what the photo is', {
+        input: [{}], refs: { 'route (deterministic)': [routed] }, store,
+        binary: { data: { mimeType: f.mimeType } }, buffer: Buffer.from(f.base64, 'base64'),
+      });
+      let res = null;
+      if (!asked.mimeShortcut && !asked.fileProblem) {
+        res = await send(ctx.transport, { url: vision.url, body: asked.visionBody }, vision, ctx.sleep);
+        if (!res || res.statusCode !== 200) {
+          results.push({ id: it.id, error: 'the vision model answered HTTP ' + (res ? res.statusCode : 'none') + (res && res.error ? ' (' + res.error + ')' : '') });
+          continue;
+        }
+      }
+      const [decided] = await runCode(wf, 'orchestrator: decide (deterministic)', {
+        input: [res || { statusCode: 200, body: {} }], refs: { 'orchestrator: ask what the photo is': [asked] }, store,
+      });
+      detail.decidedKind = decided.decidedKind;
+      got = decided.decidedKind === 'prescription' ? 'extraction'
+        : decided.decidedKind === 'medicine_package' ? 'travel_check'
+        : decided.decidedKind === 'other' ? 'other_reply'
+        : 'clarify'; // unsure
+    }
+    results.push({ id: it.id, correct: got === it.expected, units: 1, unitsCorrect: got === it.expected ? 1 : 0, expected: it.expected, got, detail });
+  }
+  return results;
 }
 
 const ADAPTERS = {
@@ -232,8 +294,9 @@ const ADAPTERS = {
   'screening-interacting': { run: screeningInteracting, model: false, unit: 'pairs' },
   'screening-non-interacting': { run: screeningNonInteracting, model: false, unit: 'pairs' },
   travel: { run: travel, model: true, unit: 'photos' },
-  // No model is called until AP-11 wires the Orchestrator: a missing key must not hide that.
-  routing: { run: routing, model: false, unit: 'inputs' },
+  // A real box-or-prescription item always calls the model (the schema requires at least 3); a
+  // text/tap/start item never does, but the set as a whole needs the key to be measurable.
+  routing: { run: routing, model: true, unit: 'inputs' },
 };
 
 module.exports = { ADAPTERS, NotMeasurable, CORE_FIELDS, savedFields, sameField, syntheticRx, EVAL_PATIENT, adherenceContract };

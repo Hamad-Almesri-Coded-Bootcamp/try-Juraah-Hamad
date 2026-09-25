@@ -13,17 +13,19 @@ export function assignAuditIds(events: Omit<AuditEvent, 'id'>[]): AuditEvent[] {
   return sorted.map((e, i) => ({ ...e, id: `ae-${String(i + 1).padStart(3, '0')}` }));
 }
 
-let liveCounter = 0;
-
-/** Runtime: append one event to the live store — the only path that may push onto auditEvents. */
+/**
+ * Runtime: append one event to the live store — the only path that may push onto auditEvents.
+ * AP-09: the next id is counted from the store itself. The store is shared by every bundle of the
+ * server (lib/data/mock/store.ts), and a counter per module copy would hand out one id twice.
+ */
 export function append(store: StoreState, event: Omit<AuditEvent, 'id'>): AuditEvent {
-  liveCounter += 1;
-  const full: AuditEvent = { ...event, id: `ae-live-${String(liveCounter).padStart(4, '0')}` };
+  const liveCount = store.auditEvents.reduce((n, e) => (e.id.startsWith('ae-live-') ? n + 1 : n), 0);
+  const full: AuditEvent = { ...event, id: `ae-live-${String(liveCount + 1).padStart(4, '0')}` };
   store.auditEvents.push(full);
   return full;
 }
 
-/** Reset the live-append counter — called by store.reset() so a fresh store starts from zero. */
+/** Kept for store.reset(). Nothing to reset: a fresh store has no live events, so ids start at one. */
 export function resetLiveCounter(): void {
-  liveCounter = 0;
+  // The next id is counted from the store (see append), so there is no counter to reset.
 }

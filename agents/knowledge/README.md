@@ -50,7 +50,7 @@ Extraction              POST  <n8n>/webhook/jurah/extract-prescription     (x-ju
 | `warning` → `auto_cleared` | `danger` and `warning` → `pending_medical_review`; a Minor row → `info` `auto_cleared` | The seed's warning `ia-002` went through the reviewer; its `ia-003` info was auto-cleared |
 | English only | Arabic (default) and English, by the patient's `language` | The product is Arabic-first; the seed's alert descriptions are Arabic |
 | Travel check trusted `prescriptions` from the request body | Reads the profile from the backend | The caller must not decide what the patient takes |
-| Travel check said `no_interaction_found` when a drug wasn't covered | New verdict `cannot_verify`, answered to the app as its own `cannot_verify` outcome (CR-078, AP-11b) - also for an ungraded pair, a profile the backend could not read (`profile_unavailable`), an unverified SFDA brand (`brand_not_verified`, AP-07's pending rows), or while any prescription awaits review | "Not in our data" is not "no interaction" |
+| Travel check said `no_interaction_found` when a drug wasn't covered | New verdict `cannot_verify`, answered to the app as its own `cannot_verify` outcome (CR-078, AP-11b) - also for an ungraded pair, a profile the backend could not read (`profile_unavailable`), an unverified SFDA brand (`brand_not_verified`, AP-07's pending rows), or while any prescription awaits review; `needs_confirmation` and `could_not_identify` still map to the app's `could_not_identify` | "Not in our data" is not "no interaction", and reads differently from "we could not read the box" |
 | A pair with no row was "no interaction" whenever both drugs were in the index | Only when one of the two drugs is in an ATC category whose DDInter file was loaded (`meta.categoryFilesLoaded`, `drugs[k].atcCategories` from the WHO ATC/DDD index). Otherwise screening raises one `info` "cannot verify" alert for the reviewer, and travel check answers `cannot_verify` (AP-06) | A DDInter category file lists the interactions of the drugs in that category. With A, B and H loaded, Ibuprofen (M) × Ciprofloxacin (J) can never be in the index, so its absence proves nothing |
 | Travel check brand map loaded every row | Only `verified: true` rows. A generic box also resolves by the index's own ingredient name, exactly | Your own `pendingVerification` rule |
 | "PANADOL" resolved to plain acetaminophen; "Plus"/"Forte" were stripped as form words | A bare family name with line extensions in the map asks which one (`needs_confirmation`); "Plus"/"Forte" stay part of the name; the vision prompt asks for the full product name | A Cold & Flu box read as "Panadol" would drop two ingredients from screening |
@@ -124,7 +124,11 @@ unscreened. In this order:
 3. Set `JURAH_AGENT_SCREENING_URL` in Vercel and redeploy (AP-13).
 4. Immediately republish the rebuilt `agent-telegram-inbound` and publish `agent-extraction`.
    Between steps 3 and 4 a Telegram save is screened twice, never zero times; doing step 4 before
-   step 3 would leave saves unscreened and make them hit Stop and Error.
+   step 3 would leave saves unscreened and make them hit Stop and Error. Since AP-11 merged, the
+   rebuilt `agent-telegram-inbound` also carries the Orchestrator, so AP-11's own live steps apply
+   to the same publish: `agent-travel-check` must already be active on `jurah/travel-check`, and
+   `Gemini: what is this photo?` and `n8n: travel check` get their bindings
+   (`docs/backend-notes/ap-11.md`, "Live steps for the lead after merge").
 5. Export again and show the diff.
 6. Confirm the workflow list shows exactly one active workflow on `jurah/screen-prescription`.
 7. Run the drift check and get it to zero.

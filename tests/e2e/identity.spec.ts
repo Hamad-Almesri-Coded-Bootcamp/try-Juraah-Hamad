@@ -211,6 +211,12 @@ test.describe('A1b — role chooser (سارة)', () => {
 // A2 — first-run setup (بدر)
 // ---------------------------------------------------------------------------------------------
 test.describe('A2 — first-run setup (بدر)', () => {
+  // The app's service worker (public/sw.js) answers every navigation, and a form post is one. Once
+  // it controls the page (at once on a production build; a cold `next dev` is often too slow to
+  // install it in time), page.route never sees the post: it goes to the real route and mints a real
+  // link for بدر, which the specs that read his state as untouched then see. The route's own answer
+  // is proven elsewhere, so this block runs without a service worker.
+  test.use({ serviceWorkers: 'block' });
   // بدر (`onboardingCompleted: false`) is the seed's ONE never-onboarded patient (CR-004), and
   // `completeOnboarding` has no undo — the mock store is a server-side singleton that survives for
   // the life of the dev server (D-002), shared by every project this file runs under. Any test that
@@ -250,6 +256,34 @@ test.describe('A2 — first-run setup (بدر)', () => {
     expect(a.width).toBeCloseTo(b.width, 0);
     expect(a.height).toBeCloseTo(b.height, 0);
     expect(await invite.getAttribute('class')).toBe(await notNow.getAttribute('class'));
+  });
+
+  // AP-09 (CR-086): the Telegram offer is the same link form as E5 and F4. The route's own answer is
+  // proven by ambient.spec (حمد's round trip) and tests/unit/api/telegram-open.test.ts; here the one
+  // post it would make for بدر is caught before it reaches the server and answered as the simulated
+  // route answers (303 to the invite step), because a real mint would change بدر's activity feed,
+  // which other specs read as empty. Read-only for the store, so it runs on every project, and before
+  // the one test that finishes his setup.
+  test('the Telegram offer posts a form to the link route (locale and screen only, same origin), lands on the next step, and no token is ever on the page', async ({ page, context, baseURL }) => {
+    await addSession(context, baseURL, 'badr');
+    await page.goto('/ar/app/setup?step=1');
+    let html = await page.content();
+    expect(html).not.toMatch(/mock-token-|t\.me\/[A-Za-z0-9_]+\?start=/);
+
+    const posted: { method: string; body: string | null; origin: string | undefined }[] = [];
+    await page.route('**/api/messaging/telegram/open', async (route) => {
+      const request = route.request();
+      posted.push({ method: request.method(), body: request.postData(), origin: request.headers()['origin'] });
+      await route.fulfill({ status: 303, headers: { location: '/ar/app/setup?step=2', 'cache-control': 'no-store' } });
+    });
+    const offer = page.getByRole('button', { name: id.telegramOfferButton.ar, exact: true });
+    await expect(offer).toHaveAttribute('type', 'submit');
+    await offer.click();
+    await expect(page).toHaveURL(/step=2/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(id.inviteStepTitle.ar);
+    expect(posted).toEqual([{ method: 'POST', body: 'locale=ar&from=setup', origin: new URL(baseURL ?? 'http://localhost:3100').origin }]);
+    html = await page.content();
+    expect(html).not.toMatch(/mock-token-|t\.me\/[A-Za-z0-9_]+\?start=/);
   });
 
   test('setup never runs twice: a completed patient visiting /app/setup is sent to Today', async ({ page, context, baseURL }) => {
