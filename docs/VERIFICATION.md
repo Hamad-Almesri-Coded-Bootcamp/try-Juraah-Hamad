@@ -352,7 +352,6 @@ This is true in the database, not only on the screen: a user actor cannot be ins
 | Security hygiene: no secret in repo or bundle; every mutating endpoint needs a session bound to its subject; the agent path has its own credential | item 7; every seam write under `withSession`; `AGENT_TOKEN` bearer, user cookies → 403 |
 | Integration point for the agents: one documented write path; `Dose.status` with `recordedAt`/`source`; alerts with `sourceCitation`; extraction with `needsReview`/`startDate`/`doseTimes`; check-in eligibility; alert recipients (`active` only); backend writes the audit rows as `agent` | WP7: `docs/API-SURFACE.md` §B; check-in eligibility → exactly سارة; recipients → cg-01, cg-02 only |
 | The landing page needs no backend | E-50 |
-| The six AI agents are not built | nothing under `lib/agent/**` calls a model; the extraction/drug-check providers are the deterministic byte-size stubs (CR-049) |
 
 ## e2e run — the auth-affected suites, serially, mock backend, signed session (WP2 + D-038)
 
@@ -771,3 +770,80 @@ Every round lands on the right destination, حمد's own patient shell (for X0, 
 - **E5 chat round trip: D-12.** With no bot (`JURAH_BOT_TOKEN` empty, handle `[TO BE SUPPLIED]`), a link stays `pending` until a webhook confirms it, so `chat-connected` never appears. Correct behaviour until the bot exists.
 
 **Item 10 on Postgres: delivered, narrowed to phone-390.** The data layer is what changed, and the viewport is the frozen set's concern by construction. The gated tests ran on their own projects. **The full 3-project matrix on Postgres (626 more runs of the same tests at 834 and 1440) was not run**; it is ~2 h serially over this link. No spec assertion was changed. Spec edits: `caregiving.spec.ts`'s cookie helper (D-038 amended). Harness edits: the postgres-only ceilings in `playwright.config.ts` (D-039 §7).
+
+---
+
+# Agents: accuracy and live runs (docs/AGENTS-POLISH-PLAN.md AP-15 and AP-14)
+
+AP-19 removed the "The six AI agents are not built" row from section 12 above on 2026-09-25,
+because the agents track has since built the agents (`agents/README.md` lists the workflows that
+run today). Nothing about the agents is claimed beyond what this part states.
+
+## Agents, accuracy (AP-15)
+
+`cd agents && node eval/run.js; echo "exit=$?"`, run on `feeee90` (`main`), 2026-09-25:
+
+```
+NOT MEASURED: extraction has 0 of 10 items
+NOT MEASURED: adherence has 0 of 20 items
+NOT MEASURED: screening-interacting has 0 of 3 items
+NOT MEASURED: screening-non-interacting has 0 of 3 items
+NOT MEASURED: travel has 0 of 5 items
+NOT MEASURED: routing has 0 of 15 items
+
+0 of 6 sets measured; 0 passed - exit code 1: every set must be measured and pass
+exit=1
+```
+
+| Set | Threshold (spec) | Size (items of minimum) | Score | Result | Dataset owed | Who owes it |
+|---|---|---|---|---|---|---|
+| `extraction` | at least 90% field-level accuracy on the 12 core fields (section 1) | 0 of 10 | not measured | NOT MEASURED | 10 synthetic prescriptions, typed and handwritten, Arabic and English | Hamad and Mohammad |
+| `adherence` | at least 90% intent accuracy (section 2) | 0 of 20 | not measured | NOT MEASURED | 20 Kuwaiti-dialect replies verified by a native speaker | Mohammad and Hamad |
+| `screening-interacting` | 100% recall (section 4) | 0 of 3 | not measured | NOT MEASURED | 3 pairs with verified citations | Waddah (a pharmacist check if possible) |
+| `screening-non-interacting` | no threshold, reported only (section 4) | 0 of 3 | not measured | NOT MEASURED | 3 verified pairs | Waddah |
+| `travel` | at least 80% identification (section 5) | 0 of 5 | not measured | NOT MEASURED | 5 photos of real foreign packaging | anyone on the team |
+| `routing` | at least 95% correct route (section 6) | 0 of 15, with at least 3 box-or-prescription inputs and 1 caregiver message | not measured | NOT MEASURED | 15 routing inputs | Mohammad |
+
+Notes:
+- The thresholds live in `agents/eval/thresholds.js`; `agents/test/eval-thresholds.test.js` checks them against the spec, and they are never lowered.
+- The readings above are CR-099 (`PROPOSED`).
+- A measured adherence number will carry CR-099 (viii)'s transport note (the harness sends the adherence node's prompt as Gemini's system instruction and its schema as `responseSchema`, where n8n's own LangChain chain adds its own format instructions).
+- The routing tracking-off label is still owed: `agents/eval/README.md`'s own routing row already names the gap (`routing()` never runs `decide()`'s `tracking_off` outcome, which only exists after CR-092/AP-05); no `docs/DECISIONS.md` entry number has been assigned to it yet.
+- Warfarin × Ibuprofen cannot be a screening-set item until CR-096 is approved (the seed's `ia-001` `sourceCitation` is still `[TO BE SUPPLIED]`).
+- `node eval/run.js --smoke-example` needs Mohammad's own `GEMINI_API_KEY` in his shell and is never a measurement, only a plumbing proof (`agents/eval/README.md`).
+
+## Agents, live (AP-14)
+
+Not run. AP-14 fills this section after AP-13 (go live), on the two D-041 demo patients (CR-080),
+and resets them afterwards by a procedure recorded here once it exists. Each row below must carry
+who did what, the n8n execution (`get_execution`: its status and the decision node's output), the
+rows it produced (read-only `execute_sql`) and a screenshot.
+
+| Id | Journey | Who acts | Proof | Execution | Rows | Screenshot | Result |
+|---|---|---|---|---|---|---|---|
+| J1 | A patient links Telegram from the app | Mohammad (phone) | `messaging_links` row `connected`; `messaging_connected` audit row | | | | NOT RUN |
+| J2 | The daily check-in arrives; a tap records "taken on time" | Lead triggers `jurah/checkin-now`; Mohammad taps | `doses.status`, `source = adherence_agent`; audit row with actor `agent`; Today shows it | | | | NOT RUN |
+| J3 | A typed dialect reply is understood, or asked about | Mohammad | Execution shows intent and confidence; a status only when trusted | | | | NOT RUN |
+| J4 | A reported miss recomputes the schedule | Mohammad | `missed` status and a `schedule_recomputed` row; the missed dose still listed | | | | NOT RUN |
+| J5 | "The doctor stopped it" asks which medicine, then discontinues | Mohammad | Buttons first, then `prescription_discontinued` | | | | NOT RUN |
+| J6 | An active caregiver writes "أبوي خذ الدوا" | Mohammad (second account) | Refusal reply; no new status | | | | NOT RUN |
+| J7 | A chat that belongs to no active person writes in | Mohammad | Nothing relayed, nothing sent | | | | NOT RUN |
+| J8 | A prescription photo added in the app | Mohammad (browser) | Extraction result; saved record; screening execution; an alert pending review in the reviewer's queue | | | | NOT RUN |
+| J9 | A prescription photo sent on Telegram | Mohammad | The same, from the chat | | | | NOT RUN |
+| J10 | A medicine box sent on Telegram | Mohammad | Travel-check reply; a danger alert pending review when it applies | | | | NOT RUN |
+| J11 | The web assistant: "my next dose", then "I took it" | Mohammad (browser) | The right screen opens; buttons arrive in Telegram; no status written | | | | NOT RUN |
+| J12 | Alexa: "my next dose", then "mark it taken" | Mohammad (Echo) | Spoken answer; refusal; no `dose_status_recorded` row (AP-02's runtime proof) | | | | NOT RUN |
+| J13 | The reviewer confirms a flagged prescription | Hamad (reviewer seat) | A screening execution follows the confirmation (AP-10) | | | | NOT RUN |
+
+**The closing proof,** the demo's own moment, run before and after the journeys:
+
+```sql
+select actor_role, count(*) from audit_events
+where type = 'dose_status_recorded' group by 1;
+```
+
+Only `agent` and `system` may appear.
+
+Before: NOT RUN. After: NOT RUN.
+
+Drift at zero (`cd agents && npm run drift`): NOT RUN, the lead.

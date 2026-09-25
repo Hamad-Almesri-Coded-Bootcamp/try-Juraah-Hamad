@@ -196,10 +196,11 @@ Constraints: `alert_reviewed_complete` `check (review_status <> 'reviewed' or (r
 
 ---
 
-## 2. Server-side tables (6) — no contract, no screen
+## 2. Server-side tables (7) — no contract, no screen
 
 | Table | Columns | Purpose |
 |---|---|---|
+| `voice_turns` | `id` text PK · `seq bigint generated always as identity` · `patient_id` text **NOT NULL FK → patients(id) on delete cascade** · `topic` text, `check in ('launch','next_dose','dose_amount','today','forgot','record','unclear','bye')` (`record` added by migration 0013) · `language` text, `ar` or `en` · `reply` text, 1 to 2000 characters · `created_at` timestamptz default `jurah_now()` | CR-069, amended by CR-102. One Alexa turn; not clinical data, no dose status. Index `voice_turns_patient_seq (patient_id, seq)`. The app reads it through `lib/assistant` `voiceTurns` (`lib/data/pg/voice.ts`), beside the seam and not one of its 55 functions. Migrations `0012_voice_turns.sql`, `0013_voice_turns_record_topic.sql`. |
 | `sessions` | `id` text PK (random) · `subject_id` text · `role` role_t null · `linked_patient_id` text null · `pending_invitation_only` bool · `created_at` · `expires_at` · `revoked_at` null | D-018. The cookie carries the signed `Session` plus `sid`; every seam call checks `revoked_at is null and expires_at > now`. `check (pending_invitation_only or role is not null)`. |
 | `prescription_drafts` | `draft_id` text PK · `patient_id` FK · `prescription` jsonb · `confident` bool · `uncertain_fields` text[] · `image` bytea null · `created_at` | B4's in-flight drafts (the mock's `store.drafts`); `image is not null` drives `hasSourceImage` (CR-050). RLS: owning patient. |
 | `lookup_audit` | `id` identity · `session_id` text · `subject_id` text · `at` timestamptz | CR-043: every masked-name lookup, **no Civil ID column exists**. Rate limit: `count(*) where session_id = $1 and at > now() - interval '60 seconds' > 10` → refuse with the same shape. |
@@ -231,6 +232,7 @@ Constraints: `alert_reviewed_complete` `check (review_status <> 'reviewed' or (r
 | `push_subscriptions` (view) | subject self | subject self | subject self | subject self (`DELETE /api/push/subscription`) |
 | `audit_events` | `scope='patient' and can_read_patient(patient_id)` · admin: everything via `audit_log_admin` view | `jurah_app`/`jurah_agent` via `append()` | **never** | **never** |
 | `settings` | `can_read_patient(patient_id)` | patient self | patient self (trigger) | never |
+| `voice_turns` | only the patient the row belongs to (`voice_turns_patient_select`, to `jurah_app`, `jurah_session_is('patient')` and `patient_id` = the session's `subjectId`) — never a caregiver, reviewer, admin or the agent | `jurah_agent` only, on five columns (`voice_turns_agent_insert`, `with check (jurah_session_is('agent'))`) | never | never |
 | `sessions` `snapshots` `lookup_audit` `prescription_drafts` | own rows only | own | own | own (`revoked_at` is an update) |
 
 **What the admin role can reach, exhaustively:** `select` on `audit_log_admin` (the view) and `sessions`/`snapshots` own rows. `can_read_patient` returns `false` for `admin` unconditionally; there is no grant on `patients`, `prescriptions`, `doses`, `interaction_alerts`, `caregivers` — so "an admin reads audit metadata and nothing else" and "may not create, accept or revoke an invitation" are both the absence of a grant, provable with `has_table_privilege`.
