@@ -3,9 +3,9 @@ import type { Locale } from '@/i18n/locale';
 import { PROSE } from './layout';
 
 /**
- * Section (9): academic transparency, in the footer (G11 item 9, and G11's own invariant: the
- * simulation disclosed on the page itself, in ordinary type, in both languages): a graduation-project
- * prototype, a simulated identity flow, made-up data.
+ * Section (9): transparency, in the footer (G11 item 9, and G11's own invariant: the simulation
+ * disclosed on the page itself, in ordinary type, in both languages): the Hawiati sign-in is
+ * simulated (CR-107 dropped the prototype and made-up-data wording).
  */
 export function TransparencySection({ locale }: { locale: Locale }) {
   return (

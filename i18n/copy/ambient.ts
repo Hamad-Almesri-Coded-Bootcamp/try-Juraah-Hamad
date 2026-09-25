@@ -286,8 +286,8 @@ export const ambient = {
   e5ChatExpiredBody: { ar: 'يمكنك ربط المحادثة من جديد.', en: 'You can start again to connect the chat.', placeholder: true },
   e5BotHandleTemplate: { ar: 'على تيليجرام: {handle}', en: 'On Telegram: {handle}', placeholder: true },
   e5SimulatedNote: {
-    ar: 'هذه نسخة تجريبية، والمحادثة غير مفعّلة بعد.',
-    en: 'This is a demo, so the chat isn’t live yet.',
+    ar: 'المحادثة محاكاة وغير مفعّلة بعد.',
+    en: 'The chat is simulated and isn’t live yet.',
     placeholder: true,
   },
 } satisfies Record<string, CopyEntry>;
