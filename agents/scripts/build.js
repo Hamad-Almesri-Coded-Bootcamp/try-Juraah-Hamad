@@ -3,13 +3,16 @@
 /**
  * Generate agents/workflows/*.json from the tested source in agents/lib/*.js.
  *
- *   agents/lib/adherence.js   agents/lib/screening.js   agents/lib/extraction.js
+ *   agents/lib/adherence.js   agents/lib/extraction.js
  *        |  unit-tested by agents/test/*.test.js, and contract-tested against the backend's own
  *        |  validators by tests/unit/agent/agents-contract.test.ts
  *        v  node agents/scripts/build.js
  *   agents/workflows/agent-telegram-inbound.json       the relay (CR-063) -> adherence | extraction
  *   agents/workflows/agent-checkin-daily.json          08:00 Kuwait (+ a "send now" webhook)
- *   agents/workflows/agent-interaction-screening.json  one NEW prescription against the profile
+ *
+ * AP-04/CR-074: interaction screening is no longer generated here. The DDInter workflow
+ * (agents/knowledge, agent-interaction-screening-ddinter.json) is the only one on
+ * jurah/screen-prescription; the legacy agent-interaction-screening.json is retired.
  *
  * Every workflow is written ASCII-only (\uXXXX escapes): on 21 September raw Arabic went through a
  * Windows clipboard tool and reached the patient as CP850 mojibake. Never edit the jsCode inside
@@ -61,7 +64,7 @@ const ADHERENCE = inline('lib/adherence.js');
 // plain Code, like agents/knowledge/src/extraction.js's PROMPT/RESPONSE_SCHEMA - there is no chain
 // node here to carry them instead), so this inlines whole, after ADHERENCE (it reads REPLIES).
 const ORCHESTRATOR = inline('lib/orchestrator.js');
-const SCREENING = inline('lib/screening.js');
+// AP-04/CR-074: no SCREENING inline - agents/lib/screening.js is retired (see the header).
 // AP-03/D3: the Telegram copy is now built on the drug-knowledge core (agents/knowledge/src/extraction.js),
 // which agents/lib/extraction.js requires and re-exports; both are inlined here, core first.
 const EXTRACTION = inline('knowledge/src/extraction.js') + '\n\n' + inline('lib/extraction.js');
@@ -100,6 +103,14 @@ function ifNode(id, name, expression, position) {
     id, name, type: 'n8n-nodes-base.if', typeVersion: 2.2, position,
   };
 }
+
+/** Fails the n8n execution AFTER the caller already has its answer, so it shows in the execution
+ * list and triggers the instance's error workflow - identical to agents/knowledge/scripts/build.js's
+ * own helper. This is how a "saved but not screened" miss reaches a human. */
+const stopWithError = (id, name, message, position) => ({
+  parameters: { errorType: 'errorMessage', errorMessage: message },
+  id, name, type: 'n8n-nodes-base.stopAndError', typeVersion: 1, position,
+});
 
 function telegramText(id, name, position) {
   return {
@@ -383,19 +394,26 @@ const res = $input.first().json;
 const result = extractFromTelegram({ patientId: r.patientId, res, caption: r.caption, fileProblem: r.visionBody ? null : (r.fileProblem || 'no_file') });
 return [{ json: { ...r, visionBody: undefined, result, body: result.ok ? result.body : null, visionStatus: res.statusCode } }];`;
 
-const EX_REPLY = EXTRACTION + '\n' + CONFIG + `
+const EX_REPLY = EXTRACTION + `
 
 const v = $('extraction: validate (deterministic)').first().json;
 let statusCode = null;
 let created = null;
-try { const w = $('backend: save the prescription').first().json; statusCode = w.statusCode; created = w.body && w.body.prescription; } catch (e) { /* not saved */ }
+let screening = null;
+try {
+  const w = $('backend: save the prescription').first().json;
+  statusCode = w.statusCode;
+  created = w.body && w.body.prescription;
+  screening = w.body && w.body.screening ? w.body.screening : null;
+} catch (e) { /* not saved */ }
 const text = extractionReply({ result: v.result, statusCode, language: v.language });
-// TC-IX invariant: a saved, unflagged prescription goes to screening before anything else.
-const screen = !!(created && statusCode === 201 && !v.result.needsReview);
-return [{ json: { chatId: v.chatId, text, buttons: null,
-  screen, screeningUrl: N8N + '/jurah/screen-prescription',
-  screeningBody: screen ? { patientId: v.patientId, newPrescriptionId: created.id, language: v.language } : null,
-  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode } } }];`;
+// AP-04: the backend screens on every path now (AP-10, D10) and hands the outcome back in the SAME
+// 201 body ('screening': 'screened' | 'held' | 'skipped') - this workflow reads it instead of
+// calling screening itself. A saved, unflagged prescription whose outcome is neither breaks the
+// TC-IX invariant on the backend's own side: escalate rather than let the reply stand as final.
+const notScreened = !!(created && statusCode === 201 && !v.result.needsReview && screening !== 'screened' && screening !== 'held');
+return [{ json: { chatId: v.chatId, text, buttons: null, notScreened, screening, prescriptionId: created ? created.id : null,
+  log: { result: v.result.ok ? (v.result.needsReview ? 'flagged' : 'clear') : v.result.code, missing: v.result.missing || [], reason: v.result.reason || null, statusCode, screening } } }];`;
 
 // ---- AP-11: the Orchestrator's own photo branch (a real router: one narrow vision question, then
 // a fixed set of deterministic outcomes - never a model deciding a route on its own say-so).
@@ -570,11 +588,12 @@ const inbound = {
     api(IN(27), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [860, -320], '={{ JSON.stringify($json.body) }}'),
     code(IN(28), 'extraction: reply (deterministic)', EX_REPLY, [1080, -240]),
     telegramText(IN(29), 'Telegram: extraction reply', [1300, -320]),
-    ifNode(IN(30), 'screen it?', '={{ $json.screen }}', [1300, -160]),
-    { parameters: { method: 'POST', url: '={{ $json.screeningUrl }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-                    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.screeningBody) }}',
-                    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 30000 } },
-      id: IN(31), name: 'n8n: screen the new prescription', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [1520, -160] },
+    // AP-04: the screening hand-off ('screen it?' IN(30), 'n8n: screen the new prescription' IN(31))
+    // is gone; those two ids are retired, never reused (the live n8n instance holds the hand-off
+    // under them). Its replacement takes the next free ids after main's last, IN(66).
+    ifNode(IN(67), 'saved but not screened?', '={{ $json.notScreened }}', [1520, -160]),
+    stopWithError(IN(68), 'Stop: saved but not screened - a human must look',
+      "={{ 'Telegram extraction: prescription ' + ($json.prescriptionId || '(unknown)') + ' was saved, but the backend did not screen it (' + ($json.screening || 'none') + ')' }}", [1740, -160]),
     // ---- logs (AP-05 step 3) - each a named Code node output, never a chat id or message text.
     code(IN(37), 'log: non-active caregiver (deterministic)', CAREGIVER_LOG, [640, 380]),
     code(IN(38), 'log: failed Telegram send (buttons)', failedSendLog('Telegram: reply with buttons'), [2400, 40]),
@@ -685,9 +704,9 @@ const inbound = {
     'extraction: validate (deterministic)': main('a body to save?'),
     'a body to save?': main('backend: save the prescription', 'extraction: reply (deterministic)'),
     'backend: save the prescription': main('extraction: reply (deterministic)'),
-    'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'screen it?']),
+    'extraction: reply (deterministic)': main(['Telegram: extraction reply', 'saved but not screened?']),
     'Telegram: extraction reply': main('log: failed Telegram send (extraction reply)'),
-    'screen it?': main('n8n: screen the new prescription'),
+    'saved but not screened?': main('Stop: saved but not screened - a human must look'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
@@ -774,45 +793,6 @@ const checkin = {
     'with buttons?': main('Telegram: dose with buttons', 'Telegram: header'),
     'Telegram: dose with buttons': main('log: failed Telegram send (buttons)'),
     'Telegram: header': main('log: failed Telegram send (header)'),
-  },
-  settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
-};
-
-// =============================================================== 3. agent-interaction-screening
-const SC = (n) => uuid('b3000000-0000-4000-8000-', n);
-
-const SC_INPUT = CONFIG + `
-const b = $input.first().json.body || {};
-const id = /^[A-Za-z0-9_-]{1,64}$/;
-if (!id.test(String(b.patientId || '')) || !id.test(String(b.newPrescriptionId || ''))) return [];
-return [{ json: { patientId: b.patientId, newPrescriptionId: b.newPrescriptionId, language: b.language === 'en' ? 'en' : 'ar',
-                  rxUrl: API + '/patients/' + encodeURIComponent(b.patientId) + '/prescriptions' } }];`;
-
-const SC_SCREEN = SCREENING + `
-
-// THE DETERMINISTIC LAYER: no model in this workflow at all. Grounded pairs only; nothing cleared.
-const input = $('input (deterministic)').first().json;
-const res = $input.first().json;
-if (res.statusCode !== 200 || !res.body || !Array.isArray(res.body.prescriptions)) return [];
-const r = screenNewPrescription({ patientId: input.patientId, newPrescriptionId: input.newPrescriptionId,
-                                  prescriptions: res.body.prescriptions, language: input.language });
-return r.alerts.map((a) => ({ json: { alert: a, excluded: r.excluded } }));`;
-
-const screening = {
-  name: 'agent-interaction-screening',
-  nodes: [
-    { parameters: { httpMethod: 'POST', path: 'jurah/screen-prescription', authentication: 'headerAuth', responseMode: 'onReceived', options: {} },
-      id: SC(1), name: 'Screen a new prescription', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [-460, 0], webhookId: SC(1) },
-    code(SC(2), 'input (deterministic)', SC_INPUT, [-240, 0]),
-    api(SC(3), 'backend: active prescriptions', 'GET', '={{ $json.rxUrl }}', [-20, 0]),
-    code(SC(4), 'screen (deterministic)', SC_SCREEN, [200, 0]),
-    api(SC(5), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [420, 0], '={{ JSON.stringify($json.alert) }}'),
-  ],
-  connections: {
-    'Screen a new prescription': main('input (deterministic)'),
-    'input (deterministic)': main('backend: active prescriptions'),
-    'backend: active prescriptions': main('screen (deterministic)'),
-    'screen (deterministic)': main('backend: raise the alert'),
   },
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
@@ -1076,5 +1056,5 @@ const webchat = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-for (const wf of [inbound, checkin, screening, alexa, webchat]) write(wf);
+for (const wf of [inbound, checkin, alexa, webchat]) write(wf);
 console.log('JURAH_API_BASE = ' + API_BASE + (process.env.JURAH_API_BASE ? '' : '   <- placeholder: rebuild with the deployed URL before import'));

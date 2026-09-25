@@ -6,8 +6,10 @@ and no sub-workflow to re-select by hand after import.
 
 ```
 Interaction Screening   POST  <n8n>/webhook/jurah/screen-prescription      (x-jurah-secret)
-  { patientId, newPrescriptionId, language }      <- agent-telegram-inbound already sends exactly this
-  <- 200 on receipt (onReceived, exactly like the workflow it replaces)
+  { patientId, newPrescriptionId, language }   <- the backend's own requestScreening (AP-04): after a
+                                                  save, an agent's save, a reviewer's confirmation or a
+                                                  refill (AP-10, D10) - no n8n workflow calls it directly
+  <- 200 on receipt (onReceived)
   -> GET  /api/agent/patients/{id}/prescriptions   (CR-062: active only, each with needsReview)
   -> deterministic screen (src/screening.js) on DDInter, no model
   -> POST /api/agent/alerts, once per alert        (validated first; backend answers 201 { alert })
@@ -26,9 +28,10 @@ Extraction              POST  <n8n>/webhook/jurah/extract-prescription     (x-ju
   { patientId, imageBase64, mimeType, language, save, source? }
   -> Gemini reads the prescription into a fixed JSON schema (temperature 0)
   -> deterministic validation (src/extraction.js): unreadable critical fields are left unset + flagged
-  -> save:true -> POST /api/agent/prescriptions -> if saved AND unflagged -> the screening webhook
+  -> save:true -> POST /api/agent/prescriptions, which itself screens (or holds) an unflagged save
+     and answers with `screening: 'screened'|'held'|'skipped'` (AP-10/AP-04) - this workflow only reads it
   <- { ok, mustEscalate, appOutcome, needsReview, uncertainFields, body, saved, screening }
-  -> saved + unflagged but never handed to screening -> Stop and Error after the answer
+  -> saved + unflagged, but the answer's screening is neither 'screened' nor 'held' -> Stop and Error
 ```
 
 ## What changed from the original files, and why
@@ -81,11 +84,12 @@ Every value below is a secret. An assistant must never type any of them; the own
 
 1. The backend needs `JURAH_AGENT_TOKEN` and `JURAH_AGENT_INBOUND_SECRET` set in Vercel (DECISIONS D-040 still lists them as owed). These agents use the CR-062 read route, which is on the `ai-agents` branch and not yet on `main`.
 2. In n8n, reuse the credentials `agents/README.md` already creates: *Jur'ah agent bearer* (Header Auth, `Authorization: Bearer …`), *Jur'ah inbound secret* (Header Auth, `x-jurah-secret`) and the *Google Gemini (PaLM) API* credential.
-3. **Deactivate `agent-interaction-screening`** (Mohammad's). The new screening uses the same path, and n8n refuses to activate two workflows on one path.
+3. **Unpublish `agent-interaction-screening` (legacy, `bMVDCQbSwUtMHJ4x`) first.** AP-04/CR-074
+   retired it from the repository; the DDInter workflow is the only one committed for this path, and
+   n8n refuses to activate two workflows on one path anyway.
 4. Import the three files from `agents/knowledge/workflows/`, then bind credentials:
    - every **Webhook** node → *inbound secret*;
    - every `backend:` node → *agent bearer*;
-   - `n8n: screen the new prescription` (in extraction) → *inbound secret*;
    - both `Gemini:` nodes → *Gemini*.
 5. Activate all three with `POST /rest/workflows/<id>/activate {versionId}`. Check that the URLs read `/webhook/`, never `/webhook-test/`.
 6. Smoke test (with the inbound secret header):
@@ -95,7 +99,10 @@ Every value below is a secret. An assistant must never type any of them; the own
    ```
 
    That is a dry run, so nothing is written. It answers 200 at once. Open that execution's `summary (deterministic)` node: expect `screened: true` and one alert, the Moderate Levothyroxine × Calcium carbonate warning (vitamin D3 is Cholecalciferol, in DDInter file A, with no row for Levothyroxine).
-7. In n8n settings, set an **error workflow** for these three (for example a message to the team). Every escalation fails the execution, and that is how it reaches a person.
+7. **TODO (AP-18 live step, owed).** Once `agent-error` is published (AP-18), set
+   `settings.errorWorkflow` on these three knowledge workflows through the n8n API. It is never set
+   in the generator - the error workflow's id exists only after import, and the team chat id it needs
+   to notify (`TEAM_CHAT_ID` in `agents/scripts/build-error-workflow.js`) is still owed by Mohammad.
 8. **Connect the website (CR-066).** In Vercel → Settings → Environment Variables, set (not secrets — they reuse `JURAH_AGENT_INBOUND_SECRET`):
    - `JURAH_AGENT_TRAVEL_CHECK_URL` = `https://<n8n>/webhook/jurah/travel-check`
    - `JURAH_AGENT_EXTRACTION_URL` = `https://<n8n>/webhook/jurah/extract-prescription`
@@ -103,11 +110,35 @@ Every value below is a secret. An assistant must never type any of them; the own
 
    then redeploy. Safety → "Check a drug by photo" now asks the travel-check agent, Medicines → Add asks the extraction agent, and every saved, unflagged prescription is screened. Leave any one empty to keep that screen's stub.
 
+### AP-04 cutover: the exact order (owed by the lead, after this branch merges)
+
+Retiring the legacy screening and turning on `JURAH_AGENT_SCREENING_URL` for the first time are two
+different events; doing them out of order either double-screens a Telegram save or leaves it
+unscreened. In this order:
+
+1. Export the live workflows into `docs/backend-notes/ap-04.md`.
+2. Unpublish the legacy `bMVDCQbSwUtMHJ4x`, then at once import and publish
+   `agent-interaction-screening-ddinter`, binding the inbound secret and the agent bearer. The old
+   live `agent-telegram-inbound` keeps screening Telegram saves through it in the meantime (the
+   DDInter workflow is a drop-in: same path, body and auth).
+3. Set `JURAH_AGENT_SCREENING_URL` in Vercel and redeploy (AP-13).
+4. Immediately republish the rebuilt `agent-telegram-inbound` and publish `agent-extraction`.
+   Between steps 3 and 4 a Telegram save is screened twice, never zero times; doing step 4 before
+   step 3 would leave saves unscreened and make them hit Stop and Error. Since AP-11 merged, the
+   rebuilt `agent-telegram-inbound` also carries the Orchestrator, so AP-11's own live steps apply
+   to the same publish: `agent-travel-check` must already be active on `jurah/travel-check`, and
+   `Gemini: what is this photo?` and `n8n: travel check` get their bindings
+   (`docs/backend-notes/ap-11.md`, "Live steps for the lead after merge").
+5. Export again and show the diff.
+6. Confirm the workflow list shows exactly one active workflow on `jurah/screen-prescription`.
+7. Run the drift check and get it to zero.
+
 ## Honest limits: what is not done, and why
 
 - **The index is a demo slice built from three DDInter category files.** `scripts/build-demo-index.js` builds it from DDInter 2.0's own files for ATC categories A, B and H (`data/build/`, git-ignored; the owner allowed only these three). All nine seed ingredients are covered, and Warfarin × Ibuprofen is the DDInter Major row. A pair whose two drugs are both outside A, B and H cannot be in these files, so screening says "cannot verify" for it and sends it to the reviewer: in the seed that is Ibuprofen × Atorvastatin (rx-004 is discontinued, so it is not screened today). Loading another category file needs the owner's yes. `npm run coverage` lists every seed pair. No row was written by hand.
 - **The seed's brand names, checked against the SFDA register (AP-07).** BRUFEN and GLUCOPHAGE were verified from the SFDA register on 2026-09-24 (`verified: true` in `data/brand-map.json`), approved by the owner (Mohammad) on 2026-09-25. MAREVAN and LIPITOR were not in the SFDA list on 2026-09-24 (`pendingVerification`, `verified: false`), stay unverified, and Travel Check refuses them.
-- **A prescription confirmed by the reviewer is not re-screened automatically.** Screening runs for a NEW prescription. A flagged one is skipped until confirmed, but nothing calls screening when the reviewer confirms it. The backend's field-confirmation path should call `jurah/screen-prescription` with that prescription's id (CR-065).
+- **A prescription confirmed by the reviewer IS re-screened (AP-10/CR-090; this used to be an open limit, CR-065).** `screenOrHold` runs, awaited, after `confirmPrescriptionFields` commits - the same call every other place a prescription becomes or stays something the patient relies on makes: the patient's own save, an agent's save (`POST /api/agent/prescriptions`) and a refill request.
+- **A refill's re-screen can raise a still-open alert a second time (CR-090 iii, proposed, not built here).** D10's refill re-screen screens every pair of the refilled prescription again, so a pair whose alert is already open (the seed's `ia-001`, for example) is raised a second time rather than de-duplicated. Two options are proposed in `docs/DECISIONS.md` CR-100: an additive agent read of the patient's open alerts, so screening can skip a pair that already has one open naming both prescriptions; or de-duplication in the backend's own `POST /api/agent/alerts` (`insertAlert`). Neither is built; the owner decides which, the backend lane builds it.
 - **One reading of TC-IX-02.** A clean result sends one `info` `auto_cleared` alert ("screened, nothing recorded — not a guarantee"), the shape of the seed's `ia-003`, instead of no alert at all. If the owner prefers silence, remove the `nothingFound` branch in `src/screening.js`.
 - **Repeats.** Each new prescription re-lists the old uncovered drugs in its cannot-verify alert, because those pairs really are unverifiable. Rebuilding the index removes most of it.
 - **The app calls these agents only once three URLs are set (CR-066, built).** `lib/agent-webhooks` calls travel check from the drug-photo screen, extraction (`save:false`) from the add-prescription screen, and screening after a prescription is saved. Each URL unset → that screen keeps its CR-049 stub. See step 8 of *Going live*.
