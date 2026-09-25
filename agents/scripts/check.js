@@ -775,6 +775,7 @@ function configureAlexa(wf, skill, links) {
  * and the one CR-069 voice-turn POST, and no call whose URL contains /doses/ or /schedule/ - neither
  * written in an HTTP node nor built by the Code node that feeds one. Throws on the first breach.
  * alexaScenarios runs it on the committed workflow, and on copies edited to break it (each must throw).
+ * Runtime proof: J12 (AP-14): Mohammad says "mark it taken" to the Echo and no dose_status_recorded audit row follows (docs/backend-notes/ap-16.md).
  */
 async function assertVoiceCallsReadOnly(wf) {
   for (const n of wf.nodes) assert.ok(ALEXA_NODE_TYPES.includes(n.type), 'a node type that could call out: ' + n.name + ' (' + n.type + ')');

@@ -2,6 +2,7 @@
  * Guard R — screening on every path (AP-10; the static half of plan AP-16 row 2). Runtime proofs
  * beside it: tests/unit/agent-webhooks/triggers.test.ts (each trigger calls screening after its
  * commit, awaited) and, live, journeys J8 and J13.
+ * Runtime proof: J8, J13 (AP-14); at unit level tests/unit/agent-webhooks/triggers.test.ts.
  *
  * Every top-level function in the code allowed to hold SQL (lib/data/**, lib/engine/**,
  * lib/session/**; guard 8) that
