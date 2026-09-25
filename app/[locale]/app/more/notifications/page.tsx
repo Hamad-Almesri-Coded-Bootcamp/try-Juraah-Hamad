@@ -11,6 +11,8 @@ import { NotificationsScreen } from '@/features/ambient/NotificationsScreen';
 import { copy, t } from '@/i18n';
 import { screenTitles } from '@/i18n/copy/shell';
 import { BOT_HANDLE, BOT_IS_SIMULATED, kuwaitNow } from '@/lib/config';
+import { botUsername } from '@/lib/messaging/telegram';
+import { linkForScreen } from '@/lib/messaging/link';
 
 /**
  * E5 — notifications & messaging (`/[locale]/app/more/notifications`).
@@ -68,10 +70,13 @@ export default async function NotificationsPage({
   const action = <LanguageSwitch locale={locale} role="patient" subjectId={patientId} />;
   const subject = { subjectType: 'patient' as const, subjectId: patientId };
 
-  const [capability, push, messaging] = await Promise.all([
+  // CR-085: the bot's real @username, as Telegram reports it for the configured token (else the
+  // simulated @jurah_bot placeholder). The link reaches the client component without its token (rule 7).
+  const [capability, push, messaging, username] = await Promise.all([
     getPushCapability(),
     getPushState(subject),
     getMessagingLink(subject),
+    botUsername(),
   ]);
 
   const iosFixture = view === 'ios';
@@ -86,8 +91,8 @@ export default async function NotificationsPage({
         permission={permission}
         active={active}
         iosNeedsInstall={iosNeedsInstall}
-        messaging={messaging}
-        botHandle={BOT_HANDLE}
+        messaging={linkForScreen(messaging)}
+        botHandle={username ? '@' + username : BOT_HANDLE}
         simulated={BOT_IS_SIMULATED}
         locale={locale}
       />

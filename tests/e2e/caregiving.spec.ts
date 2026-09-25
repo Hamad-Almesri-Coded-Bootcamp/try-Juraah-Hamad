@@ -11,7 +11,7 @@
  * worker) observes the post-condition instead of double-clicking a resolved decision.
  */
 import { test, expect } from '@playwright/test';
-import { pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
+import { e2eBackend, inactiveCaregiverCookieFor, pendingInvitationCookieFor, sessionCookieFor, TEST_SESSIONS } from './helpers/session';
 import { copy } from '../../i18n';
 import { localizeDrugName, localizeFirstName, localizeRelationship } from '../../i18n/localize';
 
@@ -316,4 +316,79 @@ test.describe('axe clean', () => {
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} node(s)`)).toEqual([]);
     });
   }
+});
+
+// ---------------------------------------------------------------------------------------------
+// AP-09 (CR-086) — F4's own Telegram link, only while the invitation is active (rule 5; the spec's
+// "Messaging link path": a caregiver's link cannot be created unless their invitation is `active`).
+// The bot is simulated in this run, so the link route answers with a 303 back to F4, never t.me.
+// ---------------------------------------------------------------------------------------------
+const LINK_ROUTE = '/api/messaging/telegram/open';
+
+/** Rule 7: no link token anywhere in the document, the RSC payload included. */
+async function expectNoLinkToken(page: import('@playwright/test').Page) {
+  const html = await page.content();
+  expect(html).not.toMatch(/mock-token-/);
+  expect(html).not.toMatch(/t\.me\/[A-Za-z0-9_]+\?start=/);
+}
+
+const chatRow = (page: import('@playwright/test').Page) => page.locator('.jr-menu-row', { hasText: cg.f4ChatRow.ar });
+
+test.describe('F4 — the Telegram link works only while the invitation is active (AP-09)', () => {
+  test('an ACTIVE caregiver (سارة, cg-02): "Connect Telegram" posts to the link route, which mints her own link; it connects; no token on the page', async ({ page, context, baseURL }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-1440', 'startMessagingLink is a real mutation against the shared mock store (D-002); every project reuses the same dev server, so this runs once.');
+    await addSession(context, baseURL, 'sara_caregiver');
+    await page.goto('/ar/care/more/profile');
+    await expect(chatRow(page)).toContainText(cg.f4ChatNotConnected.ar); // no link row for cg-02 in the seed
+    await expectNoLinkToken(page);
+
+    const answer = page.waitForResponse((r) => r.url().endsWith(LINK_ROUTE) && r.request().method() === 'POST');
+    await chatRow(page).getByRole('button', { name: cg.f4ChatConnectAction.ar }).click();
+    const routeAnswer = await answer;
+    expect(routeAnswer.status()).toBe(303);
+    expect(routeAnswer.headers()['location']).toBe('/ar/care/more/profile');
+    expect(routeAnswer.request().postData()).toBe('locale=ar&from=profile');
+
+    // Pending first or connected at once (the mock confirms ~50 ms later); the row settles connected.
+    await expect(chatRow(page)).toContainText(cg.f4ChatConnectedAlertsOnly.ar, { timeout: 15_000 });
+    await expectNoLinkToken(page);
+  });
+
+  test('a REVOKED caregiver (طلال, cg-06) who still holds a caregiver session: the same form mints nothing; the row stays not connected', async ({ page, context, baseURL }) => {
+    test.skip(
+      e2eBackend() === 'postgres',
+      'under the database no session row can exist for a caregiver who is not active (0007 session_row_ok), a stronger refusal than this one; the route and trigger refusals are covered by tests/unit/api/telegram-open.test.ts and tests/unit/caregiving/f4TelegramLink.test.tsx',
+    );
+    await context.addCookies([inactiveCaregiverCookieFor('cg-06', 'pt-01', new URL(baseURL ?? 'http://localhost:3100'))]);
+    await page.goto('/ar/care/more/profile');
+    await expect(chatRow(page)).toContainText(cg.f4ChatNotConnected.ar);
+
+    const answer = page.waitForResponse((r) => r.url().endsWith(LINK_ROUTE) && r.request().method() === 'POST');
+    await chatRow(page).getByRole('button', { name: cg.f4ChatConnectAction.ar }).click();
+    const routeAnswer = await answer;
+    expect(routeAnswer.status()).toBe(303);
+    expect(routeAnswer.headers()['location']).toBe('/ar/care/more/profile');
+    await expect(chatRow(page)).toContainText(cg.f4ChatNotConnected.ar);
+
+    // Nothing is pending behind the screen either: well past the mock's own ~50 ms confirm, a fresh
+    // read of F4 still says not connected (a minted link would read pending or connected here).
+    await page.waitForTimeout(500);
+    await page.reload();
+    await expect(chatRow(page)).toContainText(cg.f4ChatNotConnected.ar);
+    await expect(chatRow(page)).not.toContainText(cg.f4ChatPending.ar);
+    await expectNoLinkToken(page);
+  });
+
+  test('a pending-only invitee (ناصر, cg-03) posting to the link route gets no link and no token', async ({ page, context, baseURL }) => {
+    await addPendingInvitationOnly(context, baseURL, 'cg-03');
+    const r = await page.request.post(LINK_ROUTE, {
+      form: { locale: 'ar', from: 'profile' },
+      headers: { origin: new URL(baseURL ?? 'http://localhost:3100').origin },
+      maxRedirects: 0,
+    });
+    expect(r.status()).toBe(303);
+    expect(r.headers()['location']).toBe('/ar/care/more/profile');
+    expect(r.headers()['location']).not.toMatch(/t\.me|start=/);
+    expect(await r.text()).toBe('');
+  });
 });

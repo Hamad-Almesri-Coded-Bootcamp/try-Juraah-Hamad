@@ -417,20 +417,29 @@ export const getMessagingLink: DataApi['getMessagingLink'] = async (subject) => 
   return messagingLinkFor(store, subject); // بدر / not-yet-connected: not_connected, never null, never throws (G10)
 };
 
-let linkCounter = 0;
 export const startMessagingLink: DataApi['startMessagingLink'] = async (subject) => {
   const store = getStore();
   const s = await session();
   if (!isSelf(s, subject)) return startMessagingLinkRefusal(subject);
-  linkCounter += 1;
+  // Parity with the database (AP-09, CR-086): the trigger link_caregiver_must_be_active refuses a
+  // caregiver's link unless the invitation is `active` (rule 5), and connectByToken connects one
+  // only while it still is. The mock refused neither, so a revoked caregiver's link auto-confirmed.
+  const caregiverActive = () => subject.subjectType !== 'caregiver' || caregiverById(store, subject.subjectId)?.status === 'active';
+  if (!caregiverActive()) return startMessagingLinkRefusal(subject);
+  // Numbered from the store, which every bundle of the server shares (AP-09, lib/data/mock/store.ts).
+  const linkCounter = store.messagingLinks.reduce((n, l) => (l.id.startsWith('ml-live-') ? n + 1 : n), 0) + 1;
   const row: MessagingLink = { id: `ml-live-${linkCounter}`, subjectType: subject.subjectType, subjectId: subject.subjectId, channel: 'telegram', status: 'pending', linkToken: `mock-token-live-${linkCounter}` };
   store.messagingLinks.push(row);
   // Mock shortcut (docs/backend-notes/wp1.md §2): the mock auto-confirms after a short delay —
   // never a real bot. A real delay primitive (setTimeout), not a clock read, so G3's guard does
   // not apply.
   setTimeout(() => {
+    // As connectByToken: only a still-pending row, only while a caregiver is active, and the token is
+    // spent (single use).
+    if (row.status !== 'pending' || !caregiverActive()) return;
     row.status = 'connected';
     row.connectedAt = REFERENCE_NOW;
+    row.linkToken = undefined;
     append(store, { scope: subject.subjectType === 'patient' ? 'patient' : 'system', patientId: subject.subjectType === 'patient' ? subject.subjectId : undefined, actor: { role: subject.subjectType, id: subject.subjectId }, type: 'messaging_connected', message: 'تم ربط تيليقرام', createdAt: REFERENCE_NOW, relatedId: row.id });
   }, 50);
   return row;

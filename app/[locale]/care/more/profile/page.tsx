@@ -6,8 +6,11 @@ import { requireRole } from '@/features/shell/gate';
 import { CaregiverProfile } from '@/features/caregiving/CaregiverProfile';
 import { getCaregiverLink, getMessagingLink, getPushCapability, getPushState } from '@/lib/data';
 import { copy, t } from '@/i18n';
+import { BOT_IS_SIMULATED } from '@/lib/config';
+import { linkForScreen } from '@/lib/messaging/link';
 
-/** F4 — caregiver profile & notifications (docs/wireframes/CaregiverProfile.dc.html). */
+/** F4: caregiver profile & notifications (docs/wireframes/CaregiverProfile.dc.html). The chat link
+ * reaches the client component without its token (rule 7, AP-09). */
 export default async function CaregiverProfilePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
@@ -35,7 +38,8 @@ export default async function CaregiverProfilePage({ params }: { params: Promise
         acceptedAt={link.acceptedAt}
         pushCapabilitySupported={capability.supported}
         push={push}
-        messaging={messaging}
+        messaging={linkForScreen(messaging)}
+        simulated={BOT_IS_SIMULATED}
         locale={locale}
       />
     </div>
