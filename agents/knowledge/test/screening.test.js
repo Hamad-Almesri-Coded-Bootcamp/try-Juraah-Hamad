@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { index, seedActive, rx } = require('./helpers');
-const { screenNewPrescription } = require('../src/screening');
+const { screenNewPrescription, exclusionReason } = require('../src/screening');
 const { ingredientsOf } = require('../src/normalise');
 
 const screen = (over) => screenNewPrescription(Object.assign({ index, language: 'ar' }, over));
@@ -116,6 +116,30 @@ test('an unknown or foreign prescription id is refused, nothing sent', () => {
   const r = screen({ patientId: 'pt-03', newPrescriptionId: 'rx-001', prescriptions: seedActive('pt-03') });
   assert.equal(r.screened, false);
   assert.deepEqual(r.alerts, []);
+});
+
+// ---------------------------------------------------------------- CR-090 (ii): the pending exclusion
+test('exclusionReason: fieldReviewStatus "pending" no longer excludes; "returned" still does; needsReview and status still gate', () => {
+  const p = (extra) => rx('t-x', 'Warfarin', extra);
+  assert.equal(exclusionReason(p({ needsReview: false, fieldReviewStatus: 'pending' })), null,
+    'CR-054\'s confident-save shape (needsReview:false, fieldReviewStatus:"pending") is nobody\'s to review - it must be screened');
+  assert.equal(exclusionReason(p({ needsReview: false, fieldReviewStatus: 'returned' })), 'field_review_returned');
+  assert.equal(exclusionReason(p({ needsReview: true, fieldReviewStatus: 'pending' })), 'needs_review');
+  assert.equal(exclusionReason(p({ needsReview: false, status: 'discontinued' })), 'not_active');
+});
+
+test('CR-090 (ii): a confidently-saved prescription left in the CR-054 "pending" state is screened, not silently dropped', () => {
+  const rx001 = seedActive('pt-01').find((p) => p.id === 'rx-001'); // the real seed row: Warfarin
+  const rx002 = rx('rx-002', 'Ibuprofen', { patientId: 'pt-01', needsReview: false, fieldReviewStatus: 'pending' });
+  const r = screen({ patientId: 'pt-01', newPrescriptionId: 'rx-002', prescriptions: [rx001, rx002] });
+  assert.equal(r.screened, true);
+  assert.equal(r.unconfirmedExcluded, 0);
+  const danger = r.alerts.filter((a) => a.severity === 'danger');
+  assert.equal(danger.length, 1);
+  assert.equal(danger[0].reviewStatus, 'pending_medical_review');
+  assert.match(danger[0].sourceCitation, /DDInter900/);
+  assert.match(danger[0].sourceCitation, /DDInter1951/);
+  for (const a of r.alerts) assertBackendShape(a, 'pt-01');
 });
 
 // ---------------------------------------------------------------- graded paths (real DDInter rows)
