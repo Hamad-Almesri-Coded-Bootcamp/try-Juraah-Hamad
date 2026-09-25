@@ -205,7 +205,7 @@
       ],
       "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
       "retrievedAt": "2026-09-24",
-      "retrievedBy": "filtered by Trade Name (BRUFEN) in the SFDA public register; both rows (400 MG TAB, TAB 600MG) copied verbatim; read by the lead session from the public register; owner approval requested in PR"
+      "retrievedBy": "filtered by Trade Name (BRUFEN) in the SFDA public register; both rows (400 MG TAB, TAB 600MG) copied verbatim; read by the lead session from the public register; approved by the owner (Mohammad) on 2026-09-25"
     },
     {
       "brand": "GLUCOPHAGE",
@@ -225,7 +225,7 @@
       "ingredientNote": "SFDA lists the scientific name as METFORMIN HYDROCHLORIDE. DDInter indexes the same molecule as Metformin.",
       "source": "Saudi Food and Drug Authority public registered-drug list, https://www.sfda.gov.sa/en/drugs-list",
       "retrievedAt": "2026-09-24",
-      "retrievedBy": "filtered by Trade Name (GLUCOPHAGE) in the SFDA public register; all five rows copied verbatim; read by the lead session from the public register; owner approval requested in PR"
+      "retrievedBy": "filtered by Trade Name (GLUCOPHAGE) in the SFDA public register; all five rows copied verbatim; read by the lead session from the public register; approved by the owner (Mohammad) on 2026-09-25"
     }
   ],
   "pendingVerification": {

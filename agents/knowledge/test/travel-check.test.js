@@ -60,7 +60,7 @@ test('AP-07: BRUFEN resolves to Ibuprofen', () => {
   const row = BRANDS_JSON.brands.find((b) => b.brand === 'BRUFEN');
   assert.equal(row.source, BRANDS_JSON.meta.source);
   assert.equal(row.retrievedAt, '2026-09-24');
-  assert.match(row.retrievedBy, /owner approval requested in PR/);
+  assert.match(row.retrievedBy, /approved by the owner \(Mohammad\) on 2026-09-25/);
 });
 
 test('AP-07: GLUCOPHAGE resolves to Metformin', () => {
@@ -78,7 +78,7 @@ test('AP-07: GLUCOPHAGE resolves to Metformin', () => {
   const row = BRANDS_JSON.brands.find((b) => b.brand === 'GLUCOPHAGE');
   assert.equal(row.source, BRANDS_JSON.meta.source);
   assert.equal(row.retrievedAt, '2026-09-24');
-  assert.match(row.retrievedBy, /owner approval requested in PR/);
+  assert.match(row.retrievedBy, /approved by the owner \(Mohammad\) on 2026-09-25/);
 });
 
 test('AP-07: MAREVAN and LIPITOR fail closed - not in the SFDA list on 2026-09-24', () => {

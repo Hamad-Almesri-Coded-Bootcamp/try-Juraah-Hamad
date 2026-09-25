@@ -144,7 +144,7 @@
     }
   ],
   "brandCandidates": {
-    "note": "BRUFEN and GLUCOPHAGE were verified against the SFDA register on 2026-09-24 and are now in brand-map.json's brands, verified:true (AP-07, owner approval pending in the pull request). MAREVAN and LIPITOR were not in the SFDA list that day and stay in brand-map.json's pendingVerification, verified:false. This list is left as a record of what was checked; nothing here is loaded directly - only brand-map.json's own verified flag gates Travel Check.",
+    "note": "BRUFEN and GLUCOPHAGE were verified against the SFDA register on 2026-09-24 and are now in brand-map.json's brands, verified:true (AP-07, approved by the owner (Mohammad) on 2026-09-25). MAREVAN and LIPITOR were not in the SFDA list that day and stay in brand-map.json's pendingVerification, verified:false. This list is left as a record of what was checked; nothing here is loaded directly - only brand-map.json's own verified flag gates Travel Check.",
     "brands": [
       {
         "brand": "BRUFEN",
