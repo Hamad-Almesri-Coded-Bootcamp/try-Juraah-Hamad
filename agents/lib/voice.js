@@ -53,9 +53,10 @@ function spokenAmount(d, language) {
 
 const byTime = (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt);
 
+// CR-106 (the owner, 2026-09-25): opening the skill is answered with the greeting alone; "help" still lists the questions.
 const SAY = {
   ar: {
-    launch: 'هلا! أنا جرعة. تقدر تسألني: شنو جرعتي الجاية؟ أو كم آخذ؟ أو شنو أدويتي اليوم؟ أو قول: نسيت دواي. تنبيه: هذا نموذج طلابي ببيانات تجريبية، وما نقدم استشارة طبية.',
+    launch: 'هلا، معك جرعة AI. شلون أقدر أساعدك؟',
     help: 'تقدر تسألني: شنو جرعتي الجاية؟ كم آخذ؟ شنو أدويتي اليوم؟ أو قول: نسيت دواي.',
     reprompt: 'شنو تبي تعرف عن أدويتك؟',
     bye: 'مع السلامة، الله يعافيك.',
@@ -70,7 +71,7 @@ const SAY = {
     askMore: ' تبي شي ثاني؟',
   },
   en: {
-    launch: 'Hi, this is Jur\'ah. Ask me: what is my next dose, how much do I take, what are my medicines today - or say: I forgot my medicine. This is a student prototype with sample data and gives no medical advice.',
+    launch: 'Hi, Jur\'ah AI. How can I help?',
     help: 'Ask me: what is my next dose, how much do I take, what are my medicines today - or say: I forgot my medicine.',
     reprompt: 'What would you like to know about your medicines?',
     bye: 'Goodbye, take care.',
