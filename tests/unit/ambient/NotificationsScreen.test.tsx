@@ -277,7 +277,7 @@ describe('E5 — exactly one primary action (UX Principles §2, audit M19)', () 
   });
 });
 
-describe('E5 — test sends and the demo line', () => {
+describe('E5 — test sends and the simulated-chat line', () => {
   it('after a test notification the screen says it was sent, never "Copied"', async () => {
     setScriptSession({ subjectId: 'pt-03', role: 'patient' });
     render(
@@ -296,7 +296,7 @@ describe('E5 — test sends and the demo line', () => {
     expect(screen.queryByText(copy.vocabulary.copied.en)).not.toBeInTheDocument();
   });
 
-  it('the "this is a demo" line shows only while the bot is simulated', () => {
+  it('the simulated-chat line shows only while the bot is simulated', () => {
     const props = {
       patientId: 'pt-01',
       permission: 'default' as const,
@@ -384,7 +384,7 @@ describe('AP-09 — opening Telegram: a form to the route, the token never on th
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('pending while simulated: the demo line is still there, and both actions are still offered (the preview can restart its link)', () => {
+  it('pending while simulated: the simulated-chat line is still there, and both actions are still offered (the preview can restart its link)', () => {
     render(<NotificationsScreen {...props} botHandle="@jurah_bot" simulated messaging={pendingView} />);
     expect(screen.getByRole('button', { name: A.e5ChatCheckAction.ar })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: A.e5ChatOpenAgainAction.ar })).toBeInTheDocument();

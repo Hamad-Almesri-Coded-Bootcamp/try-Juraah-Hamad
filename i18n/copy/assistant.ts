@@ -92,8 +92,8 @@ export const assistant = {
   },
 
   safetyLine: {
-    ar: 'مشروع طلابي، وكل البيانات هنا تجريبية. لا يقدّم تطبيق جرعة استشارة طبية، فاتّبع دائمًا تعليمات طبيبك والصيدلي.',
-    en: 'A student project. Everything here is sample data. Jur’ah doesn’t give medical advice, so always follow your doctor and pharmacist.',
+    ar: 'لا يقدّم تطبيق جرعة استشارة طبية، فاتّبع دائمًا تعليمات طبيبك والصيدلي.',
+    en: 'Jur’ah doesn’t give medical advice, so always follow your doctor and pharmacist.',
     placeholder: true,
   },
 } satisfies Record<string, CopyEntry>;

@@ -35,8 +35,8 @@ export const landing = {
   heroSeeHowItWorks: { ar: 'اعرف كيف يعمل التطبيق', en: 'See how it works', placeholder: true },
   // The hero picture: the real day dial, drawn with حمد's seed day at REFERENCE_NOW (CR-071).
   heroDialCaption: {
-    ar: 'مثال ليوم من الجرعات، ببيانات تجريبية',
-    en: 'An example day of doses, with made-up data',
+    ar: 'مثال ليوم من الجرعات',
+    en: 'An example day of doses',
     placeholder: true,
   },
   // {times}: the day's dose times; {drug}: the next dose; {next}: its time.
@@ -180,11 +180,11 @@ export const landing = {
     placeholder: true,
   },
 
-  // (9) Academic transparency
-  transparencyHeading: { ar: 'عن هذا المشروع', en: 'About this project', placeholder: true },
+  // (9) Transparency: the simulated sign-in, disclosed on the page itself (G11; CR-107)
+  transparencyHeading: { ar: 'عن تسجيل الدخول', en: 'About signing in', placeholder: true },
   transparencyBody: {
-    ar: 'جرعة نموذج أولي لمشروع تخرج. تسجيل الدخول عبر هويتي محاكاة وليس ربطًا حقيقيًا، وكل البيانات المعروضة تجريبية ولا تعود لأشخاص حقيقيين.',
-    en: 'Jur’ah is a graduation-project prototype. Signing in with Hawiati is simulated, not a real connection, and all the data you see is made up. None of it belongs to real people.',
+    ar: 'تسجيل الدخول عبر هويتي محاكاة، وليس ربطًا حقيقيًا بنظام الهوية الوطنية.',
+    en: 'Signing in with Hawiati is simulated. It isn’t a real connection to the national ID service.',
     placeholder: true,
   },
 
@@ -193,8 +193,8 @@ export const landing = {
   footerLine: {
     // The programme's name stays as written: the one Latin run CR-071 allows in Arabic here
     // (tests/e2e/language-purity.spec.ts).
-    ar: 'جرعة · مشروع تخرج · SACGC AI for Coding · الكويت',
-    en: 'Jur’ah · A graduation project · SACGC AI for Coding · Kuwait',
+    ar: 'جرعة · SACGC AI for Coding · الكويت',
+    en: 'Jur’ah · SACGC AI for Coding · Kuwait',
     placeholder: true,
   },
 } as const satisfies Record<string, CopyEntry>;

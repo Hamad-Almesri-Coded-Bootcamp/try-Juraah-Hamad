@@ -103,7 +103,7 @@ test.describe('the simulated-role banner is present on every clinic route', () =
       await page.goto(`/ar${route}`);
       // ClinicNav renders the banner twice (once per breakpoint's own layout, CSS-toggled) — select
       // the one CSS currently shows, the same technique roles.spec.ts uses for the sign-out button.
-      await expect(page.locator('p:visible', { hasText: 'دور تجريبي' }).first()).toBeVisible();
+      await expect(page.locator('p:visible', { hasText: 'دور محاكاة' }).first()).toBeVisible();
     });
   }
 });
