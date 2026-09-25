@@ -57,7 +57,10 @@ test('setup: the fixture regenerates cleanly (proof the scenarios below start fr
 test('green: the fixture regenerates byte-identically', () => {
   const r = staticDrift(BASE);
   assert.deepEqual(r.problems, []);
-  assert.ok(r.report.length >= 9, r.report.join('\n'));
+  // AP-04 (PR #22, merged to main at 9a6f449) retired the legacy screening workflow
+  // (agents/workflows/agent-interaction-screening.json), dropping the committed total
+  // from 9 to 8. See docs/backend-notes/ap-16.md, "Owed", step 9.
+  assert.ok(r.report.length >= 8, r.report.join('\n'));
 });
 
 test('staticDrift leaves the tree it is given unchanged byte for byte', () => {
