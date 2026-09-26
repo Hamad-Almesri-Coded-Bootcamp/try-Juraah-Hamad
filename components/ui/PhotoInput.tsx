@@ -19,7 +19,10 @@ export interface PhotoInputProps {
 }
 
 // -------------------------------------------------------------------------------------------------
-// A1 — client-side downscale, pure sizing/quality decisions (tested directly; PhotoInput.test.tsx)
+// A1 — client-side downscale. targetDimensions, nextQuality and undecodableOutcome below are pure
+// and are imported and tested directly in PhotoInput.test.tsx (see the describe blocks of the same
+// names); the component tests separately cover the resulting canvas cap and the quality step-down
+// loop end to end.
 // -------------------------------------------------------------------------------------------------
 
 /** The re-encoded photo's long edge never exceeds this. */

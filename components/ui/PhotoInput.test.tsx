@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, cleanup, screen, waitFor } from '@testing-library/react';
-import { PhotoInput } from './PhotoInput';
+import {
+  PhotoInput,
+  targetDimensions,
+  nextQuality,
+  undecodableOutcome,
+  PHOTO_PASSTHROUGH_MAX_BYTES,
+} from './PhotoInput';
 import { copy, t } from '@/i18n';
 
 afterEach(cleanup);
@@ -49,6 +55,53 @@ function chooseFile(picked: File) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+// A1 — the three pure sizing/quality functions, tested directly (no render, no canvas needed).
+describe('targetDimensions', () => {
+  it('caps a landscape image at the 2000px long edge, keeping its aspect ratio', () => {
+    expect(targetDimensions(4000, 3000)).toEqual({ width: 2000, height: 1500 });
+  });
+
+  it('caps a portrait image at the 2000px long edge, keeping its aspect ratio', () => {
+    expect(targetDimensions(3000, 4000)).toEqual({ width: 1500, height: 2000 });
+  });
+
+  it('never upscales an image already under the cap', () => {
+    expect(targetDimensions(800, 600)).toEqual({ width: 800, height: 600 });
+  });
+
+  it('is safe for zero dimensions', () => {
+    expect(targetDimensions(0, 0)).toEqual({ width: 0, height: 0 });
+  });
+
+  it('is safe for NaN dimensions — never throws, never invents a size', () => {
+    const result = targetDimensions(Number.NaN, Number.NaN);
+    expect(Number.isNaN(result.width)).toBe(true);
+    expect(Number.isNaN(result.height)).toBe(true);
+  });
+});
+
+describe('nextQuality', () => {
+  it('steps down by 0.1 from the initial quality to the floor, then stops', () => {
+    const steps: Array<number | null> = [];
+    let quality: number | null = 0.85;
+    while (quality !== null) {
+      quality = nextQuality(quality);
+      steps.push(quality);
+    }
+    expect(steps).toEqual([0.75, 0.65, 0.55, 0.45, null]);
+  });
+});
+
+describe('undecodableOutcome', () => {
+  it('passes a file through at exactly the size limit', () => {
+    expect(undecodableOutcome(PHOTO_PASSTHROUGH_MAX_BYTES)).toBe('passthrough');
+  });
+
+  it('refuses a file one byte over the size limit', () => {
+    expect(undecodableOutcome(PHOTO_PASSTHROUGH_MAX_BYTES + 1)).toBe('refuse');
+  });
+});
+
 describe('PhotoInput', () => {
   it('idle exposes two labelled file inputs — take a photo and choose a photo', () => {
     render(<PhotoInput value={null} onChange={() => {}} label="Photo of your prescription" />);
@@ -85,6 +138,7 @@ describe('PhotoInput', () => {
   describe('A1 — downscale before sending', () => {
     it('a big image is decoded, downscaled and re-encoded as a smaller JPEG', async () => {
       mockWorkingDecoder(500_000); // 500 KB, comfortably under PHOTO_TARGET_BYTES
+      const createElementSpy = vi.spyOn(document, 'createElement');
       const onChange = vi.fn();
       const big = new File([new Uint8Array(6 * 1024 * 1024)], 'prescription.png', { type: 'image/png' });
       render(<PhotoInput value={null} onChange={onChange} label="Photo of your prescription" />);
@@ -97,6 +151,44 @@ describe('PhotoInput', () => {
       expect(sent.name).toBe('prescription.jpg');
       expect(sent.size).toBeLessThan(2 * 1024 * 1024);
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+      // The mocked decoder reports a 4000x3000 source: the canvas it was drawn to must be capped
+      // at the 2000px long edge (targetDimensions), never the source's own size.
+      const canvas = createElementSpy.mock.results
+        .map((result) => result.value as HTMLElement)
+        .find((element) => element.tagName === 'CANVAS') as HTMLCanvasElement;
+      expect(canvas).toBeDefined();
+      expect(canvas.width).toBe(2000);
+      expect(canvas.height).toBe(1500);
+      createElementSpy.mockRestore();
+    });
+
+    it('steps the JPEG quality down (0.85, 0.75, …) until the re-encoded file is under target', async () => {
+      vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 4000, height: 3000, close: vi.fn() })));
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+        configurable: true,
+        value: vi.fn(() => ({ drawImage: vi.fn() })),
+      });
+      const seenQualities: number[] = [];
+      Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+        configurable: true,
+        value: vi.fn((cb: BlobCallback, _type?: string, quality?: number) => {
+          seenQualities.push(quality as number);
+          // Stays over PHOTO_TARGET_BYTES for the first two qualities tried, then drops under it —
+          // so the loop must step the quality down twice before it can stop.
+          const size = (quality as number) > 0.65 ? 3 * 1024 * 1024 : 500_000;
+          cb(new Blob([new Uint8Array(size)], { type: 'image/jpeg' }));
+        }),
+      });
+      const onChange = vi.fn();
+      const big = new File([new Uint8Array(6 * 1024 * 1024)], 'prescription.png', { type: 'image/png' });
+      render(<PhotoInput value={null} onChange={onChange} label="Photo of your prescription" />);
+      chooseFile(big);
+
+      await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+      expect(seenQualities).toEqual([0.85, 0.75, 0.65]);
+      const sent = onChange.mock.calls[0]![0] as File;
+      expect(sent.size).toBeLessThan(2 * 1024 * 1024);
     });
 
     it('a file the browser cannot decode passes through unresized when it already fits', async () => {
