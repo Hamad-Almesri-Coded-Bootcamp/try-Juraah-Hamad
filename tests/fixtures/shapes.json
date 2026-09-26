@@ -3797,6 +3797,50 @@
         }
       ],
       "trackingOn": false
+    },
+    "why": {
+      "level": "Major",
+      "drugs": [
+        "ibuprofen",
+        "warfarin"
+      ],
+      "labels": [
+        "Ibuprofen",
+        "Warfarin"
+      ],
+      "summary": {
+        "en": "Ibuprofen, an NSAID, can strengthen warfarin's blood-thinning effect and raise the risk of bleeding. Use the combination only if the benefit outweighs the risk, and check the INR frequently, adjusting the warfarin dose especially after starting or stopping ibuprofen. Tell the patient to report any unusual bleeding or bruising promptly.",
+        "ar": "قد يعزّز إيبوبروفين، وهو من مضادات الالتهاب غير الستيرويدية، تأثير وارفارين المضاد للتخثر ويرفع خطر النزيف. استخدم هذا الجمع فقط إذا كانت الفائدة تفوق الخطر، وتحقّق من INR بشكل متكرر، وعدّل جرعة وارفارين خصوصًا بعد بدء إيبوبروفين أو إيقافه. انصح المريض بالإبلاغ فورًا عن أي نزيف أو كدمات غير معتادة."
+      },
+      "mechanism": "Nonsteroidal anti-inflammatory drugs (NSAIDs) may potentiate the hypoprothrombinemic effect and bleeding risk associated with oral anticoagulants.",
+      "management": "NSAIDs should be administered with oral anticoagulants only if benefit outweighs risk. The INR should be checked frequently and oral anticoagulant dosage adjusted accordingly, particularly following initiation or discontinuation of NSAIDs in patients who are stabilized on their anticoagulant regimen. Patients should be advised to promptly report any signs of unusual bleeding or bruising to their physician, including pain, swelling, headache, dizziness, weakness, prolonged bleeding from cuts, increased menstrual flow, vaginal bleeding, nosebleeds, bleeding of gums from brushing, red or brown urine, or red or black stools. Salicylates (except aspirin) appear to have less effect on coagulation and may be preferable in patients treated with oral anticoagulants.",
+      "url": "https://ddinter.scbdd.com/ddinter/interact/957806/",
+      "citation": "Tian Y, Yi J, Wang N, Wu C, Peng J, Liu S, Yang G, Cao D. DDInter 2.0: an enhanced drug interaction resource with expanded data coverage, new interaction types, and improved user interface. Nucleic Acids Research 2025;53(D1):D1356-D1362. doi:10.1093/nar/gkae726."
+    }
+  },
+  "getClinicianProfile (as د. خالد)": {
+    "name": "د. خالد عبدالرحمن الرشيد",
+    "roles": [
+      "reviewer",
+      "admin"
+    ],
+    "decisions": {
+      "confirmed": 2,
+      "cleared": 0,
+      "fieldsConfirmed": 1,
+      "fieldsReturned": 1
+    }
+  },
+  "getClinicianProfile (as م. دانة)": {
+    "name": "م. دانة فهد السالم",
+    "roles": [
+      "admin"
+    ],
+    "decisions": {
+      "confirmed": 0,
+      "cleared": 0,
+      "fieldsConfirmed": 0,
+      "fieldsReturned": 0
     }
   },
   "getFlaggedPrescription(rx-006, as د. خالد)": {

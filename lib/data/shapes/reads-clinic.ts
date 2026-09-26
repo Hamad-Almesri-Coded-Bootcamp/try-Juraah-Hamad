@@ -6,7 +6,7 @@
  * Optional fields are dropped when the column is null (`compact`), never emitted as null.
  */
 import type { InteractionAlert } from '@/types/contracts';
-import type { FieldQueueItem, ReviewQueueItem } from '@/types/views';
+import type { ClinicianProfile, FieldQueueItem, ReviewQueueItem } from '@/types/views';
 import { compact, str, type DbRow } from './_core';
 
 /** InteractionAlert — buildAlerts()' literal order; the four review fields in the order both the
@@ -26,6 +26,22 @@ export function toAlert(r: DbRow): InteractionAlert {
     reviewedAt: str(r.reviewed_at),
     reviewedBy: str(r.reviewed_by),
   }) as InteractionAlert;
+}
+
+/** ClinicianProfile (CR-115) — the mock's literal order; counts arrive from jsonb as numbers. */
+export function toClinicianProfile(p: unknown): ClinicianProfile {
+  const r = (p ?? {}) as { name?: unknown; roles?: unknown; decisions?: Record<string, unknown> };
+  const d = r.decisions ?? {};
+  return {
+    name: String(r.name ?? ''),
+    roles: ((r.roles as string[] | null) ?? []).filter((x): x is 'reviewer' | 'admin' => x === 'reviewer' || x === 'admin'),
+    decisions: {
+      confirmed: Number(d.confirmed ?? 0),
+      cleared: Number(d.cleared ?? 0),
+      fieldsConfirmed: Number(d.fieldsConfirmed ?? 0),
+      fieldsReturned: Number(d.fieldsReturned ?? 0),
+    },
+  };
 }
 
 /** ReviewQueueItem — the mock's map literal order (getReviewQueue). */

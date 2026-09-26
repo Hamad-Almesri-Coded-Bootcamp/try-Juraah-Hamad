@@ -487,12 +487,15 @@ export const selfUnlink: DataApi['selfUnlink'] = async (caregiverId) => {
 // ---------------------------------------------------------------------------------------------
 
 export const submitReviewDecision: DataApi['submitReviewDecision'] = async (alertId, decision, note) => {
+  // CR-115: the doctor's justification is required; a blank one is refused before any query, as the
+  // mock does (no write, no audit event).
+  if (typeof note !== 'string' || note.trim() === '') return voidRefusal();
   const session = await sessionOf();
   return refusedAs(async () => {
     await withSession(session, async (sql) => {
       const [alert] = await sql.unsafe(PG_QUERIES_WRITES.alertPatient, [alertId]);
       if (!alert) return;
-      const res = await sql.unsafe(PG_QUERIES_WRITES.submitReviewDecision, [alertId, decision, note ?? null]);
+      const res = await sql.unsafe(PG_QUERIES_WRITES.submitReviewDecision, [alertId, decision, note.trim()]);
       if (res.count === 0) return; // RLS: not a reviewer, or the alert is no longer in any queue
       const [ctx] = await sql.unsafe(PG_QUERIES_WRITES.reviewerContext, []);
       await append(sql, {

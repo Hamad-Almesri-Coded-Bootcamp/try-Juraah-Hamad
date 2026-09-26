@@ -130,7 +130,7 @@ Two modules, both typed, both `async`, both implemented by WP1. `Phase 2 — Bac
 - `getRoleOptions(): Promise<RoleOption[]>` — the active roles the signed-in Civil ID holds, for A1b, X0's chooser and the in-shell switch.
 - `chooseRole(option: RoleOption): Promise<Session>` · `signOut(): Promise<void>`
 
-### Data-access layer (`lib/data`) — 50 functions
+### Data-access layer (`lib/data`) — 51 functions
 
 **Patient and settings** — `getPatient(patientId)` · `updatePatientPhone(patientId, phone | null)` · `completeOnboarding(patientId)` · `getSettings(patientId)` · `updateSettings(patientId, patch: PermittedSettingsPatch)` (only the seven permitted keys; `adherenceCheckInEnabled: true` refused without a `connected` link).
 
@@ -152,8 +152,8 @@ Two modules, both typed, both `async`, both implemented by WP1. `Phase 2 — Bac
 
 **Caregiver shell** — `getCaregiverLink(caregiverId): Promise<{ patientId, patientFirstName, acceptedAt }>` · `selfUnlink(caregiverId)`.
 
-**Clinic** — `getReviewQueue(): Promise<ReviewQueueItem[]>` · `getFieldConfirmationQueue(): Promise<FieldQueueItem[]>` · `getAlertForReview(alertId): Promise<AlertReviewView>` (alert + involved prescriptions + `PatientContext { activePrescriptions, recentDoses, trackingOn }`) · `submitReviewDecision(alertId, decision: 'confirmed' | 'cleared', note?)` · `getFlaggedPrescription(prescriptionId)` · `confirmPrescriptionFields(prescriptionId, values, note?)` · `returnPrescriptionToClinic(prescriptionId, reason)` · `getAuditLog(filters: { actorRole?, type?, from?, to? }): Promise<AuditEvent[]>`.
+**Clinic** — `getReviewQueue(): Promise<ReviewQueueItem[]>` · `getFieldConfirmationQueue(): Promise<FieldQueueItem[]>` · `getAlertForReview(alertId): Promise<AlertReviewView>` (alert + involved prescriptions + `PatientContext { activePrescriptions, recentDoses, trackingOn }`) · `submitReviewDecision(alertId, decision: 'confirmed' | 'cleared', note)` (CR-115: the note is required) · `getClinicianProfile(): Promise<ClinicianProfile | null>` (CR-115: the caller's own name, clinic roles and decision counts) · `getFlaggedPrescription(prescriptionId)` · `confirmPrescriptionFields(prescriptionId, values, note?)` · `returnPrescriptionToClinic(prescriptionId, reason)` · `getAuditLog(filters: { actorRole?, type?, from?, to? }): Promise<AuditEvent[]>`.
 
 **Resilience** — `readLastKnownSnapshot(key): Promise<{ data, asOf } | null>` used by H3 and the failed-refresh state.
 
-Count: 5 session functions + 50 data-access functions = 55. Functions not listed here do not exist.
+Count: 5 session functions + 51 data-access functions = 56 (CR-115 added `getClinicianProfile`). Functions not listed here do not exist.

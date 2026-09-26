@@ -89,7 +89,7 @@ describe('role boundaries — the writes', () => {
   it('E-34', async () => {
     // submitReviewDecision('ia-002') — already reviewed: nothing written
     const ia002 = await owner(`select row(a.*)::text from interaction_alerts a where id = 'ia-002'`);
-    await as(KHALID, () => pg.submitReviewDecision('ia-002', 'cleared'));
+    await as(KHALID, () => pg.submitReviewDecision('ia-002', 'cleared', 'x'));
     expect(await owner(`select row(a.*)::text from interaction_alerts a where id = 'ia-002'`)).toBe(ia002);
     // ia-001 twice: the first decision stands, exactly one alert_reviewed row
     await as(KHALID, () => pg.submitReviewDecision('ia-001', 'confirmed', 'ملاحظة المراجع'));
@@ -160,5 +160,32 @@ describe('role boundaries — the writes', () => {
     const ok = await as(HAMAD, () => pg.requestRefill('pt-01', 'rx-002'));
     expect({ ...ok, id: 'rf-03' }).toEqual({ id: 'rf-03', patientId: 'pt-01', prescriptionId: 'rx-002', requestedAt: '2026-09-21T09:15:00+03:00', routedTo: 'private_pharmacy', status: 'requested' });
     expect(await owner(`select message from audit_events where type = 'refill_requested' and related_id = '${ok.id}'`)).toBe('طلب تعبئة Ibuprofen');
+  });
+});
+
+// CR-115 — E-51. Needs migration 0015 applied to the test database (npm run db:migrate).
+describe('E-51 — the clinician profile, and the required review justification', () => {
+  it('a reviewer and an admin read only their own profile; every other session gets null', async () => {
+    expect(await asJson(KHALID, () => pg.getClinicianProfile())).toBe(
+      JSON.stringify({ name: 'د. خالد عبدالرحمن الرشيد', roles: ['reviewer', 'admin'], decisions: { confirmed: 1, cleared: 0, fieldsConfirmed: 1, fieldsReturned: 1 } }),
+    );
+    expect(await asJson(DANA, () => pg.getClinicianProfile())).toBe(
+      JSON.stringify({ name: 'م. دانة فهد السالم', roles: ['admin'], decisions: { confirmed: 0, cleared: 0, fieldsConfirmed: 0, fieldsReturned: 0 } }),
+    );
+    for (const s of [HAMAD, ABDULLAH, null, { subjectId: 'acc-11', role: 'reviewer' as const }]) {
+      expect(await asJson(s, () => pg.getClinicianProfile())).toBe(JSON.stringify(R.clinicianProfileRefusal()));
+    }
+    // never a Civil ID
+    expect(await asJson(KHALID, () => pg.getClinicianProfile())).not.toMatch(/\d{12}/);
+  });
+
+  it('a blank or whitespace-only justification writes nothing', async () => {
+    const before = await owner(`select row(a.*)::text from interaction_alerts a where id = 'ia-001'`);
+    for (const note of ['', '   ']) await as(KHALID, () => pg.submitReviewDecision('ia-001', 'confirmed', note));
+    expect(await owner(`select row(a.*)::text from interaction_alerts a where id = 'ia-001'`)).toBe(before);
+    expect(await count(`select 1 from audit_events where type = 'alert_reviewed' and related_id = 'ia-001'`)).toBe(0);
+    // and a real one is stored trimmed
+    await as(KHALID, () => pg.submitReviewDecision('ia-001', 'confirmed', '  The risk is real.  '));
+    expect(await owner(`select reviewer_note from interaction_alerts where id = 'ia-001'`)).toBe('The risk is real.');
   });
 });

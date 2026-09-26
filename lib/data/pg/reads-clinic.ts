@@ -19,12 +19,13 @@ import {
   alertRefusal,
   alertReviewRefusal,
   alertsRefusal,
+  clinicianProfileRefusal,
   drugCheckRefusal,
   fieldQueueRefusal,
   flaggedPrescriptionRefusal,
   reviewQueueRefusal,
 } from '../refusals/reads-clinic';
-import { toAlert, toFieldQueueItem, toReviewQueueItem } from '../shapes/reads-clinic';
+import { toAlert, toClinicianProfile, toFieldQueueItem, toReviewQueueItem } from '../shapes/reads-clinic';
 import { toDoseWithPrescription, toPrescription } from '../shapes/reads-rx';
 import { alertWhy } from '../shapes/why'; // CR-113
 import { WHY_DATA } from '../why-data';
@@ -160,6 +161,8 @@ export const PG_QUERIES_CLINIC = {
     select ${PRESCRIPTION_COLUMNS}
     from prescriptions p
     where p.id = $1 and p.needs_review and jurah_session_is('reviewer')`,
+  // CR-115: the definer helper of migration 0015 (null for anyone but a reviewer or an admin).
+  getClinicianProfile: `select clinician_profile() as profile`,
 } as const;
 
 export const getAlerts: DataApi['getAlerts'] = async (patientId) => {
@@ -215,6 +218,24 @@ export const getReviewQueue: DataApi['getReviewQueue'] = async () => {
     const rows = await sql.unsafe(PG_QUERIES_CLINIC.getReviewQueue);
     return rows.length === 0 ? reviewQueueRefusal() : rows.map((r) => toReviewQueueItem(r));
   });
+};
+
+/** CR-115. Until the owner applies migration 0015 the function does not exist (SQLSTATE 42883,
+ * "function clinician_profile() does not exist"): that one error reads as the refusal, so the dashboard card shows without a name instead of the
+ * page failing. Any other error still throws. */
+export const getClinicianProfile: DataApi['getClinicianProfile'] = async () => {
+  const session = await sessionOf();
+  try {
+    return await withSession(session, async (sql) => {
+      const [row] = await sql.unsafe(PG_QUERIES_CLINIC.getClinicianProfile);
+      return row?.profile ? toClinicianProfile(row.profile) : clinicianProfileRefusal();
+    });
+  } catch (e) {
+    // Only the helper itself missing: a 42883 raised INSIDE it (once applied) is a real fault.
+    const err = e as { code?: string; message?: string } | null;
+    if (err?.code === '42883' && /\bclinician_profile\(\)/.test(err.message ?? '')) return clinicianProfileRefusal();
+    throw e;
+  }
 };
 
 export const getFieldConfirmationQueue: DataApi['getFieldConfirmationQueue'] = async () => {

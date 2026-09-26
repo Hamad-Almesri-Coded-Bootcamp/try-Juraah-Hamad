@@ -121,15 +121,29 @@ export const clinic = {
     en: 'Dose tracking is off for this patient, so their schedule is a plan only. It doesn’t show whether doses were taken.',
     placeholder: true,
   },
-  g2sDecisionHeading: { ar: 'القرار', en: 'Decision', placeholder: true },
-  g2sNoteLabel: { ar: 'ملاحظة للمريض (اختياري)', en: 'Note for the patient (optional)', placeholder: true },
+  // CR-115: the decision is framed as the doctor's answer to the AI's finding, and the note is the
+  // doctor's required justification (the owner's answer; G2s's "optional" no longer holds).
+  g2sDecisionHeading: { ar: 'هل توافق على ما رصده ذكاء جرعة؟', en: 'Do you agree with Juraa AI’s finding?', placeholder: true },
+  g2sDecisionIntro: {
+    ar: 'اقرأ ما رصده ذكاء جرعة أعلاه، واكتب مبرّرك، ثم اختر.',
+    en: 'Read Juraa AI’s finding above, write your justification, then choose.',
+    placeholder: true,
+  },
+  g2sNoteLabel: { ar: 'مبرّر قرارك', en: 'Your justification', placeholder: true },
+  g2sNoteHelper: { ar: 'يراه المريض مع قرارك.', en: 'The patient sees this with your decision.', placeholder: true },
+  g2sNoteRequiredError: {
+    ar: 'اكتب مبرّرًا قبل أن تختار، فالمريض يراه مع قرارك.',
+    en: 'Write a justification before you choose. The patient sees it with your decision.',
+    placeholder: true,
+  },
+  g2sSheetJustificationLabel: { ar: 'مبرّرك', en: 'Your justification', placeholder: true },
   g2sNotePlaceholder: {
     ar: 'بكلمات بسيطة: ماذا ينبغي أن يفعل المريض الآن؟',
     en: 'In plain words: what should the patient do now?',
     placeholder: true,
   },
-  g2sConfirmButton: { ar: 'تأكيد الخطر', en: 'Confirm the risk', placeholder: true },
-  g2sClearButton: { ar: 'استبعاد الخطر', en: 'Clear the risk', placeholder: true },
+  g2sConfirmButton: { ar: 'أوافق: الخطر قائم', en: 'Agree: it’s a risk', placeholder: true },
+  g2sClearButton: { ar: 'لا أوافق: لا خطر', en: 'Disagree: no risk', placeholder: true },
   g2sReviewOnlyNote: {
     ar: 'قرارك يغيّر مراجعة هذا التنبيه فقط، ولا يغيّر أي وصفة أو جرعة.',
     en: 'Your decision changes only this alert’s review, never a prescription or a dose.',
@@ -148,6 +162,31 @@ export const clinic = {
     placeholder: true,
   },
   g2sSheetConfirmLabel: { ar: 'تأكيد', en: 'Confirm', placeholder: true },
+
+  // -----------------------------------------------------------------------------------------
+  // CR-115 — the AI marker (G1s, G2s; the AI is named Juraa AI, the owner's answer) and the clinic dashboard card (G1s/G3s, X1)
+  // -----------------------------------------------------------------------------------------
+  aiRaisedTag: { ar: 'رصده ذكاء جرعة', en: 'Raised by Juraa AI', placeholder: true },
+  aiRaisedShort: { ar: 'رصده ذكاء جرعة', en: 'Raised by Juraa AI', placeholder: true },
+  g2sAiFindingNote: {
+    ar: 'رصد ذكاء جرعة هذا التعارض، ولا يُعدّ نهائيًا حتى تقرّر أنت.',
+    en: 'Juraa AI flagged this interaction. It isn’t final until you decide.',
+    placeholder: true,
+  },
+  dashProfileLabel: { ar: 'ملفك', en: 'Your profile', placeholder: true },
+  dashStatsLabel: { ar: 'نظرة سريعة', en: 'At a glance', placeholder: true },
+  dashStatFindingsWaiting: { ar: 'تعارضات بانتظار قرار', en: 'Interactions waiting', placeholder: true },
+  dashStatSerious: { ar: 'منها خطيرة', en: 'Serious among them', placeholder: true },
+  dashStatMyDecisions: { ar: 'قراراتك المسجّلة', en: 'Your recorded decisions', placeholder: true },
+  dashStatEvents: { ar: 'أحداث في السجل', en: 'Events in the log', placeholder: true },
+  dashStatDoctorDecisions: { ar: 'قرارات الأطباء', en: 'Doctor decisions', placeholder: true },
+  // {actor} is X1's own actor word (vocabulary.actor_agent), so the tile names what it counts.
+  dashStatByActorTemplate: { ar: 'أحداث من {actor}', en: 'Events by {actor}', placeholder: true },
+  dashAdminScopeNote: {
+    ar: 'تشمل هذه الأرقام السجل كله، مهما كانت التصفية أدناه.',
+    en: 'These counts cover the whole log, whatever the filters below show.',
+    placeholder: true,
+  },
 
   // -----------------------------------------------------------------------------------------
   // G3s — reviewer queue, field confirmation (list + detail)
@@ -240,14 +279,14 @@ export const clinic = {
   x1FilterLast30Days: { ar: 'آخر ٣٠ يومًا', en: 'Last 30 days', placeholder: true },
   x1ProofNoticeTitle: { ar: 'من سجّل حالات هذه الجرعات', en: 'Who recorded these dose statuses', placeholder: true },
   x1ProofNoticeBodyTemplate: {
-    ar: 'نتائج «تسجيل حالة جرعة»: {count}. جاءت كلها من مساعد المتابعة أو النظام، ولم يأتِ أي منها من شاشات التطبيق.',
-    en: 'Results for “Dose status recorded”: {count}. All of them came from the adherence assistant or the system, and none from a screen in the app.',
+    ar: 'نتائج «تسجيل حالة جرعة»: {count}. جاءت كلها من ذكاء جرعة أو النظام، ولم يأتِ أي منها من شاشات التطبيق.',
+    en: 'Results for “Dose status recorded”: {count}. All of them came from Juraa AI or the system, and none from a screen in the app.',
     placeholder: true,
   },
   // The proof notice must stay true whatever the filters show (CLAUDE.md rule 1).
   x1ProofNoticeMixedBodyTemplate: {
-    ar: 'نتائج «تسجيل حالة جرعة»: {count}. بعضها لم يأتِ من مساعد المتابعة أو النظام، فانظر المنفّذ في كل سطر.',
-    en: 'Results for “Dose status recorded”: {count}. Some of them didn’t come from the adherence assistant or the system. See who did each one below.',
+    ar: 'نتائج «تسجيل حالة جرعة»: {count}. بعضها لم يأتِ من ذكاء جرعة أو النظام، فانظر المنفّذ في كل سطر.',
+    en: 'Results for “Dose status recorded”: {count}. Some of them didn’t come from Juraa AI or the system. See who did each one below.',
     placeholder: true,
   },
   x1ProofNoticeFilteredBody: {

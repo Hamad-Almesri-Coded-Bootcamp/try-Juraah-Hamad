@@ -1,15 +1,19 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
-import { getAuditLog } from '@/lib/data';
+import { getAuditLog, getClinicianProfile } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { AuditLogView } from '@/features/clinic/AuditLogView';
 import { ClinicErrorState } from '@/features/clinic/ClinicErrorState';
+import { ClinicianCard } from '@/features/clinic/ClinicianCard';
 import { auditPeriodFrom, type AuditPeriod } from '@/features/clinic/format';
 import { copy, t } from '@/i18n';
+import { interpolate } from '@/features/shell/interpolate';
 
 const PERIODS = new Set<AuditPeriod>(['all', 'last7', 'last30']);
+/** CR-115: the audit event types that record a doctor's decision. */
+const DOCTOR_DECISIONS = new Set<string>(['alert_reviewed', 'prescription_field_confirmed', 'prescription_returned_to_clinic']);
 
 /**
  * X1 — the system audit log (`/[locale]/clinic/audit`). Filter state is the URL's own
@@ -54,12 +58,35 @@ export default async function AuditLogPage({
   }
 
   const period: AuditPeriod = rawPeriod && PERIODS.has(rawPeriod as AuditPeriod) ? (rawPeriod as AuditPeriod) : 'all';
-  const events = await getAuditLog({ actorRole: actor, type, from: auditPeriodFrom(period) });
+  const from = auditPeriodFrom(period);
+  const filtered = Boolean(actor || type || from);
+  // CR-115: the dashboard counts describe the whole log, so a filtered view reads it once more
+  // unfiltered; an unfiltered view reuses the rows it already has.
+  const [events, whole, profile] = await Promise.all([
+    getAuditLog({ actorRole: actor, type, from }),
+    filtered ? getAuditLog({}) : Promise.resolve(null),
+    getClinicianProfile(),
+  ]);
+  const all = whole ?? events;
+  const stats = [
+    { id: 'events', label: t(copy.clinic.dashStatEvents, locale), value: all.length },
+    // X1's own words for the agent and the event (UX §3), so a tile reads like the filter beside it.
+    { id: 'agent', label: interpolate(t(copy.clinic.dashStatByActorTemplate, locale), { actor: t(copy.vocabulary.actor_agent, locale) }), value: all.filter((e) => e.actor.role === 'agent').length },
+    { id: 'alerts-raised', label: t(copy.vocabulary.event_alert_raised, locale), value: all.filter((e) => e.type === 'alert_raised').length },
+    // Every recorded doctor decision: findings and prescription details, as the reviewer's own card counts.
+    { id: 'doctor-decisions', label: t(copy.clinic.dashStatDoctorDecisions, locale), value: all.filter((e) => DOCTOR_DECISIONS.has(e.type)).length },
+  ];
 
   return (
     <div className="relative flex min-h-full flex-col">
       <AppBar title={title} action={<LanguageSwitch locale={locale} assistant={false} />} />
-      <AuditLogView events={events} locale={locale} filters={{ actor, type, period }} basePath={`/${locale}/clinic/audit`} />
+      <AuditLogView
+        events={events}
+        locale={locale}
+        filters={{ actor, type, period }}
+        basePath={`/${locale}/clinic/audit`}
+        header={<ClinicianCard profile={profile} activeRole="admin" stats={stats} note={t(copy.clinic.dashAdminScopeNote, locale)} locale={locale} />}
+      />
     </div>
   );
 }

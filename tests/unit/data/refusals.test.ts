@@ -107,7 +107,8 @@ describe('refusal literals = the mock with a null session (string-equal)', () =>
     await same(mock.getReviewQueue(), R.reviewQueueRefusal());
     await same(mock.getFieldConfirmationQueue(), R.fieldQueueRefusal());
     await same(mock.getAlertForReview('ia-001'), R.alertReviewRefusal('ia-001'));
-    await same(mock.submitReviewDecision('ia-001', 'confirmed'), R.voidRefusal());
+    await same(mock.submitReviewDecision('ia-001', 'confirmed', 'x'), R.voidRefusal());
+    await same(mock.getClinicianProfile(), R.clinicianProfileRefusal()); // CR-115: no session → null
     await same(mock.getFlaggedPrescription('rx-006'), R.flaggedPrescriptionRefusal());
     await same(mock.confirmPrescriptionFields('rx-999', { frequencyPerDay: 1 }), R.prescriptionWriteRefusal('rx-999'));
     await same(mock.returnPrescriptionToClinic('rx-999', 'x'), R.prescriptionWriteRefusal('rx-999'));

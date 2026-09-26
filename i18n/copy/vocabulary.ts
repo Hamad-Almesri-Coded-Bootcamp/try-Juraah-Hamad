@@ -90,7 +90,8 @@ export const vocabulary = {
   actor_caregiver: { ar: 'مقدّم الرعاية', en: 'Caregiver', placeholder: true },
   actor_reviewer: { ar: 'المراجع الطبي', en: 'Medical reviewer', placeholder: true },
   actor_admin: { ar: 'مسؤول النظام', en: 'System admin', placeholder: true },
-  actor_agent: { ar: 'مساعد المتابعة', en: 'Adherence assistant', placeholder: true },
+  // CR-115 (the owner, 2026-09-26): the agent is named Juraa AI everywhere it is credited.
+  actor_agent: { ar: 'ذكاء جرعة', en: 'Juraa AI', placeholder: true },
   actor_system: { ar: 'النظام', en: 'System', placeholder: true },
 
   // Event-type labels (25) — human labels for AuditEvent.type, for X1 and the patient activity feed

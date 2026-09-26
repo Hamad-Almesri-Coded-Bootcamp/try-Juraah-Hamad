@@ -24,7 +24,7 @@ function methodNames(path: string): string[] {
     .map((m) => m[1]).filter((n) => n && !['if', 'for', 'while', 'switch', 'return', 'function', 'catch'].includes(n)) as string[];
 }
 const SURFACES = [
-  { path: 'lib/data/api.ts', expected: 50 },
+  { path: 'lib/data/api.ts', expected: 51 }, // CR-115: getClinicianProfile
   { path: 'lib/session/api.ts', expected: 5 },
 ];
 for (const { path, expected } of SURFACES) {

@@ -210,6 +210,22 @@ export interface AlertReviewView {
   why?: AlertWhy | null;
 }
 
+/** CR-115: the signed-in clinician's own profile, for the dashboard card on G1s/G3s and X1. Their own
+ * name (a person's own name is never masked), their clinic roles, and counts of the decisions their
+ * account has recorded. Never a Civil ID. */
+export interface ClinicianProfile {
+  name: string;
+  roles: Array<'reviewer' | 'admin'>;
+  decisions: {
+    /** Interaction findings this account confirmed / cleared (`InteractionAlert.reviewedBy`). */
+    confirmed: number;
+    cleared: number;
+    /** Prescriptions this account confirmed / returned (`Prescription.fieldReviewedBy`). */
+    fieldsConfirmed: number;
+    fieldsReturned: number;
+  };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------------------------

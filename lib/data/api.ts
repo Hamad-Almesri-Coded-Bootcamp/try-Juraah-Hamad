@@ -17,6 +17,7 @@ import type {
 } from '@/types/contracts';
 import type {
   AlertReviewView,
+  ClinicianProfile,
   AuditLogRow,
   CaregiverLinkView,
   CaregiverView,
@@ -99,7 +100,8 @@ export interface DataApi {
   getReviewQueue(): Promise<ReviewQueueItem[]>;
   getFieldConfirmationQueue(): Promise<FieldQueueItem[]>;
   getAlertForReview(alertId: string): Promise<AlertReviewView>;
-  submitReviewDecision(alertId: string, decision: 'confirmed' | 'cleared', note?: string): Promise<void>;
+  submitReviewDecision(alertId: string, decision: 'confirmed' | 'cleared', note: string): Promise<void>; // CR-115: the note is required
+  getClinicianProfile(): Promise<ClinicianProfile | null>; // CR-115
   getFlaggedPrescription(prescriptionId: string): Promise<Prescription | null>;
   confirmPrescriptionFields(prescriptionId: string, values: Partial<Prescription>, note?: string): Promise<Prescription>;
   returnPrescriptionToClinic(prescriptionId: string, reason: string): Promise<Prescription>;

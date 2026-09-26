@@ -947,6 +947,9 @@ a.jr-link-btn { text-decoration: none; }
   font-size: 1.625rem;
 }
 .jr-mono--muted { background: var(--surface-app); color: var(--ink-muted); }
+/* CR-115: a person's initials on the clinic dashboard card. Round, so a person never reads as a
+   medicine tile. No photo: the seed has none, and none is invented. */
+.jr-avatar { border-radius: var(--radius-full); }
 
 /* ProgressRing: supply, a countdown. */
 .jr-ring { position: relative; display: inline-flex; flex: none; }

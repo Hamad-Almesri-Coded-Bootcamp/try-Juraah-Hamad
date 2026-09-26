@@ -34,13 +34,14 @@ const REVIEWER_FILES = [
   'features/clinic/ReviewQueueList.tsx',
   'features/clinic/FieldQueueList.tsx',
   'features/clinic/ReviewerDecision.tsx',
+  'features/clinic/ClinicianCard.tsx',
   'features/clinic/FlaggedPrescriptionDetail.tsx',
   'features/clinic/PrescriptionBridge.tsx',
   'features/clinic/WhyTheyInteract.tsx',
   'features/clinic/format.ts',
 ];
 
-const AUDIT_FILES = ['app/[locale]/clinic/audit/page.tsx', 'features/clinic/AuditLogView.tsx'];
+const AUDIT_FILES = ['app/[locale]/clinic/audit/page.tsx', 'features/clinic/AuditLogView.tsx', 'features/clinic/ClinicianCard.tsx'];
 
 const REVIEWER_SOURCE = REVIEWER_FILES.map(read).join('\n');
 const AUDIT_SOURCE = AUDIT_FILES.map(read).join('\n');
@@ -53,8 +54,10 @@ const ALLOWED_REVIEWER_DATA_FUNCTIONS = [
   'getFlaggedPrescription',
   'confirmPrescriptionFields',
   'returnPrescriptionToClinic',
+  // CR-115: the dashboard card. Returns only the caller's own account (name, roles, counts), no patient.
+  'getClinicianProfile',
 ];
-const ALLOWED_AUDIT_DATA_FUNCTIONS = ['getAuditLog'];
+const ALLOWED_AUDIT_DATA_FUNCTIONS = ['getAuditLog', 'getClinicianProfile'];
 const ALLOWED_SESSION_FUNCTIONS = ['getSession', 'getRoleOptions'];
 
 // Every other named export lib/data actually publishes (docs/SCREENS.md appendix) — none of these
@@ -118,7 +121,7 @@ describe('reviewer (G1s/G2s/G3s) module graph — clinic reviewer functions plus
 });
 
 describe('X1 (admin audit log) module graph — getAuditLog only, no reviewer function, no getPatient', () => {
-  it('every name imported from @/lib/data is exactly getAuditLog', () => {
+  it('every name imported from @/lib/data is getAuditLog, or (CR-115) the caller’s own profile', () => {
     const imported = importedNamesFrom(AUDIT_SOURCE, /^@\/lib\/data$/);
     expect(imported.length).toBeGreaterThan(0);
     for (const name of imported) expect(ALLOWED_AUDIT_DATA_FUNCTIONS).toContain(name);
@@ -126,7 +129,7 @@ describe('X1 (admin audit log) module graph — getAuditLog only, no reviewer fu
 
   it('no reviewer clinic function or forbidden function appears in X1’s source (comments explaining the masked-name gap excepted)', () => {
     const code = stripComments(AUDIT_SOURCE);
-    for (const name of [...ALLOWED_REVIEWER_DATA_FUNCTIONS, ...FORBIDDEN_DATA_FUNCTIONS]) {
+    for (const name of [...ALLOWED_REVIEWER_DATA_FUNCTIONS.filter((n) => n !== 'getClinicianProfile'), ...FORBIDDEN_DATA_FUNCTIONS]) {
       expect(new RegExp(`\\b${name}\\b`).test(code), name).toBe(false);
     }
   });

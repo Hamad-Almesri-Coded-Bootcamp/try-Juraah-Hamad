@@ -63,6 +63,7 @@ export const getReviewQueue: DataApi['getReviewQueue'] = async (...args) => (awa
 export const getFieldConfirmationQueue: DataApi['getFieldConfirmationQueue'] = async (...args) => (await impl()).getFieldConfirmationQueue(...args);
 export const getAlertForReview: DataApi['getAlertForReview'] = async (...args) => (await impl()).getAlertForReview(...args);
 export const submitReviewDecision: DataApi['submitReviewDecision'] = async (...args) => (await impl()).submitReviewDecision(...args);
+export const getClinicianProfile: DataApi['getClinicianProfile'] = async (...args) => (await impl()).getClinicianProfile(...args);
 export const getFlaggedPrescription: DataApi['getFlaggedPrescription'] = async (...args) => (await impl()).getFlaggedPrescription(...args);
 export const confirmPrescriptionFields: DataApi['confirmPrescriptionFields'] = async (...args) => (await impl()).confirmPrescriptionFields(...args);
 export const returnPrescriptionToClinic: DataApi['returnPrescriptionToClinic'] = async (...args) => (await impl()).returnPrescriptionToClinic(...args);

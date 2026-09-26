@@ -234,6 +234,20 @@ export function localizePersonName(name: string | undefined | null, locale: Loca
 }
 
 /** The first word of a name, localised (greetings, "X's medicines"). */
+/** CR-115: a person's initials for the clinic dashboard avatar. The first and last name's first
+ * letters, the title dropped (either language) and a leading article ("ال", "Al-") skipped, so
+ * "Khaled Al-Rasheed" reads "KR" and "خالد … الرشيد" reads "خر". Takes the name already in the
+ * reader's language. */
+export function personInitials(name: string | undefined | null): string {
+  const words = (name ?? '').trim().split(/\s+/).filter((w) => w && !TITLE_EN[w] && !/^(Dr\.|Eng\.)$/.test(w));
+  if (words.length === 0) return '';
+  const letter = (word: string) => Array.from(word.replace(/^(ال|Al-|al-)/u, '') || word)[0] ?? '';
+  const first = letter(words[0]!);
+  const last = words.length > 1 ? letter(words[words.length - 1]!) : '';
+  // A zero-width non-joiner keeps two Arabic initials apart (خ‌ر, not the word خر); Latin ignores it.
+  return last ? `${first}\u200C${last}`.toUpperCase() : first.toUpperCase();
+}
+
 export function localizeFirstName(name: string | undefined | null, locale: Locale): string {
   const full = localizePersonName(name, locale);
   return full.split(/\s+/).find((w) => !TITLE_EN[w] && !/^(Dr\.|Eng\.)$/.test(w)) ?? full;

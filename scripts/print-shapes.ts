@@ -1,5 +1,5 @@
 /**
- * Verification: calls every one of the 55 published functions with a seeded argument, under the
+ * Verification: calls every one of the 56 published functions with a seeded argument, under the
  * seeded session each needs ("as حمد", "as سارة", "as عبدالله", "as ناصر", "as د. خالد", "as م.
  * دانة" — docs/briefs/WP1.md §8), and prints `name → JSON`. Also writes `tests/fixtures/shapes.json`
  * so `scripts/guards/seed-invariants.ts` (guard S, item h) can scan every returned shape for a
@@ -169,6 +169,9 @@ async function main() {
   await record('getFieldConfirmationQueue (as د. خالد)', 'khalidReviewer', () => data.getFieldConfirmationQueue());
   await record('getAlertForReview(ia-001, as د. خالد)', 'khalidReviewer', () => data.getAlertForReview('ia-001'));
   await record('submitReviewDecision(ia-001, as د. خالد)', 'khalidReviewer', () => data.submitReviewDecision('ia-001', 'confirmed', 'ملاحظة المراجع'));
+  // CR-115: the clinician's own profile, as the reviewer and as the admin-only account.
+  await record('getClinicianProfile (as د. خالد)', 'khalidReviewer', () => data.getClinicianProfile());
+  await record('getClinicianProfile (as م. دانة)', 'dana', () => data.getClinicianProfile());
   await record('getFlaggedPrescription(rx-006, as د. خالد)', 'khalidReviewer', () => data.getFlaggedPrescription('rx-006'));
   // CR-060 (Gate 5): a confirm carrying ALL FIVE values (CR-002 invariant (1) — the database refuses a
   // confirmed record without them). `drug` keeps the stored genericName: the mock replaces `drug`

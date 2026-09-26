@@ -4,7 +4,7 @@
  * merge, not by the build, and its runtime proof (tests/integration/enforcement/audit.test.ts)
  * needs a database. This file runs in `npm test` and checks two things the database cannot see:
  *
- *  1. The migration is what the notes say: the last file, one restrictive INSERT policy for
+ *  1. The migration is what the notes say: no later file touches a policy, one restrictive INSERT policy for
  *     jurah_app, idempotent, and nothing that weakens RLS.
  *  2. The seam's writers fit the policy. 0014 refuses, from jurah_app, a row naming the agent
  *     unless it comes from withSystem() as prescription_discontinued (D-025), and every
@@ -35,10 +35,19 @@ function codeBody(src: string): string {
 }
 
 describe('CR-061 · migration 0014, as written', () => {
-  it('is the newest migration and the only 0014', () => {
+  it('is the only 0014, and no later migration touches an audit policy or RLS', () => {
     const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
     expect(files.filter((f) => f.startsWith('0014_'))).toEqual(['0014_audit_insert_actor.sql']);
-    expect(files.at(-1)).toBe('0014_audit_insert_actor.sql');
+    // "The last file" was the rule while 0014 was newest; CR-115's 0015 followed. What it protected
+    // still holds: nothing after 0014 may drop or recreate a policy, touch audit_events' policies, or
+    // weaken row-level security.
+    const later = files.slice(files.indexOf('0014_audit_insert_actor.sql') + 1);
+    for (const f of later) {
+      const body = sqlBody(readFileSync(`${MIGRATIONS}/${f}`, 'utf8'));
+      expect(body, f).not.toMatch(/\b(drop|create|alter) policy\b/);
+      expect(body, f).not.toMatch(/\bon audit_events\b/);
+      expect(body, f).not.toMatch(/(disable|no force) row level security/);
+    }
   });
 
   it('holds exactly one drop-if-exists and one restrictive INSERT policy for jurah_app on audit_events', () => {

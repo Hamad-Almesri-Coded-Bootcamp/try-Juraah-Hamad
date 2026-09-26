@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-09-26",
+    "scope": "app",
+    "macrostructure": "Daylight (app), clinic: profile row + statistic strip in one grouped card atop the queues and the audit log; G2s decision card reframed as agree/disagree with the AI finding",
+    "theme": "project design system (docs/design-system) + styles/daylight.css theme layer (one added class: .jr-avatar)",
+    "theme_axes": "light / geometric-sans display (Readex Pro) over humanist body (IBM Plex) / cool (navy)",
+    "enrichment": "none (app pages; initials avatar, no photo)",
+    "brief": "Jur'ah clinic: doctor/admin dashboard feel, AI-raised marker, required justification (CR-115)"
+  },
+  {
     "date": "2026-09-24",
     "scope": "app",
     "macrostructure": "Daylight (app): sky header + sheet, grouped cards; landing: sky hero + bridge + numbered steps",

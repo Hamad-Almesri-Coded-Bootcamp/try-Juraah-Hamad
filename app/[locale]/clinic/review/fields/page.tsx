@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { isLocale } from '@/i18n/locale';
-import { getReviewQueue, getFieldConfirmationQueue } from '@/lib/data';
+import { getReviewQueue, getFieldConfirmationQueue, getClinicianProfile } from '@/lib/data';
 import { AppBar } from '@/components/ui/AppBar';
 import { LanguageSwitch } from '@/features/shell/LanguageSwitch';
 import { LoadingState } from '@/components/ui/LoadingState';
@@ -49,10 +49,10 @@ export default async function FieldConfirmationQueuePage({
     );
   }
 
-  const [findings, fields] = await Promise.all([getReviewQueue(), getFieldConfirmationQueue()]);
+  const [findings, fields, profile] = await Promise.all([getReviewQueue(), getFieldConfirmationQueue(), getClinicianProfile()]);
 
   return (
-    <ReviewerQueueShell active="fields" findingsCount={findings.length} fieldsCount={fields.length} locale={locale}>
+    <ReviewerQueueShell active="fields" findingsCount={findings.length} fieldsCount={fields.length} locale={locale} dashboard={{ profile, findings }}>
       <FieldQueueList items={fields} locale={locale} hrefBuilder={(item) => `/${locale}/clinic/review/fields/${item.prescriptionId}`} />
     </ReviewerQueueShell>
   );

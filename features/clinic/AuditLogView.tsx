@@ -38,6 +38,7 @@
  * column wider than its track (ActivityRow.css).
  */
 import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { Select, type SelectOption } from '@/components/ui/Select';
 import { ActivityRow } from '@/components/ui/ActivityRow';
 import { InlineNotice } from '@/components/ui/InlineNotice';
@@ -93,11 +94,14 @@ export function AuditLogView({
   locale,
   filters,
   basePath,
+  header,
 }: {
   events: AuditLogRow[];
   locale: Locale;
   filters: AuditFilters;
   basePath: string;
+  /** CR-115: the dashboard card, rendered above the filters inside this view's own padding. */
+  header?: ReactNode;
 }) {
   const router = useRouter();
 
@@ -159,6 +163,7 @@ export function AuditLogView({
 
   return (
     <div className="@container flex flex-col gap-5 px-3 pb-5 pt-2 tablet:px-5">
+      {header}
       <div className="jr-group grid grid-cols-2 gap-3 p-4 @[720px]:grid-cols-3">
         <Select
           label={t(copy.clinic.x1FilterTypeLabel, locale)}

@@ -8,7 +8,7 @@
  */
 import { REFERENCE_NOW } from '@/lib/config';
 import type { InteractionAlert, Prescription } from '@/types/contracts';
-import type { AlertReviewView, DrugCheckOutcome, FieldQueueItem, ReviewQueueItem } from '@/types/views';
+import type { AlertReviewView, ClinicianProfile, DrugCheckOutcome, FieldQueueItem, ReviewQueueItem } from '@/types/views';
 
 /** getAlerts — forbidden and "none" are the same empty list. */
 export function alertsRefusal(): InteractionAlert[] {
@@ -28,6 +28,11 @@ export function drugCheckRefusal(): DrugCheckOutcome {
 /** getReviewQueue — any session that is not a reviewer (E-28, E-36). */
 export function reviewQueueRefusal(): ReviewQueueItem[] {
   return [];
+}
+
+/** getClinicianProfile (CR-115) — any session that is not a reviewer or an admin. */
+export function clinicianProfileRefusal(): ClinicianProfile | null {
+  return null;
 }
 
 /** getFieldConfirmationQueue — any session that is not a reviewer. */

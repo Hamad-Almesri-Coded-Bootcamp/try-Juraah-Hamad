@@ -143,10 +143,12 @@ test.describe('G1s — reviewer queue, interaction findings', () => {
     // Clicks the visible <label> text, not the underlying `role=radio` input: ChoiceGroup's own
     // anatomy (docs/design-system/bundle.css) makes the real `<input>` visually hidden and
     // positioned under its label, so a real user (and this test) interacts with the label.
-    await page.getByText(copy.clinic.fieldsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
+    // Scoped to the switch's own fieldset: the CR-115 dashboard card above it uses the same words.
+    const queueSwitch = () => page.getByRole('group', { name: copy.clinic.queueSwitchLabel.ar });
+    await queueSwitch().getByText(copy.clinic.fieldsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review\/fields(\/|$)/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle');
-    await page.getByText(copy.clinic.findingsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
+    await queueSwitch().getByText(copy.clinic.findingsOptionTemplate.ar.replace(' ({count})', ''), { exact: false }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review$/, { timeout: 15_000 });
   });
 });
@@ -234,16 +236,29 @@ test('G2s — confirm ia-001 → back to G1s, item gone → audit log gains aler
   if (await item.isVisible()) {
     await item.click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review\/ia-001$/, { timeout: 15_000 });
-    // sourceCitation TO_BE_SUPPLIED → the honest line, never an invented citation.
-    await expect(page.getByText(copy.safety.c2SourceUnverified.ar)).toBeVisible();
+    // CR-113: ia-001's pair has why-data, so "Why they interact" takes the Source card's place and
+    // carries DDInter's own citation; the alert's TO_BE_SUPPLIED citation is never shown as a source.
+    // (This line asserted the Source card before CR-113 and was left stale on main.)
+    await expect(page.getByRole('heading', { name: copy.clinic.whyHeading.ar })).toBeVisible();
+    await expect(page.getByText('[TO BE SUPPLIED]')).toHaveCount(0);
     // The decision buttons open a client-side Sheet: a click that lands before the new document has
     // hydrated is dropped and no dialog ever appears (the same race as day.spec.ts's "return to
     // today" — see docs/VERIFICATION.md, "Responsive pass — results"). Let the client chunks settle
     // first so the click reaches a live handler.
     await page.waitForLoadState('networkidle');
+    // CR-115: the finding says the AI raised it.
+    await expect(page.getByText(copy.clinic.aiRaisedTag.ar, { exact: true })).toBeVisible();
+    // CR-115: the justification is required. With the field blank, the decision opens no Sheet and
+    // the error sits beside the field (the runtime proof beside the data layer's own refusal).
+    await page.getByRole('button', { name: copy.clinic.g2sConfirmButton.ar, exact: true }).click();
+    await expect(page.getByText(copy.clinic.g2sNoteRequiredError.ar)).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const justification = 'يرفع هذا الجمع خطر النزيف، ويُستبدل الإيبوبروفين بالباراسيتامول.';
+    await page.getByLabel(new RegExp(copy.clinic.g2sNoteLabel.ar)).fill(justification);
     await page.getByRole('button', { name: copy.clinic.g2sConfirmButton.ar, exact: true }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(justification)).toBeVisible();
     await sheet.getByRole('button', { name: copy.clinic.g2sSheetConfirmLabel.ar, exact: true }).click();
     await expect(page).toHaveURL(/\/ar\/clinic\/review$/, { timeout: 15_000 });
   }

@@ -18,7 +18,7 @@ import { daysBetween, REFERENCE_DATE } from '@/lib/schedule/dates';
 import { getStore } from './mock/store';
 import { canReadPatient } from './mock/access';
 import { append } from './mock/audit';
-import { civilIdForSession, maskedNameFor } from './mock/accounts';
+import { civilIdForSession, findAccountById, maskedNameFor } from './mock/accounts';
 import { maskName } from '@/lib/format/maskedName';
 import {
   acceptInvitation as mockAccept,
@@ -37,7 +37,7 @@ import { applySettingsPatch } from './mock/settings';
 import { invitationRefusal, settingsRefusal } from './refusals';
 import { enableCalendarSyncRefusal, requestPushPermissionRefusal, startMessagingLinkRefusal } from './refusals/channels'; // WP6
 import { calendarSubscriptionRefusal, refillOverviewRefusal, refillRequestsRefusal } from './refusals/reads-supply'; // WP3c
-import { alertRefusal, alertReviewRefusal, alertsRefusal, drugCheckRefusal, fieldQueueRefusal, flaggedPrescriptionRefusal, reviewQueueRefusal } from './refusals/reads-clinic'; // WP3b
+import { alertRefusal, alertReviewRefusal, alertsRefusal, clinicianProfileRefusal, drugCheckRefusal, fieldQueueRefusal, flaggedPrescriptionRefusal, reviewQueueRefusal } from './refusals/reads-clinic'; // WP3b
 import { activityRefusal, auditLogRefusal, caregiverLinkRefusal, caregiversRefusal, messagingLinkRefusal, patientRefusal, pendingInvitationsRefusal, pushStateRefusal, snapshotRefusal } from './refusals/reads-ambient'; // WP3d
 // WP3a (P2): the prescriptions-and-doses refusal literals, shared with lib/data/pg (D-022).
 import { doseHistoryRefusal, dosesWithPrescriptionRefusal, extractionRefusal, prescriptionRefusal, prescriptionsRefusal } from './refusals/reads-rx';
@@ -49,6 +49,7 @@ import type {
   AlertReviewView,
   CaregiverLinkView,
   CaregiverView,
+  ClinicianProfile,
   DoseWithPrescription,
   DrugCheckOutcome,
   FieldQueueItem,
@@ -637,17 +638,43 @@ export const submitReviewDecision: DataApi['submitReviewDecision'] = async (aler
   const store = getStore();
   const s = await session();
   if (!s || s.role !== 'reviewer') return;
+  // CR-115: the doctor's justification is required. A blank one is refused like any other refused
+  // write: nothing changes and no audit event is written.
+  if (typeof note !== 'string' || note.trim() === '') return;
   const alert = store.alerts.find((a) => a.id === alertId);
   if (!alert) return;
   alert.reviewStatus = 'reviewed';
   alert.reviewerDecision = decision;
-  alert.reviewerNote = note;
+  alert.reviewerNote = note.trim();
   alert.reviewedAt = REFERENCE_NOW;
   alert.reviewedBy = s.subjectId; // Account.id, never the Civil ID (CR-028)
   append(store, {
     scope: 'patient', patientId: alert.patientId, actor: { role: 'reviewer', id: s.subjectId }, type: 'alert_reviewed',
     message: `مراجعة تنبيه — ${decision === 'confirmed' ? 'تأكيد' : 'إخلاء'}`, createdAt: REFERENCE_NOW, relatedId: alertId,
   });
+};
+
+/** CR-115: the signed-in clinician's own name, clinic roles and recorded decisions. Keyed on the
+ * session's account id (a reviewer's or admin's `subjectId`); never returns the Civil ID. */
+export const getClinicianProfile: DataApi['getClinicianProfile'] = async () => {
+  const store = getStore();
+  const s = await session();
+  if (!s || (s.role !== 'reviewer' && s.role !== 'admin')) return clinicianProfileRefusal();
+  const account = findAccountById(store, s.subjectId);
+  if (!account || !account.roles.includes(s.role)) return clinicianProfileRefusal();
+  const mine = store.alerts.filter((a) => a.reviewStatus === 'reviewed' && a.reviewedBy === account.id);
+  const fields = store.prescriptions.filter((p) => p.fieldReviewedBy === account.id);
+  const profile: ClinicianProfile = {
+    name: account.name,
+    roles: account.roles.filter((r): r is 'reviewer' | 'admin' => r === 'reviewer' || r === 'admin'),
+    decisions: {
+      confirmed: mine.filter((a) => a.reviewerDecision === 'confirmed').length,
+      cleared: mine.filter((a) => a.reviewerDecision === 'cleared').length,
+      fieldsConfirmed: fields.filter((p) => p.fieldReviewStatus === 'confirmed').length,
+      fieldsReturned: fields.filter((p) => p.fieldReviewStatus === 'returned').length,
+    },
+  };
+  return profile;
 };
 
 export const getFlaggedPrescription: DataApi['getFlaggedPrescription'] = async (prescriptionId) => {

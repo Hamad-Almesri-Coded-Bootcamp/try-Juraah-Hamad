@@ -30,7 +30,7 @@ const FORBIDDEN_DATA_FUNCTIONS = [
   'getCaregivers', 'lookupMaskedName', 'inviteCaregiver', 'cancelInvitation', 'revokeCaregiver',
   'getPendingInvitationsForSubject', 'getCaregiverLink', 'selfUnlink', 'getReviewQueue',
   'getFieldConfirmationQueue', 'getAlertForReview', 'submitReviewDecision', 'getFlaggedPrescription',
-  'confirmPrescriptionFields', 'returnPrescriptionToClinic', 'getAuditLog', 'readLastKnownSnapshot',
+  'confirmPrescriptionFields', 'returnPrescriptionToClinic', 'getAuditLog', 'getClinicianProfile', 'readLastKnownSnapshot',
 ];
 
 function importedNamesFrom(source: string, moduleSpecifierPattern: RegExp): string[] {

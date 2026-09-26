@@ -31,7 +31,8 @@ export function ReviewQueueList({ items, locale, hrefBuilder }: { items: ReviewQ
           severity={item.severity}
           drugs={item.drugNames}
           reviewStatus="pending_medical_review"
-          metaLabel={`${localizeFirstName(item.patientFirstName, locale)} · ${waitedLabel(item.waitedMinutes, locale)}`}
+          // CR-115: every finding here was raised by the AI screening, and the row says so first.
+          metaLabel={`${t(copy.clinic.aiRaisedShort, locale)} · ${localizeFirstName(item.patientFirstName, locale)} · ${waitedLabel(item.waitedMinutes, locale)}`}
           href={hrefBuilder(item)}
           lang={locale}
         />

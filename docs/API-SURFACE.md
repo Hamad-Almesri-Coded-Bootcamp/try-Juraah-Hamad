@@ -1,6 +1,6 @@
 # Jur'ah (جرعة) — Phase 2 API Surface
 
-**This table is the contract between the two phases.** Nothing on it may change shape, and nothing may be added that no screen calls. Every function below is verbatim from `lib/session/api.ts` (5) and `lib/data/api.ts` (50) — the same 55 `docs/BACKEND-NOTES.md` §1 lists. The **Serves it** column names the query or transaction behind the function; **Roles** are the sessions the database lets through (everything else gets the mock's refusal shape, D-022, and the row in `ENFORCEMENT.md`); **Tables** are what it touches; **Audit** is the `AuditEvent.type` the backend writes, or `—`.
+**This table is the contract between the two phases.** Nothing on it may change shape, and nothing may be added that no screen calls. Every function below is verbatim from `lib/session/api.ts` (5) and `lib/data/api.ts` (51) — the same 56 `docs/BACKEND-NOTES.md` §1 lists. The **Serves it** column names the query or transaction behind the function; **Roles** are the sessions the database lets through (everything else gets the mock's refusal shape, D-022, and the row in `ENFORCEMENT.md`); **Tables** are what it touches; **Audit** is the `AuditEvent.type` the backend writes, or `—`.
 
 Conventions used in every row:
 - `S` = the verified session set by `withSession()` into `jurah.session` (D-017). `S.patient` = a patient session for that patient; `S.cg(active)` = a caregiver session whose row is `active` and linked to that patient; `S.reviewer(queue)` = a reviewer with an item in one of the two queues for that patient; `S.self` = the subject named in the argument.
@@ -9,7 +9,7 @@ Conventions used in every row:
 
 ---
 
-## A. The seam — 55 server functions (unchanged signatures)
+## A. The seam — 56 server functions (unchanged signatures, except CR-115's required review note)
 
 ### Session module (`lib/session/api.ts`) — 5
 
@@ -119,7 +119,8 @@ Conventions used in every row:
 | `getReviewQueue()` | `select … where review_status='pending_medical_review' order by severity rank, created_at`, joined to `patients.name` (first token) and `prescriptions.generic_name`; `waitedMinutes` computed in SQL from `REFERENCE_NOW` (passed in). | `S.reviewer` | `interaction_alerts`, `patients`, `prescriptions` | — |
 | `getFieldConfirmationQueue()` | `(needs_review and field_review_status='pending') or field_review_status='returned'`; `uncertainFields` derived from null columns (never `brandName`, as the mock); `hasSourceImage` from `prescription_drafts.image is not null` (CR-050). | `S.reviewer` | `prescriptions`, `patients`, `prescription_drafts` | — |
 | `getAlertForReview(alertId)` | **Only** when `review_status='pending_medical_review'` (**D-014 — the mock returns سارة's context for the reviewed `ia-002`; the backend returns the empty view**); alert + involved prescriptions + `PatientContext` (active prescriptions, 14-day doses, `trackingOn`). | `S.reviewer(queue)` | `interaction_alerts`, `prescriptions`, `doses`, `settings` | — |
-| `submitReviewDecision(alertId, decision, note)` | Guard `alert_review_once`: the five review fields writable only while `pending_medical_review`; a second call **raises** (the mock overwrites — tightened); `reviewed_by = S.subjectId` (Account id, CR-028). | `S.reviewer` | `interaction_alerts` | `alert_reviewed` |
+| `submitReviewDecision(alertId, decision, note)` | CR-115: `note` is required; a blank or whitespace-only note is refused in the seam before any query. Guard `alert_review_once`: the five review fields writable only while `pending_medical_review`; a second call **raises** (the mock overwrites — tightened); `reviewed_by = S.subjectId` (Account id, CR-028). | `S.reviewer` | `interaction_alerts` | `alert_reviewed` |
+| `getClinicianProfile()` | CR-115: `select clinician_profile()` (`SECURITY DEFINER`, migration 0015): the session account's own `name`, clinic `roles`, and counts of `interaction_alerts.reviewed_by` / `prescriptions.field_reviewed_by` naming it. Never `civil_id`. Until 0015 is applied the seam maps SQLSTATE 42883 to the refusal (`null`). | `S.reviewer`, `S.admin` | `accounts`, `interaction_alerts`, `prescriptions` (through the function only) | — |
 | `getFlaggedPrescription(prescriptionId)` | `select … where id and needs_review`. | `S.reviewer` | `prescriptions` | — |
 | `confirmPrescriptionFields(prescriptionId, values, note)` | Transaction: **only** `drug.brandName`, `drug.strengthMg`, `frequencyPerDay`, `startDate`, `doseTimes` accepted from `values` (the seam whitelists; the guard `prescription_clinical_fields_locked` raises on any other clinical column change outside this path); set `needs_review=false`, `field_review_status='confirmed'`, reviewer fields; delete the prescription's `upcoming` doses and regenerate — atomically. Refused if not `pending`. **TC-IX-06 (AP-10):** after the commit the confirmed prescription is screened, in the patient's language, or held. | `S.reviewer` | `prescriptions`, `doses`, `settings` | `prescription_field_confirmed` |
 | `returnPrescriptionToClinic(prescriptionId, reason)` | `field_review_status='returned'`, note, reviewer fields; refused if not `pending` (one-shot). | `S.reviewer` | `prescriptions` | `prescription_returned_to_clinic` |

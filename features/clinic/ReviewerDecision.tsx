@@ -4,15 +4,17 @@
  * G2s — reviewer decision (`/clinic/review/[alertId]`), Daylight (CR-071; board V2Clinic). It leads
  * with the finding (the danger band), then the bridge between the two prescriptions (public and
  * private sector, the product's core story), the source citation, the patient's context (read-only),
- * and the decision: an optional note and two equal choices, each confirmed in a `Sheet` that names
- * its consequence. Only `submitReviewDecision` is ever called: a reviewer changes the review state and
+ * and the decision: the doctor's required justification and two equal choices, each confirmed in a
+ * `Sheet` that names its consequence and repeats the justification. Only `submitReviewDecision` is ever called: a reviewer changes the review state and
  * nothing else; no `Prescription` field and no `Dose` is editable from this screen (rule 1 / G1).
  *
  * Three shapes from one markup, keyed off this component's own container width (so the 1280 board
  * renders at 1280, not only at 1440 — D-009):
  * - a phone column: finding, bridge, source, patient context, decision;
- * - from `@[720px]`: the decision column beside the read-only patient context, with the decision
- *   card sticky at the bottom of the viewport, so it stays in reach while the reviewer reads;
+ * - from `@[720px]`: the decision column beside the read-only patient context. The decision card is
+ *   sticky at the bottom of the viewport only on a screen at least 1100px tall (CR-115): with the
+ *   required justification it grew, and on a 900px laptop it covered the AI's explanation it asks
+ *   the doctor to read first;
  * - from `@[1000px]` (a 1280 window minus the rail): the reviewer's own queue as a first column
  *   (ReviewerDesktop, V2Clinic), the open item marked, never linked, nothing in it writes.
  * On a phone the decision column's wrapper is `display: contents`, so `order` can put the patient
@@ -20,6 +22,12 @@
  *
  * `patientContext.trackingOn` decides whether `DoseTimeline` renders at all, and each row's own
  * `tracked` whether it carries a pill — never a check on the status word (rule 3).
+ *
+ * CR-115 (the owner, 2026-09-26): every finding is marked as raised by the AI screening (true of
+ * every alert: only the agent inserts one), its description reads as the AI's explanation, and the
+ * decision asks whether the doctor agrees with the AI. The justification is required: pressing a
+ * decision with it blank shows the error next to the field and opens no Sheet (UX §64); the data
+ * layer refuses a blank one too.
  */
 import { useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,6 +39,7 @@ import { Monogram } from '@/components/ui/Monogram';
 import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
+import { Tag } from '@/components/ui/Tag';
 import { submitReviewDecision } from '@/lib/data';
 import { copy, t } from '@/i18n';
 import { TO_BE_SUPPLIED } from '@/lib/config';
@@ -64,6 +73,7 @@ export function ReviewerDecision({
   const router = useRouter();
   const ids = useId();
   const [note, setNote] = useState('');
+  const [noteError, setNoteError] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<'confirmed' | 'cleared' | null>(null);
   const [pending, startTransition] = useTransition();
   const { alert, involvedPrescriptions, patientContext } = view;
@@ -71,12 +81,24 @@ export function ReviewerDecision({
   const queueItem = queue?.find((item) => item.alertId === alert.id);
   const sectors = new Set(involvedPrescriptions.map((rx) => rx.source.sector));
 
+  const justification = note.trim();
+
+  /** Opens the Sheet only with a justification written; otherwise the field says what is missing. */
+  function choose(decision: 'confirmed' | 'cleared') {
+    if (!justification) {
+      setNoteError(true);
+      document.getElementById(`${ids}-note`)?.focus();
+      return;
+    }
+    setPendingDecision(decision);
+  }
+
   function commit() {
     const decision = pendingDecision;
-    if (!decision) return;
+    if (!decision || !justification) return;
     startTransition(() => {
       void (async () => {
-        await submitReviewDecision(alert.id, decision, note || undefined);
+        await submitReviewDecision(alert.id, decision, justification);
         router.push(backHref);
       })();
     });
@@ -110,7 +132,7 @@ export function ReviewerDecision({
                   severity={item.severity}
                   drugs={item.drugNames}
                   reviewStatus="pending_medical_review"
-                  metaLabel={`${localizeFirstName(item.patientFirstName, locale)} · ${waitedLabel(item.waitedMinutes, locale)}`}
+                  metaLabel={`${t(copy.clinic.aiRaisedShort, locale)} · ${localizeFirstName(item.patientFirstName, locale)} · ${waitedLabel(item.waitedMinutes, locale)}`}
                   href={current || !queueBasePath ? undefined : `${queueBasePath}/${item.alertId}`}
                   lang={locale}
                 />
@@ -124,26 +146,34 @@ export function ReviewerDecision({
   const decision = (
     <section
       aria-labelledby={`${ids}-decision`}
-      className="@container jr-group order-2 flex flex-col gap-3 p-4 @[720px]:sticky @[720px]:bottom-3 @[720px]:mt-auto @[720px]:shadow-md"
+      className="@container jr-group order-2 flex flex-col gap-3 p-4 @[720px]:mt-auto @[720px]:shadow-md @[720px]:[@media(min-height:1100px)]:sticky @[720px]:[@media(min-height:1100px)]:bottom-3"
     >
       <h2 id={`${ids}-decision`} className="type-h2">
         {t(copy.clinic.g2sDecisionHeading, locale)}
       </h2>
+      <p className="type-body-small text-ink-muted">{t(copy.clinic.g2sDecisionIntro, locale)}</p>
       <TextField
+        id={`${ids}-note`}
         label={t(copy.clinic.g2sNoteLabel, locale)}
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e) => {
+          setNote(e.target.value);
+          if (noteError && e.target.value.trim()) setNoteError(false);
+        }}
         placeholder={t(copy.clinic.g2sNotePlaceholder, locale)}
+        helperText={t(copy.clinic.g2sNoteHelper, locale)}
+        error={noteError ? t(copy.clinic.g2sNoteRequiredError, locale) : undefined}
+        required
         lang={locale}
       />
       {/* Two legitimate decisions, drawn as two equal options (UX §2; audit M2). The board draws
           confirm as `danger` and clear as `secondary`, logged in docs/DECISIONS.md. The weight of
           the choice lives in the Sheet that commits it, which names the consequence. */}
       <div className="grid gap-2 @[440px]:grid-cols-2">
-        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('confirmed')}>
+        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => choose('confirmed')}>
           {t(copy.clinic.g2sConfirmButton, locale)}
         </Button>
-        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => setPendingDecision('cleared')}>
+        <Button variant="secondary" size="lg" fullWidth lang={locale} onClick={() => choose('cleared')}>
           {t(copy.clinic.g2sClearButton, locale)}
         </Button>
       </div>
@@ -206,6 +236,12 @@ export function ReviewerDecision({
         {queuePane}
         <div className="contents @[720px]:flex @[720px]:min-w-0 @[720px]:flex-col @[720px]:gap-5 @[720px]:self-stretch">
           <section className="flex flex-col gap-2">
+            {/* CR-115: who raised it. Navy (info), never red: red stays for the finding itself. */}
+            <div className="flex flex-wrap gap-2 px-1">
+              <Tag tone="info" icon="search">
+                {t(copy.clinic.aiRaisedTag, locale)}
+              </Tag>
+            </div>
             <InteractionAlert
               severity={alert.severity}
               reviewStatus={alert.reviewStatus}
@@ -215,6 +251,12 @@ export function ReviewerDecision({
               lang={locale}
             />
             <p className="jr-num type-body-small px-1 text-ink-muted">{findingMeta}</p>
+            {alert.reviewStatus === 'pending_medical_review' ? (
+              <p className="flex items-start gap-2 px-1 text-ink-muted">
+                <Icon name="info" small />
+                <span className="type-body-small">{t(copy.clinic.g2sAiFindingNote, locale)}</span>
+              </p>
+            ) : null}
           </section>
 
           <section aria-labelledby={`${ids}-involved`} className="flex flex-col gap-2">
@@ -269,6 +311,12 @@ export function ReviewerDecision({
         }
       >
         <p className="type-body">{pendingDecision === 'confirmed' ? t(copy.clinic.g2sConfirmSheetBody, locale) : t(copy.clinic.g2sClearSheetBody, locale)}</p>
+        <div className="mt-3 flex flex-col gap-1 rounded-md bg-surface-app p-3">
+          <p className="type-caption text-ink-muted">{t(copy.clinic.g2sSheetJustificationLabel, locale)}</p>
+          <p className="type-body [overflow-wrap:anywhere]" dir="auto">
+            {justification}
+          </p>
+        </div>
       </Sheet>
     </div>
   );
