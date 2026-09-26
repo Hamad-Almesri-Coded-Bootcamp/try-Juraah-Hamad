@@ -37,7 +37,10 @@ describe('C3 — a forced rejection never leaves the screen stuck on "analysing"
 
     // Proves it does not hang: a stuck "analysing" would time this query out rather than resolve it.
     await screen.findByText(t(copy.supply.c3CouldNotIdentifyTitle, 'en'));
-    expect(screen.queryByText('Checking…')).not.toBeInTheDocument();
+    // The real analysing title this screen renders (ReadingCard, phase === 'analysing'), not the
+    // generic PhotoInput vocabulary word: that string never appears here, so asserting its absence
+    // could never fail and proves nothing.
+    expect(screen.queryByText(t(copy.supply.c3AnalysingTitle, 'en'))).not.toBeInTheDocument();
     // The generic transport-failure line, never the outcome-based could-not-identify body.
     expect(screen.getByText(t(copy.vocabulary.photoSendFailed, 'en'))).toBeInTheDocument();
     expect(screen.queryByText(t(copy.supply.c3CouldNotIdentifyBody, 'en'))).not.toBeInTheDocument();

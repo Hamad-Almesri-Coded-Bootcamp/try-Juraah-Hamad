@@ -82,10 +82,20 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
           }
           let status: InteractionAlertRecord['reviewStatus'] | undefined;
           if (result.verdict === 'interaction_found' && result.alertId) {
-            const alert = await getAlert(result.alertId);
-            if (seq !== requestSeq.current) return;
-            status = alert?.reviewStatus;
+            // Its own try/catch, separate from the outer one below (CR-110): checkDrugPhoto already
+            // succeeded with a real danger finding, so a failure here (a dropped connection reading
+            // the alert's review state) must never fall through to the outer catch and show the
+            // patient "We couldn't send the photo" — that would hide a correct danger finding behind
+            // a generic failure and invite a pointless retry. Show the result and its alert link with
+            // no reviewStatus instead.
+            try {
+              const alert = await getAlert(result.alertId);
+              status = alert?.reviewStatus;
+            } catch {
+              status = undefined;
+            }
           }
+          if (seq !== requestSeq.current) return; // superseded by a later photo
           setReviewStatus(status);
           setOutcome(result);
           setPhase('result');

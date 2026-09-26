@@ -23,9 +23,12 @@ export const supply = {
 
   // Analysing — UX Principles §5: say what is happening and roughly how long.
   c3AnalysingTitle: { ar: 'نتحقق من الدواء', en: 'Checking this medicine', placeholder: true },
+  // CR-110 (A5): the timing clause matches prescription.ts's b4AnalysingBody — VISION_TIMEOUT_MS
+  // (lib/agent-webhooks/index.ts) is this screen's real worst case too, not the "usually less than
+  // 30 seconds" guess a 45 s budget can outrun.
   c3AnalysingBody: {
-    ar: 'نقارنه بكل أدويتك الحالية. يستغرق هذا عادةً أقل من ٣٠ ثانية.',
-    en: 'We’re comparing it with all your current medicines. This usually takes less than 30 seconds.',
+    ar: 'نقارنه بكل أدويتك الحالية. قد يستغرق هذا حتى ٤٥ ثانية.',
+    en: 'We’re comparing it with all your current medicines. This can take up to 45 seconds.',
     placeholder: true,
   },
 
