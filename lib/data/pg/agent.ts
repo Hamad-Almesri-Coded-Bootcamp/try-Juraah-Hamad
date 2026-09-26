@@ -16,7 +16,9 @@
  *    DELETE on doses (D-025). The engine is lib/engine's (WP4b); there is no second engine here.
  *
  * G1: the only statement in this file that writes doses.status is `recordDoseStatus`, reachable
- * only from POST /api/agent/doses/{id}/status behind the agent bearer. Nothing here names a dose
+ * only from POST /api/agent/doses/{id}/status behind the agent bearer. It is the one path that
+ * RECORDS a status; CR-109's ./demo-reset.ts (a separate file) returns pt-03's doses to the
+ * un-recorded state and records nothing. Nothing here names a dose
  * word in a write except the status the agent itself reported; no statement turns a dose `missed`
  * on its own (rule 4). G12: payloads are built in lib/agent/notify.ts through lib/push/send.ts's
  * whitelist; this file only reads the targets, and only for ACTIVE caregivers.
@@ -41,7 +43,8 @@ import { screenOrHold, type ScreeningOutcome } from './screening';
 
 /** Parameterised ($n). Exported so a gate proof runs the very same text through the MCP connector. */
 export const PG_QUERIES_AGENT = {
-  // withAgent. The one dose-status write in the product. `source` is fixed here, never the body's.
+  // withAgent. The one write that RECORDS a dose status (CR-109's ./demo-reset.ts only un-records).
+  // `source` is fixed here, never the body's.
   recordDoseStatus: `
     update doses set status = $2::dose_status_t, recorded_at = $3::timestamptz, source = 'adherence_agent'
      where id = $1

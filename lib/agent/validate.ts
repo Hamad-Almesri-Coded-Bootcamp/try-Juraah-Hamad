@@ -47,7 +47,11 @@ function unknownKey(o: Obj, allowed: readonly string[], prefix = ''): Invalid | 
 // -------------------------------------------------------------------------------------------
 // POST /api/agent/doses/{doseId}/status
 // -------------------------------------------------------------------------------------------
-/** The three words that RECORD a dose. `upcoming` is not one: the agent never un-records a dose. */
+/**
+ * The three words that RECORD a dose. `upcoming` is not one: the adherence agent never un-records a
+ * dose here (only CR-109's pt-03 demo reset, POST /api/agent/demo/reset, returns doses to the
+ * un-recorded state).
+ */
 export const RECORDED_DOSE_WORDS = ['taken_on_time', 'taken_late', 'missed'] as const;
 export type RecordedDoseWord = (typeof RECORDED_DOSE_WORDS)[number];
 
@@ -296,4 +300,21 @@ export function parseVoiceTurnBody(body: unknown): Validation<VoiceTurnInput> {
   if (!isNonEmpty(reply)) return bad('reply', 'required');
   if (reply.length > 2000) return bad('reply', 'too_long');
   return good({ topic: topic as VoiceTopic, language, reply: reply.trim() });
+}
+
+// -------------------------------------------------------------------------------------------
+// POST /api/agent/demo/reset   (CR-109)
+// -------------------------------------------------------------------------------------------
+/**
+ * No body, or `{}`. Nothing a caller sends can choose a patient, a date, a dose or a word for a
+ * dose to become — every key is refused. `readJson` already turns "no body sent" and "not JSON"
+ * into `undefined`, exactly as it does for every other agent route (lib/agent/http.ts); both read
+ * as an empty body here, the same as `{}`.
+ */
+export function parseDemoResetBody(body: unknown): Validation<Record<string, never>> {
+  if (body === undefined) return good({});
+  if (!isObj(body)) return bad('body', 'not_an_object');
+  const extra = unknownKey(body, []);
+  if (extra) return extra;
+  return good({});
 }
