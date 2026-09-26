@@ -134,8 +134,12 @@ function api(id, name, method, url, position, jsonBody, opts) {
     options: { response: { response: { fullResponse: true, neverError: true } }, timeout: o.timeout || 15000 }
   };
   if (jsonBody) Object.assign(parameters, { sendBody: true, specifyBody: 'json', jsonBody });
-  return { parameters, id, name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position,
+  const node = { parameters, id, name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position,
            retryOnFail: (method === 'GET') && maxTries > 1, maxTries, waitBetweenTries: o.waitBetweenTries || 1000 };
+  // neverError covers HTTP statuses only: a timeout or a dropped connection still throws. A node whose
+  // failure must not stop the execution before 'Answer' says so with onError (final review, 2026-09-26).
+  if (o.onError) node.onError = o.onError;
+  return node;
 }
 
 /** A vision call. A5/A6 (2026-09-26): ONE try per model, never a same-model retry - on failure
@@ -412,7 +416,10 @@ const travel = {
     ifNode(TC(7), 'a danger finding?', '={{ $json.post }}', [420, -80]),
     // A5 fix: was api()'s 15000ms default, which the old (hand-picked) budget test never summed even
     // though this node sits on the critical path to 'Answer' whenever a danger finding posts an alert.
-    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}', { timeout: 6000 }),
+    // A thrown timeout or network error on the alert write must never lose the danger finding: with
+    // continueRegularOutput it reaches 'answer (deterministic)' as an error item (no statusCode 201),
+    // so the patient still gets interaction_found (without the alert link) and the run escalates.
+    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}', { timeout: 6000, onError: 'continueRegularOutput' }),
     code(TC(9), 'answer (deterministic)', TC_ANSWER, [860, -80]),
     respond(TC(10), 'Answer', [1080, -80]),
     respond(TC(11), 'Answer: invalid request', [-240, 120], 422),

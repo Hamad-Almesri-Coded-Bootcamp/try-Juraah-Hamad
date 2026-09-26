@@ -257,14 +257,54 @@ function resolveToIngredient(rawName, brandIndex, opts) {
  *   3. Neither field printed or legible at all -> unresolved, 'no_readable_name' (the photo carried
  *      nothing to look up - the caller's G5 path).
  */
+// Arabic print never matches (every list is keyed in Latin letters). Final review, 2026-09-26.
+const ARABIC_RUNS = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+/g;
+
 function resolveFields(fields, brandIndex, pendingNames, ingredientIndex, opts) {
-  const brand = fields && typeof fields.brandAsPrinted === 'string' ? fields.brandAsPrinted.trim() : '';
+  const rawBrand = fields && typeof fields.brandAsPrinted === 'string' ? fields.brandAsPrinted : '';
+  // A model that copies the Arabic print beside the Latin trade name ("Brufen بروفين") must not turn
+  // a readable bilingual box into a refusal: the Latin part is the brand. A brand printed ONLY in
+  // Arabic stays a printed brand that does not resolve - it never falls through to the model's
+  // ingredient reading (decision (d)).
+  const brand = rawBrand.replace(ARABIC_RUNS, ' ').replace(/\s+/g, ' ').trim() || rawBrand.trim();
   const ingredients = Array.isArray(fields && fields.ingredientsAsPrinted)
     ? fields.ingredientsAsPrinted.filter((x) => typeof x === 'string' && x.trim())
     : [];
+  const exactOnly = Object.assign({}, opts, { minLenForNearMiss: Infinity });
 
   if (brand) {
+    // A generic box: the brand field holds a plain ingredient name ("Warfarin"). Resolve it as that
+    // ingredient, exactly and from the index alone, before the brand lists - where SFDA's
+    // manufacturer-suffixed generics ("WARFARIN MACLEODS") would turn it into a "which one?"
+    // question. Only when no printed ingredient names anything else: a combination box printed with
+    // one ingredient as its brand line must never be screened as that single drug.
+    if (ingredientIndex) {
+      const generic = resolveToIngredient(brand, ingredientIndex, exactOnly);
+      if (generic.outcome === OUTCOME.RESOLVED && generic.ingredients.length === 1) {
+        const onlyThisDrug = ingredients.every((name) => {
+          const r = resolveToIngredient(name, ingredientIndex, exactOnly);
+          return r.outcome === OUTCOME.RESOLVED && r.ingredients.length === 1 && r.ingredients[0] === generic.ingredients[0];
+        });
+        if (onlyThisDrug) {
+          // Same labels as the brand path: 'generic' when a brand or SFDA row also owns this name,
+          // 'index_ingredient_name' when only the index knows it.
+          const owner = brandIndex && brandIndex.get(generic.matchedOn);
+          return Object.assign({}, generic, { via: owner && !owner.viaIndex ? 'generic' : 'index_ingredient_name' });
+        }
+      }
+    }
     const r = resolveToIngredient(brand, brandIndex, opts);
+    if (r.outcome === OUTCOME.RESOLVED && ingredientIndex) {
+      // The printed ingredients never resolve anything on their own (decision (d)), but they may
+      // veto: one that names a drug the brand does not contain means this box is not what the brand
+      // lookup says (a combination printed under one ingredient's name, a misread). Refuse rather
+      // than screen the wrong set.
+      const other = ingredients.find((name) => {
+        const p = resolveToIngredient(name, ingredientIndex, exactOnly);
+        return p.outcome === OUTCOME.RESOLVED && p.ingredients.some((k) => r.ingredients.indexOf(k) === -1);
+      });
+      if (other) return { outcome: OUTCOME.UNRESOLVED, reason: 'printed_ingredients_disagree', missing: other, input: brand };
+    }
     if (r.outcome === OUTCOME.RESOLVED || r.outcome === OUTCOME.NEEDS_CONFIRMATION) return r;
     if (pendingNames) {
       for (const key of candidateKeys(brand)) {
@@ -281,7 +321,6 @@ function resolveFields(fields, brandIndex, pendingNames, ingredientIndex, opts) 
   // above): pass a near-miss threshold no printed ingredient name can ever reach. A missing
   // ingredientIndex resolves nothing (fail closed) rather than silently falling back to the unsafe
   // combined map.
-  const exactOnly = Object.assign({}, opts, { minLenForNearMiss: Infinity });
   const parts = [];
   for (const name of ingredients) {
     const r = resolveToIngredient(name, ingredientIndex || new Map(), exactOnly);

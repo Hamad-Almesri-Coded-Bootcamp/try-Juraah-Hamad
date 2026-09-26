@@ -451,3 +451,40 @@ test('building one brand index never changes the shared brand-map rows', () => {
   buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE);
   assert.equal(JSON.stringify(BRANDS_JSON.brands), before);
 });
+
+// Final review (2026-09-26): the brand index as it SHIPS, with the whole SFDA list loaded.
+const SHIPPED_SFDA = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'sfda-brands.json'), 'utf8')).names;
+const shipped = (over) => check(Object.assign({ brandIndex: buildBrandIndex(BRANDS_JSON.brands, index, SHIPPED_SFDA) }, over));
+const read = (brandAsPrinted, ingredientsAsPrinted = []) => ({ isMedicine: true, brandAsPrinted, ingredientsAsPrinted, strengthAsPrinted: null });
+
+test('a bilingual Brufen box read as "Brufen بروفين" still finds the danger with Warfarin (pt-01)', () => {
+  const r = shipped({ visionRead: read('Brufen بروفين'), prescriptions: seedActive('pt-01') });
+  assert.equal(r.appOutcome.kind, 'identified');
+  assert.equal(r.appOutcome.verdict, 'interaction_found');
+  assert.ok(r.alert, 'the danger alert is raised');
+});
+
+test('a brand printed only in Arabic never falls through to the model\'s ingredient reading (decision (d))', () => {
+  const r = shipped({ visionRead: read('بروفين', ['Ibuprofen']), prescriptions: seedActive('pt-01') });
+  assert.notEqual(r.appOutcome.kind, 'identified');
+  assert.equal(r.alert, null);
+});
+
+test('a generic box ("Warfarin" in the brand field) resolves as the ingredient, not as a "which one?" over SFDA\'s generics', () => {
+  const r = shipped({ visionRead: read('Warfarin'), prescriptions: [rx('t-ibu', 'Ibuprofen')] });
+  assert.equal(r.appOutcome.kind, 'identified');
+  assert.equal(r.appOutcome.verdict, 'interaction_found');
+});
+
+test('the generic shortcut is refused when the printed ingredients name a second drug', () => {
+  const r = shipped({ visionRead: read('Ezetimibe', ['Ezetimibe', 'Simvastatin']), prescriptions: [] });
+  // never screened as plain ezetimibe: the printed Simvastatin vetoes a one-drug reading, so it refuses
+  assert.notEqual(r.appOutcome.kind, 'identified');
+  assert.equal(r.alert, null);
+});
+
+test('Panadol Extra on an empty profile (pt-06) answers no interaction with the shipped index', () => {
+  const r = shipped({ visionRead: read('Panadol Extra'), prescriptions: [] });
+  assert.equal(r.appOutcome.kind, 'identified');
+  assert.equal(r.appOutcome.verdict, 'no_interaction');
+});
