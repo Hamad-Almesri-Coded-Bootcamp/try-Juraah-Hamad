@@ -37,7 +37,10 @@ const SALT_FORMS = [
 
 // Dosage-form and packaging words that carry no identity information.
 const FORM_WORDS = [
-  'tablets', 'tablet', 'tabs', 'tab', 'capsules', 'capsule', 'caps', 'cap',
+  // 'caplet'/'caplets' (reviewer findings, 2026-09-26 "fix-data" pass): the SFDA brand builder's own
+  // FORM_WORD_PATTERNS (scripts/build-sfda-brands.js) already strips CAPLET(S) from trade names; this
+  // list normalises PRESCRIPTION generic names for the runtime lookup key and was missing the same word.
+  'tablets', 'tablet', 'tabs', 'tab', 'caplets', 'caplet', 'capsules', 'capsule', 'caps', 'cap',
   'film coated', 'film-coated', 'coated', 'prolonged release', 'modified release',
   'extended release', 'sustained release', 'slow release', 'delayed release',
   'effervescent', 'dispersible', 'chewable', 'sublingual', 'oral solution',

@@ -5,7 +5,7 @@
     "retrievedAt": "2026-09-26",
     "sha256": "90c6a59505e5ce7c8aaaf6548efe06bdfa30b02f12fadea4e4f86b9d1ac98010",
     "rows": 9112,
-    "names": 4873,
+    "names": 4844,
     "method": "Group raw SFDA rows by trade name with the row's own strength value(s), strength/unit tokens, bracketed pack counts, route/dosage-form words and phrases stripped (uppercased first, then punctuation normalised, a lone FOR/PER/WITH/OR left at an edge removed, spaces collapsed); scientific-name commas split at parenthesis depth zero (a short documented list of known comma-names is protected first) into a sorted, deduplicated, uppercased ingredient set per row, rows with no ingredient dropped; a trade name that strips to empty keeps the plain uppercased trade name; line-extension words (EXTRA, PLUS, FORTE, NIGHT, COLD & FLU, ADVANCE, XR, SR, ...) are not stripped."
   },
   "names": {
@@ -110,13 +110,13 @@
         "FLUOROMETHOLONE"
       ]
     ],
-    "PANDA EXTRA CAPLETS": [
+    "PANDA EXTRA": [
       [
         "CAFFEINE",
         "PARACETAMOL"
       ]
     ],
-    "PANDA CAPLET": [
+    "PANDA": [
       [
         "PARACETAMOL"
       ]
@@ -136,13 +136,13 @@
         "PARACETAMOL"
       ]
     ],
-    "PANADOL SINUS CAPLET": [
+    "PANADOL SINUS": [
       [
         "PARACETAMOL",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "PANADOL NIGHT CAPLET": [
+    "PANADOL NIGHT": [
       [
         "DIPHENHYDRAMINE HYDROCHLORIDE",
         "PARACETAMOL"
@@ -195,7 +195,7 @@
         "CHLORAMPHENICOL"
       ]
     ],
-    "PANADOL COLD & FLU CAPLET": [
+    "PANADOL COLD & FLU": [
       [
         "CHLORPHENIRAMINE MALEATE",
         "PARACETAMOL",
@@ -207,7 +207,7 @@
         "PARACETAMOL"
       ]
     ],
-    "OVITRELLE PRE FILLED SYRING": [
+    "OVITRELLE PRE FILLED": [
       [
         "CHORIOGONADOTROPIN ALFA"
       ]
@@ -238,7 +238,7 @@
         "OXALIPLATIN"
       ]
     ],
-    "PANADOL ACTIFAST TABLETE": [
+    "PANADOL ACTIFAST": [
       [
         "PARACETAMOL",
         "SODIUM BICARBONATE"
@@ -300,7 +300,7 @@
         "OFLOXACIN"
       ]
     ],
-    "OFLAM GRANULES": [
+    "OFLAM": [
       [
         "DICLOFENAC POTASSIUM"
       ]
@@ -544,7 +544,7 @@
         "IBUPROFEN"
       ]
     ],
-    "OMIPURE SOFT GELATIN": [
+    "OMIPURE": [
       [
         "OMEGA-3 POLYUNSATURATED FATTY ACIDS"
       ]
@@ -773,7 +773,7 @@
         "METOCLOPRAMIDE HYDROCHLORIDE"
       ]
     ],
-    "PRISTIQ EXTENDED RELEASE": [
+    "PRISTIQ": [
       [
         "DESVENLAFAXINE SUCCINATE"
       ]
@@ -1030,11 +1030,6 @@
         "MESALAZINE"
       ]
     ],
-    "PENTASA PROLONGED RELEASE GRANULES": [
-      [
-        "MESALAZINE"
-      ]
-    ],
     "PENTASA ENEMA": [
       [
         "MESALAZINE"
@@ -1069,7 +1064,7 @@
         "ANTIVENUM IMMUNOGLOBULIN AGAINST SIX TYPES OF SNAKES AMP"
       ]
     ],
-    "POLYTAR LIQUID SHAMPOO": [
+    "POLYTAR LIQUID": [
       [
         "COAL TAR",
         "JUNIPER",
@@ -1514,7 +1509,7 @@
         "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
-    "LECITAL CAPLETS": [
+    "LECITAL": [
       [
         "CITALOPRAM"
       ]
@@ -1613,7 +1608,7 @@
         "ENALAPRIL MALEATE"
       ]
     ],
-    "LAPRIX COATED": [
+    "LAPRIX": [
       [
         "OLANZAPINE"
       ]
@@ -1867,7 +1862,7 @@
         "NIMODIPINE"
       ]
     ],
-    "NICOTINELL LOZENGES": [
+    "NICOTINELL": [
       [
         "NICOTINE DITATRATE DIHYDRATE"
       ]
@@ -2080,7 +2075,7 @@
         "PSYLLIUM HUSK"
       ]
     ],
-    "MUCINEX EXTENDED RELEASE BI LAYER": [
+    "MUCINEX BI LAYER": [
       [
         "GUAIFENESIN"
       ]
@@ -2101,11 +2096,6 @@
       ]
     ],
     "MONTEL": [
-      [
-        "MONTELUKAST SODIUM"
-      ]
-    ],
-    "MONTEL GRANULES": [
       [
         "MONTELUKAST SODIUM"
       ]
@@ -2368,7 +2358,7 @@
         "MESNA"
       ]
     ],
-    "URITAB XL EXTENDED RELEASE": [
+    "URITAB XL": [
       [
         "ALFUZOSIN"
       ]
@@ -2378,7 +2368,7 @@
         "SOLIFENACIN SUCCINATE"
       ]
     ],
-    "URALYT U GRANULES": [
+    "URALYT U": [
       [
         "POTASSIUM SODIUM HYDROGEN CITRATE"
       ]
@@ -2483,7 +2473,7 @@
         "CEFUROXIME AXETIL"
       ]
     ],
-    "VALCYTE FILM COATED": [
+    "VALCYTE FILM": [
       [
         "VALGANCICLOVIR"
       ]
@@ -2561,7 +2551,7 @@
         "SILDENAFIL"
       ]
     ],
-    "VEXAL XR EXTENDED RELEASE": [
+    "VEXAL XR": [
       [
         "VENLAFAXINE HYDROCHLORIDE"
       ]
@@ -2626,7 +2616,7 @@
         "TROXERUTIN"
       ]
     ],
-    "VAVO SHAMPOO": [
+    "VAVO": [
       [
         "KETOCONAZOLE"
       ]
@@ -2636,7 +2626,7 @@
         "SIMVASTATIN"
       ]
     ],
-    "VASTAREL MR MODIFIED RELEASE": [
+    "VASTAREL MR": [
       [
         "TRIMETAZIDINE"
       ]
@@ -2956,7 +2946,7 @@
         "TOPIRAMATE"
       ]
     ],
-    "TOPRAZOLE ENTERIC COATED": [
+    "TOPRAZOLE": [
       [
         "PANTOPRAZOLE"
       ]
@@ -3066,7 +3056,7 @@
         "ONDANSETRON"
       ]
     ],
-    "ZELAX CAPLET": [
+    "ZELAX": [
       [
         "ESCITALOPRAM"
       ]
@@ -3424,7 +3414,7 @@
         "DORZOLAMIDE"
       ]
     ],
-    "XERACTAN SOFT GELATIN": [
+    "XERACTAN": [
       [
         "ISOTRETINOIN"
       ]
@@ -3656,7 +3646,7 @@
         "OCTREOTIDE ACETATE"
       ]
     ],
-    "SANCUSO TRANSDERMAL PATCH": [
+    "SANCUSO": [
       [
         "GRANISETRON"
       ]
@@ -4120,7 +4110,7 @@
         "TIOTROPIUM"
       ]
     ],
-    "SPEDIFEN GRANULES": [
+    "SPEDIFEN": [
       [
         "IBUPROFEN"
       ]
@@ -4280,7 +4270,7 @@
         "WATER"
       ]
     ],
-    "STIEPROX SHAMPOO": [
+    "STIEPROX": [
       [
         "CICLOPIROX OLAMINE"
       ]
@@ -4331,7 +4321,7 @@
         "SIMVASTATIN"
       ]
     ],
-    "SIMVA COATED": [
+    "SIMVA": [
       [
         "SIMVASTATIN"
       ]
@@ -4515,7 +4505,7 @@
         "CLARITHROMYCIN"
       ]
     ],
-    "CLARITT XL EXTENDED RELEASE": [
+    "CLARITT XL": [
       [
         "CLARITHROMYCIN"
       ]
@@ -4622,11 +4612,6 @@
         "LORATADINE"
       ]
     ],
-    "CLARAZOLE SHAMPOO": [
-      [
-        "KETOCONAZOLE"
-      ]
-    ],
     "CONCOR COR": [
       [
         "BISOPROLOL FUMARATE"
@@ -4643,7 +4628,7 @@
         "BISOPROLOL FUMARATE"
       ]
     ],
-    "CONCERTA EXTENDED RELEASE": [
+    "CONCERTA": [
       [
         "METHYLPHENIDATE"
       ]
@@ -4786,7 +4771,7 @@
         "PEPPERMINT OIL"
       ]
     ],
-    "COLI URINAL GRANULES": [
+    "COLI URINAL": [
       [
         "KHELLIN",
         "METHENAMINE",
@@ -5233,7 +5218,7 @@
         "CLINDAMYCIN PHOSPHATE"
       ]
     ],
-    "DALACIN T LOTION": [
+    "DALACIN T": [
       [
         "CLINDAMYCIN PHOSPHATE"
       ]
@@ -5244,7 +5229,7 @@
         "CLAVULANIC ACID"
       ]
     ],
-    "CURACNE SOFT GELATIN": [
+    "CURACNE": [
       [
         "ISOTRETINOIN"
       ]
@@ -5252,11 +5237,6 @@
     "CUPIDO": [
       [
         "CLOPIDOGREL"
-      ]
-    ],
-    "CROTAPHIL LOTION": [
-      [
-        "CROTAMITON"
       ]
     ],
     "CROTAPHIL": [
@@ -5330,11 +5310,6 @@
     "DERMAMED": [
       [
         "CLOBETASOL PROPIONATE"
-      ]
-    ],
-    "DERMA T LOTION": [
-      [
-        "CLINDAMYCIN PHOSPHATE"
       ]
     ],
     "DERMOVATE SCALP APPLICATION": [
@@ -5465,12 +5440,6 @@
       ]
     ],
     "DEFOSALIC": [
-      [
-        "BETAMETHASONE DIPROPIONATE",
-        "SALICYLIC ACID"
-      ]
-    ],
-    "DEFOSALIC LOTION": [
       [
         "BETAMETHASONE DIPROPIONATE",
         "SALICYLIC ACID"
@@ -5668,7 +5637,7 @@
         "AMOXICILLIN"
       ]
     ],
-    "APO DICLO ENTERIC COATED": [
+    "APO DICLO": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -5708,11 +5677,6 @@
         "ATORVASTATIN CALCIUM"
       ]
     ],
-    "ASACOL GASTRO RESISTANT": [
-      [
-        "MESALAZINE"
-      ]
-    ],
     "ASACOL": [
       [
         "MESALAZINE"
@@ -5738,7 +5702,7 @@
         "DOXYCYCLINE"
       ]
     ],
-    "AROMASIN COATED": [
+    "AROMASIN": [
       [
         "EXEMESTANE"
       ]
@@ -5928,7 +5892,7 @@
         "CHLORPHENIRAMINE MALEATE"
       ]
     ],
-    "ALKA UR EFFERVES GRANULES SUGARFREE": [
+    "ALKA UR EFFERVES SUGARFREE": [
       [
         "CITRIC ACID ANHYDROUS",
         "SODIUM BICARBONATE",
@@ -6002,7 +5966,7 @@
         "DESLORATADINE"
       ]
     ],
-    "ADVIL COLD AND SINUS CAPLET": [
+    "ADVIL COLD AND SINUS": [
       [
         "IBUPROFEN",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
@@ -6013,12 +5977,12 @@
         "HUMAN COAGULATION FACTOR VIII"
       ]
     ],
-    "ADVAGRAF PROLONGED RELEASE": [
+    "ADVAGRAF": [
       [
         "TACROLIMUS"
       ]
     ],
-    "AGIOLAX GRANULES": [
+    "AGIOLAX": [
       [
         "ISPAGHULA HUSK",
         "ISPAGHULA SEED",
@@ -6043,11 +6007,6 @@
     "ALBOTHYL VAGINAL OVULE": [
       [
         "POLICRESULEN"
-      ]
-    ],
-    "AIRFAST GRANULES": [
-      [
-        "MONTELUKAST SODIUM"
       ]
     ],
     "AIRFAST": [
@@ -6347,7 +6306,7 @@
         "TRETINOIN"
       ]
     ],
-    "AVORAL SHAMPOO": [
+    "AVORAL": [
       [
         "KETOCONAZOLE"
       ]
@@ -6526,7 +6485,7 @@
         "BETAHISTINE DIHYDROCHLORIDE"
       ]
     ],
-    "BENZAL LOTION": [
+    "BENZAL": [
       [
         "BENZYL BENZOATE"
       ]
@@ -7508,7 +7467,7 @@
         "WATER"
       ]
     ],
-    "ISOPTIN S R F COATED": [
+    "ISOPTIN S R F": [
       [
         "VERAPAMIL HYDROCHLORIDE"
       ]
@@ -7577,21 +7536,21 @@
         "DICLOFENAC POTASSIUM"
       ]
     ],
-    "JEDCORENE GRANULES": [
+    "JEDCORENE": [
       [
         "HEXAMINE",
         "KHELLIN",
         "PIPERAZINE"
       ]
     ],
-    "JEDCOMAG GRANULES": [
+    "JEDCOMAG": [
       [
         "CITRIC ACID ANHYDROUS",
         "EFFERVESCENT BASE",
         "MAGNESIUM OXIDE"
       ]
     ],
-    "JEDCO CAL C GRANULES": [
+    "JEDCO CAL C": [
       [
         "ASCORBIC ACID",
         "CALCIUM CARBONATE",
@@ -7624,11 +7583,6 @@
       ]
     ],
     "INNOHEP ANTI XA IU ML": [
-      [
-        "TINZAPARIN SODIUM"
-      ]
-    ],
-    "INNOHEP ANTI XA IU ML SYRING": [
       [
         "TINZAPARIN SODIUM"
       ]
@@ -7759,7 +7713,7 @@
         "CLARITHROMYCIN"
       ]
     ],
-    "KLACID COATED": [
+    "KLACID": [
       [
         "CLARITHROMYCIN"
       ]
@@ -7767,11 +7721,6 @@
     "KIOVIG": [
       [
         "NORMAL HUMAN IMMUNOGLOBULIN"
-      ]
-    ],
-    "KLACID": [
-      [
-        "CLARITHROMYCIN"
       ]
     ],
     "INFLABAN": [
@@ -7854,7 +7803,7 @@
         "SODIUM LACTATE"
       ]
     ],
-    "HARNAL MODIFIED RELEASE": [
+    "HARNAL": [
       [
         "TAMSULOSIN HYDROCHLORIDE"
       ]
@@ -8241,7 +8190,7 @@
         "PHENAZONE"
       ]
     ],
-    "DUSPATALIN PROLONGED RELEASE": [
+    "DUSPATALIN": [
       [
         "MEBEVERINE HYDROCHLORIDE"
       ]
@@ -8376,7 +8325,7 @@
         "ALENDRONIC ACID"
       ]
     ],
-    "DROF SHAMPOO": [
+    "DROF": [
       [
         "KETOCONAZOLE"
       ]
@@ -8700,7 +8649,7 @@
         "FLUPENTIXOL"
       ]
     ],
-    "FLUIMUCIL GRANULES": [
+    "FLUIMUCIL": [
       [
         "ACETYLCYSTEINE"
       ]
@@ -8813,7 +8762,7 @@
         "CYCLOPHOSPHAMIDE"
       ]
     ],
-    "ENDOXAN SUGAR COATED": [
+    "ENDOXAN SUGAR": [
       [
         "CYCLOPHOSPHAMIDE"
       ]
@@ -8850,7 +8799,7 @@
         "OMEPRAZOLE"
       ]
     ],
-    "EPIMAG GRANULE": [
+    "EPIMAG": [
       [
         "MAGNESIUM CITRATE"
       ]
@@ -8913,7 +8862,7 @@
         "ENALAPRIL MALEATE"
       ]
     ],
-    "ENABLEX PROLONGED RELEASE": [
+    "ENABLEX": [
       [
         "DARIFENACIN HYDROBROMIDE"
       ]
@@ -8948,7 +8897,7 @@
         "AMOXICILLIN"
       ]
     ],
-    "EPREX PREFILLED SYRING": [
+    "EPREX PREFILLED": [
       [
         "EPOETIN ALFA"
       ]
@@ -8971,7 +8920,7 @@
         "VALSARTAN"
       ]
     ],
-    "EXELON 24H TRANSDERMAL PATCHES": [
+    "EXELON 24H": [
       [
         "RIVASTIGMINE"
       ]
@@ -9007,7 +8956,7 @@
         "SALBUTAMOL"
       ]
     ],
-    "FAMPYRA PROLONGED RELEASE": [
+    "FAMPYRA": [
       [
         "FAMPRIDINE"
       ]
@@ -9017,7 +8966,7 @@
         "SILDENAFIL"
       ]
     ],
-    "EVRA TRANSDERMAL PATCHES": [
+    "EVRA": [
       [
         "ETHINYLESTRADIOL",
         "NORELGESTROMIN"
@@ -9068,7 +9017,7 @@
         "CLARITHROMYCIN"
       ]
     ],
-    "EPREX PROFILLED SYRING": [
+    "EPREX PROFILLED": [
       [
         "EPOETIN ALFA"
       ]
@@ -9101,7 +9050,7 @@
         "SULFUR DEPURATUM"
       ]
     ],
-    "ETRIVEX SHAMPOO": [
+    "ETRIVEX": [
       [
         "CLOBETASOL PROPIONATE"
       ]
@@ -9365,7 +9314,7 @@
         "AMOXICILLIN"
       ]
     ],
-    "JUSPRIN ENTERIC COATED": [
+    "JUSPRIN": [
       [
         "ACETYLSALICYLIC ACID"
       ]
@@ -9621,7 +9570,7 @@
         "ERYTHROMYCIN"
       ]
     ],
-    "FLOXACIN COATED": [
+    "FLOXACIN": [
       [
         "CIPROFLOXACIN"
       ]
@@ -9709,9 +9658,12 @@
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "VEGGIE VITAMIN D3 SOFT GELATIN": [
+    "VEGGIE VITAMIN D3": [
       [
         "COLECALCIFEROL"
+      ],
+      [
+        "CHOLECALCIFEROL"
       ]
     ],
     "BERESAR": [
@@ -9985,41 +9937,26 @@
         "THIAMINE"
       ]
     ],
-    "ADOL RECTAL": [
+    "ADOL": [
       [
         "PARACETAMOL"
       ]
     ],
-    "ADOL RECTAL SUUPPOSITORIES": [
-      [
-        "PARACETAMOL"
-      ]
-    ],
-    "ADOL CAPLET": [
-      [
-        "PARACETAMOL"
-      ]
-    ],
-    "ADOL ALLERGY SINUS CAPLET": [
+    "ADOL ALLERGY SINUS": [
       [
         "CHLORPHENIRAMINE MALEATE",
         "PARACETAMOL",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "ADOL COLD CAPLET": [
+    "ADOL COLD": [
       [
         "DEXTROMETHORPHAN",
         "PARACETAMOL",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "ADOL": [
-      [
-        "PARACETAMOL"
-      ]
-    ],
-    "ADOL PM CAPLET": [
+    "ADOL PM": [
       [
         "DIPHENHYDRAMINE HYDROCHLORIDE",
         "PARACETAMOL"
@@ -10053,7 +9990,7 @@
         "AMLODIPINE BESILATE"
       ]
     ],
-    "ADOL SINUS CAPLET": [
+    "ADOL SINUS": [
       [
         "PARACETAMOL",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
@@ -10186,7 +10123,7 @@
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "LANOXIN ELIXIR": [
+    "LANOXIN": [
       [
         "DIGOXIN"
       ]
@@ -10292,6 +10229,9 @@
     "CERUXIM": [
       [
         "CEFUROXIME SODIUM"
+      ],
+      [
+        "CEFUROXIME AXETIL"
       ]
     ],
     "AMODIP": [
@@ -10310,7 +10250,7 @@
         "EZETIMIBE"
       ]
     ],
-    "MODEXA GASTRO RESISTANT": [
+    "MODEXA": [
       [
         "DULOXETINE"
       ]
@@ -10366,7 +10306,7 @@
         "IMIGLUCERASE"
       ]
     ],
-    "REZAL XR EXTENDED RELEASE": [
+    "REZAL XR": [
       [
         "QUETIAPINE"
       ]
@@ -10410,11 +10350,6 @@
     "ARCHIFAR": [
       [
         "MEROPENEM"
-      ]
-    ],
-    "LANOXIN": [
-      [
-        "DIGOXIN"
       ]
     ],
     "EZECHOL": [
@@ -10463,7 +10398,7 @@
         "CLAVULANIC ACID"
       ]
     ],
-    "PROLAX ER EXTENDED RELEASE": [
+    "PROLAX ER": [
       [
         "CYCLOBENZAPRINE HYDROCHLORIDE"
       ]
@@ -10557,7 +10492,7 @@
         "DAPAGLIFLOZIN"
       ]
     ],
-    "BUTRANS HOUR TRANSDERMAL PATCH": [
+    "BUTRANS HOUR": [
       [
         "BUPRENORPHINE"
       ]
@@ -10609,7 +10544,7 @@
         "METOCLOPRAMIDE HYDROCHLORIDE"
       ]
     ],
-    "CONTRA SOFTGEL": [
+    "CONTRA": [
       [
         "DEXTROMETHORPHAN",
         "GUAIFENESIN"
@@ -10683,7 +10618,7 @@
         "LEVOFLOXACIN"
       ]
     ],
-    "QUETAL XR EXTENDED RELEASE": [
+    "QUETAL XR": [
       [
         "QUETIAPINE"
       ]
@@ -11203,12 +11138,12 @@
         "MONTELUKAST SODIUM"
       ]
     ],
-    "AZERA ENTERIC COATED": [
+    "AZERA": [
       [
         "ACETYLSALICYLIC ACID"
       ]
     ],
-    "JURNISTA PROLONGED RELEASE": [
+    "JURNISTA": [
       [
         "HYDROMORPHONE HYDROCHLORIDE"
       ]
@@ -11329,7 +11264,7 @@
         "SALBUTAMOL"
       ]
     ],
-    "NATURAL E SOFTGEL": [
+    "NATURAL E": [
       [
         "ALPHA TOCOFERIL"
       ]
@@ -11548,7 +11483,7 @@
         "VORICONAZOLE"
       ]
     ],
-    "ALFOSIN XR PROLONGED RELEASE": [
+    "ALFOSIN XR": [
       [
         "ALFUZOSIN"
       ]
@@ -11598,7 +11533,7 @@
         "DICLOFENAC POTASSIUM"
       ]
     ],
-    "NORMALIX SR MODIFIED RELEASE": [
+    "NORMALIX SR": [
       [
         "INDAPAMIDE"
       ]
@@ -11608,7 +11543,7 @@
         "PARACETAMOL"
       ]
     ],
-    "PANTOL ENTERIC COATED": [
+    "PANTOL": [
       [
         "PANTOPRAZOLE"
       ]
@@ -11707,7 +11642,7 @@
         "IPILIMUMAB"
       ]
     ],
-    "PEMAR PROLONGED RELEASE": [
+    "PEMAR": [
       [
         "DALFAMPRIDINE"
       ]
@@ -11773,11 +11708,6 @@
     "CLOGREL": [
       [
         "CLOPIDOGREL"
-      ]
-    ],
-    "QUETAL XR": [
-      [
-        "QUETIAPINE"
       ]
     ],
     "BALANCED ELECTROLYTES PH 5 5": [
@@ -11875,7 +11805,7 @@
         "CICLOSPORIN"
       ]
     ],
-    "MOSEGOR SUGAR COATED": [
+    "MOSEGOR SUGAR": [
       [
         "PIZOTIFEN"
       ]
@@ -12099,7 +12029,7 @@
         "MENOTROPHIN"
       ]
     ],
-    "ESOMEP GASTRO RESISTANT": [
+    "ESOMEP": [
       [
         "ESOMEPRAZOLE"
       ]
@@ -12276,7 +12206,7 @@
         "PERAMPANEL"
       ]
     ],
-    "PRIMA D3 SOFTGEL": [
+    "PRIMA D3": [
       [
         "COLECALCIFEROL"
       ]
@@ -12302,7 +12232,7 @@
         "PALONOSETRON HYDROCHLORIDE"
       ]
     ],
-    "LIXIANA FILM COTED": [
+    "LIXIANA": [
       [
         "EDOXABAN TOSILATE"
       ]
@@ -12322,7 +12252,7 @@
         "TEMOZOLOMIDE"
       ]
     ],
-    "BETMIGA PROLONGED RELEASE FILM COTED": [
+    "BETMIGA": [
       [
         "MIRABEGRON"
       ]
@@ -12332,7 +12262,7 @@
         "CLOMIFENE"
       ]
     ],
-    "XELJANZ XR EXTENDED RELEASE": [
+    "XELJANZ XR": [
       [
         "TOFACITINIB"
       ]
@@ -12414,7 +12344,7 @@
         "ALLERGEN EXTRACT"
       ]
     ],
-    "EMANERA GASTRO RESISTANT": [
+    "EMANERA": [
       [
         "ESOMEPRAZOLE"
       ]
@@ -12427,11 +12357,6 @@
     "AZYN": [
       [
         "AZITHROMYCIN"
-      ]
-    ],
-    "CERUXIM FILM COTED": [
-      [
-        "CEFUROXIME AXETIL"
       ]
     ],
     "ARBAVASC HCT": [
@@ -12582,12 +12507,12 @@
         "CORIFOLLITROPIN ALFA"
       ]
     ],
-    "TANDO FILM COTED": [
+    "TANDO": [
       [
         "TADALAFIL"
       ]
     ],
-    "XIGDUO XR FILM COTED": [
+    "XIGDUO XR": [
       [
         "DAPAGLIFLOZIN",
         "METFORMIN HYDROCHLORIDE"
@@ -12703,7 +12628,7 @@
         "PEMETREXED"
       ]
     ],
-    "CAPECITABINE SPC FILM COTED": [
+    "CAPECITABINE SPC": [
       [
         "CAPECITABINE"
       ]
@@ -12771,12 +12696,12 @@
         "BRIMONIDINE TARTRATE"
       ]
     ],
-    "NOSTAM PROLONGED RELEASE": [
+    "NOSTAM": [
       [
         "TAMSULOSIN HYDROCHLORIDE"
       ]
     ],
-    "RAMEP GASTRO RESISTANT": [
+    "RAMEP": [
       [
         "RABEPRAZOLE SODIUM"
       ]
@@ -12801,19 +12726,19 @@
         "PARACETAMOL"
       ]
     ],
-    "CHLORASEPTIC SORE THROAT LOZENGES CHERRY": [
+    "CHLORASEPTIC SORE THROAT CHERRY": [
       [
         "BENZOCAINE",
         "MENTHOL"
       ]
     ],
-    "CHLORASEPTIC SORE THROAT LOZENGES CITRUS": [
+    "CHLORASEPTIC SORE THROAT CITRUS": [
       [
         "BENZOCAINE",
         "MENTHOL"
       ]
     ],
-    "CHLORASEPTIC SORE THROAT LOZENGES LEMON": [
+    "CHLORASEPTIC SORE THROAT LEMON": [
       [
         "BENZOCAINE",
         "MENTHOL"
@@ -13039,7 +12964,7 @@
         "DOXYCYCLINE"
       ]
     ],
-    "MICROLUT COATED": [
+    "MICROLUT": [
       [
         "LEVONORGESTREL"
       ]
@@ -13206,11 +13131,6 @@
     "ACTEMRA IN": [
       [
         "TOCILIZUMAB"
-      ]
-    ],
-    "EPITAM PROLONGED RELEASE": [
-      [
-        "LEVETIRACETAM"
       ]
     ],
     "PROXEN": [
@@ -13595,17 +13515,12 @@
         "CEPHALEXIN ANHYDROUS"
       ]
     ],
-    "METAZ LOTION": [
+    "METAZ": [
       [
         "MOMETASONE FUROATE"
       ]
     ],
     "METAZ W W": [
-      [
-        "MOMETASONE FUROATE"
-      ]
-    ],
-    "METAZ": [
       [
         "MOMETASONE FUROATE"
       ]
@@ -13707,11 +13622,6 @@
         "DEXMEDETOMIDINE"
       ]
     ],
-    "LEUKAST GRANULES": [
-      [
-        "MONTELUKAST SODIUM"
-      ]
-    ],
     "NEVOLEEN": [
       [
         "NOREPINEPHRINE BITARTRATE"
@@ -13809,7 +13719,7 @@
         "IXEKIZUMAB"
       ]
     ],
-    "MOXICLAV FILM COTED": [
+    "MOXICLAV": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -13922,11 +13832,6 @@
         "ALIROCUMAB"
       ]
     ],
-    "TOPRAZOLE": [
-      [
-        "PANTOPRAZOLE"
-      ]
-    ],
     "ANNUVA": [
       [
         "DICLOFENAC SODIUM"
@@ -14024,7 +13929,7 @@
         "ALIROCUMAB"
       ]
     ],
-    "PANREST ENTERIC COATED": [
+    "PANREST": [
       [
         "PANTOPRAZOLE"
       ]
@@ -14034,7 +13939,7 @@
         "CEFDINIR"
       ]
     ],
-    "ABILIFY MAINTENA AND SOLVENT FOR PROLONGED RELEASE": [
+    "ABILIFY MAINTENA AND SOLVENT": [
       [
         "ARIPIPRAZOLE"
       ]
@@ -14205,7 +14110,7 @@
         "VILANTEROL"
       ]
     ],
-    "GAMCET PROLONGED RELEASE": [
+    "GAMCET": [
       [
         "TAMSULOSIN HYDROCHLORIDE"
       ]
@@ -14230,7 +14135,7 @@
         "ANASTROZOLE"
       ]
     ],
-    "ZYPREXA COATED": [
+    "ZYPREXA": [
       [
         "OLANZAPINE"
       ]
@@ -14243,11 +14148,6 @@
     "FACTOR IX GRIFOLS": [
       [
         "COAGULATION FACTOR IX RECOMBINANT HUMAN"
-      ]
-    ],
-    "ZYPREXA": [
-      [
-        "OLANZAPINE"
       ]
     ],
     "XALTIN": [
@@ -14266,7 +14166,7 @@
         "VILANTEROL"
       ]
     ],
-    "WELLBUTRIN XL EXTENDED RELEASE": [
+    "WELLBUTRIN XL": [
       [
         "BUPROPION HYDROCHLORIDE"
       ]
@@ -14608,7 +14508,7 @@
         "SUMATRIPTAN"
       ]
     ],
-    "CYMBALTA HARD GASTRO RESISTANT": [
+    "CYMBALTA HARD": [
       [
         "DULOXETINE"
       ]
@@ -14756,7 +14656,7 @@
         "OXALIPLATIN"
       ]
     ],
-    "D SEUL SOFT GELATIN": [
+    "D SEUL": [
       [
         "COLECALCIFEROL"
       ],
@@ -14792,11 +14692,6 @@
     "OZEMPIC": [
       [
         "SEMAGLUTIDE"
-      ]
-    ],
-    "D SEUL": [
-      [
-        "COLECALCIFEROL"
       ]
     ],
     "BETA COR": [
@@ -14875,7 +14770,7 @@
         "LEVOFLOXACIN"
       ]
     ],
-    "CORTIMENT MMX PROLONGED RELEASE": [
+    "CORTIMENT MMX": [
       [
         "BUDESONIDE"
       ]
@@ -14999,7 +14894,7 @@
         "TENOFOVIR ALAFENAMIDE"
       ]
     ],
-    "ROMACIN RECTAL": [
+    "ROMACIN": [
       [
         "CALCIUM POLYSTYRENE SULFONATE"
       ]
@@ -15057,7 +14952,7 @@
         "GADOTERIC ACID"
       ]
     ],
-    "PENTASA PROLONGED RELEASE GRANULES IN": [
+    "PENTASA IN": [
       [
         "MESALAZINE"
       ]
@@ -15122,12 +15017,12 @@
         "CELECOXIB"
       ]
     ],
-    "EZORA GASTRO RESISTANT HARD 14S": [
+    "EZORA HARD 14S": [
       [
         "ESOMEPRAZOLE SODIUM"
       ]
     ],
-    "EZORA GASTRO RESISTANT HARD 28S": [
+    "EZORA HARD 28S": [
       [
         "ESOMEPRAZOLE SODIUM"
       ]
@@ -15230,7 +15125,7 @@
         "BRIVARACETAM"
       ]
     ],
-    "SODANOR RECTAL": [
+    "SODANOR": [
       [
         "SODIUM POLYSTYRENE SULFONATE"
       ]
@@ -15383,7 +15278,7 @@
         "DAPOXETINE"
       ]
     ],
-    "SPASMOLYT COATED": [
+    "SPASMOLYT": [
       [
         "TROSPIUM"
       ]
@@ -15414,11 +15309,6 @@
       [
         "GINKO BILOBA",
         "HYALURONIC ACID"
-      ]
-    ],
-    "LOCOID LOTION": [
-      [
-        "HYDROCORTISONE BUTYRATE"
       ]
     ],
     "ACEDA": [
@@ -15518,7 +15408,7 @@
         "SODIUM ALGINATE"
       ]
     ],
-    "FLECTOR EP GRANULES": [
+    "FLECTOR EP": [
       [
         "DICLOFENAC EPOLAMINE"
       ]
@@ -15615,7 +15505,7 @@
         "DAPOXETINE"
       ]
     ],
-    "NEUPRO 24 HRS TRANSDERMAL PATCHES": [
+    "NEUPRO 24 HRS": [
       [
         "ROTIGOTINE"
       ]
@@ -15786,11 +15676,6 @@
         "LINEZOLID"
       ]
     ],
-    "NIZORAL SHAMPOO": [
-      [
-        "KETOCONAZOLE"
-      ]
-    ],
     "SPINRAZA": [
       [
         "NUSINERSEN"
@@ -15920,7 +15805,7 @@
         "CARBOPLATIN"
       ]
     ],
-    "RAPAMUNE COATED": [
+    "RAPAMUNE": [
       [
         "SIROLIMUS"
       ]
@@ -15996,7 +15881,7 @@
         "CASPOFUNGIN"
       ]
     ],
-    "ADOL EXTRA CAPLETS": [
+    "ADOL EXTRA": [
       [
         "CAFFEINE CITRATE",
         "PARACETAMOL"
@@ -16141,7 +16026,7 @@
         "LORNOXICAM"
       ]
     ],
-    "TRIVACIN 24H TRANSDERMAL PATCHES": [
+    "TRIVACIN 24H": [
       [
         "RIVASTIGMINE"
       ]
@@ -16224,7 +16109,7 @@
         "GADOTERIC ACID"
       ]
     ],
-    "TREVICTA PROLONGED RELEASE": [
+    "TREVICTA": [
       [
         "PALIPERIDONE"
       ]
@@ -16277,11 +16162,6 @@
       [
         "HYALURONIC ACID",
         "TS-POLYSACCHARIDE"
-      ]
-    ],
-    "DUSPAMEN PROLONGED RELEASE": [
-      [
-        "MEBEVERINE HYDROCHLORIDE"
       ]
     ],
     "GLADIO": [
@@ -16493,7 +16373,7 @@
         "SITAGLIPTIN PHOSPHATE"
       ]
     ],
-    "RIVAXEL 24HRS TRANSDERMAL PATCHES": [
+    "RIVAXEL 24HRS": [
       [
         "RIVASTIGMINE"
       ]
@@ -17804,7 +17684,7 @@
         "PACLITAXEL"
       ]
     ],
-    "DULCOLAX ENTERIC COATED": [
+    "DULCOLAX": [
       [
         "BISACODYL"
       ]
@@ -18741,7 +18621,7 @@
         "ADALIMUMAB"
       ]
     ],
-    "HADLIMA IN PRE FILLED SYRING": [
+    "HADLIMA IN PRE FILLED": [
       [
         "ADALIMUMAB"
       ]
@@ -19875,7 +19755,7 @@
         "AZITHROMYCIN"
       ]
     ],
-    "MONTELAIR GRANULES": [
+    "MONTELAIR": [
       [
         "MONTELUKAST SODIUM"
       ]
@@ -20385,7 +20265,7 @@
         "SODIUM HYALURONATE"
       ]
     ],
-    "IMODIUM PLUS CAPLETS": [
+    "IMODIUM PLUS": [
       [
         "LOPERAMIDE",
         "SIMETHICONE"
@@ -21676,11 +21556,6 @@
         "METHYLCOBALAMIN"
       ]
     ],
-    "JUSPRIN": [
-      [
-        "ACETYLSALICYLIC ACID"
-      ]
-    ],
     "TROLAC": [
       [
         "KETOROLAC TROMETHAMINE"
@@ -21812,11 +21687,6 @@
     "ELBAG": [
       [
         "ELTROMBOPAG OLAMINE"
-      ]
-    ],
-    "PANTOL": [
-      [
-        "PANTOPRAZOLE"
       ]
     ],
     "METHOTREXATE VENUS": [
@@ -22024,7 +21894,7 @@
         "PERINDOPRIL ARGININE"
       ]
     ],
-    "POTASSIUM CHLORIDE EXTENDED RELEASE USP": [
+    "POTASSIUM CHLORIDE USP": [
       [
         "POTASSIUM CHLORIDE"
       ]
@@ -22987,11 +22857,6 @@
         "ANDUSOMERAN"
       ]
     ],
-    "VEGGIE VITAMIN D3": [
-      [
-        "CHOLECALCIFEROL"
-      ]
-    ],
     "AVYSK TRIO": [
       [
         "AMLODIPINE BESILATE",
@@ -23524,7 +23389,7 @@
         "CARGLUMIC ACID"
       ]
     ],
-    "WELLDORM ELIXIR": [
+    "WELLDORM": [
       [
         "CHLORAL HYDRATE"
       ]
@@ -25028,11 +24893,6 @@
     "BACLOFEN": [
       [
         "BACLOFEN"
-      ]
-    ],
-    "EPIMAG": [
-      [
-        "MAGNESIUM CITRATE"
       ]
     ],
     "ARNABEN": [
