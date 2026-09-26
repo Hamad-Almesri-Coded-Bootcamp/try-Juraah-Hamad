@@ -11,11 +11,15 @@ import {
   activePrescriptions, checkInEligibility, insertAlert, insertExtractedPrescription, recipientsFor, recomputeSchedule,
   insertVoiceTurn, recordDoseStatus, trackedDosesForDay,
 } from '@/lib/data/pg/agent';
+import { resetDemoDoses } from '@/lib/data/pg/demo-reset';
+import { demoResetDates } from './demo-reset';
+import { kuwaitToday } from '@/lib/schedule/dates';
 import { refuseUnlessAgent } from './auth';
 import { invalid, json, readJson, refusedBy, unavailableUnderMock } from './http';
 import { deliverAlert } from './notify';
 import {
-  parseAlertBody, parseDateQuery, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody, parseRecomputeBody, parseVoiceTurnBody,
+  parseAlertBody, parseDateQuery, parseDemoResetBody, parseDoseStatusBody, parsePatientIdQuery, parsePrescriptionBody,
+  parseRecomputeBody, parseVoiceTurnBody,
 } from './validate';
 
 /** POST /api/agent/doses/{doseId}/status — 200 · 401 · 403 · 404 · 409 untracked · 422. */
@@ -155,4 +159,21 @@ export async function postVoiceTurn(request: Request, patientId: string): Promis
   const id = await insertVoiceTurn(patientId, body.value);
   if (!id) return json(404, { error: 'patient_not_found' });
   return json(201, { id });
+}
+
+/**
+ * POST /api/agent/demo/reset — CR-109, the owner's demo reset for the n8n page `agent-demo-reset`.
+ * pt-03 only, today and tomorrow on the Kuwait calendar: returns recorded doses to the un-recorded
+ * state and moves the rx-009 21:00 dose to 19:30. Never records a status. 200 `{ patientId, dates,
+ * moved, reset }` · 401 · 403 · 422 · 503 under the mock backend. A database error is not caught
+ * here: the route answers 500 and the n8n page reads that as "did not reset" (fail closed).
+ */
+export async function postDemoReset(request: Request): Promise<Response> {
+  const refused = await refuseUnlessAgent(request);
+  if (refused) return refused;
+  const body = parseDemoResetBody(await readJson(request));
+  if (!body.ok) return invalid(body);
+  const mock = unavailableUnderMock();
+  if (mock) return mock;
+  return json(200, await resetDemoDoses(demoResetDates(kuwaitToday())));
 }

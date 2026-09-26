@@ -411,6 +411,7 @@ describe('the HTTP surface — asserted absent', () => {
     ]);
     expect(routes.filter((f) => f.startsWith('app/api/agent/')).sort()).toEqual([
       'app/api/agent/alert-recipients/route.ts', 'app/api/agent/alerts/route.ts', 'app/api/agent/check-in-eligibility/route.ts',
+      'app/api/agent/demo/reset/route.ts',
       'app/api/agent/doses/[doseId]/status/route.ts', 'app/api/agent/patients/[patientId]/doses/route.ts',
       'app/api/agent/patients/[patientId]/prescriptions/route.ts', 'app/api/agent/patients/[patientId]/voice-turns/route.ts',
       'app/api/agent/prescriptions/route.ts', 'app/api/agent/schedule/recompute/route.ts',
