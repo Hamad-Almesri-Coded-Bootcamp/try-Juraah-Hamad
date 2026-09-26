@@ -20,8 +20,8 @@
     },
     "builtAt": "2026-09-26",
     "scope": "DEMO SLICE - the drugs of the previous slice, every seed ingredient (data/seed-drug-scope.json), and the top 100 SFDA-ranked oral ingredients (data/build/top-ingredients.json) that exist in DDInter. Rebuilt with scripts/build-demo-index.js from DDInter files A, B, D, H, L, P, R, V.",
-    "drugsInScope": 106,
-    "pairsIndexed": 2131,
+    "drugsInScope": 107,
+    "pairsIndexed": 2164,
     "datasetUniquePairs": 160037,
     "drugsNotFoundInSource": [
       "Carbimazole",
@@ -64,6 +64,7 @@
       "cefixime",
       "cefuroxime",
       "celecoxib",
+      "cephalexin",
       "cetirizine",
       "chlorpheniramine",
       "cinacalcet",
@@ -518,6 +519,11 @@
           "indexKey": "cyanocobalamin"
         },
         {
+          "ingredient": "CEFALEXIN",
+          "products": 19,
+          "indexKey": "cephalexin"
+        },
+        {
           "ingredient": "FEBUXOSTAT",
           "products": 19,
           "indexKey": "febuxostat"
@@ -641,14 +647,9 @@
           "ingredient": "CINACALCET",
           "products": 15,
           "indexKey": "cinacalcet"
-        },
-        {
-          "ingredient": "VORICONAZOLE",
-          "products": 15,
-          "indexKey": "voriconazole"
         }
       ],
-      "droppedNotInDdinter": [
+      "droppedNotInLoadedFiles": [
         {
           "ingredient": "ETORICOXIB",
           "products": 56
@@ -671,10 +672,6 @@
         },
         {
           "ingredient": "THIAMINE",
-          "products": 19
-        },
-        {
-          "ingredient": "CEFALEXIN",
           "products": 19
         },
         {
@@ -773,6 +770,7 @@
       "CEFACLOR": "cefaclor",
       "LEVOCETIRIZINE DIHYDROCHLORIDE": "levocetirizine",
       "CYANOCOBALAMIN": "cyanocobalamin",
+      "CEFALEXIN": "cephalexin",
       "FEBUXOSTAT": "febuxostat",
       "VARENICLINE TARTRATE": "varenicline",
       "CHLORPHENIRAMINE MALEATE": "chlorpheniramine",
@@ -800,7 +798,12 @@
       "ATENOLOL": "atenolol",
       "CINACALCET": "cinacalcet",
       "VARENICLINE": "varenicline",
-      "VORICONAZOLE": "voriconazole"
+      "VORICONAZOLE": "voriconazole",
+      "WARFARIN SODIUM": "warfarin",
+      "PREDNISOLONE": "prednisolone",
+      "CALCIUM CARBONATE": "calcium carbonate",
+      "DIPHENHYDRAMINE HYDROCHLORIDE": "diphenhydramine",
+      "CAFFEINE CITRATE": "caffeine"
     }
   },
   "drugs": {
@@ -1260,6 +1263,10 @@
     "simethicone": {
       "label": "Simethicone",
       "ddinterId": "DDInter1674"
+    },
+    "cephalexin": {
+      "label": "Cephalexin",
+      "ddinterId": "DDInter339"
     }
   },
   "pairs": {
@@ -2188,6 +2195,14 @@
       "rowIds": [
         "DDInter83",
         "DDInter336"
+      ],
+      "atcFile": "A"
+    },
+    "amoxicillin|cephalexin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter83",
+        "DDInter339"
       ],
       "atcFile": "A"
     },
@@ -4607,6 +4622,14 @@
       ],
       "atcFile": "A"
     },
+    "budesonide|cephalexin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter246",
+        "DDInter339"
+      ],
+      "atcFile": "A"
+    },
     "budesonide|cetirizine": {
       "level": "Unknown",
       "rowIds": [
@@ -5871,6 +5894,14 @@
       ],
       "atcFile": "B"
     },
+    "celecoxib|cephalexin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter336",
+        "DDInter339"
+      ],
+      "atcFile": "L"
+    },
     "celecoxib|cetirizine": {
       "level": "Unknown",
       "rowIds": [
@@ -6355,6 +6386,246 @@
       "level": "Moderate",
       "rowIds": [
         "DDInter336",
+        "DDInter1951"
+      ],
+      "atcFile": "B"
+    },
+    "cephalexin|cetirizine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter343"
+      ],
+      "atcFile": "R"
+    },
+    "cephalexin|cinacalcet": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter381"
+      ],
+      "atcFile": "H"
+    },
+    "cephalexin|clarithromycin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter393"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|cyanocobalamin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter451"
+      ],
+      "atcFile": "B"
+    },
+    "cephalexin|desloratadine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter506"
+      ],
+      "atcFile": "R"
+    },
+    "cephalexin|diclofenac": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter537"
+      ],
+      "atcFile": "D"
+    },
+    "cephalexin|ethinylestradiol": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter339",
+        "DDInter692"
+      ],
+      "atcFile": "L"
+    },
+    "cephalexin|fluconazole": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter743"
+      ],
+      "atcFile": "D"
+    },
+    "cephalexin|folic acid": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter771"
+      ],
+      "atcFile": "B"
+    },
+    "cephalexin|glimepiride": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter825"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|ibuprofen": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter900"
+      ],
+      "atcFile": "R"
+    },
+    "cephalexin|imatinib": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter909"
+      ],
+      "atcFile": "L"
+    },
+    "cephalexin|lenalidomide": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1035"
+      ],
+      "atcFile": "L"
+    },
+    "cephalexin|levothyroxine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1064"
+      ],
+      "atcFile": "H"
+    },
+    "cephalexin|loratadine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1091"
+      ],
+      "atcFile": "R"
+    },
+    "cephalexin|mesalazine": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1158"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|metformin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1164"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|metronidazole": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1202"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|montelukast": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1242"
+      ],
+      "atcFile": "R"
+    },
+    "cephalexin|omeprazole": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1340"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|ondansetron": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1342"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|pantoprazole": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1388"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|pioglitazone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1472"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|potassium chloride": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1497"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|prednisolone": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1513"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|rosuvastatin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1622"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|simvastatin": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1675"
+      ],
+      "atcFile": "A"
+    },
+    "cephalexin|sodium bicarbonate": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1683"
+      ],
+      "atcFile": "B"
+    },
+    "cephalexin|tacrolimus": {
+      "level": "Unknown",
+      "rowIds": [
+        "DDInter339",
+        "DDInter1735"
+      ],
+      "atcFile": "D"
+    },
+    "cephalexin|warfarin": {
+      "level": "Moderate",
+      "rowIds": [
+        "DDInter339",
         "DDInter1951"
       ],
       "atcFile": "B"

@@ -7,7 +7,12 @@
  *
  * Input: data/build/why-raw.json - { meta, pairs: { "<DDInterID>|<DDInterID>": { idA, nameA, idB,
  * nameB, level, files, interactionId, url, mechanism, management } } }. Every mechanism/management
- * string is copied verbatim; nothing here rewrites, shortens or interprets DDInter's own text.
+ * string is DDInter's own prose, copied verbatim; nothing here rewrites, shortens or interprets it.
+ * The one exception (stripTagWidget, below): DDInter's page also carries an adverse-event TAG
+ * WIDGET next to the prose (a bare list of unrelated condition names ending in the word "More"),
+ * and the scraper that produced why-raw.json copied the whole table cell including it. That tag
+ * list was never DDInter's mechanism/management prose, so it is cut before anything else touches
+ * the string - this is scraper-artifact removal, not paraphrasing.
  *
  * Translation: why-raw.json is keyed by DDInter ids; data/interaction-index.json is keyed by this
  * system's canonical drug names (src/normalise.js). Each why-raw pair's ids are mapped back to index
@@ -41,6 +46,28 @@ const LICENCE = 'CC BY-NC-SA 4.0';
 const GRADED = { Major: 3, Moderate: 2, Minor: 1 };
 const SUMMARIES_NOTE = 'AI draft written only from the DDInter text beside it; a doctor confirms it before relying on it';
 
+/**
+ * DDInter's own interaction page carries an "adverse event" tag widget (a flat list of unrelated
+ * condition names ending in the literal word "More") beside the mechanism/management prose. The
+ * scraper that produced why-raw.json copied the whole table cell, so some verbatim strings end
+ * with this tag list glued on with no punctuation of its own - e.g. "...CYP450 3A4. abdominal
+ * distension angina angioedema ... cerebral infarct More". None of that tag text is mechanism or
+ * management prose, and showing it as such would present unrelated conditions as part of the
+ * interaction's own text.
+ *
+ * A string with this widget always still ends its REAL prose with a sentence-ending period before
+ * the tag list starts (checked against all 166 affected mechanism strings on 2026-09-26 - every
+ * one has at least one period). So: only when the string ends in " More" literally, cut everything
+ * after the LAST period and keep the period. A string that doesn't end in " More" is returned
+ * unchanged - this never touches ordinary prose that happens to contain the word "more".
+ */
+function stripTagWidget(text) {
+  if (!text || !/ More$/.test(text)) return { text, cut: null };
+  const lastPeriod = text.lastIndexOf('.');
+  if (lastPeriod === -1) return { text, cut: null };   // no sentence boundary to cut at - leave it, never guess
+  return { text: text.slice(0, lastPeriod + 1).trim(), cut: text.slice(lastPeriod + 1).trim() };
+}
+
 function main() {
   const dry = process.argv.includes('--dry-run');
   if (!fs.existsSync(INDEX)) throw new Error('no data/interaction-index.json - run scripts/build-demo-index.js first');
@@ -59,6 +86,7 @@ function main() {
   const droppedMissingText = [];
   const droppedUngraded = [];
   const levelMismatches = [];
+  const tagWidgetsCut = [];
 
   for (const [rawKey, p] of Object.entries(raw.pairs)) {
     const keyA = byDdinterId.get(p.idA);
@@ -68,9 +96,15 @@ function main() {
     const row = index.pairs[pairKey];
     if (!row) { droppedNoIndexRow.push(pairKey + ' (' + p.nameA + ' x ' + p.nameB + ')'); continue; }
     if (GRADED[row.level] === undefined) { droppedUngraded.push(pairKey + ': index level ' + row.level); continue; }
-    const mechanism = p.mechanism ? String(p.mechanism).trim() : '';
-    const management = p.management ? String(p.management).trim() : '';
-    if (!mechanism || !management) { droppedMissingText.push(pairKey); continue; }
+    const mechanismRaw = p.mechanism ? String(p.mechanism).trim() : '';
+    const managementRaw = p.management ? String(p.management).trim() : '';
+    if (!mechanismRaw || !managementRaw) { droppedMissingText.push(pairKey); continue; }
+    const mechCut = stripTagWidget(mechanismRaw);
+    const mgmtCut = stripTagWidget(managementRaw);
+    const mechanism = mechCut.text;
+    const management = mgmtCut.text;
+    if (mechCut.cut) tagWidgetsCut.push(pairKey + ' (mechanism): ' + mechCut.cut);
+    if (mgmtCut.cut) tagWidgetsCut.push(pairKey + ' (management): ' + mgmtCut.cut);
     if (row.level !== p.level) levelMismatches.push(pairKey + ': index=' + row.level + ', why-raw=' + p.level + ' (index kept)');
     const sourceSha256 = crypto.createHash('sha256').update(mechanism + '\n' + management).digest('hex');
     outPairs[pairKey] = { level: row.level, url: p.url, mechanism, management, summary: null, sourceSha256 };
@@ -102,6 +136,8 @@ function main() {
   for (const d of droppedUngraded) console.log('  ' + d);
   console.log('dropped - missing mechanism/management text: ' + droppedMissingText.length);
   for (const d of droppedMissingText) console.log('  missing text: ' + d);
+  console.log('DDInter tag-widget list cut off the end of verbatim text: ' + tagWidgetsCut.length);
+  for (const t of tagWidgetsCut) console.log('  cut: ' + t);
   if (levelMismatches.length) { console.log('level mismatches (why-raw vs index; index wins): ' + levelMismatches.length); for (const m of levelMismatches) console.log('  ' + m); }
 
   if (!dry) fs.writeFileSync(OUT, JSON.stringify(out, null, 2) + '\n');

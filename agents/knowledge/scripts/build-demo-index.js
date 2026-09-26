@@ -18,16 +18,21 @@
  *
  * SFDA -> DDInter mapping (added for the ~100-drug extension). Every SFDA ingredient spelling is
  * resolved to a DDInter drug name using src/normalise.js's own candidateKeys() (exact canonical
- * name, then salt/hydrate-stripped fallback, then a small LOCAL supplementary strip list below for
+ * name, then salt/hydrate-stripped fallback), then a small LOCAL supplementary strip list below for
  * ester/prodrug/counter-ion suffixes candidateKeys does not already cover - e.g. "medoxomil",
- * "cilexetil"). This logic lives here, not in src/normalise.js: that file is shared by the
- * screening and travel-check lookup path and is owned by another builder; a mapping decision made
- * only for choosing the build's scope has no business changing what a live lookup key resolves to.
- * The first 100 SFDA-ranked ingredients that resolve to a real DDInter drug are added to scope
- * (every current index drug is added regardless of its SFDA rank); every SFDA spelling that
- * resolves to one of those covered drugs - not only the spelling that won it its slot - is kept in
- * meta.sfdaIngredientMap, so a runtime SFDA ingredient string keys onto the index under any of its
- * registered spellings. An SFDA ingredient with no DDInter match at all is logged, never guessed.
+ * "cilexetil" - then a small LOCAL synonym table (EXTRA_SYNONYMS below) for an INN/USAN spelling
+ * DDInter's own catalog does not use - e.g. "cefalexin" resolves to DDInter's "Cephalexin". This
+ * logic lives here, not in src/normalise.js: that file is shared by the screening and travel-check
+ * lookup path and is owned by another builder; a mapping decision made only for choosing the
+ * build's scope has no business changing what a live lookup key resolves to. The first 100
+ * SFDA-ranked ingredients that resolve to a real DDInter drug are added to scope (every current
+ * index drug is added regardless of its SFDA rank); every SFDA spelling that resolves to one of
+ * those covered drugs - a drug already in the index, a seed ingredient, OR one of the chosen 100,
+ * not only the spelling that won a drug its slot - is kept in meta.sfdaIngredientMap, so a runtime
+ * SFDA ingredient string keys onto the index under any of its registered spellings. An SFDA
+ * ingredient with no DDInter match at all (checked with candidateKeys/EXTRA_SUFFIXES/EXTRA_SYNONYMS,
+ * not a fuzzy match - see EXTRA_SYNONYMS' own comment for why edit-distance alone is not enough) is
+ * logged in meta.sfda.droppedNotInLoadedFiles, never guessed.
  *
  * The category scope (AP-06). A category file lists the interactions of the drugs IN that ATC
  * category, so a pair whose two drugs both sit outside the loaded categories can never be found
@@ -91,6 +96,24 @@ const EXTRA_SUFFIXES = [
   'orotate', 'aspartate', 'ascorbate', 'camsylate', 'edisylate', 'estolate', 'gluceptate'
 ];
 
+/**
+ * INN/USAN spelling pairs seen in the SFDA list that name the exact same active moiety as a
+ * DDInter catalog entry under a different official spelling (the same kind of thing paracetamol /
+ * acetaminophen already is in src/normalise.js's shared SYNONYMS - never a different drug or a
+ * different class). Declared here, not in src/normalise.js, for the same reason EXTRA_SUFFIXES is
+ * local: this is a build-scope decision (which SFDA ingredient wins a slot), not a change to what a
+ * live lookup key resolves to; that file is shared with the screening/travel-check path and owned
+ * by another builder.
+ *   cefalexin -> cephalexin: DDInter's own catalog spells it "Cephalexin" (196 rows across the
+ *   loaded files); "Cefalexin" is the WHO/BAN spelling SFDA uses. Confirmed 2026-09-26 against
+ *   data/build/ddinter_downloads_code_*.csv - not a near-miss guess (compare dapoxetine/duloxetine
+ *   or etoricoxib/rofecoxib, which are close in edit distance but genuinely different drugs and are
+ *   correctly left unmapped).
+ */
+const EXTRA_SYNONYMS = {
+  cefalexin: 'cephalexin'
+};
+
 function stripExtraSuffixes(normalised) {
   let s = ' ' + normalised + ' ';
   for (const w of EXTRA_SUFFIXES) s = s.replace(new RegExp('(^|\\s)' + w + '(?=\\s|$)', 'g'), ' ');
@@ -138,6 +161,11 @@ function sfdaCandidateKeys(raw) {
     const stripped = stripExtraSuffixes(k);
     if (stripped && keys.indexOf(stripped) === -1) keys.push(stripped);
   }
+  for (const k of keys.slice()) {
+    if (Object.prototype.hasOwnProperty.call(EXTRA_SYNONYMS, k) && keys.indexOf(EXTRA_SYNONYMS[k]) === -1) {
+      keys.push(EXTRA_SYNONYMS[k]);
+    }
+  }
   return keys;
 }
 
@@ -183,6 +211,15 @@ function main() {
     }
   }
 
+  // Covered independently of the SFDA quota: every drug the index already had before this build,
+  // plus every seed ingredient. The spec's "covered drug" is this set UNION the chosen 100 - a
+  // spelling resolving to one of THESE must still be mapped even once the quota below is full,
+  // otherwise a registered SFDA spelling of an existing index drug (warfarin, say) goes missing
+  // from sfdaIngredientMap purely because 100 OTHER, unrelated ingredients happened to be chosen
+  // first (see test/sfda-extension.test.js and the finding this fixes).
+  const preExisting = new Set(Object.keys(index.drugs));
+  for (const s of scope.seedIngredients) preExisting.add(canonical(s.name));
+
   // ---- SFDA top ingredients -> DDInter names. The first 100 that resolve to a real DDInter drug
   // are added to scope; every resolving spelling (not only the one that won a slot) is recorded.
   let sfda = null;
@@ -197,7 +234,14 @@ function main() {
       for (const k of sfdaCandidateKeys(item.ingredient)) if (Object.prototype.hasOwnProperty.call(catalogIds, k)) { key = k; break; }
       if (!key) { sfdaDropped.push({ ingredient: item.ingredient, products: item.products }); continue; }
       if (!chosenKeys.has(key)) {
-        if (chosenKeys.size >= SFDA_TARGET) continue;   // exists in DDInter, but the quota is full - not scope, not mapped
+        if (chosenKeys.size >= SFDA_TARGET) {
+          // The quota for NEW scope additions is full. This spelling still gets mapped below when
+          // it resolves to a drug that is covered for a DIFFERENT reason (already in the index, or
+          // a seed ingredient) - only a spelling that would need a fresh slot it can't have is
+          // truly unmapped.
+          if (preExisting.has(key)) sfdaIngredientMap[item.ingredient.toUpperCase()] = key;
+          continue;
+        }
         chosenKeys.add(key);
         sfdaChosen.push({ ingredient: item.ingredient, products: item.products, indexKey: key });
       }
@@ -303,7 +347,11 @@ function main() {
       rankingSource: sfda.source + '; ' + sfda.method + ' (data/build/top-ingredients.json, retrieved ' + sfda.retrievedAt + ')',
       target: SFDA_TARGET,
       chosen: sfdaChosen,
-      droppedNotInDdinter: sfdaDropped
+      // Not "not in DDInter": DDInter's own catalog is larger than the 8 category files this build
+      // loaded (candesartan and dabigatran, for two, are genuinely absent from these 8 files - that
+      // says nothing about whether DDInter's full download has them under a category not loaded
+      // here). This field only ever claims silence about the files actually read.
+      droppedNotInLoadedFiles: sfdaDropped
     } : index.meta.sfda,
     sfdaIngredientMap: Object.keys(sfdaIngredientMap).length ? sfdaIngredientMap : (index.meta.sfdaIngredientMap || {})
   };
@@ -317,11 +365,17 @@ function main() {
   if (unknown.length) console.log('no ATC data (treated as not loaded): ' + unknown.length + ' drugs');
   if (notFound.length) console.log('in scope but not in these files: ' + notFound.join(', '));
   if (sfda) {
-    console.log('SFDA top ' + sfda.top.length + ': ' + sfdaChosen.length + ' chosen, ' + sfdaDropped.length + ' not in DDInter');
+    console.log('SFDA top ' + sfda.top.length + ': ' + sfdaChosen.length + ' chosen, ' + sfdaDropped.length + ' not in these loaded files');
     if (sfdaDropped.length) console.log('  dropped: ' + sfdaDropped.map((d) => d.ingredient).join(', '));
   }
   if (!dry) fs.writeFileSync(INDEX, JSON.stringify(index, null, 2) + '\n');
   console.log(dry ? '(dry run - nothing written)' : 'wrote data/interaction-index.json');
 }
 
-main();
+if (require.main === module) main();
+
+// Exported for test/sfda-extension.test.js only, so it can check the real SFDA -> DDInter
+// resolution (not a re-implementation of it, which could drift from this file) against
+// data/build/top-ingredients.json. Requiring this file never runs main() by itself - only this
+// process's own `node scripts/build-demo-index.js` invocation does.
+module.exports = { sfdaCandidateKeys, EXTRA_SUFFIXES, EXTRA_SYNONYMS };
