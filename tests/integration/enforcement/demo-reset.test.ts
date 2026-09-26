@@ -75,6 +75,7 @@ describe('CR-109 · POST /api/agent/demo/reset, against the real database', () =
     expect(body.moved.map((m) => m.id).sort()).toEqual(['rx-009-20260921-2100', 'rx-009-20260922-2100']);
     for (const m of body.moved) expect(m).toEqual({ id: m.id, from: '21:00', to: '19:30' });
 
+    const auditCountAfterFirst = new Map<string, number>();
     for (const r of body.reset) {
       const row = await doseRow(r.id);
       expect(row?.status).toBe('upcoming');
@@ -82,6 +83,7 @@ describe('CR-109 · POST /api/agent/demo/reset, against the real database', () =
       const audit = await auditRowsFor(r.id);
       expect(audit.length).toBeGreaterThanOrEqual(1);
       expect(audit.at(-1)).toEqual({ actor_role: 'agent', message: expect.stringContaining('تسجيل حالة جرعة — قادمة') });
+      auditCountAfterFirst.set(r.id, audit.length);
     }
     const expectedNewTime: Record<string, string> = {
       'rx-009-20260921-2100': '2026-09-21T19:30:00+03:00',
@@ -101,7 +103,11 @@ describe('CR-109 · POST /api/agent/demo/reset, against the real database', () =
     const body2 = (await res2.json()) as { moved: unknown[]; reset: unknown[] };
     expect(body2.moved).toEqual([]);
     expect(body2.reset).toEqual([]);
-    for (const r of body.reset) expect((await auditRowsFor(r.id)).length).toBe(1);
+    // Not a literal 1: the seed already holds a dose_status_recorded row for rx-008-20260921-0700
+    // (its original taken_on_time recording, docs/Seed Dataset.md) before this test's first press ever
+    // runs, so a freshly seeded database starts some doses at 2, not 1. The no-op second press must
+    // change nothing, so each count is asserted against what the first press itself produced.
+    for (const r of body.reset) expect((await auditRowsFor(r.id)).length).toBe(auditCountAfterFirst.get(r.id));
   });
 
   it('401 without a bearer, 403 for a user session, 422 for any body key — before touching a row', async () => {

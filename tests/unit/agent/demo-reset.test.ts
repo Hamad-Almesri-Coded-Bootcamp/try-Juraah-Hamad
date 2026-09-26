@@ -89,8 +89,19 @@ describe('planDemoReset', () => {
   });
 
   it('only today and tomorrow: recorded doses and 21:00 doses of yesterday and the day after are untouched', () => {
-    const p = planDemoReset(pt03Rows(), DATES);
+    // pt03Rows() starts everything upcoming, so without a recorded dose on both sides of the range
+    // this test cannot fail: p.reset would be empty regardless of whether the date filter runs at
+    // all. One out-of-range dose on each side is recorded, plus one in-range dose, so a planner that
+    // ignored the date filter for resets would show up here.
+    const rows = pt03Rows().map((d) => {
+      if (d.id === 'rx-008-20260925-0700') return { ...d, status: MISSED };
+      if (d.id === 'rx-009-20260928-1300') return { ...d, status: ON_TIME };
+      if (d.id === 'rx-008-20260926-0700') return { ...d, status: ON_TIME };
+      return d;
+    });
+    const p = planDemoReset(rows, DATES);
     const outOfRange = ['2026-09-25', '2026-09-28'];
+    expect(p.reset.find((r) => r.id === 'rx-008-20260926-0700')).toEqual({ id: 'rx-008-20260926-0700', kuwaitTime: '07:00', was: ON_TIME });
     for (const r of p.reset) expect(outOfRange.some((d) => r.id.includes(d.replace(/-/g, '')))).toBe(false);
     for (const m of p.moved) expect(outOfRange.some((d) => m.id.includes(d.replace(/-/g, '')))).toBe(false);
   });
