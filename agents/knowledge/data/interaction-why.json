@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "source": "DDInter 2.0",
+    "url": "https://ddinter.scbdd.com/",
+    "licence": "CC BY-NC-SA 4.0",
+    "citation": "Tian Y, Yi J, Wang N, Wu C, Peng J, Liu S, Yang G, Cao D. DDInter 2.0: an enhanced drug interaction resource with expanded data coverage, new interaction types, and improved user interface. Nucleic Acids Research 2025;53(D1):D1356-D1362. doi:10.1093/nar/gkae726.",
+    "retrievedAt": "2026-09-26",
+    "summaries": "AI draft written only from the DDInter text beside it; a doctor confirms it before relying on it"
+  },
+  "pairs": {}
+}

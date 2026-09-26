@@ -36,6 +36,7 @@ const REVIEWER_FILES = [
   'features/clinic/ReviewerDecision.tsx',
   'features/clinic/FlaggedPrescriptionDetail.tsx',
   'features/clinic/PrescriptionBridge.tsx',
+  'features/clinic/WhyTheyInteract.tsx',
   'features/clinic/format.ts',
 ];
 

@@ -26,6 +26,8 @@ import {
 } from '../refusals/reads-clinic';
 import { toAlert, toFieldQueueItem, toReviewQueueItem } from '../shapes/reads-clinic';
 import { toDoseWithPrescription, toPrescription } from '../shapes/reads-rx';
+import { alertWhy } from '../shapes/why'; // CR-113
+import { WHY_DATA } from '../why-data';
 import type { DrugCheckOutcome } from '@/types/views';
 import { askTravelCheck, travelCheckConfigured } from '@/lib/agent-webhooks';
 import { languageOf } from '@/lib/agent-webhooks/core';
@@ -233,9 +235,11 @@ export const getAlertForReview: DataApi['getAlertForReview'] = async (alertId) =
     const active = await sql.unsafe(PG_QUERIES_CLINIC.alertReviewActive, [alert.patientId]);
     const doses = await sql.unsafe(PG_QUERIES_CLINIC.alertReviewRecentDoses, [alert.patientId]);
     const [tracking] = await sql.unsafe(PG_QUERIES_CLINIC.alertReviewTracking, [alert.patientId]);
+    const involvedPrescriptions = involved.map((r) => toPrescription(r));
     return {
       alert,
-      involvedPrescriptions: involved.map((r) => toPrescription(r)),
+      involvedPrescriptions,
+      why: alertWhy(involvedPrescriptions, WHY_DATA),
       patientContext: {
         activePrescriptions: active.map((r) => toPrescription(r)),
         recentDoses: doses.map((r) => toDoseWithPrescription(r)),

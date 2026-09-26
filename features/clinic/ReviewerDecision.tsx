@@ -37,6 +37,7 @@ import { TO_BE_SUPPLIED } from '@/lib/config';
 import { patternLabel, timelineWhen } from '@/features/caregiving/format';
 import { doseTimesLabel, rxHeadline, waitedLabel } from './format';
 import { PrescriptionBridge } from './PrescriptionBridge';
+import { WhyTheyInteract } from './WhyTheyInteract';
 import { interpolate } from '@/features/shell/interpolate';
 import { formatDate, formatNumber, formatTime } from '@/i18n/format';
 import { localizeDrugName, localizeFacility, localizeFirstName } from '@/i18n/localize';
@@ -224,20 +225,26 @@ export function ReviewerDecision({
             <PrescriptionBridge prescriptions={involvedPrescriptions} locale={locale} />
           </section>
 
-          <section aria-labelledby={`${ids}-source`} className="flex flex-col gap-2">
-            <h2 id={`${ids}-source`} className="jr-group-title">
-              {t(copy.clinic.g2sSourceHeading, locale)}
-            </h2>
-            <div className="jr-group p-4">
-              {citationIsUnverified ? (
-                <p className="type-body">{t(copy.safety.c2SourceUnverified, locale)}</p>
-              ) : (
-                <p className="type-body" dir="ltr">
-                  {alert.sourceCitation}
-                </p>
-              )}
-            </div>
-          </section>
+          {/* CR-113: with why-data for the pair, "Why they interact" takes the Source card's place
+              (the citation moves inside it); without, today's Source card stays exactly as it was. */}
+          {view.why ? (
+            <WhyTheyInteract why={view.why} alert={alert} locale={locale} headingId={`${ids}-why`} />
+          ) : (
+            <section aria-labelledby={`${ids}-source`} className="flex flex-col gap-2">
+              <h2 id={`${ids}-source`} className="jr-group-title">
+                {t(copy.clinic.g2sSourceHeading, locale)}
+              </h2>
+              <div className="jr-group p-4">
+                {citationIsUnverified ? (
+                  <p className="type-body">{t(copy.safety.c2SourceUnverified, locale)}</p>
+                ) : (
+                  <p className="type-body" dir="ltr">
+                    {alert.sourceCitation}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {decision}
         </div>
