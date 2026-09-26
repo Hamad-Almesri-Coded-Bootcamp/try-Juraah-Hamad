@@ -31,10 +31,18 @@ const loaded = categoryFilesLoaded(index);
 if (loaded.length === 0) problems.push('the index records no loaded DDInter category files (meta.categoryFilesLoaded) - rebuild it with scripts/build-demo-index.js; until then every absent pair is "cannot verify"');
 problems.push(...atcProblems(scope));
 const atc = problems.length ? new Map() : seedAtcCategories(scope);
+// SFDA extension (2026-09-26): scripts/build-demo-index.js now fails closed PER CODE, not only per
+// build - a seed drug's code that sits in a loaded category but was never individually confirmed on
+// its own WHO page (meta.categoryClaimsSkipped) is left out of what gets written, same as if that
+// category were never loaded for it at all. So the index's stored categories are the seed file's own
+// minus any skipped ones, not a byte-for-byte copy of the seed file (which would defeat the point of
+// the skip).
+const skipped = new Set((index.meta && index.meta.categoryClaimsSkipped) || []);
 for (const [k, cats] of atc) {
   const d = index.drugs.get(k);
-  if (d && JSON.stringify(d.atcCategories || null) !== JSON.stringify(cats)) {
-    problems.push(k + ': the index has ATC categories ' + JSON.stringify(d.atcCategories || null) + ', data/seed-drug-scope.json gives ' + JSON.stringify(cats) + ' - rebuild the index');
+  const expected = cats.filter((c) => !skipped.has(k + ':' + c));
+  if (d && JSON.stringify(d.atcCategories || null) !== JSON.stringify(expected.length ? expected : null)) {
+    problems.push(k + ': the index has ATC categories ' + JSON.stringify(d.atcCategories || null) + ', data/seed-drug-scope.json minus any skipped claim gives ' + JSON.stringify(expected) + ' - rebuild the index');
   }
 }
 if (atc.size) {

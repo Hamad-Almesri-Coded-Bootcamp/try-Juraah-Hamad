@@ -106,7 +106,11 @@ export type DrugCheckOutcome =
   | { kind: 'could_not_identify' }
   // CR-078: the medicine was recognised but Travel Check cannot screen it against the whole
   // profile right now. Carries no drugName and no verdict — nothing is guessed, nothing screened.
-  | { kind: 'cannot_verify' };
+  | { kind: 'cannot_verify' }
+  // The photo was read, but it is not a medicine at all (no packet, box or strip) — the agent's own
+  // classification, never inferred by the app. Carries no drugName, no verdict, no alertId: nothing
+  // was screened because there was nothing to screen.
+  | { kind: 'not_a_medicine' };
 
 // ---------------------------------------------------------------------------------------------
 // Supply
@@ -180,10 +184,30 @@ export interface PatientContext {
   trackingOn: boolean;
 }
 
+/** "Why they interact" (CR-113): DDInter's own text for the alert's pair, from
+ * agents/knowledge/data/interaction-why.json, with an AI draft summary written only from that text.
+ * `summary` is null when no draft exists for the pair; the screen then says so and keeps the source. */
+export interface AlertWhy {
+  level: 'Major' | 'Moderate' | 'Minor';
+  /** The pair as the interaction index keys it (lowercase English generic names, sorted). */
+  drugs: [string, string];
+  /** The same pair as the source or the prescriptions write it, for display ("Ibuprofen"). */
+  labels: [string, string];
+  summary: { en: string; ar: string } | null;
+  /** DDInter's own words, English, shown verbatim. */
+  mechanism: string;
+  management: string;
+  /** The DDInter record for the pair. */
+  url: string;
+  citation: string;
+}
+
 export interface AlertReviewView {
   alert: InteractionAlert;
   involvedPrescriptions: Prescription[];
   patientContext: PatientContext;
+  /** Absent or null: no why-data for the pair; the screen keeps today's Source card. */
+  why?: AlertWhy | null;
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -1,0 +1,34 @@
+/* Tag — pending component (CR-113). A short label on a surface. Three tones, values only from
+   tokens: neutral (a plain fact), info (navy-tint, a label asking for attention), success (a done
+   state). Never the danger token — red stays for the finding. */
+
+.jr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-inline-size: 100%;
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+}
+
+.jr-tag__icon { flex: none; }
+.jr-tag__label { min-inline-size: 0; overflow-wrap: anywhere; }
+
+.jr-tag--neutral {
+  background: var(--surface-app);
+  color: var(--navy);
+  box-shadow: inset 0 0 0 var(--line) var(--border);
+}
+
+.jr-tag--info {
+  background: var(--navy-tint);
+  color: var(--navy);
+}
+
+.jr-tag--success {
+  background: var(--surface-card);
+  color: var(--success);
+  box-shadow: inset 0 0 0 var(--line-2) var(--success);
+}

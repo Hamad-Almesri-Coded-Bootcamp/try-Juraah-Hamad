@@ -23,9 +23,12 @@ export const supply = {
 
   // Analysing — UX Principles §5: say what is happening and roughly how long.
   c3AnalysingTitle: { ar: 'نتحقق من الدواء', en: 'Checking this medicine', placeholder: true },
+  // CR-110 (A5): the timing clause matches prescription.ts's b4AnalysingBody — VISION_TIMEOUT_MS
+  // (lib/agent-webhooks/index.ts) is this screen's real worst case too, not the "usually less than
+  // 30 seconds" guess a 45 s budget can outrun.
   c3AnalysingBody: {
-    ar: 'نقارنه بكل أدويتك الحالية. يستغرق هذا عادةً أقل من ٣٠ ثانية.',
-    en: 'We’re comparing it with all your current medicines. This usually takes less than 30 seconds.',
+    ar: 'نقارنه بكل أدويتك الحالية. قد يستغرق هذا حتى ٤٥ ثانية.',
+    en: 'We’re comparing it with all your current medicines. This can take up to 45 seconds.',
     placeholder: true,
   },
 
@@ -81,6 +84,20 @@ export const supply = {
   c3CannotVerifyBody: {
     ar: 'تعرّفنا على الدواء، لكننا لا نستطيع الآن فحصه مع جميع أدويتك. هذا لا يعني أنه آمن. اسأل الصيدلي قبل أن تتناوله. لم نسجّل أو نحفظ أي شيء.',
     en: 'We recognised the medicine, but we cannot check it against all the medicines you take right now. This does not mean it is safe. Ask your pharmacist before you take it. Nothing was recorded or saved.',
+    placeholder: true,
+  },
+
+  // Not a medicine — the photo was read, but it is not a medicine packet, box or strip at all (the
+  // agent's own classification, never inferred here). An explicit, honest state like
+  // could_not_identify (ErrorState tone): unlike cannot_verify, a retry with a different photo is
+  // exactly the fix, so it reuses could_not_identify's own retry label rather than a new one.
+  // NOTE (app copy is Fusha, not the dialect: docs/AGENTS-POLISH-PLAN.md:212, decision D7) — written
+  // in the same register as every other string in this file, not the Kuwaiti dialect the task brief
+  // suggested; see the session notes.
+  c3NotAMedicineTitle: { ar: 'لم نجد دواءً في هذه الصورة', en: 'This doesn’t look like a medicine', placeholder: true },
+  c3NotAMedicineBody: {
+    ar: 'صوّر علبة الدواء أو الشريط بحيث يظهر اسمه بوضوح أمام الكاميرا.',
+    en: 'Take a photo of the medicine box or strip, with its name facing the camera.',
     placeholder: true,
   },
 

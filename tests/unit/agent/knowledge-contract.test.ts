@@ -73,6 +73,17 @@ describe('agents/knowledge/src/travel-check.js → parseAlertBody', () => {
     expect(r.alert).toBeTruthy();
     expect(parseAlertBody(r.alert)).toMatchObject({ ok: true, value: { severity: 'danger', reviewStatus: 'pending_medical_review' } });
   });
+  it('a photo that is not a medicine answers not_a_medicine and nothing else, whatever the profile (CR-110)', () => {
+    const read = { isMedicine: false, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null };
+    for (const patientId of patients) {
+      const r = T.travelCheck({ patientId, visionRead: read, prescriptions: activeOf(patientId), index, brandIndex });
+      expect(r.appOutcome).toEqual({ kind: 'not_a_medicine' });
+      expect(r.alert).toBeFalsy();
+    }
+    // decided before the profile is needed: an unreadable profile changes nothing
+    const unread = T.travelCheck({ patientId: 'pt-01', visionRead: read, prescriptions: null, index, brandIndex });
+    expect(unread.appOutcome).toEqual({ kind: 'not_a_medicine' });
+  });
   it('appOutcome is always a valid DrugCheckOutcome shape', () => {
     // CR-078: cannot_verify is exercised here too (today: pt-02 Euthyrox and ZOCOR, pt-03 KLACID,
     // all ungraded_interaction_in_source) - the new branch cannot pass this test unhit.

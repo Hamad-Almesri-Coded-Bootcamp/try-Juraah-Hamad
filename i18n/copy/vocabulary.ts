@@ -52,6 +52,20 @@ export const vocabulary = {
   takePhoto: { ar: 'التقط صورة للوصفة', en: 'Take a photo', placeholder: true },
   choosePhoto: { ar: 'اختر صورة', en: 'Choose a photo', placeholder: true },
   analysing: { ar: 'جارٍ الفحص…', en: 'Checking…', placeholder: true },
+  // PhotoInput (A1): the browser could not decode the chosen file (so it cannot be resized), and it
+  // is over the size PhotoInput can send as-is. Shown inline in PhotoInput itself; the file is never
+  // sent. Shared by every PhotoInput caller (B4, C3), never redefined per screen.
+  photoTooLargeToSend: {
+    ar: 'حجم هذه الصورة كبير جدًا على الإرسال. اختر صورة أصغر.',
+    en: 'This photo is too large to send. Please choose a smaller one.',
+    placeholder: true,
+  },
+  // A2: the awaited call itself failed (a dropped connection, a timeout) — distinct from an outcome
+  // the agent returned. DrugCheckFlow's could_not_identify and AddPrescriptionFlow's unreadable error
+  // states both swap this generic line in for their existing description; the outcome-based text
+  // (i18n/copy/supply.ts c3CouldNotIdentifyBody, i18n/copy/prescription.ts b4UnreadableDescription)
+  // is untouched and still shown when the agent itself answered with that outcome.
+  photoSendFailed: { ar: 'لم نتمكن من إرسال الصورة. حاول مرة أخرى.', en: 'We couldn’t send the photo. Please try again.', placeholder: true },
   secondsLeft: { ar: 'ثانية متبقية', en: 'seconds left', placeholder: true },
   countdownDone: { ar: 'تمت الموافقة', en: 'Approved', placeholder: true },
   countdownLapsed: { ar: 'انتهى الوقت', en: 'Time ran out', placeholder: true },

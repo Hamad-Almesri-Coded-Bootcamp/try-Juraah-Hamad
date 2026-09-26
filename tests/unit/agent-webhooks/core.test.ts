@@ -113,6 +113,17 @@ describe('readDrugCheck ← agent-travel-check', () => {
     });
   });
 
+  it('not_a_medicine passes through as its own outcome too — no alert, no readAs, never a guessed drug', () => {
+    expect(readDrugCheck(200, { appOutcome: { kind: 'not_a_medicine' } })).toEqual({ kind: 'not_a_medicine' });
+    expect(
+      readDrugCheck(200, { appOutcome: { kind: 'not_a_medicine', drugName: 'X', verdict: 'no_interaction', alertId: 'ia-1', readAs: 'Panadol' } })
+    ).toEqual({ kind: 'not_a_medicine' });
+    expect(readDrugCheck(500, { appOutcome: { kind: 'not_a_medicine' } })).toEqual({ kind: 'could_not_identify' });
+    expect(readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'not_a_medicine' } })).toEqual({
+      kind: 'could_not_identify',
+    });
+  });
+
   it('an alert id that is not an id is dropped, never followed', () => {
     const r = readDrugCheck(200, { appOutcome: { kind: 'identified', drugName: 'X', verdict: 'interaction_found', alertId: '../../clinic' } });
     expect(r).toEqual({ kind: 'identified', drugName: 'X', verdict: 'interaction_found' });

@@ -273,4 +273,34 @@ export const clinic = {
   x1ColumnActor: { ar: 'المنفّذ', en: 'Done by', placeholder: true },
   x1ColumnPatient: { ar: 'المريض', en: 'Patient', placeholder: true },
   x1ColumnDescription: { ar: 'الوصف', en: 'Description', placeholder: true },
+
+  // G2s "Why they interact" (CR-113, the owner's approved mockup of 2026-09-26). The level words are
+  // DDInter's own grading (Major / Moderate / Minor), not the product's severity vocabulary.
+  whyHeading: { ar: 'سبب التعارض', en: 'Why they interact', placeholder: true },
+  whyDraftLabel: { ar: 'مسودة بالذكاء الاصطناعي · راجِعها مع المصدر', en: 'AI draft · check it against the source', placeholder: true },
+  whyCheckedTemplate: { ar: 'راجعه الطبيب المختص · {date}', en: 'Checked by the reviewing doctor · {date}', placeholder: true },
+  whyCheckedLabel: { ar: 'راجعه الطبيب المختص', en: 'Checked by the reviewing doctor', placeholder: true },
+  whyLevelTemplate: { ar: 'مستوى DDInter: {level}', en: 'DDInter level: {level}', placeholder: true },
+  whyLevelMajor: { ar: 'شديد', en: 'Major', placeholder: true },
+  whyLevelModerate: { ar: 'متوسط', en: 'Moderate', placeholder: true },
+  whyLevelMinor: { ar: 'طفيف', en: 'Minor', placeholder: true },
+  whyNoSummary: {
+    ar: 'لا يوجد ملخص بالذكاء الاصطناعي لهذا الزوج بعد. نص DDInter الأصلي أدناه.',
+    en: 'No AI summary for this pair yet. DDInter’s own text is below.',
+    placeholder: true,
+  },
+  whySourceToggle: { ar: 'نص DDInter الأصلي', en: 'DDInter’s own text', placeholder: true },
+  whyMechanismLabel: { ar: 'التعارض', en: 'Interaction', placeholder: true },
+  whyManagementLabel: { ar: 'التعامل معه', en: 'Management', placeholder: true },
+  whyRecordLabel: { ar: 'السجل', en: 'Record', placeholder: true },
+  whySourceLabel: { ar: 'المصدر', en: 'Source', placeholder: true },
+  whyOpenRecord: { ar: 'فتح سجل DDInter', en: 'Open the DDInter record', placeholder: true },
+  whyOpensInNewTab: { ar: '(يفتح في نافذة جديدة)', en: '(opens in a new tab)', placeholder: true },
+  whyLicence: { ar: 'نص من DDInter 2.0، برخصة CC BY-NC-SA 4.0', en: 'Text from DDInter 2.0, licensed CC BY-NC-SA 4.0', placeholder: true },
+  whyAiSummaryTag: { ar: 'ملخص بالذكاء الاصطناعي لنص DDInter', en: 'AI summary of DDInter’s text', placeholder: true },
+  whyAiNote: {
+    ar: 'كتبه الذكاء الاصطناعي من نص DDInter فقط. قرارك أدناه يسجّل أنك راجعته.',
+    en: 'Written by AI from DDInter’s text only. Your decision below records that you checked it.',
+    placeholder: true,
+  },
 } satisfies Record<string, CopyEntry>;

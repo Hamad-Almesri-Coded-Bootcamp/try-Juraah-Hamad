@@ -41,7 +41,7 @@ import type { Locale } from '@/i18n/locale';
 import type { InteractionAlert as InteractionAlertRecord } from '@/types/contracts';
 import type { DrugCheckOutcome } from '@/types/views';
 
-type Phase = 'capture' | 'analysing' | 'result' | 'could_not_identify' | 'cannot_verify';
+type Phase = 'capture' | 'analysing' | 'result' | 'could_not_identify' | 'cannot_verify' | 'not_a_medicine';
 
 export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale; patientId: string; backHref: string }) {
   const [photo, setPhoto] = useState<File | null>(null);
@@ -50,6 +50,9 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
   // Who is checking the finding (UX §8, part three): the linked alert's own review state, read
   // through the published seam after the check (`getAlert`), never guessed.
   const [reviewStatus, setReviewStatus] = useState<InteractionAlertRecord['reviewStatus'] | undefined>(undefined);
+  // A2: the call itself failed (never reached an outcome) — could_not_identify's ErrorState swaps in
+  // the generic photoSendFailed line instead of its usual, outcome-based body when this is set.
+  const [sendFailed, setSendFailed] = useState(false);
   const [pending, startTransition] = useTransition();
   // A fresh photo, not the outcome of an earlier check — never reused across submissions.
   const requestSeq = useRef(0);
@@ -58,28 +61,51 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
     setPhoto(file);
     if (!file) return;
     const seq = ++requestSeq.current;
+    setSendFailed(false);
     setPhase('analysing');
     startTransition(() => {
       void (async () => {
-        const result = await checkDrugPhoto(patientId, file);
-        if (seq !== requestSeq.current) return; // superseded by a later photo
-        if (result.kind === 'could_not_identify') {
-          setPhase('could_not_identify');
-          return;
-        }
-        if (result.kind === 'cannot_verify') {
-          setPhase('cannot_verify');
-          return;
-        }
-        let status: InteractionAlertRecord['reviewStatus'] | undefined;
-        if (result.verdict === 'interaction_found' && result.alertId) {
-          const alert = await getAlert(result.alertId);
+        try {
+          const result = await checkDrugPhoto(patientId, file);
+          if (seq !== requestSeq.current) return; // superseded by a later photo
+          if (result.kind === 'could_not_identify') {
+            setPhase('could_not_identify');
+            return;
+          }
+          if (result.kind === 'cannot_verify') {
+            setPhase('cannot_verify');
+            return;
+          }
+          if (result.kind === 'not_a_medicine') {
+            setPhase('not_a_medicine');
+            return;
+          }
+          let status: InteractionAlertRecord['reviewStatus'] | undefined;
+          if (result.verdict === 'interaction_found' && result.alertId) {
+            // Its own try/catch, separate from the outer one below (CR-110): checkDrugPhoto already
+            // succeeded with a real danger finding, so a failure here (a dropped connection reading
+            // the alert's review state) must never fall through to the outer catch and show the
+            // patient "We couldn't send the photo" — that would hide a correct danger finding behind
+            // a generic failure and invite a pointless retry. Show the result and its alert link with
+            // no reviewStatus instead.
+            try {
+              const alert = await getAlert(result.alertId);
+              status = alert?.reviewStatus;
+            } catch {
+              status = undefined;
+            }
+          }
+          if (seq !== requestSeq.current) return; // superseded by a later photo
+          setReviewStatus(status);
+          setOutcome(result);
+          setPhase('result');
+        } catch {
+          // A2: the awaited call itself threw (a dropped connection, a timeout) — never leave the
+          // screen stuck on "analysing". Conservative outcome, same as any other unreadable answer.
           if (seq !== requestSeq.current) return;
-          status = alert?.reviewStatus;
+          setSendFailed(true);
+          setPhase('could_not_identify');
         }
-        setReviewStatus(status);
-        setOutcome(result);
-        setPhase('result');
       })();
     });
   }
@@ -88,6 +114,7 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
     setPhoto(null);
     setOutcome(null);
     setReviewStatus(undefined);
+    setSendFailed(false);
     setPhase('capture');
   }
 
@@ -164,7 +191,7 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
           <div className="jr-group w-full px-4">
             <ErrorState
               title={t(copy.supply.c3CouldNotIdentifyTitle, locale)}
-              description={t(copy.supply.c3CouldNotIdentifyBody, locale)}
+              description={sendFailed ? t(copy.vocabulary.photoSendFailed, locale) : t(copy.supply.c3CouldNotIdentifyBody, locale)}
               onRetry={handleRetry}
               retryLabel={t(copy.supply.c3CouldNotIdentifyRetryLabel, locale)}
             />
@@ -187,6 +214,25 @@ export function DrugCheckFlow({ locale, patientId, backHref }: { locale: Locale;
             {t(copy.safety.c1BackLabel, locale)}
           </NavigateButton>
         </>
+      )}
+
+      {/* The photo was read, but it is not a medicine at all — the agent's own classification.
+          An explicit, honest state like could_not_identify (a retry with a different photo is
+          exactly the fix), never a warning tone: nothing here implies anything about safety. */}
+      {phase === 'not_a_medicine' && (
+        <div className="flex flex-col items-center gap-3">
+          <div className="jr-group w-full px-4">
+            <ErrorState
+              title={t(copy.supply.c3NotAMedicineTitle, locale)}
+              description={t(copy.supply.c3NotAMedicineBody, locale)}
+              onRetry={handleRetry}
+              retryLabel={t(copy.supply.c3CouldNotIdentifyRetryLabel, locale)}
+            />
+          </div>
+          <NavigateButton href={backHref} variant="quiet" lang={locale}>
+            {t(copy.safety.c1BackLabel, locale)}
+          </NavigateButton>
+        </div>
       )}
     </div>
   );

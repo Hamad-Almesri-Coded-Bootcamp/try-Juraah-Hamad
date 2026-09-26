@@ -18,12 +18,14 @@
 @import '../components/ui/styles/ContextBanner.css' layer(components);
 @import '../components/ui/styles/CopyField.css' layer(components);
 @import '../components/ui/styles/Countdown.css' layer(components);
+@import '../components/ui/styles/Disclosure.css' layer(components);
 @import '../components/ui/styles/DoseRow.css' layer(components);
 @import '../components/ui/styles/DoseTimeline.css' layer(components);
 @import '../components/ui/styles/MenuRow.css' layer(components);
 @import '../components/ui/styles/PhotoInput.css' layer(components);
 @import '../components/ui/styles/ScheduleGroup.css' layer(components);
 @import '../components/ui/styles/StepIndicator.css' layer(components);
+@import '../components/ui/styles/Tag.css' layer(components);
 /* Daylight (CR-071): the v2 theme layer — token values and component restyles, after the system's own
    files in the same layer, so it wins over them and every utility a screen writes still wins over it. */
 @import '../styles/daylight.css' layer(components);

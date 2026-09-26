@@ -133,6 +133,11 @@ function runner(wf) {
 const http = (statusCode, body) => [{ json: { statusCode, body } }];
 const webhookItem = (body) => [{ json: { body } }];
 const geminiText = (text, finishReason) => http(200, { candidates: [{ finishReason: finishReason || 'STOP', content: { parts: [{ text }] } }] });
+/** A travel-check vision reading (the isMedicine/brandAsPrinted/ingredientsAsPrinted/strengthAsPrinted
+ *  schema), JSON.stringified as the model's own answer text - any field left out reads as "not
+ *  printed" (isMedicine defaults true, since most scenarios are about a medicine box). */
+const medicineRead = (over) => JSON.stringify(Object.assign(
+  { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }, over));
 const active = (patientId) => SEED.filter((p) => p.patientId === patientId && p.status === 'active');
 const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
@@ -190,11 +195,17 @@ async function screeningScenarios() {
     console.log('        -> ' + danger.description);
   });
 
-  await check('AP-06 - both drugs outside the loaded DDInter files (Ibuprofen x Ciprofloxacin): one info "cannot verify" alert POSTed for the reviewer, never "nothing recorded"', async () => {
+  // SFDA extension (2026-09-26): this build now loads all eight DDInter files (A, B, D, H, L, P, R,
+  // V), not just A, B, H. Loading file R turned up a real DDInter row for Ibuprofen x Ciprofloxacin
+  // (Moderate), so that pair no longer demonstrates "cannot verify" - it demonstrates the opposite,
+  // the wider index finding a real answer. Atorvastatin (ATC C) x Ciprofloxacin (ATC J/S) sits
+  // outside every one of these eight files regardless of DDInter's row content, so it takes over as
+  // the durable example here (same fixture test/screening.test.js now uses for this scenario).
+  await check('AP-06 - both drugs outside every loaded DDInter file (Atorvastatin x Ciprofloxacin): one info "cannot verify" alert POSTed for the reviewer, never "nothing recorded"', async () => {
     const r = runner(wf);
     await r.code('input (deterministic)', webhookItem({ patientId: 't-patient', newPrescriptionId: 't-2', language: 'en' }));
     const p = [
-      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Ibuprofen' } },
+      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Atorvastatin' } },
       { id: 't-2', status: 'active', needsReview: false, drug: { genericName: 'Ciprofloxacin' } }
     ];
     const items = await r.code('screen (deterministic)', r.set('backend: active prescriptions', http(200, { prescriptions: p })));
@@ -203,7 +214,7 @@ async function screeningScenarios() {
     const a = items[0].json.alert;
     assert.equal(a.severity, 'info');
     assert.equal(a.reviewStatus, 'pending_medical_review');
-    assert.match(a.sourceCitation, /DDInter category files A, B, H/);
+    assert.match(a.sourceCitation, /DDInter category files A, B, D, H, L, P, R, V/);
     assert.doesNotMatch(a.description, /no interaction is recorded/);
     console.log('        -> ' + a.description);
   });
@@ -302,24 +313,44 @@ async function travelScenarios() {
     return { r, input: inp.json, check: c.json };
   }
 
-  await check('the vision request carries the image inline and the narrow prompt', async () => {
-    const { input } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: [] }), geminiText('UNREADABLE'));
+  await check('the vision request carries the image inline and the schema-constrained prompt', async () => {
+    const { input } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: [] }), geminiText(medicineRead({})));
     const parts = input.visionBody.contents[0].parts;
-    assert.match(parts[0].text, /UNREADABLE/);
+    assert.match(parts[0].text, /isMedicine/);
     assert.equal(parts[1].inlineData.mimeType, 'image/png');
     assert.equal(parts[1].inlineData.data, TINY_PNG);
-    assert.equal(input.visionBody.generationConfig.temperature, 0);
+    const gc = input.visionBody.generationConfig;
+    assert.equal(gc.temperature, 0);
+    assert.equal(gc.responseMimeType, 'application/json');
+    assert.deepEqual(gc.responseSchema.required.sort(), ['brandAsPrinted', 'ingredientsAsPrinted', 'isMedicine', 'strengthAsPrinted']);
   });
 
-  await check('UNREADABLE -> could_not_identify; no alert', async () => {
-    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText('UNREADABLE'));
+  await check('not a medicine (decision (a)) -> not_a_medicine, decided before any lookup; no alert', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText(medicineRead({ isMedicine: false })));
+    assert.equal(c.post, false);
+    assert.equal(c.result.verdict, 'not_a_medicine');
+    assert.deepEqual(c.result.appOutcome, { kind: 'not_a_medicine' });
+    assert.equal(c.result.candidate, null);
+  });
+
+  await check('malformed JSON from the model -> could_not_identify, named reason, fail closed', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: [] }), geminiText('not valid JSON at all'));
     assert.equal(c.post, false);
     assert.equal(c.result.verdict, 'could_not_identify');
+    assert.equal(c.result.reason, 'model_response_unparseable');
   });
 
-  await check('danger: KLACID for a patient on Simvastatin -> alert POSTed, alertId in the app outcome', async () => {
+  await check('a medicine package with nothing legible on it -> could_not_identify; no alert', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText(medicineRead({})));
+    assert.equal(c.post, false);
+    assert.equal(c.result.verdict, 'could_not_identify');
+    assert.equal(c.result.reason, 'no_readable_text');
+  });
+
+  await check('danger: KLACID (brand plus strength) for a patient on Simvastatin -> alert POSTed, alertId in the app outcome', async () => {
     const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Simvastatin' }, source: { facilityName: 'F', sector: 'public' } }];
-    const { r, check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/jpeg', language: 'en' }, http(200, { prescriptions: p }), geminiText('KLACID'));
+    const { r, check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/jpeg', language: 'en' }, http(200, { prescriptions: p }),
+      geminiText(medicineRead({ brandAsPrinted: 'KLACID', strengthAsPrinted: '500 mg' })));
     assert.equal(c.post, true);
     assert.equal(c.alert.reviewStatus, 'pending_medical_review');
     r.set('backend: raise the alert', http(201, { alert: Object.assign({ id: 'ia_77' }, c.alert), delivered: [] }));
@@ -330,7 +361,7 @@ async function travelScenarios() {
 
   await check('danger alert refused by the backend -> mustEscalate, no alertId', async () => {
     const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Simvastatin' } }];
-    const { r } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/jpeg' }, http(200, { prescriptions: p }), geminiText('KLACID'));
+    const { r } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/jpeg' }, http(200, { prescriptions: p }), geminiText(medicineRead({ brandAsPrinted: 'KLACID' })));
     r.set('backend: raise the alert', http(422, { error: 'invalid_body' }));
     const [a] = await r.code('answer (deterministic)', http(422, {}));
     assert.equal(a.json.ok, false);
@@ -340,15 +371,38 @@ async function travelScenarios() {
 
   // F2: Warfarin, Ibuprofen and Metformin are in the index now, so the seed profile is checkable.
   await check('seed pt-01 photographs ZOCOR -> interaction_found (Simvastatin x Warfarin is in DDInter), app names Simvastatin', async () => {
-    const { r, check: c } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-01') }), geminiText('ZOCOR'));
+    const { r, check: c } = await run({ patientId: 'pt-01', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-01') }), geminiText(medicineRead({ brandAsPrinted: 'ZOCOR' })));
     assert.equal(c.result.verdict, 'interaction_found');
     const [a] = await r.code('answer (deterministic)', [{ json: c }]);
     assert.deepEqual(a.json.appOutcome, { kind: 'identified', drugName: 'Simvastatin', verdict: 'interaction_found' });
   });
 
-  await check('AP-06 - an Ezetimibe box for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app cannot_verify', async () => {
+  await check('bilingual box: brandAsPrinted holds the Latin name only, and still resolves ("Brufen" + Arabic print)', async () => {
+    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: [] }),
+      geminiText(medicineRead({ brandAsPrinted: 'Brufen' })));
+    assert.equal(c.result.verdict, 'no_interaction_found');
+    assert.equal(c.result.candidate.ingredients[0], 'Ibuprofen');
+  });
+
+  await check('no brand printed: every ingredientsAsPrinted entry must resolve - a combination of two verified ingredients resolves', async () => {
+    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: [] }),
+      geminiText(medicineRead({ ingredientsAsPrinted: ['Acetaminophen', 'Caffeine'] })));
+    assert.equal(c.result.verdict, 'no_interaction_found');
+    assert.deepEqual(c.result.candidate.ingredients.sort(), ['Acetaminophen', 'Caffeine']);
+    assert.equal(c.result.candidate.isCombination, true);
+  });
+
+  await check('no brand printed: one ingredientsAsPrinted entry that does not resolve refuses the WHOLE reading, never a partial screen', async () => {
+    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: [] }),
+      geminiText(medicineRead({ ingredientsAsPrinted: ['Acetaminophen', 'Notarealingredientxyz'] })));
+    assert.equal(c.result.verdict, 'could_not_identify');
+    assert.equal(c.result.reason, 'combination_ingredient_unresolved');
+  });
+
+  await check('AP-06 - an Ezetimibe box (no brand printed) for a patient on Amlodipine (both outside the loaded DDInter files) -> cannot_verify, app cannot_verify', async () => {
     const p = [{ id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Amlodipine' } }];
-    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: p }), geminiText('Ezetimibe'));
+    const { check: c } = await run({ patientId: 't-patient', imageBase64: TINY_PNG, mimeType: 'image/png', language: 'en' }, http(200, { prescriptions: p }),
+      geminiText(medicineRead({ ingredientsAsPrinted: ['Ezetimibe'] })));
     assert.equal(c.post, false);
     assert.equal(c.result.verdict, 'cannot_verify');
     assert.equal(c.result.reason, 'pair_outside_loaded_categories');
@@ -356,7 +410,7 @@ async function travelScenarios() {
   });
 
   await check('profile unreadable (backend 503) -> cannot_verify, profile_unavailable, never "no interaction"', async () => {
-    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText('Ezetimibe'));
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText(medicineRead({ ingredientsAsPrinted: ['Ezetimibe'] })));
     assert.equal(c.post, false);
     assert.equal(c.result.verdict, 'cannot_verify');
     assert.equal(c.result.reason, 'profile_unavailable');
@@ -364,13 +418,13 @@ async function travelScenarios() {
     assert.match(c.error, /503/);
   });
 
-  await check('UNREADABLE with the backend also down (503) -> could_not_identify (G5 answers first; the profile is never even asked about)', async () => {
-    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText('UNREADABLE'));
+  await check('nothing legible, with the backend also down (503) -> could_not_identify (G5 answers first; the profile is never even asked about)', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(503, { error: 'unavailable' }), geminiText(medicineRead({})));
     assert.equal(c.result.verdict, 'could_not_identify');
   });
 
   await check('MAREVAN (unverified SFDA brand, AP-07 pending) -> cannot_verify, brand_not_verified - never resolved to Warfarin', async () => {
-    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText('MAREVAN'));
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }), geminiText(medicineRead({ brandAsPrinted: 'MAREVAN' })));
     assert.equal(c.post, false);
     assert.equal(c.result.verdict, 'cannot_verify');
     assert.equal(c.result.reason, 'brand_not_verified');
@@ -378,9 +432,18 @@ async function travelScenarios() {
     assert.equal(c.result.candidate, null);
   });
 
+  await check('decision (d): a pending brand PLUS a printed ingredient still refuses - ingredientsAsPrinted is never a fallback for an unverified brand', async () => {
+    const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: active('pt-03') }),
+      geminiText(medicineRead({ brandAsPrinted: 'MAREVAN', ingredientsAsPrinted: ['Warfarin'] })));
+    assert.equal(c.post, false);
+    assert.equal(c.result.verdict, 'cannot_verify');
+    assert.equal(c.result.reason, 'brand_not_verified');
+    assert.equal(c.result.candidate, null, 'never resolved to Warfarin through the ingredient field');
+  });
+
   await check('a truncated/blocked Gemini answer (finishReason != STOP) is never read as a name', async () => {
     for (const fr of ['MAX_TOKENS', 'SAFETY', 'RECITATION']) {
-      const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: [] }), geminiText('PANADOL COLD', fr));
+      const { check: c } = await run({ patientId: 'pt-03', imageBase64: TINY_PNG, mimeType: 'image/png' }, http(200, { prescriptions: [] }), geminiText(medicineRead({ brandAsPrinted: 'PANADOL COLD' }), fr));
       assert.equal(c.result.verdict, 'could_not_identify');
       assert.equal(c.error, 'vision_not_finished_' + fr);
     }

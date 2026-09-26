@@ -38,21 +38,32 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
   const [photo, setPhoto] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>('capture');
   const [outcome, setOutcome] = useState<ReviewOutcome | null>(null);
+  // A2: an awaited call itself failed (never reached an outcome) — the unreadable ErrorState swaps
+  // in the generic photoSendFailed line instead of its usual, outcome-based description when set.
+  const [sendFailed, setSendFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function handlePhotoChange(file: File | null) {
     setPhoto(file);
     if (!file) return;
+    setSendFailed(false);
     setPhase('analysing');
     startTransition(() => {
       void (async () => {
-        const result = await submitPrescriptionImage(patientId, file);
-        if (result.kind === 'unreadable') {
+        try {
+          const result = await submitPrescriptionImage(patientId, file);
+          if (result.kind === 'unreadable') {
+            setPhase('unreadable');
+            return;
+          }
+          setOutcome(result);
+          setPhase('review');
+        } catch {
+          // A2: never leave the screen stuck on "analysing" — the conservative outcome, same as
+          // any other unreadable answer.
+          setSendFailed(true);
           setPhase('unreadable');
-          return;
         }
-        setOutcome(result);
-        setPhase('review');
       })();
     });
   }
@@ -60,6 +71,7 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
   function handleRetry() {
     setPhoto(null);
     setOutcome(null);
+    setSendFailed(false);
     setPhase('capture');
   }
 
@@ -67,8 +79,13 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
     if (!outcome) return;
     startTransition(() => {
       void (async () => {
-        await savePrescriptionDraft(patientId, outcome.draftId);
-        router.push(backHref);
+        try {
+          await savePrescriptionDraft(patientId, outcome.draftId);
+          router.push(backHref);
+        } catch {
+          setSendFailed(true);
+          setPhase('unreadable');
+        }
       })();
     });
   }
@@ -120,7 +137,7 @@ export function AddPrescriptionFlow({ locale, patientId, backHref }: { locale: L
           <div className="jr-group w-full px-4">
             <ErrorState
               title={t(copy.prescription.b4UnreadableTitle, locale)}
-              description={t(copy.prescription.b4UnreadableDescription, locale)}
+              description={sendFailed ? t(copy.vocabulary.photoSendFailed, locale) : t(copy.prescription.b4UnreadableDescription, locale)}
               onRetry={handleRetry}
               retryLabel={t(copy.prescription.b4RetryLabel, locale)}
             />
