@@ -50,6 +50,10 @@ const DRUG_AR: Readonly<Record<string, string>> = {
   calcium: 'الكالسيوم',
   // common medicines in Kuwait, so a prescription read from a photo usually reads in Arabic too
   paracetamol: 'باراسيتامول',
+  // the interaction index's own names for seed drugs (CR-113's record row)
+  acetaminophen: 'باراسيتامول',
+  'calcium carbonate': 'كربونات الكالسيوم',
+  cholecalciferol: 'فيتامين د٣',
   panadol: 'بنادول',
   aspirin: 'أسبرين',
   amoxicillin: 'أموكسيسيلين',

@@ -630,7 +630,7 @@ export const getAlertForReview: DataApi['getAlertForReview'] = async (alertId) =
     .filter((d) => rxById.has(d.prescriptionId) && daysBetween(d.scheduledAt.slice(0, 10), REFERENCE_DATE) >= 0 && daysBetween(d.scheduledAt.slice(0, 10), REFERENCE_DATE) <= 14)
     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
     .map((d) => toDoseWithPrescription(d, rxById.get(d.prescriptionId)!));
-  return { alert, involvedPrescriptions, patientContext: { activePrescriptions, recentDoses, trackingOn }, why: alertWhy(involvedPrescriptions, WHY_DATA) };
+  return { alert, involvedPrescriptions, patientContext: { activePrescriptions, recentDoses, trackingOn }, why: alertWhy(involvedPrescriptions, WHY_DATA, alert.sourceCitation) };
 };
 
 export const submitReviewDecision: DataApi['submitReviewDecision'] = async (alertId, decision, note) => {

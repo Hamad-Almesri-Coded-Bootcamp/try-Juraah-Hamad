@@ -58,7 +58,9 @@ export function WhyTheyInteract({
               <Tag tone="success" icon="check">
                 {checkedLabel}
               </Tag>
-            ) : summary ? (
+            ) : null}
+            {reviewed && summary ? <Tag tone="neutral">{t(copy.clinic.whyAiSummaryTag, locale)}</Tag> : null}
+            {!reviewed && summary ? (
               <Tag tone="info" icon="review">
                 {t(copy.clinic.whyDraftLabel, locale)}
               </Tag>
@@ -84,7 +86,7 @@ export function WhyTheyInteract({
         <div className="border-t border-border px-4">
           <DetailRow
             label={t(copy.clinic.whyRecordLabel, locale)}
-            value={why.drugs.map((name) => localizeDrugName(name, locale)).join(' × ')}
+            value={why.labels.map((name) => localizeDrugName(name, locale)).join(' × ')}
             lang={locale}
           />
           <DetailRow
@@ -97,6 +99,7 @@ export function WhyTheyInteract({
                     {why.citation}
                   </span>
                 ) : null}
+                <span className="type-caption text-ink-muted">{t(copy.clinic.whyLicence, locale)}</span>
                 <a className="type-body-small font-semibold underline" href={why.url} target="_blank" rel="noopener noreferrer">
                   {t(copy.clinic.whyOpenRecord, locale)}
                   <span className="wsf-sr"> {t(copy.clinic.whyOpensInNewTab, locale)}</span>

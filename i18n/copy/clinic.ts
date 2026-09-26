@@ -296,6 +296,8 @@ export const clinic = {
   whySourceLabel: { ar: 'المصدر', en: 'Source', placeholder: true },
   whyOpenRecord: { ar: 'فتح سجل DDInter', en: 'Open the DDInter record', placeholder: true },
   whyOpensInNewTab: { ar: '(يفتح في نافذة جديدة)', en: '(opens in a new tab)', placeholder: true },
+  whyLicence: { ar: 'نص من DDInter 2.0، برخصة CC BY-NC-SA 4.0', en: 'Text from DDInter 2.0, licensed CC BY-NC-SA 4.0', placeholder: true },
+  whyAiSummaryTag: { ar: 'ملخص بالذكاء الاصطناعي لنص DDInter', en: 'AI summary of DDInter’s text', placeholder: true },
   whyAiNote: {
     ar: 'كتبه الذكاء الاصطناعي من نص DDInter فقط. قرارك أدناه يسجّل أنك راجعته.',
     en: 'Written by AI from DDInter’s text only. Your decision below records that you checked it.',

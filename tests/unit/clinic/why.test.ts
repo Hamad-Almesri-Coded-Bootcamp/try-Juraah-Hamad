@@ -20,7 +20,7 @@ const data = (pairs: Record<string, unknown>): WhyData => ({ meta: { citation: '
 
 describe('ingredientsOf', () => {
   it('splits a combination and lowercases it', () => {
-    expect(ingredientsOf('Calcium carbonate + vitamin D3')).toEqual(['calcium carbonate', 'vitamin d3']);
+    expect(ingredientsOf('Calcium carbonate + vitamin D3')).toEqual(['calcium carbonate', 'cholecalciferol']);
   });
   it('maps paracetamol to the index name acetaminophen', () => {
     expect(ingredientsOf('Paracetamol')).toEqual(['acetaminophen']);
@@ -63,8 +63,35 @@ describe('alertWhy', () => {
     expect(alertWhy(involved, data({ 'ibuprofen|warfarin': 'not an object' }))).toBeNull();
   });
 
+  it('treats DDInter’s "-" placeholder as no text (never shown as advice)', () => {
+    expect(alertWhy([rx('a', 'Warfarin'), rx('b', 'Ibuprofen')], data({ 'ibuprofen|warfarin': entry('Minor', { management: '-' }) }))).toBeNull();
+  });
+
+  it('carries display labels as the prescriptions write them', () => {
+    const why = alertWhy([rx('rx-001', 'Warfarin'), rx('rx-002', 'Ibuprofen')], data({ 'ibuprofen|warfarin': entry('Major') }));
+    expect(why?.labels).toEqual(['Ibuprofen', 'Warfarin']);
+  });
+
   it('needs two different medicines', () => {
     expect(alertWhy([rx('a', 'Warfarin')], data({ 'ibuprofen|warfarin': entry('Major') }))).toBeNull();
     expect(alertWhy([rx('a', 'Warfarin'), rx('b', 'Warfarin')], data({ 'warfarin|warfarin': entry('Major') }))).toBeNull();
+  });
+});
+
+describe('alertWhy from the alert’s own citation (a box-photo alert names only the patient’s prescription)', () => {
+  const cite = (a: string, b: string, level: string) => 'Interaction record: ' + a + ' (DDInter900) x ' + b + ' (DDInter1951), level "' + level + '". Source: DDInter 2.0, https://ddinter.scbdd.com/download/, retrieved 2026-09-24.';
+  it('finds the pair the citation names when the prescriptions hold only one side', () => {
+    const why = alertWhy([rx('rx-001', 'Warfarin')], data({ 'ibuprofen|warfarin': entry('Major') }), 'DDInter paper. ' + cite('Ibuprofen', 'Warfarin', 'Major'));
+    expect(why?.drugs).toEqual(['ibuprofen', 'warfarin']);
+    expect(why?.labels).toEqual(['Ibuprofen', 'Warfarin']);
+  });
+  it('reads every pair of a multi-pair citation and keeps the most severe', () => {
+    const c = cite('Metformin', 'Warfarin', 'Moderate') + ' | ' + cite('Ibuprofen', 'Warfarin', 'Major');
+    const why = alertWhy([rx('rx-001', 'Warfarin')], data({ 'metformin|warfarin': entry('Moderate'), 'ibuprofen|warfarin': entry('Major') }), c);
+    expect(why?.level).toBe('Major');
+  });
+  it('fails closed on a citation it cannot read', () => {
+    expect(alertWhy([rx('rx-001', 'Warfarin')], data({ 'ibuprofen|warfarin': entry('Major') }), '[TO BE SUPPLIED]')).toBeNull();
+    expect(alertWhy([rx('rx-001', 'Warfarin')], data({ 'ibuprofen|warfarin': entry('Major') }), undefined)).toBeNull();
   });
 });

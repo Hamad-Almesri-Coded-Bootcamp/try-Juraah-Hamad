@@ -20,6 +20,7 @@ afterEach(cleanup);
 const why: AlertWhy = {
   level: 'Major',
   drugs: ['ibuprofen', 'warfarin'],
+  labels: ['Ibuprofen', 'Warfarin'],
   summary: { en: 'Ibuprofen raises the bleeding risk of warfarin.', ar: 'يرفع الإيبوبروفين خطر النزيف مع الوارفارين.' },
   mechanism: 'Mechanism words from the source.',
   management: 'Management words from the source.',
@@ -63,6 +64,14 @@ describe('WhyTheyInteract', () => {
     expect(screen.getByText(/Checked by the reviewing doctor · /)).toBeInTheDocument();
     expect(screen.queryByText(copy.clinic.whyDraftLabel.en)).not.toBeInTheDocument();
     expect(screen.queryByText(copy.clinic.whyAiNote.en)).not.toBeInTheDocument();
+    // the summary is still marked as AI-written after the decision
+    expect(screen.getByText(copy.clinic.whyAiSummaryTag.en)).toBeInTheDocument();
+  });
+
+  it('shows the source’s licence and the record with display names', () => {
+    render(<WhyTheyInteract why={why} alert={pending} locale="en" headingId="w" />);
+    expect(screen.getByText(copy.clinic.whyLicence.en)).toBeInTheDocument();
+    expect(screen.getByText('Ibuprofen × Warfarin')).toBeInTheDocument();
   });
 
   it('no summary: says so, no draft tag, and the source text starts open', () => {

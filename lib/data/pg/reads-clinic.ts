@@ -239,7 +239,7 @@ export const getAlertForReview: DataApi['getAlertForReview'] = async (alertId) =
     return {
       alert,
       involvedPrescriptions,
-      why: alertWhy(involvedPrescriptions, WHY_DATA),
+      why: alertWhy(involvedPrescriptions, WHY_DATA, alert.sourceCitation),
       patientContext: {
         activePrescriptions: active.map((r) => toPrescription(r)),
         recentDoses: doses.map((r) => toDoseWithPrescription(r)),

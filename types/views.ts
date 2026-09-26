@@ -191,6 +191,8 @@ export interface AlertWhy {
   level: 'Major' | 'Moderate' | 'Minor';
   /** The pair as the interaction index keys it (lowercase English generic names, sorted). */
   drugs: [string, string];
+  /** The same pair as the source or the prescriptions write it, for display ("Ibuprofen"). */
+  labels: [string, string];
   summary: { en: string; ar: string } | null;
   /** DDInter's own words, English, shown verbatim. */
   mechanism: string;
