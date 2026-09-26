@@ -1,0 +1,45 @@
+/* Disclosure — pending component (CR-113) on native details/summary. Values only from tokens.
+   The chevron is the forward glyph (chevron + mirror); open, it turns a quarter toward the reading
+   direction's "down": clockwise in LTR, counter-clockwise under the RTL mirror. `rotate` composes
+   with the mirror's `transform` instead of replacing it. */
+
+.jr-disclosure {
+  border-radius: var(--radius-md);
+  background: var(--surface-app);
+}
+
+.jr-disclosure__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-block-size: var(--hit-area);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 500;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.jr-disclosure__summary::-webkit-details-marker { display: none; }
+.jr-disclosure__summary:hover { background: var(--navy-tint); }
+.jr-disclosure__summary:active { background: var(--border); }
+.jr-disclosure__summary:focus-visible { outline: var(--ring) solid var(--navy); outline-offset: var(--ring-gap); }
+
+.jr-disclosure__chevron { flex: none; transition: rotate var(--dur-fast) var(--ease-out); }
+.jr-disclosure[open] .jr-disclosure__chevron { rotate: 90deg; }
+[dir='rtl'] .jr-disclosure[open] .jr-disclosure__chevron { rotate: -90deg; }
+
+.jr-disclosure__body {
+  display: grid;
+  gap: var(--space-2);
+  padding-block: var(--space-1) var(--space-3);
+  padding-inline: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jr-disclosure__summary,
+  .jr-disclosure__chevron { transition: none; }
+}

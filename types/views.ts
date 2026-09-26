@@ -180,10 +180,28 @@ export interface PatientContext {
   trackingOn: boolean;
 }
 
+/** "Why they interact" (CR-113): DDInter's own text for the alert's pair, from
+ * agents/knowledge/data/interaction-why.json, with an AI draft summary written only from that text.
+ * `summary` is null when no draft exists for the pair; the screen then says so and keeps the source. */
+export interface AlertWhy {
+  level: 'Major' | 'Moderate' | 'Minor';
+  /** The pair as the interaction index keys it (lowercase English generic names, sorted). */
+  drugs: [string, string];
+  summary: { en: string; ar: string } | null;
+  /** DDInter's own words, English, shown verbatim. */
+  mechanism: string;
+  management: string;
+  /** The DDInter record for the pair. */
+  url: string;
+  citation: string;
+}
+
 export interface AlertReviewView {
   alert: InteractionAlert;
   involvedPrescriptions: Prescription[];
   patientContext: PatientContext;
+  /** Absent or null: no why-data for the pair; the screen keeps today's Source card. */
+  why?: AlertWhy | null;
 }
 
 // ---------------------------------------------------------------------------------------------
