@@ -190,11 +190,17 @@ async function screeningScenarios() {
     console.log('        -> ' + danger.description);
   });
 
-  await check('AP-06 - both drugs outside the loaded DDInter files (Ibuprofen x Ciprofloxacin): one info "cannot verify" alert POSTed for the reviewer, never "nothing recorded"', async () => {
+  // SFDA extension (2026-09-26): this build now loads all eight DDInter files (A, B, D, H, L, P, R,
+  // V), not just A, B, H. Loading file R turned up a real DDInter row for Ibuprofen x Ciprofloxacin
+  // (Moderate), so that pair no longer demonstrates "cannot verify" - it demonstrates the opposite,
+  // the wider index finding a real answer. Atorvastatin (ATC C) x Ciprofloxacin (ATC J/S) sits
+  // outside every one of these eight files regardless of DDInter's row content, so it takes over as
+  // the durable example here (same fixture test/screening.test.js now uses for this scenario).
+  await check('AP-06 - both drugs outside every loaded DDInter file (Atorvastatin x Ciprofloxacin): one info "cannot verify" alert POSTed for the reviewer, never "nothing recorded"', async () => {
     const r = runner(wf);
     await r.code('input (deterministic)', webhookItem({ patientId: 't-patient', newPrescriptionId: 't-2', language: 'en' }));
     const p = [
-      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Ibuprofen' } },
+      { id: 't-1', status: 'active', needsReview: false, drug: { genericName: 'Atorvastatin' } },
       { id: 't-2', status: 'active', needsReview: false, drug: { genericName: 'Ciprofloxacin' } }
     ];
     const items = await r.code('screen (deterministic)', r.set('backend: active prescriptions', http(200, { prescriptions: p })));
@@ -203,7 +209,7 @@ async function screeningScenarios() {
     const a = items[0].json.alert;
     assert.equal(a.severity, 'info');
     assert.equal(a.reviewStatus, 'pending_medical_review');
-    assert.match(a.sourceCitation, /DDInter category files A, B, H/);
+    assert.match(a.sourceCitation, /DDInter category files A, B, D, H, L, P, R, V/);
     assert.doesNotMatch(a.description, /no interaction is recorded/);
     console.log('        -> ' + a.description);
   });
