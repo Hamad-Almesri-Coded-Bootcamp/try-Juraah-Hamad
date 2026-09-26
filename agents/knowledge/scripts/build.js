@@ -199,7 +199,7 @@ const main = (...outputs) => ({ main: outputs.map((o) => (Array.isArray(o) ? o :
 const CODE_NODE_LIMIT_BYTES = 2 * 1024 * 1024;
 
 /** Escape every non-ASCII character; refuse to write if one survives or the file does not round-trip. */
-function write(workflow) {
+function write(workflow, dir = path.join(ROOT, 'workflows')) {
   for (const n of workflow.nodes) {
     if (n.parameters && typeof n.parameters.jsCode === 'string') {
       const bytes = Buffer.byteLength(n.parameters.jsCode, 'utf8');
@@ -212,7 +212,6 @@ function write(workflow) {
   const json = JSON.stringify(workflow, null, 2).replace(/[\u0080-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')) + '\n';
   if ([...json].some((c) => c.charCodeAt(0) > 0x7f)) throw new Error('refusing to write ' + workflow.name + ': non-ASCII survived');
   if (JSON.stringify(JSON.parse(json)) !== JSON.stringify(workflow)) throw new Error('refusing to write ' + workflow.name + ': no round trip');
-  const dir = path.join(ROOT, 'workflows');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, workflow.name + '.json'), json, 'ascii');
   const lines = workflow.nodes.filter((n) => n.parameters && n.parameters.jsCode).reduce((s, n) => s + n.parameters.jsCode.split('\n').length, 0);
@@ -367,7 +366,7 @@ const result = travelCheck({ patientId: input.patientId, visionRead, prescriptio
   index: INDEX, brandIndex: BRAND_INDEX, language: input.language, pendingNames: PENDING_NAMES });
 result.visionStatus = vision.statusCode;
 return [{ json: { post: !!result.alert,
-  error: !rxOk ? 'backend_prescriptions_http_' + rx.statusCode : (vision.statusCode !== 200 ? 'vision_http_' + vision.statusCode : (finish !== 'STOP' ? 'vision_not_finished_' + finish : null)),
+  error: !rxOk && result.appOutcome.kind !== 'not_a_medicine' ? 'backend_prescriptions_http_' + rx.statusCode : (vision.statusCode !== 200 ? 'vision_http_' + vision.statusCode : (finish !== 'STOP' ? 'vision_not_finished_' + finish : null)),
   alert: result.alert, result } }];`;
 
 const TC_ANSWER = `

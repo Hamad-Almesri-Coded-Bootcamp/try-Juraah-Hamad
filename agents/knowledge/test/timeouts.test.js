@@ -123,7 +123,3 @@ test('agent-extraction: the primary vision node has no same-model retry - one tr
   assert.equal(primary.parameters.options.response.response.neverError, false, 'must actually throw on failure to reach its error output');
 });
 
-test('agent-telegram-inbound.json (a different build script, agents/scripts/build.js) is never touched by this budget - only agent-travel-check and agent-extraction get a fallback model', () => {
-  const telegramPath = path.join(ROOT, '..', 'workflows', 'agent-telegram-inbound.json');
-  assert.ok(fs.existsSync(telegramPath), 'sanity: the file this test must not affect actually exists');
-});

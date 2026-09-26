@@ -16,7 +16,8 @@ const assert = require('node:assert/strict');
 process.env.JURAH_API_BASE = process.env.JURAH_API_BASE || 'https://example.test/api/agent';
 const { write, CODE_NODE_LIMIT_BYTES } = require('../scripts/build.js');
 
-const WORKFLOWS_DIR = path.join(__dirname, '..', 'workflows');
+// A throwaway folder: these tests never write next to the committed workflows/*.json.
+const WORKFLOWS_DIR = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'jurah-build-guard-'));
 
 test('write() refuses a Code node over the 2 MB limit - the guard against data/sfda-brands.json inlining too large', () => {
   const huge = 'x'.repeat(CODE_NODE_LIMIT_BYTES + 1);
@@ -26,7 +27,7 @@ test('write() refuses a Code node over the 2 MB limit - the guard against data/s
     connections: {}, settings: {}
   };
   const p = path.join(WORKFLOWS_DIR, workflow.name + '.json');
-  assert.throws(() => write(workflow), /over the 2097152-byte limit/);
+  assert.throws(() => write(workflow, WORKFLOWS_DIR), /over the 2097152-byte limit/);
   assert.equal(fs.existsSync(p), false, 'refused before anything was written to disk');
 });
 
@@ -38,7 +39,7 @@ test('write() accepts a Code node comfortably under the limit', () => {
   };
   const p = path.join(WORKFLOWS_DIR, workflow.name + '.json');
   try {
-    assert.doesNotThrow(() => write(workflow));
+    assert.doesNotThrow(() => write(workflow, WORKFLOWS_DIR));
     assert.ok(fs.existsSync(p));
   } finally {
     if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -53,7 +54,7 @@ test('a non-Code node (no jsCode) is never subject to the size guard', () => {
   };
   const p = path.join(WORKFLOWS_DIR, workflow.name + '.json');
   try {
-    assert.doesNotThrow(() => write(workflow));
+    assert.doesNotThrow(() => write(workflow, WORKFLOWS_DIR));
   } finally {
     if (fs.existsSync(p)) fs.unlinkSync(p);
   }
