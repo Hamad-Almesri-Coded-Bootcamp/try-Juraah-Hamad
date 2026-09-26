@@ -68,14 +68,25 @@ function stripTagWidget(text) {
   return { text: text.slice(0, lastPeriod + 1).trim(), cut: text.slice(lastPeriod + 1).trim() };
 }
 
-function main() {
-  const dry = process.argv.includes('--dry-run');
-  if (!fs.existsSync(INDEX)) throw new Error('no data/interaction-index.json - run scripts/build-demo-index.js first');
-  if (!fs.existsSync(WHY_RAW)) throw new Error('no data/build/why-raw.json - copy the fetched DDInter why-text in before running this');
-  const index = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
-  const raw = JSON.parse(fs.readFileSync(WHY_RAW, 'utf8'));
-  if (!raw.pairs || typeof raw.pairs !== 'object') throw new Error('data/build/why-raw.json has no pairs{}');
+/** DDInter's own placeholder for "nothing given" is the single character "-" (reviewer findings,
+ *  2026-09-26: ascorbic acid|pseudoephedrine, clarithromycin|loratadine and lamotrigine|metformin all
+ *  carry management "-" verbatim from the source page). It is not empty text, so the missing-text
+ *  guard above never catches it, and a screen that only checks "is this string non-empty" (the app's
+ *  own why.ts toWhy()) would show the literal character "-" under "Management" as if it were advice.
+ *  A pair whose mechanism OR management is exactly "-" (after the same trim/tag-strip as every other
+ *  pair) is dropped from the output entirely, same as droppedMissingText above - DDInter recorded no
+ *  usable text for it, and this file only ever carries verbatim DDInter prose or nothing. */
+function isPlaceholderDash(text) {
+  return text === '-';
+}
 
+/**
+ * Build this file's `pairs` object (plus every dropped/adjusted list main() logs) from already-parsed
+ * `index` (data/interaction-index.json) and `raw` (data/build/why-raw.json). Pure: no I/O, no Date,
+ * no hashing side effects beyond the deterministic sha256 stamped on each pair - same input always
+ * gives the same output, so a test can hand this small fixture objects instead of real build files.
+ */
+function computeWhyPairs({ index, raw }) {
   // DDInterID -> this index's canonical key, from the very field build-demo-index.js records.
   const byDdinterId = new Map();
   for (const [key, d] of Object.entries(index.drugs)) if (d && d.ddinterId) byDdinterId.set(d.ddinterId, key);
@@ -85,6 +96,7 @@ function main() {
   const droppedNoIndexRow = [];
   const droppedMissingText = [];
   const droppedUngraded = [];
+  const droppedPlaceholderText = [];
   const levelMismatches = [];
   const tagWidgetsCut = [];
 
@@ -103,6 +115,10 @@ function main() {
     const mgmtCut = stripTagWidget(managementRaw);
     const mechanism = mechCut.text;
     const management = mgmtCut.text;
+    if (isPlaceholderDash(mechanism) || isPlaceholderDash(management)) {
+      droppedPlaceholderText.push(pairKey + ': ' + (isPlaceholderDash(mechanism) ? 'mechanism' : 'management') + ' is DDInter\'s "-" placeholder');
+      continue;
+    }
     if (mechCut.cut) tagWidgetsCut.push(pairKey + ' (mechanism): ' + mechCut.cut);
     if (mgmtCut.cut) tagWidgetsCut.push(pairKey + ' (management): ' + mgmtCut.cut);
     if (row.level !== p.level) levelMismatches.push(pairKey + ': index=' + row.level + ', why-raw=' + p.level + ' (index kept)');
@@ -111,6 +127,20 @@ function main() {
   }
 
   const sortedPairs = Object.fromEntries(Object.entries(outPairs).sort(([x], [y]) => x.localeCompare(y)));
+  return { sortedPairs, droppedOutOfScope, droppedNoIndexRow, droppedMissingText, droppedUngraded, droppedPlaceholderText, levelMismatches, tagWidgetsCut };
+}
+
+function main() {
+  const dry = process.argv.includes('--dry-run');
+  if (!fs.existsSync(INDEX)) throw new Error('no data/interaction-index.json - run scripts/build-demo-index.js first');
+  if (!fs.existsSync(WHY_RAW)) throw new Error('no data/build/why-raw.json - copy the fetched DDInter why-text in before running this');
+  const index = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
+  const raw = JSON.parse(fs.readFileSync(WHY_RAW, 'utf8'));
+  if (!raw.pairs || typeof raw.pairs !== 'object') throw new Error('data/build/why-raw.json has no pairs{}');
+
+  const { sortedPairs, droppedOutOfScope, droppedNoIndexRow, droppedMissingText, droppedUngraded, droppedPlaceholderText, levelMismatches, tagWidgetsCut } =
+    computeWhyPairs({ index, raw });
+
   const out = {
     meta: {
       source: 'DDInter 2.0',
@@ -136,6 +166,8 @@ function main() {
   for (const d of droppedUngraded) console.log('  ' + d);
   console.log('dropped - missing mechanism/management text: ' + droppedMissingText.length);
   for (const d of droppedMissingText) console.log('  missing text: ' + d);
+  console.log('dropped - mechanism/management is DDInter\'s "-" placeholder: ' + droppedPlaceholderText.length);
+  for (const d of droppedPlaceholderText) console.log('  placeholder: ' + d);
   console.log('DDInter tag-widget list cut off the end of verbatim text: ' + tagWidgetsCut.length);
   for (const t of tagWidgetsCut) console.log('  cut: ' + t);
   if (levelMismatches.length) { console.log('level mismatches (why-raw vs index; index wins): ' + levelMismatches.length); for (const m of levelMismatches) console.log('  ' + m); }
@@ -144,4 +176,6 @@ function main() {
   console.log(dry ? '(dry run - nothing written)' : 'wrote data/interaction-why.json');
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { stripTagWidget, isPlaceholderDash, computeWhyPairs, INDEX, WHY_RAW, OUT };
