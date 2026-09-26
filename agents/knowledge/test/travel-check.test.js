@@ -412,3 +412,39 @@ test('appOutcomeFor: every VERDICT maps to exactly one DrugCheckOutcome kind; an
   assert.deepEqual(appOutcomeFor('safe', 'X', null), { kind: 'could_not_identify' });
   assert.deepEqual(appOutcomeFor(undefined, 'X', null), { kind: 'could_not_identify' });
 });
+
+// CR-112 integration: SFDA spells an ingredient with its salt or ester, the index names the drug.
+test('an SFDA brand whose ingredient carries a salt resolves to the index key, not the salted name', () => {
+  const { loadIndex } = require('../src/interactions');
+  const idx = loadIndex({
+    meta: { sfdaIngredientMap: { 'OLMESARTAN MEDOXOMIL': 'olmesartan' } },
+    drugs: { metformin: { label: 'Metformin', ddinterId: 'DDInter1144' }, olmesartan: { label: 'Olmesartan', ddinterId: 'DDInter1335' } },
+    pairs: {}
+  });
+  const sfda = {
+    'FICTIONAL METFORMIN BRAND': [['METFORMIN HYDROCHLORIDE']],
+    'FICTIONAL OLMESARTAN BRAND': [['OLMESARTAN MEDOXOMIL']],
+    'FICTIONAL TWO SPELLINGS': [['METFORMIN'], ['METFORMIN HYDROCHLORIDE']],
+    'FICTIONAL UNKNOWN SALT': [['NOTINDEXED SODIUM']]
+  };
+  const bi = buildBrandIndex([], idx, sfda);
+  const met = resolveToIngredient('FICTIONAL METFORMIN BRAND', bi);
+  assert.equal(met.outcome, 'resolved');
+  assert.deepEqual(met.ingredients, ['metformin']);
+  // an ester the normaliser cannot strip: the index's own SFDA spelling map carries it
+  assert.deepEqual(resolveToIngredient('FICTIONAL OLMESARTAN BRAND', bi).ingredients, ['olmesartan']);
+  // two spellings of one drug under one base name are one set, not a "which one?" question
+  const two = resolveToIngredient('FICTIONAL TWO SPELLINGS', bi);
+  assert.equal(two.outcome, 'resolved');
+  assert.deepEqual(two.ingredients, ['metformin']);
+  // an ingredient the index does not cover stays uncovered (the check then says "cannot verify")
+  const unknown = resolveToIngredient('FICTIONAL UNKNOWN SALT', bi);
+  assert.equal(unknown.outcome, 'resolved');
+  assert.equal(idx.drugs.has(unknown.ingredients[0]), false);
+});
+
+test('building one brand index never changes the shared brand-map rows', () => {
+  const before = JSON.stringify(BRANDS_JSON.brands);
+  buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE);
+  assert.equal(JSON.stringify(BRANDS_JSON.brands), before);
+});

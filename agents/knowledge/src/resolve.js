@@ -57,10 +57,30 @@ function indexRow(drug) {
   return { brand: drug.label, ingredients: [drug.label], sfdaTradeName: null, verified: true, viaIndex: true };
 }
 
+/**
+ * The interaction index's key for one ingredient label (CR-112). SFDA spells ingredients with their
+ * salt or ester ("METFORMIN HYDROCHLORIDE", "OLMESARTAN MEDOXOMIL") where the index names the drug
+ * ("metformin", "olmesartan"): the index's own meta.sfdaIngredientMap first, then the first candidate
+ * key the index covers, then the first candidate. A name the index does not cover stays uncovered,
+ * so the check still says "cannot verify" for it (fail closed, never a guessed drug).
+ */
+function ingredientKey(label, index) {
+  const drugs = index && index.drugs instanceof Map ? index.drugs : null;
+  const map = index && index.meta && index.meta.sfdaIngredientMap;
+  const mapped = map ? map[String(label).trim().toUpperCase()] : undefined;
+  if (typeof mapped === 'string' && drugs && drugs.has(mapped)) return mapped;
+  const keys = candidateKeys(label);
+  const covered = drugs ? keys.find((k) => drugs.has(k)) : undefined;
+  return covered || keys[0] || null;
+}
+
 function buildBrandIndex(brandRows, index, sfda) {
   const byKey = new Map();
-  for (const row of brandRows || []) {
-    if (!row || row.verified !== true) continue;
+  const keysOf = (labels) => labels.map((label) => ingredientKey(label, index));
+  for (const source of brandRows || []) {
+    if (!source || source.verified !== true) continue;
+    // A copy, never the shared brand-map.json object: its keys depend on THIS index.
+    const row = Array.isArray(source.ingredients) ? { ...source, ingredientKeys: keysOf(source.ingredients) } : source;
     const names = [row.brand, row.sfdaTradeName, ...(row.aliases || [])].filter(Boolean);
     for (const n of names) {
       for (const key of candidateKeys(n)) {
@@ -83,12 +103,14 @@ function buildBrandIndex(brandRows, index, sfda) {
         if (!Array.isArray(set) || set.length === 0) continue;
         const labels = set.map((x) => String(x)).filter(Boolean);
         if (labels.length === 0) continue;
-        const setKey = labels.map((x) => candidateKeys(x)[0] || x.toLowerCase()).sort().join('+');
+        // Keyed by the index's own names, so "METFORMIN" and "METFORMIN HYDROCHLORIDE" under one base
+        // name are one drug, not two formulations to ask about.
+        const setKey = keysOf(labels).map((k, i) => k || labels[i].toLowerCase()).sort().join('+');
         if (!distinct.some((s) => s.setKey === setKey)) distinct.push({ setKey, labels });
       }
       if (distinct.length === 0) continue;
       const row = distinct.length === 1
-        ? { brand: rawName, ingredients: distinct[0].labels, sfdaTradeName: rawName, verified: true, viaSfda: true }
+        ? { brand: rawName, ingredients: distinct[0].labels, ingredientKeys: keysOf(distinct[0].labels), sfdaTradeName: rawName, verified: true, viaSfda: true }
         : { brand: rawName, ingredients: null, ambiguousSets: distinct.map((s) => s.labels), sfdaTradeName: rawName, verified: true, viaSfda: true };
       for (const key of candidateKeys(rawName)) {
         if (!byKey.has(key)) byKey.set(key, row);
@@ -169,8 +191,8 @@ function resolveToIngredient(rawName, brandIndex, opts) {
         return { outcome: OUTCOME.NEEDS_CONFIRMATION, reason: 'line_extensions_exist', candidates: [row.brand].concat(extensions), input: rawName };
       }
       const ingredients = [];
-      for (const label of row.ingredients || []) {
-        const k = candidateKeys(label)[0];
+      const rowKeys = row.ingredientKeys || (row.ingredients || []).map((label) => candidateKeys(label)[0]);
+      for (const k of rowKeys) {
         if (k && ingredients.indexOf(k) === -1) ingredients.push(k);
       }
       const via = row.viaIndex ? 'index_ingredient_name' : (ingredients.length === 1 && key === ingredients[0] ? 'generic' : 'brand');
