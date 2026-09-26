@@ -60,7 +60,9 @@ test('green: the fixture regenerates byte-identically', () => {
   // AP-04 (PR #22, merged to main at 9a6f449) retired the legacy screening workflow
   // (agents/workflows/agent-interaction-screening.json), dropping the committed total
   // from 9 to 8. See docs/backend-notes/ap-16.md, "Owed", step 9.
-  assert.ok(r.report.length >= 8, r.report.join('\n'));
+  // CR-109 adds agents/workflows/agent-demo-reset.json: 6 in agents/workflows (5 from build.js
+  // incl. the demo page, + agent-error) and 3 in agents/knowledge/workflows.
+  assert.ok(r.report.length >= 9, r.report.join('\n'));
 });
 
 test('staticDrift leaves the tree it is given unchanged byte for byte', () => {
