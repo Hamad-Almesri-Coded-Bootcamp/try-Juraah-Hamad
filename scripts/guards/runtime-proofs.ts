@@ -15,11 +15,11 @@ export interface Row { label: string; anchors: Anchor[] }
 
 export const ROWS: Row[] = [
   {
-    label: 'No voice dose write (agents/scripts/check.js, run by cd agents && npm run check; runtime proof J12)',
+    label: 'Voice writes only through the agent route, after its checks (agents/scripts/check.js, run by cd agents && npm run check; runtime proof J12)',
     anchors: [
-      { file: 'agents/scripts/check.js', text: 'async function assertVoiceCallsReadOnly(wf)' },
-      { file: 'agents/scripts/check.js', text: 'await assertVoiceCallsReadOnly(wf);' },
-      { file: 'agents/scripts/check.js', text: 'assert.rejects(assertVoiceCallsReadOnly(copy)' },
+      { file: 'agents/scripts/check.js', text: 'async function assertVoiceCalls(wf)' },
+      { file: 'agents/scripts/check.js', text: 'await assertVoiceCalls(wf);' },
+      { file: 'agents/scripts/check.js', text: 'assert.rejects(assertVoiceCalls(copy)' },
       { file: 'agents/scripts/check.js', text: 'Runtime proof: J12' },
     ],
   },

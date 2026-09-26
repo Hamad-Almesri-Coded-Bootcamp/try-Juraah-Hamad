@@ -245,6 +245,23 @@ async function scenarios() {
     const s = await inbound({ payload: relay({ kind: 'callback', text: 'd:rx-001-20260924-0800:taken_on_time', callbackQueryId: 'cbq-2' }) });
     assert.equal(s.calls.length, 0);
   });
+  await check('CR-108: a correction tap c:<doseId>:<word> may overwrite a dose already recorded, but only with a DIFFERENT word (D9, the audit trigger writes the change); the SAME word still refuses "already recorded"; a plain d: tap on a recorded dose is unaffected; a caregiver\'s c: tap is refused exactly like any other write attempt', async () => {
+    const recordedDay = { ...DAY, doses: DAY.doses.map((d) => (d.id === 'rx-008-20260924-0700' ? { ...d, status: ['missed'][0] } : d)) };
+    const overwrite = await inbound({ payload: relay({ kind: 'callback', text: 'c:rx-008-20260924-0700:taken_on_time', callbackQueryId: 'cbq-c1' }), dosesResponse: http(200, recordedDay) });
+    assert.equal(overwrite.calls.length, 1);
+    assert.match(overwrite.calls[0].url, /rx-008-20260924-0700\/status$/);
+    assert.equal(overwrite.calls[0].body.status, ['taken_on_time'][0]);
+    const sameWord = await inbound({ payload: relay({ kind: 'callback', text: 'c:rx-008-20260924-0700:missed', callbackQueryId: 'cbq-c2' }), dosesResponse: http(200, recordedDay) });
+    assert.equal(sameWord.calls.length, 0);
+    assert.match(sameWord.replies[0].text, /مسجّلة من قبل/);
+    const plainTap = await inbound({ payload: relay({ kind: 'callback', text: 'd:rx-008-20260924-0700:taken_on_time', callbackQueryId: 'cbq-c3' }), dosesResponse: http(200, recordedDay) });
+    assert.equal(plainTap.calls.length, 0, 'a d: tap on a recorded dose still refuses (unchanged)');
+    const byCaregiver = await inbound({
+      payload: relay({ kind: 'callback', text: 'c:rx-008-20260924-0700:taken_on_time', callbackQueryId: 'cbq-c4', subjectType: 'caregiver', subjectId: 'cg-01' }),
+      dosesResponse: http(200, recordedDay), recipientsResponse: http(200, RECIPIENTS_BODY),
+    });
+    assert.equal(byCaregiver.calls.length, 0);
+  });
   await check('TC-AD-12: «خذيته» at 22:00 with three open doses -> no write; a question + one button message per dose', async () => {
     const s = await inbound({ payload: relay({ sentAt: '2026-09-24T22:00:00+03:00' }), model: { intent: 'taken_on_time', confidence: 0.97, quote: 'خذيته' } });
     assert.equal(s.calls.length, 0);
@@ -756,16 +773,25 @@ const ALEXA_NODE_TYPES = [
   'n8n-nodes-base.respondToWebhook', 'n8n-nodes-base.telegram',
   '@n8n/n8n-nodes-langchain.lmChatGoogleGemini', '@n8n/n8n-nodes-langchain.outputParserStructured', '@n8n/n8n-nodes-langchain.chainLlm',
 ];
-/** Exactly these three calls, and no other: two reads and the CR-069 screen turn. */
+/** CR-108 - exactly these five calls, and no other: the three reads AP-02 already proved, and the
+ * two writes this package restores (the status call, and the miss-only recompute). */
 const ALEXA_CALLS = [
   { name: 'backend: doses of the day', method: 'GET', url: (u) => u === '={{ $json.dosesUrl }}' },
   { name: 'backend: who is eligible', method: 'GET', url: (u) => /^https:\/\/[^\s{}$]+\/api\/agent\/check-in-eligibility$/.test(u) },
   { name: 'backend: voice turn for the screen', method: 'POST', url: (u) => u === "={{ $('alexa request (deterministic)').first().json.voiceTurnUrl }}",
     body: "={{ JSON.stringify($('speak (deterministic)').first().json.screen) }}" },
+  { name: 'backend: record the status', method: 'POST', url: (u) => u === '={{ $json.url }}', body: '={{ JSON.stringify($json.body) }}' },
+  { name: 'backend: recompute', method: 'POST', url: (u) => u === '={{ $json.url }}', body: '={{ JSON.stringify($json.body) }}' },
 ];
 /** The two dose-writing route families: POST /doses/{id}/status and POST /schedule/recompute. */
 const WRITE_PATH = /\/(doses|schedule)\//;
 const ALEXA_CONFIG_LINE = "const ALEXA_SKILL_ID = '';\nconst ALEXA_LINKS = {};";
+/** CR-108 - the two "one item per ..." feed nodes' Code, kept here as its own literal anchor (agents/scripts/build.js
+ * AX_WRITE_ITEMS / AX_RECOMPUTE_ITEMS): a silent change to either would otherwise pass every other check. */
+const WRITE_FEEDS = {
+  'one item per write (deterministic)': "return $('plan (deterministic)').first().json.writes.map((w) => ({ json: w }));",
+  'one item per recompute (deterministic)': "return $('recomputes (deterministic)').first().json.recomputes.map((r) => ({ json: r }));",
+};
 
 /** The committed workflow as the live node holds it: the skill id and the device link set. */
 function configureAlexa(wf, skill, links) {
@@ -777,17 +803,32 @@ function configureAlexa(wf, skill, links) {
   return copy;
 }
 
+/** Every `wf.connections` edge that lands on node `name`, as "<from node> #<output index>". */
+function incomingEdges(wf, name) {
+  const edges = [];
+  for (const [from, outs] of Object.entries(wf.connections)) {
+    ((outs || {}).main || []).forEach((branch, outIdx) => { for (const c of branch) if (c.node === name) edges.push(from + ' #' + outIdx); });
+  }
+  return edges.sort();
+}
+
 /**
- * AP-02 (CR-073) - what agent-alexa may call: exactly two GETs (the doses of the day, who is eligible)
- * and the one CR-069 voice-turn POST, and no call whose URL contains /doses/ or /schedule/ - neither
- * written in an HTTP node nor built by the Code node that feeds one. Throws on the first breach.
- * alexaScenarios runs it on the committed workflow, and on copies edited to break it (each must throw).
- * Runtime proof: J12 (AP-14): Mohammad says "mark it taken" to the Echo and no dose_status_recorded audit row follows (docs/backend-notes/ap-16.md).
+ * CR-108 - what agent-alexa may call: exactly the five HTTP calls above, and no other; a write
+ * node's OWN parameters never name a literal /doses/ or /schedule/ URL (only the resolved $json.url
+ * expression does, built by agents/lib/voice-actions.js writeFor - the old "no Code-node literal"
+ * scan is retired, because VOICE_ACTIONS is now inlined into several nodes and writeFor's own
+ * source names both paths as string fragments); both write nodes never retry and fail closed
+ * (onError continueRegularOutput, retryOnFail false); the graph feeding each write is exactly one
+ * path, computed from the workflow's own connections, never assumed from a node's name alone.
+ * Throws on the first breach. alexaScenarios runs it on the committed workflow, and on copies edited
+ * to break it (each must throw). Runtime proof: J12: «نسيت دواي» and a confirmed "yes" each leave
+ * exactly one dose_status_recorded row, actor agent (plus a schedule_recomputed row for a miss); "no",
+ * a refused write and a request naming no passed dose leave none (docs/backend-notes/ap-16.md).
  */
-async function assertVoiceCallsReadOnly(wf) {
+async function assertVoiceCalls(wf) {
   for (const n of wf.nodes) assert.ok(ALEXA_NODE_TYPES.includes(n.type), 'a node type that could call out: ' + n.name + ' (' + n.type + ')');
   const httpNodes = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.httpRequest');
-  assert.deepEqual(httpNodes.map((n) => n.name).sort(), ALEXA_CALLS.map((c) => c.name).sort(), 'agent-alexa must make exactly the two GETs and the voice-turn POST');
+  assert.deepEqual(httpNodes.map((n) => n.name).sort(), ALEXA_CALLS.map((c) => c.name).sort(), 'agent-alexa must make exactly the five calls');
   for (const c of ALEXA_CALLS) {
     const n = httpNodes.find((x) => x.name === c.name);
     assert.equal(n.parameters.method, c.method, c.name + ': method');
@@ -795,13 +836,29 @@ async function assertVoiceCallsReadOnly(wf) {
     assert.equal(n.parameters.jsonBody, c.body, c.name + ': body');
     assert.ok(!WRITE_PATH.test(JSON.stringify(n.parameters)), c.name + ' names a /doses/ or /schedule/ URL');
   }
+  for (const name of ['backend: record the status', 'backend: recompute']) {
+    const n = httpNodes.find((x) => x.name === name);
+    assert.equal(n.onError, 'continueRegularOutput', name + ': onError');
+    assert.equal(n.retryOnFail, false, name + ': retryOnFail');
+  }
   for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
     const src = n.parameters.jsCode;
     assert.ok(!/helpers\.httpRequest|\bfetch\s*\(|XMLHttpRequest/.test(src), n.name + ' makes its own network call');
-    assert.ok(!/['"`]\/(doses|schedule)\//.test(src), n.name + ' builds a /doses/ or /schedule/ URL');
     assert.ok(!/VOICE_RECORDS/.test(src), n.name + ' carries the CR-070 recording switch');
   }
-  // The URLs the parse node hands the two expression-driven calls, as they resolve on a linked request.
+  for (const [name, code] of Object.entries(WRITE_FEEDS)) {
+    const n = wf.nodes.find((x) => x.name === name);
+    assert.ok(n, name + ' is missing');
+    assert.equal(n.parameters.jsCode, code, name + ': feed code changed - update WRITE_FEEDS alongside agents/scripts/build.js');
+  }
+  assert.deepEqual(incomingEdges(wf, 'record now?'), ['plan (deterministic) #0'], "'record now?' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'one item per write (deterministic)'), ['record now? #0'], "'one item per write' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'backend: record the status'), ['one item per write (deterministic) #0'], "'backend: record the status' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'recomputes (deterministic)'), ['Answer Alexa #0'], "'recomputes (deterministic)' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'any recompute?'), ['recomputes (deterministic) #0'], "'any recompute?' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'one item per recompute (deterministic)'), ['any recompute? #0'], "'one item per recompute' fed only by");
+  assert.deepEqual(incomingEdges(wf, 'backend: recompute'), ['one item per recompute (deterministic) #0'], "'backend: recompute' fed only by");
+  // The URLs the parse node hands the two expression-driven reads, as they resolve on a linked request.
   const r = runner(configureAlexa(wf, 'amzn1.ask.skill.calls', { 'amzn1.ask.account.CALLS': 'pt-03' }));
   const [p] = await r.code('alexa request (deterministic)', [{ json: { body: {
     version: '1.0', session: { application: { applicationId: 'amzn1.ask.skill.calls' }, user: { userId: 'amzn1.ask.account.CALLS' } },
@@ -813,7 +870,7 @@ async function assertVoiceCallsReadOnly(wf) {
 /** agent-alexa, walked as its connections run. `configure` stands in for setting the skill id and
  * the device link inside the live n8n node - the committed workflow ships both EMPTY. */
 async function alexaScenarios() {
-  console.log('\n######## agent-alexa (voice, read-only)');
+  console.log('\n######## agent-alexa (voice)');
   const SKILL = 'amzn1.ask.skill.check';
   const USER = 'amzn1.ask.account.CHECKUSER';
   const wf = WF('agent-alexa');
@@ -827,14 +884,27 @@ async function alexaScenarios() {
   const doseAt = (id, rx, hhmm, brand) => ({ ...dose(id, rx, hhmm, OPEN, brand), scheduledAt: today + 'T' + hhmm + ':00+03:00' });
   // One dose already passed (00:05) and one still ahead (23:55), whatever the clock says.
   const DAYDOSES = [doseAt('rx-008-x-0005', 'rx-008', '00:05', 'Eltroxin'), doseAt('rx-009-x-2355', 'rx-009', '23:55')];
+  // CR-108 - two doses have passed (07:00, 13:00) and one has not (23:55): only the most recent
+  // passed dose is recorded; the other passed-but-not-recorded one still gets today's plain buttons.
+  const TWO_PASSED = [doseAt('rx-008-p1', 'rx-008', '07:00', 'Eltroxin'), doseAt('rx-009-p2', 'rx-009', '13:00'), doseAt('rx-009-p3', 'rx-009', '23:55')];
   // For a record request, relative to now: Eltroxin two hours ago (due), calcium in three hours (not due).
   const nowMs = Date.now();
   const relDose = (id, rx, hours, brand, word = OPEN) => ({ ...dose(id, rx, '00:00', word, brand), scheduledAt: new Date(nowMs + hours * 3600 * 1000).toISOString() });
   const RECDAY = (word = OPEN) => [relDose('rx-008-rec-a', 'rx-008', -2, 'Eltroxin', word), relDose('rx-009-rec-b', 'rx-009', 3, null, word)];
+  // CR-108 - two doses both due "now" (within the grace window): a due-now request must ask, never guess.
+  const TWO_DUE = [relDose('rx-a-due', 'rx-008', -0.5, 'Eltroxin'), relDose('rx-b-due', 'rx-009', -0.2, null)];
   const ELIG = http(200, [{ patientId: 'pt-03', chatId: '5550001', language: 'ar', frequency: 'daily' }]);
-  // Walked as the connections run: parse -> (Gemini, for free talk) -> intent -> (the two reads) -> speak -> Telegram / screen.
-  // `calls` is every HTTP call the walk makes, with its resolved URL: the runtime side of assertVoiceCallsReadOnly.
-  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = ELIG, model = null } = {}) => {
+  /**
+   * Walked as the connections run: parse -> (Gemini, for free talk) -> intent -> (the two reads) ->
+   * plan -> (record now? -> one item per write -> backend: record the status) -> speak -> Answer
+   * Alexa -> (Telegram / screen, and, after Alexa already has her answer, recomputes -> any
+   * recompute? -> one item per recompute -> backend: recompute). `calls` is every HTTP call the walk
+   * makes, with its resolved url and (for a write) its body - the runtime side of assertVoiceCalls.
+   * `status` stubs 'backend: record the status': a number (every write answers it), an array (one
+   * code per write, in order) or 'throw' (arrives with no statusCode at all - a timeout/network
+   * error, exactly what onError: continueRegularOutput hands the next node).
+   */
+  const walk = async (w, input, { doses = http(200, { doses: DAYDOSES }), elig = ELIG, model = null, status = 200 } = {}) => {
     const r = runner(w);
     const eligUrl = w.nodes.find((n) => n.name === 'backend: who is eligible').parameters.url;
     const calls = [];
@@ -848,23 +918,50 @@ async function alexaScenarios() {
       calls.push({ method: 'GET', url: eligUrl });
       r.set('backend: who is eligible', elig);
     }
+    const [plan] = await r.code('plan (deterministic)', [{ json: {} }]);
+    const respond = (i) => (status === 'throw' ? { json: { error: { message: 'timeout' } } }
+      : { json: { statusCode: Array.isArray(status) ? status[i] : status, body: {} } });
+    if (plan.json.writes.length > 0) {
+      const items = await r.code('one item per write (deterministic)', [{ json: {} }]);
+      r.set('backend: record the status', items.map((it, i) => { calls.push({ method: 'POST', url: it.json.url, body: it.json.body }); return respond(i); }));
+    }
     const [s] = await r.code('speak (deterministic)', [{ json: {} }]);
     if (s.json.screen !== null) calls.push({ method: 'POST', url: p.json.voiceTurnUrl });
-    const prompts = s.json.prompts.length ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
-    return { parsed: p.json, intent: q.json, spoken: s.json, prompts: prompts.map((x) => x.json), calls };
+    const prompts = s.json.telegram ? await r.code('telegram prompt (deterministic)', [{ json: {} }]) : [];
+    const [rc] = await r.code('recomputes (deterministic)', [{ json: {} }]);
+    if (rc.json.recomputes.length > 0) {
+      const items = await r.code('one item per recompute (deterministic)', [{ json: {} }]);
+      r.set('backend: recompute', items.map((it) => { calls.push({ method: 'POST', url: it.json.url, body: it.json.body }); return { json: { statusCode: 200, body: {} } }; }));
+    }
+    return { parsed: p.json, intent: q.json, plan: plan.json, spoken: s.json, prompts: prompts.map((x) => x.json), calls };
   };
-  /** Every call a walk made is one of the three allowed, and none is a dose write. */
-  const readOnly = (s) => {
+  /** Every call a walk made is one of the allowed shapes; a status write names one of THIS walk's
+   * doses and carries exactly the Telegram path's own body; a recompute carries exactly its body. */
+  const allowedCalls = (s, doses) => {
     for (const c of s.calls) {
-      assert.ok(!WRITE_PATH.test(c.url), 'a dose write: ' + c.method + ' ' + c.url);
-      assert.ok((c.method === 'GET' && (/\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/.test(c.url) || /\/check-in-eligibility$/.test(c.url)))
-        || (c.method === 'POST' && /\/patients\/pt-03\/voice-turns$/.test(c.url)), 'not an allowed call: ' + c.method + ' ' + c.url);
+      if (c.method === 'GET' && /\/patients\/pt-03\/doses\?date=\d{4}-\d{2}-\d{2}$/.test(c.url)) continue;
+      if (c.method === 'GET' && /\/check-in-eligibility$/.test(c.url)) continue;
+      if (c.method === 'POST' && /\/patients\/pt-03\/voice-turns$/.test(c.url)) continue;
+      const statusCall = /^https:\/\/[^\s{}$]+\/api\/agent\/doses\/([^/]+)\/status$/.exec(c.url);
+      if (statusCall) {
+        assert.ok(doses.some((d) => d.id === decodeURIComponent(statusCall[1])), 'a status write for an unknown dose: ' + c.url);
+        assert.deepEqual(Object.keys(c.body).sort(), ['recordedAt', 'source', 'status']);
+        assert.equal(c.body.source, 'adherence_agent');
+        assert.ok([W_ON, W_LATE, W_MISS].includes(c.body.status), 'not a recorded dose word: ' + c.body.status);
+        continue;
+      }
+      if (/\/schedule\/recompute$/.test(c.url)) {
+        assert.deepEqual(Object.keys(c.body).sort(), ['missedDoseId', 'prescriptionId', 'reason']);
+        assert.equal(c.body.reason, 'reported_miss');
+        continue;
+      }
+      assert.fail('not an allowed call: ' + c.method + ' ' + c.url);
     }
   };
+  /** No call a walk made is a dose write at all (a plain read-only turn: launch, help, today, ...). */
+  const noWrite = (s) => { for (const c of s.calls) assert.ok(!WRITE_PATH.test(c.url), 'a dose write: ' + c.method + ' ' + c.url); };
   const text = (s) => s.spoken.alexa.response.outputSpeech.text;
-  const buttonData = (s) => s.prompts.slice(1).map((m) => m.buttons.map((b) => b.data));
-  const EN_SENT = 'I can\'t record by voice; I\'ve sent the buttons to your Telegram. Please confirm there yourself.';
-  const AR_SENT = 'ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام. أكّد منها بنفسك.';
+  const msgButtons = (m) => (m.buttons || []).map((b) => b.data);
 
   await check('the COMMITTED workflow ships no skill id and no link -> every request refused, nothing read', async () => {
     const parse = wf.nodes.find((x) => x.name === 'alexa request (deterministic)').parameters.jsCode;
@@ -893,7 +990,7 @@ async function alexaScenarios() {
       assert.deepEqual(s.calls.map((c) => c.method), ['POST']); // only the screen turn
       assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.language, s.spoken.screen.reply], ['launch', language, greeting]);
       assert.deepEqual(s.prompts, []);
-      readOnly(s);
+      noWrite(s);
       console.log('        -> ' + text(s));
     }
   });
@@ -903,27 +1000,78 @@ async function alexaScenarios() {
     assert.match(text(s), /^جرعتك الجاية Calcium carbonate \+ vitamin D3 الساعة 11 و55 دقيقة بالليل/);
     assert.equal(s.spoken.alexa.response.shouldEndSession, false);
     assert.deepEqual(s.prompts, []);
-    readOnly(s);
+    noWrite(s);
     console.log('        -> ' + text(s));
   });
-  await check('«نسيت دواي» -> names the passed dose, records nothing, sends ITS buttons to the patient’s own chat', async () => {
+
+  // ---- CR-108: «نسيت دواي» records the passed dose, tells the chat, and fails closed.
+  await check('CR-108: «نسيت دواي» -> records the passed dose as missed (the status write, then the recompute only after a 200, run after Alexa already answered); tells the chat with correction (c:) buttons; says it recorded it and sent it to Telegram', async () => {
     const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'));
-    assert.match(text(s), /Eltroxin الساعة 12 و5 دقيقة بالليل/);
-    assert.match(text(s), /ما سجّلت شي بالصوت/);
-    assert.equal(s.prompts.length, 2);
+    assert.match(text(s), /الجرعة اللي فات وقتها Eltroxin الساعة 12 و5 دقيقة بالليل/);
+    assert.match(text(s), /سجّلتها إنها فاتتك وأرسلتها لك في تيليقرام/);
+    assert.match(text(s), /اسأل الصيدلاني/);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
+    assert.equal(s.prompts.length, 1);
     assert.equal(s.prompts[0].chatId, '5550001');
-    assert.deepEqual(buttonData(s), [['d:rx-008-x-0005:taken_on_time', 'd:rx-008-x-0005:taken_late', 'd:rx-008-x-0005:missed']]);
-    readOnly(s);
-    console.log('        -> ' + text(s));
+    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Eltroxin 00:05 إنها فاتتك 👍');
+    assert.deepEqual(msgButtons(s.prompts[0]), ['c:rx-008-x-0005:taken_on_time', 'c:rx-008-x-0005:taken_late', 'c:rx-008-x-0005:missed']);
+    const statusCall = s.calls.find((c) => /\/status$/.test(c.url));
+    assert.match(statusCall.url, /\/doses\/rx-008-x-0005\/status$/);
+    assert.equal(statusCall.body.status, W_MISS);
+    const recomputeCall = s.calls.find((c) => /\/recompute$/.test(c.url));
+    assert.deepEqual(recomputeCall.body, { prescriptionId: 'rx-008', reason: 'reported_miss', missedDoseId: 'rx-008-x-0005' });
+    allowedCalls(s, DAYDOSES);
+    console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text);
+  });
+  await check('CR-108 (en-US): the exact forgot-recorded speech and the exact Telegram notice', async () => {
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent', 'en-US'));
+    assert.equal(text(s), 'The dose that passed is Eltroxin at 12:05 in the morning. Your next dose is Calcium carbonate + vitamin D3 at 11:55 in the evening. '
+      + 'I recorded it as missed and sent it to your Telegram. If you have a question about the missed dose, ask your pharmacist.');
+    assert.equal(s.prompts[0].text, 'From your Alexa: I recorded Eltroxin 00:05 as missed 👍');
+  });
+  await check('CR-108: the status write fails (409, 500, or a thrown/timed-out error) -> fail closed - never "recorded", today\'s header + plain (d:) buttons instead, and the recompute is never attempted', async () => {
+    for (const status of [409, 500, 'throw']) {
+      const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { status });
+      assert.doesNotMatch(text(s), /سجّلتها إنها فاتتك وأرسلتها/);
+      assert.match(text(s), /ما قدرت أسجّلها الحين، فأرسلت لك الأزرار في تيليقرام/);
+      assert.match(text(s), /اسأل الصيدلاني/);
+      assert.equal(s.prompts.length, 2);
+      assert.equal(s.prompts[0].buttons, null);
+      assert.match(s.prompts[0].text, /^من أليكسا: أكّد الجرعة/);
+      assert.deepEqual(msgButtons(s.prompts[1]), ['d:rx-008-x-0005:taken_on_time', 'd:rx-008-x-0005:taken_late', 'd:rx-008-x-0005:missed']);
+      assert.ok(!s.calls.some((c) => /\/recompute$/.test(c.url)), status + ': a failed status write must never be recomputed');
+    }
+  });
+  await check('CR-108: two doses have passed and are still open -> only the most recent is recorded (with its own correction notice); the OTHER still gets today\'s header + plain (d:) buttons', async () => {
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { doses: http(200, { doses: TWO_PASSED }) });
+    assert.match(text(s), /الجرعة اللي فات وقتها Calcium carbonate \+ vitamin D3 الساعة 1 الظهر/);
+    assert.equal(s.prompts.length, 3);
+    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Calcium carbonate + vitamin D3 13:00 إنها فاتتك 👍');
+    assert.deepEqual(msgButtons(s.prompts[0]), ['c:rx-009-p2:taken_on_time', 'c:rx-009-p2:taken_late', 'c:rx-009-p2:missed']);
+    assert.equal(s.prompts[1].buttons, null);
+    assert.deepEqual(msgButtons(s.prompts[2]), ['d:rx-008-p1:taken_on_time', 'd:rx-008-p1:taken_late', 'd:rx-008-p1:missed']);
+  });
+  await check('CR-108: no Telegram linked -> still recorded (the write does not depend on the chat), and Alexa says the chat is not linked; nothing sent anywhere', async () => {
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { elig: http(200, []) });
+    assert.match(text(s), /سجّلتها إنها فاتتك\. تيليقرام مو مربوط عندك، فما أرسلت لك رسالة/);
+    assert.deepEqual(s.prompts, []);
+    assert.ok(s.calls.some((c) => /\/status$/.test(c.url)), 'the write still happens with no chat linked');
+  });
+  await check('CR-108: nothing has passed yet -> today\'s unchanged reply, no write attempted, nothing sent', async () => {
+    const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { doses: http(200, { doses: [doseAt('rx-009-future', 'rx-009', '23:55')] }) });
+    assert.match(text(s), /ما لقيت جرعة فاتت وقتها ولسه مو مسجّلة/);
+    noWrite(s);
+    assert.deepEqual(s.prompts, []);
   });
   await check('"what is my next dose" in en-US -> English', async () => {
     const s = await walk(linked, body('IntentRequest', 'NextDoseIntent', 'en-US'));
     assert.match(text(s), /^Your next dose is Calcium carbonate \+ vitamin D3 at 11:55 in the evening/);
   });
-  await check('the backend refused (401) -> an honest failure, no schedule invented, no prompt', async () => {
+  await check('the backend refused (401) -> an honest failure, no schedule invented, no prompt, no write attempted', async () => {
     const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { doses: http(401, { error: 'unauthorized' }) });
     assert.match(text(s), /ما قدرت أوصل لجدولك/);
     assert.deepEqual(s.prompts, []);
+    noWrite(s);
   });
   await check('CR-069: a linked turn tells the patient\'s screen its topic and the words just spoken; refused / unlinked / a closed session tell it nothing', async () => {
     let s = await walk(linked, body('IntentRequest', 'TodayDosesIntent'));
@@ -940,8 +1088,9 @@ async function alexaScenarios() {
     assert.equal(s.parsed.voiceTurnUrl, null);
     s = await walk(wf, body('IntentRequest', 'TodayDosesIntent'));
     assert.equal(s.spoken.screen, null);
-    // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path.
-    assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?']);
+    // It runs only AFTER Alexa has its answer, beside (never inside) the Telegram-prompt path or the
+    // (equally after-the-answer) recompute chain (CR-108).
+    assert.deepEqual(wf.connections['Answer Alexa'].main[0].map((l) => l.node).sort(), ['follow on screen?', 'prompt Telegram?', 'recomputes (deterministic)']);
   });
   await check('"Alexa, ask medicine helper what are my medicines today" -> today\'s schedule with each status, in code (no model), the screen to «اليوم»; never the record path; only the two GETs and the screen POST', async () => {
     const en = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.en-US.json'), 'utf8')).interactionModel.languageModel.intents;
@@ -964,13 +1113,13 @@ async function alexaScenarios() {
       assert.equal(s.spoken.screen.topic, 'today');
       assert.deepEqual(s.prompts, [], 'no Telegram buttons: nothing to record');
       assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
-      readOnly(s);
+      noWrite(s);
     }
     assert.equal(byFree.parsed.quick, 'TodayDosesIntent', 'answered in code: the model node does not run');
     const arS = await walk(linked, body('IntentRequest', 'TodayDosesIntent', 'ar-SA'));
     assert.match(text(arS), /^عندك اليوم 2 جرعات: /);
     assert.equal(arS.spoken.screen.topic, 'today');
-    readOnly(arS);
+    noWrite(arS);
     console.log('        -> ' + text(bySample));
   });
   await check('CR-070 free talk: the sentence goes to Gemini, and its intent is answered from the data ("check my medicines" -> today)', async () => {
@@ -978,6 +1127,7 @@ async function alexaScenarios() {
     assert.equal(s.intent.kind, 'TodayDosesIntent');
     assert.match(text(s), /^Today you have 2 doses: 12:05 in the morning Eltroxin, still open\./);
     assert.equal(s.spoken.screen.topic, 'today');
+    noWrite(s);
     const u = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'what is the weather' }), { model: { intent: 'unclear', confidence: 0.9 } });
     assert.equal(u.intent.kind, 'AMAZON.FallbackIntent');
     assert.equal(u.spoken.screen.topic, 'unclear');
@@ -985,135 +1135,193 @@ async function alexaScenarios() {
     assert.equal(failed.intent.kind, 'AMAZON.FallbackIntent'); // the model failed -> unclear, never a guess
   });
 
-  // ---- AP-02 (CR-073): voice records nothing. A record request gets the fixed line, and the buttons.
-  await check('AP-02 TC-AD-15: "mark it taken" (en-US) -> "I can\'t record by voice; I\'ve sent the buttons to your Telegram"; nothing written; the due dose\'s buttons go to the patient\'s own chat', async () => {
-    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [] } });
+  // ---- CR-108: recording by voice - read back, confirmed with "yes", re-checked against fresh doses.
+  await check('CR-108: "I took my Eltroxin" -> read back by name, a pending list carried in the session, reprompted with "Shall I? Say yes, or no."; nothing written yet', async () => {
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'I took my Eltroxin' }),
+      { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [{ medicine: 'Eltroxin', status: W_ON }] } });
     assert.equal(s.intent.kind, 'record');
-    assert.equal(text(s), EN_SENT);
-    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
-    assert.ok(!('sessionAttributes' in s.spoken.alexa), 'no list is carried to a "yes"');
-    assert.deepEqual([s.prompts[0].chatId, s.prompts[0].buttons], ['5550001', null]);
-    assert.deepEqual(buttonData(s), [['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']]); // calcium is 3 h ahead: not due
-    assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
-    readOnly(s);
-    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.reply], ['record', EN_SENT]);
-    console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text + ' / ' + s.prompts[1].text);
-  });
-  await check('AP-02 TC-AD-15: "I took the first two and missed the third" (en-US) -> the fixed line; buttons only for the named dose that is due; nothing written', async () => {
-    const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
-    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'took the first two and missed the third' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items } });
-    assert.equal(text(s), EN_SENT);
-    assert.deepEqual(buttonData(s).map((b) => b[0]), ['d:rx-008-rec-a:taken_on_time']);
-    readOnly(s);
-  });
-  await check('AP-02: the voice-actions code path in Arabic (a FreeTalkIntent with locale ar-SA; the ar-SA skill cannot send one - its spoken path is RecordDoseIntent, next) -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; the header and buttons in Arabic; nothing written', async () => {
-    const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
-    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'خذيت الأولى والثانية وفاتتني الثالثة' }), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.93, items } });
-    assert.equal(text(s), AR_SENT);
-    assert.match(s.prompts[0].text, /^من أليكسا/);
-    assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
-    readOnly(s);
+    assert.match(text(s), /^I will record: Eltroxin at .+ taken\. Shall I\? Say yes, or no\.$/);
+    assert.deepEqual(s.spoken.alexa.sessionAttributes, { pending: [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_ON }] });
+    assert.equal(s.spoken.alexa.response.reprompt.outputSpeech.text, 'Shall I? Say yes, or no.');
+    assert.equal(s.spoken.alexa.response.shouldEndSession, false);
+    noWrite(s);
+    assert.equal(s.spoken.screen.topic, 'record');
     console.log('        -> ' + text(s));
   });
-  await check('AP-02 TC-AD-15 (ar-SA, spoken): «سجل الجرعة» and «خذيت الأولى والثانية وفاتتني الثالثة» are samples of the ar-SA RecordDoseIntent; that intent -> «ما أقدر أسجّل بالصوت، أرسلت لك الأزرار في تيليقرام»; no model call; the due dose\x27s buttons in Arabic; nothing written', async () => {
-    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
-    const rec = ar.find((i) => i.name === 'RecordDoseIntent');
-    assert.ok(rec, 'the ar-SA interaction model has a RecordDoseIntent');
-    assert.deepEqual(rec.slots, [], 'slotless: no dose is named, so no model is needed');
-    for (const sample of ['سجل الجرعة', 'خذيت دواي', 'خذيت الأولى والثانية وفاتتني الثالثة']) assert.ok(rec.samples.includes(sample), sample + ' is a RecordDoseIntent sample');
-    assert.ok(!ar.some((i) => i.name === 'FreeTalkIntent'), 'the ar-SA skill has no free talk');
-    const s = await walk(linked, body('IntentRequest', 'RecordDoseIntent', 'ar-SA'), { doses: http(200, { doses: RECDAY() }), model: { intent: 'unclear', confidence: 1 } });
-    assert.equal(s.intent.kind, 'record');
-    assert.equal(text(s), AR_SENT);
-    assert.equal(s.spoken.alexa.response.shouldEndSession, true);
-    assert.match(s.prompts[0].text, /^من أليكسا/);
-    assert.deepEqual(s.prompts[1].buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
-    assert.deepEqual(buttonData(s), [['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']]);
-    assert.deepEqual(s.calls.map((c) => c.method), ['GET', 'GET', 'POST']);
-    readOnly(s);
-    assert.deepEqual([s.spoken.screen.topic, s.spoken.screen.reply], ['record', AR_SENT]);
+  await check('CR-108: "yes" with that pending -> re-checks against FRESH doses, writes exactly the Telegram path\'s body, "Done. I recorded: ..." plus the Telegram clause, and the chat gets a correction notice', async () => {
+    const pending = [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_ON }];
+    const s = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }), { doses: http(200, { doses: RECDAY() }) });
+    assert.match(text(s), /^Done\. I recorded: Eltroxin at .+ taken\. I sent it to your Telegram\. Anything else\?$/);
+    assert.equal(s.spoken.alexa.response.shouldEndSession, false);
+    assert.ok(!('sessionAttributes' in s.spoken.alexa), 'a confirmed turn carries no further pending list');
+    const statusCall = s.calls.find((c) => /\/status$/.test(c.url));
+    assert.match(statusCall.url, /\/doses\/rx-008-rec-a\/status$/);
+    assert.equal(statusCall.body.status, W_ON);
+    assert.equal(s.prompts.length, 1);
+    assert.match(s.prompts[0].text, /^From your Alexa: I recorded Eltroxin/);
+    assert.deepEqual(msgButtons(s.prompts[0]).sort(), ['c:rx-008-rec-a:missed', 'c:rx-008-rec-a:taken_late', 'c:rx-008-rec-a:taken_on_time'].sort());
+    assert.equal(s.spoken.screen.topic, 'record');
+    allowedCalls(s, RECDAY());
     console.log('        -> ' + text(s) + ' | Telegram: ' + s.prompts[0].text);
   });
-  await check('AP-02: every intent in both committed interaction models, walked, makes only the allowed calls and writes nothing', async () => {
+  await check('CR-108: "yes" re-checks against FRESH doses - a dose recorded since the read-back, one no longer due, a tampered prescriptionId, or an id not among today\'s doses at all: none of these is written', async () => {
+    const cases = [
+      ['recorded since', http(200, { doses: RECDAY(W_ON) }), [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_ON }]],
+      ['no longer due (3 h ahead)', http(200, { doses: RECDAY() }), [{ doseId: 'rx-009-rec-b', prescriptionId: 'rx-009', status: W_ON }]],
+      ['a tampered prescriptionId', http(200, { doses: RECDAY() }), [{ doseId: 'rx-008-rec-a', prescriptionId: 'not-rx-008', status: W_ON }]],
+      ['a dose id from another patient entirely', http(200, { doses: RECDAY() }), [{ doseId: 'rx-999-not-here', prescriptionId: 'rx-999', status: W_ON }]],
+    ];
+    for (const [label, doses, pending] of cases) {
+      const s = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }), { doses });
+      assert.doesNotMatch(text(s), /Done/, label);
+      assert.deepEqual(s.calls.filter((c) => /\/status$/.test(c.url)), [], label);
+    }
+  });
+  await check('CR-108: "yes" but the status call is refused (409) -> "I could not record: ...", the buttons sent instead, no recompute attempted', async () => {
+    const pending = [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_MISS }];
+    const s = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }), { doses: http(200, { doses: RECDAY() }), status: 409 });
+    assert.match(text(s), /^I could not record: /);
+    assert.doesNotMatch(text(s), /Done/);
+    assert.deepEqual(s.calls.filter((c) => /\/recompute$/.test(c.url)), []);
+    assert.equal(s.prompts.length, 2);
+    assert.deepEqual(msgButtons(s.prompts[1]), ['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']);
+  });
+  await check('CR-108: "yes" confirming a MISS -> the status write, then the recompute, exactly the reported_miss body', async () => {
+    const pending = [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_MISS }];
+    const s = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }), { doses: http(200, { doses: RECDAY() }) });
+    const writeCalls = s.calls.filter((c) => c.method === 'POST' && /\/(status|recompute)$/.test(c.url));
+    assert.equal(writeCalls.length, 2);
+    assert.match(writeCalls[0].url, /\/status$/);
+    assert.match(writeCalls[1].url, /\/recompute$/);
+    assert.deepEqual(writeCalls[1].body, { prescriptionId: 'rx-008', reason: 'reported_miss', missedDoseId: 'rx-008-rec-a' });
+  });
+  await check('CR-108: "no" to a pending read-back -> "Okay, I did not record anything.", no write, only the screen turn is called', async () => {
+    const pending = [{ doseId: 'rx-008-rec-a', prescriptionId: 'rx-008', status: W_ON }];
+    const s = await walk(linked, body('IntentRequest', 'AMAZON.NoIntent', 'en-US', { attributes: { pending } }));
+    assert.equal(text(s), 'Okay, I did not record anything.');
+    assert.deepEqual(s.calls.map((c) => c.method), ['POST']);
+  });
+  await check('CR-108: a bare "yes" (no session attributes at all) -> the help text, screen topic unclear, only the screen-turn call', async () => {
+    const y = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US'));
+    assert.equal(y.intent.needsDoses, false);
+    assert.deepEqual(y.calls.map((c) => c.method), ['POST']);
+    assert.match(text(y), /^Ask me: what is my next dose/);
+    assert.ok(!('sessionAttributes' in y.spoken.alexa));
+    assert.equal(y.spoken.screen.topic, 'unclear');
+    assert.deepEqual(y.prompts, []);
+  });
+  await check('CR-108: "mark it taken" names no dose -> the ONE dose due now is read back; two doses due now -> "more than one dose matches what you said"; a position that does not exist is named and skipped', async () => {
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'mark it taken' }),
+      { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [{ status: W_ON }] } });
+    assert.match(text(s), /^I will record: Eltroxin at .+ taken\. Shall I\? Say yes, or no\.$/);
+    const ambiguous = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'mark it taken' }),
+      { doses: http(200, { doses: TWO_DUE }), model: { intent: 'record', confidence: 0.95, items: [{ status: W_ON }] } });
+    assert.equal(text(ambiguous), 'I could not record anything: more than one dose matches what you said. Anything else?');
+    const items = [{ position: 1, status: W_ON }, { position: 2, status: W_ON }, { position: 3, status: W_MISS }];
+    const mixed = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'took the first two and missed the third' }),
+      { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items } });
+    assert.match(text(mixed), /^I will record: Eltroxin at .+ taken\./);
+    assert.match(text(mixed), /not due yet/); // calcium, 3 h ahead
+    assert.match(text(mixed), /I could not find the dose you meant/); // position 3 does not exist
+  });
+  await check('CR-108: the model gave no usable answer (an outage) to "mark it taken" -> the AP-02 button fallback: "I could not tell which dose ...", today\'s (d:) buttons, never a guess and never a write', async () => {
+    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: null });
+    assert.equal(s.intent.kind, 'record');
+    assert.equal(text(s), 'I could not tell which dose you meant, so I sent the buttons to your Telegram. Please record it there.');
+    noWrite(s);
+    assert.equal(s.prompts.length, 2);
+    assert.deepEqual(msgButtons(s.prompts[1]), ['d:rx-008-rec-a:taken_on_time', 'd:rx-008-rec-a:taken_late', 'd:rx-008-rec-a:missed']);
+  });
+  await check('CR-108: a record request with no Telegram linked, with nothing open and due, or with the schedule unreachable -> it says so and writes nothing', async () => {
+    const say = { model: { intent: 'record', confidence: 0.95, items: [] } };
+    const noChat = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY() }), elig: http(200, []) });
+    assert.match(text(noChat), /^I could not tell which dose you meant, and your Telegram is not linked\./);
+    const allDone = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY(W_ON) }) });
+    assert.match(text(allDone), /^There is no open dose due now for me to record\./);
+    const down = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'it taken' }), { ...say, doses: http(503, { error: 'unavailable' }) });
+    assert.match(text(down), /^ما قدرت أوصل لجدولك/);
+    for (const s of [noChat, allDone, down]) noWrite(s);
+  });
+  await check('CR-108 (ar-SA, spoken): the slotless RecordDoseIntent is read back as "the one dose due now, taken" - no model call - then confirmed with the ar-SA AMAZON.YesIntent; cancelled with «لا»', async () => {
+    const ar = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.ar-SA.json'), 'utf8')).interactionModel.languageModel.intents;
+    const yes = ar.find((i) => i.name === 'AMAZON.YesIntent');
+    assert.ok(yes, 'the ar-SA interaction model has AMAZON.YesIntent (CR-108)');
+    const rec = ar.find((i) => i.name === 'RecordDoseIntent');
+    assert.deepEqual(rec.slots, [], 'slotless: no dose is named, so no model is needed');
+    const s = await walk(linked, body('IntentRequest', 'RecordDoseIntent', 'ar-SA'), { doses: http(200, { doses: RECDAY() }) });
+    assert.equal(s.intent.kind, 'record');
+    assert.equal(s.parsed.ok, true, 'no model ran: the schedule alone resolved the one dose due now');
+    assert.match(text(s), /^بسجّل: Eltroxin /);
+    assert.match(text(s), /تأكد؟ قول نعم، أو لا\.$/);
+    const pending = s.spoken.alexa.sessionAttributes.pending;
+    assert.deepEqual(pending.map((p) => p.doseId), ['rx-008-rec-a']);
+    const y = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'ar-SA', { attributes: { pending } }), { doses: http(200, { doses: RECDAY() }) });
+    assert.match(text(y), /^تم\. سجّلت: Eltroxin /);
+    assert.match(text(y), /أرسلتها لك في تيليقرام/);
+    assert.match(y.prompts[0].text, /^من أليكسا: سجّلت Eltroxin/);
+    const n = await walk(linked, body('IntentRequest', 'AMAZON.NoIntent', 'ar-SA', { attributes: { pending } }));
+    assert.equal(text(n), 'تمام، ما سجّلت شي.');
+    assert.deepEqual(n.calls.filter((c) => /status|recompute/.test(c.url)), []);
+    console.log('        -> ' + text(s) + ' | ' + text(y));
+  });
+  await check('every intent of both committed interaction models, walked, makes only the allowed calls; a write happens only for ForgotDoseIntent', async () => {
     const seen = [];
     for (const locale of ['ar-SA', 'en-US']) {
       const intents = JSON.parse(fs.readFileSync(path.join(ROOT, 'alexa', 'interaction-model.' + locale + '.json'), 'utf8')).interactionModel.languageModel.intents;
       assert.ok(intents.length >= 5, locale + ' model read');
       for (const i of intents) {
-        const s = await walk(linked, body('IntentRequest', i.name, locale, i.name === 'FreeTalkIntent' ? { utterance: 'mark it taken' } : {}), { doses: http(200, { doses: RECDAY() }), model: { intent: 'record', confidence: 0.95, items: [] } });
-        readOnly(s);
+        const s = await walk(linked, body('IntentRequest', i.name, locale, i.name === 'FreeTalkIntent' ? { utterance: 'mark it taken' } : {}),
+          { doses: http(200, { doses: DAYDOSES }), model: { intent: 'record', confidence: 0.95, items: [] } });
+        allowedCalls(s, DAYDOSES);
+        if (i.name === 'ForgotDoseIntent') assert.ok(s.calls.some((c) => /\/status$/.test(c.url)), 'ForgotDoseIntent should have written');
+        else noWrite(s);
         seen.push(locale + ':' + i.name);
       }
     }
-    assert.ok(seen.includes('ar-SA:RecordDoseIntent') && seen.includes('en-US:FreeTalkIntent'), seen.join(', '));
+    assert.ok(seen.includes('ar-SA:RecordDoseIntent') && seen.includes('en-US:FreeTalkIntent') && seen.includes('en-US:ForgotDoseIntent'), seen.join(', '));
   });
-  await check('AP-02: the model gave no answer (outage) to "mark it taken" -> still the fixed line and the buttons, never a guess and never a write', async () => {
-    const s = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { doses: http(200, { doses: RECDAY() }), model: null });
-    assert.equal(s.intent.kind, 'record');
-    assert.equal(text(s), EN_SENT);
-    assert.equal(buttonData(s).length, 1);
-    readOnly(s);
-  });
-  await check('AP-02: a record request with no Telegram linked, with nothing open, or with the schedule unreachable -> it says so, sends nothing, writes nothing', async () => {
-    const say = { model: { intent: 'record', confidence: 0.95, items: [] } };
-    const noChat = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY() }), elig: http(200, []) });
-    assert.match(text(noChat), /^I can't record by voice, and your Telegram is not linked/);
-    assert.deepEqual(noChat.prompts, []);
-    const allDone = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'en-US', { utterance: 'it taken' }), { ...say, doses: http(200, { doses: RECDAY(W_ON) }) });
-    assert.match(text(allDone), /^I can't record by voice, and there is no open dose due now/);
-    assert.equal(allDone.spoken.alexa.response.shouldEndSession, false);
-    assert.deepEqual(allDone.prompts, []);
-    const down = await walk(linked, body('IntentRequest', 'FreeTalkIntent', 'ar-SA', { utterance: 'it taken' }), { ...say, doses: http(503, { error: 'unavailable' }) });
-    assert.match(text(down), /^ما أقدر أسجّل بالصوت، وما قدرت أوصل لجدولك/);
-    assert.deepEqual(down.prompts, []);
-    for (const s of [noChat, allDone, down]) readOnly(s);
-  });
-  await check('AP-02: a CR-070 "yes" replayed with a pending list in the session -> nothing read, nothing written, no list carried on; "no" just says goodbye', async () => {
-    const pending = [{ doseId: 'rx-008-x-0005', prescriptionId: 'rx-008', status: W_MISS }];
-    const y = await walk(linked, body('IntentRequest', 'AMAZON.YesIntent', 'en-US', { attributes: { pending } }));
-    assert.equal(y.intent.needsDoses, false);
-    assert.deepEqual(y.calls.map((c) => c.method), ['POST']); // only the screen turn
-    assert.match(text(y), /^Ask me: what is my next dose/);
-    assert.ok(!('sessionAttributes' in y.spoken.alexa));
-    assert.equal(y.spoken.screen.topic, 'unclear');
-    assert.deepEqual(y.prompts, []);
-    readOnly(y);
-    const n = await walk(linked, body('IntentRequest', 'AMAZON.NoIntent', 'en-US', { attributes: { pending } }));
-    assert.equal(n.spoken.alexa.response.shouldEndSession, true);
-    assert.deepEqual(n.calls.map((c) => c.method), ['POST']);
+  await check('an unlinked device, the COMMITTED workflow (no skill id), and a stale/replayed timestamp make NO call at all, even for ForgotDoseIntent', async () => {
+    const stale = body('IntentRequest', 'ForgotDoseIntent'); stale[0].json.body.request.timestamp = '2020-01-01T00:00:00Z';
+    for (const [w, input] of [
+      [configure(SKILL, {}), body('IntentRequest', 'ForgotDoseIntent')],
+      [wf, body('IntentRequest', 'ForgotDoseIntent')],
+      [linked, stale],
+    ]) {
+      const s = await walk(w, input);
+      assert.deepEqual(s.calls, []);
+    }
   });
 
-  // ---- AP-02: the call assertion, on the committed workflow and on copies edited to break it.
-  await check('AP-02 (CR-073): agent-alexa makes exactly two GETs (doses of the day, who is eligible) and the one voice-turn POST; no call names /doses/ or /schedule/; the CR-070 write nodes are gone', async () => {
-    await assertVoiceCallsReadOnly(wf);
-    const names = wf.nodes.map((n) => n.name);
-    for (const gone of ['plan (deterministic)', 'record now?', 'one item per write (deterministic)', 'backend: record the status',
-      'recomputes (deterministic)', 'any recompute?', 'one item per recompute (deterministic)', 'backend: recompute']) assert.ok(!names.includes(gone), gone + ' is still in the workflow');
+  // ---- CR-108: the call assertion, on the committed workflow and on copies edited to break it.
+  await check('CR-108: agent-alexa makes exactly the five calls (three reads, two writes); no call names a literal /doses/ or /schedule/ URL; the two write nodes fail closed and are fed by exactly one path each', async () => {
+    await assertVoiceCalls(wf);
   });
-  const CR070_WRITE = (name) => ({ parameters: { method: 'POST', url: '={{ $json.url }}', authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-    sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.body) }}', options: {} }, id: 'b4000000-0000-4000-8000-0000000000ff', name,
-    type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [0, 0] });
   const node = (copy, name) => copy.nodes.find((x) => x.name === name);
   const PARSE = 'alexa request (deterministic)';
   /** Edit one Code node's source; the edit must land, or the proof proves nothing. */
   const replaceIn = (c, name, from, to) => { const n = node(c, name); assert.ok(n.parameters.jsCode.includes(from), name + ' no longer holds ' + from); n.parameters.jsCode = n.parameters.jsCode.replace(from, to); };
   const DOSES_URL = "API + '/patients/' + encodeURIComponent(p.patientId) + '/doses?date=' + date";
   const EDITS = [
-    ['re-add CR-070\'s "backend: record the status" POST', (c) => c.nodes.push(CR070_WRITE('backend: record the status')), /exactly the two GETs and the voice-turn POST/],
-    ['re-add CR-070\'s "backend: recompute" POST', (c) => c.nodes.push(CR070_WRITE('backend: recompute')), /exactly the two GETs and the voice-turn POST/],
     ['turn the doses GET into a POST', (c) => { node(c, 'backend: doses of the day').parameters.method = 'POST'; }, /backend: doses of the day: method/],
     ['point the eligibility GET at /schedule/recompute', (c) => { const n = node(c, 'backend: who is eligible'); n.parameters.url = n.parameters.url.replace('/check-in-eligibility', '/schedule/recompute'); }, /backend: who is eligible calls/],
-    ['build a /doses/{id}/status URL in the parse node, behind the allowed expression', (c) => replaceIn(c, PARSE, DOSES_URL, "API + '/doses/' + encodeURIComponent(p.patientId) + '/status'"), /builds a \/doses\/ or \/schedule\/ URL/],
+    ['build a /doses/{id}/status URL in the parse node, behind the allowed expression', (c) => replaceIn(c, PARSE, DOSES_URL, "API + '/doses/' + encodeURIComponent(p.patientId) + '/status'"), /the doses GET resolves to/],
     ['build that URL in pieces, so only the resolved URL shows it', (c) => replaceIn(c, PARSE, DOSES_URL, "API + '/do' + 'ses/' + encodeURIComponent(p.patientId) + '/status'"), /the doses GET resolves to/],
     ['give a Code node its own fetch', (c) => { const n = node(c, 'speak (deterministic)'); n.parameters.jsCode = "await fetch(API + '/x');\n" + n.parameters.jsCode; }, /makes its own network call/],
     ['add an Execute Workflow node', (c) => c.nodes.push({ parameters: {}, id: 'x', name: 'record elsewhere', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1, position: [0, 0] }), /a node type that could call out/],
     ['put the CR-070 switch back', (c) => { const n = node(c, 'speak (deterministic)'); n.parameters.jsCode = 'const VOICE_RECORDS = true;\n' + n.parameters.jsCode; }, /recording switch/],
+    ['add a THIRD write POST node', (c) => c.nodes.push({ parameters: { method: 'POST', url: '={{ $json.url }}', options: {} }, id: 'x2', name: 'backend: a third write', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [0, 0], onError: 'continueRegularOutput', retryOnFail: false }), /exactly the five calls/],
+    ['point "backend: record the status" at a literal URL', (c) => { node(c, 'backend: record the status').parameters.url = 'https://example.invalid/doses/x/status'; }, /backend: record the status calls/],
+    ['wire "backend: record the status" from "speak (deterministic)" as well', (c) => { c.connections['speak (deterministic)'].main[0].push({ node: 'backend: record the status', type: 'main', index: 0 }); }, /fed only by/],
+    ["connect 'plan (deterministic)' straight to 'one item per write', bypassing 'record now?'", (c) => { c.connections['plan (deterministic)'] = { main: [[{ node: 'one item per write (deterministic)', type: 'main', index: 0 }]] }; }, /fed only by/],
+    ["change 'one item per write'\\'s own feed code", (c) => { node(c, 'one item per write (deterministic)').parameters.jsCode = 'return [];'; }, /feed code changed/],
+    ['drop onError from the status write node', (c) => { delete node(c, 'backend: record the status').onError; }, /onError/],
+    ['set retryOnFail true on the status write node', (c) => { node(c, 'backend: record the status').retryOnFail = true; }, /retryOnFail/],
   ];
   for (const [label, edit, why] of EDITS) {
-    await check('AP-02: the call assertion goes RED on a copy edited to ' + label, async () => {
+    await check('CR-108: the call assertion goes RED on a copy edited to ' + label, async () => {
       const copy = JSON.parse(JSON.stringify(wf));
       edit(copy);
-      await assert.rejects(assertVoiceCallsReadOnly(copy), why);
+      await assert.rejects(assertVoiceCalls(copy), why);
     });
   }
 }
@@ -1184,11 +1392,17 @@ async function webchatScenarios() {
       assert.deepEqual(s.prompts, []);
     }
   });
-  await check('the webchat workflow holds no write: two GETs to the read routes, no Code node calls out', async () => {
+  await check('the webchat workflow holds no write: two GETs to the read routes, no Code node calls out, and agents/lib/voice-actions.js (CR-108\'s write functions, confirmRecord/writeFor) is never inlined here at all - CR-076/D4 stands', async () => {
     const httpNodes = wf.nodes.filter((x) => x.type === 'n8n-nodes-base.httpRequest');
     assert.equal(httpNodes.length, 2);
     for (const n of httpNodes) assert.equal(n.parameters.method, 'GET', n.name);
-    for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) assert.ok(!/helpers\.httpRequest|\bfetch\s*\(/.test(n.parameters.jsCode), n.name);
+    for (const n of wf.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
+      assert.ok(!/helpers\.httpRequest|\bfetch\s*\(/.test(n.parameters.jsCode), n.name);
+      // buildVoiceNotice's DEFINITION is harmlessly present wherever ADHERENCE is inlined (it lives
+      // beside buildCheckIn, which webchat's prompt node legitimately uses); confirmRecord/writeFor
+      // live only in voice-actions.js, which nothing here inlines - their presence would mean it now does.
+      assert.ok(!/function confirmRecord\s*\(|function writeFor\s*\(/.test(n.parameters.jsCode), n.name + ' inlines a CR-108 voice-actions.js write function');
+    }
   });
 }
 
