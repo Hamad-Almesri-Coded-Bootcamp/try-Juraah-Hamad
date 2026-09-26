@@ -82,7 +82,7 @@
               "neverError": false
             }
           },
-          "timeout": 19000
+          "timeout": 15000
         }
       },
       "id": "c3000000-0000-4000-8000-000000000004",
@@ -114,7 +114,7 @@
               "neverError": true
             }
           },
-          "timeout": 19000
+          "timeout": 15000
         }
       },
       "id": "c3000000-0000-4000-8000-000000000016",
@@ -189,7 +189,7 @@
               "neverError": true
             }
           },
-          "timeout": 15000
+          "timeout": 8000
         },
         "sendBody": true,
         "specifyBody": "json",

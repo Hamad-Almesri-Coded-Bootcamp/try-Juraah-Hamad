@@ -4,8 +4,8 @@
     "url": "https://www.sfda.gov.sa/en/drugs-list",
     "retrievedAt": "2026-09-26",
     "sha256": "test-fixture-not-a-real-hash",
-    "rows": 3,
-    "names": 2
+    "rows": 5,
+    "names": 3
   },
   "names": {
     "GLUCOFORM": [
@@ -14,6 +14,10 @@
     "COLDMEX": [
       ["Acetaminophen"],
       ["Acetaminophen", "Caffeine"]
+    ],
+    "EZETIMIBE": [
+      ["EZETIMIBE"],
+      ["EZETIMIBE", "SIMVASTATIN"]
     ]
   }
 }

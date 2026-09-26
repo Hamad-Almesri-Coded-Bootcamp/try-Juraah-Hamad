@@ -46,7 +46,7 @@
  * ------------------------------------------------------------------------- */
 
 const { normaliseDrugName, ingredientParts, ingredientsOf } = require('./normalise');
-const { OUTCOME, resolveFields } = require('./resolve');
+const { OUTCOME, resolveFields, buildIngredientIndex } = require('./resolve');
 const { isCovered, lookupPair } = require('./interactions');
 const { lang, unnamed, TRAVEL_TEXT, ALERT_TEXT, pairCitation } = require('./text');
 const { exclusionReason } = require('./screening');
@@ -172,7 +172,11 @@ function travelCheck(args) {
     return out(VERDICT.COULD_NOT_IDENTIFY, { reason: 'no_readable_text', message: TRAVEL_TEXT.could_not_identify(l) });
   }
 
-  const resolved = resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, args.pendingNames);
+  // A SEPARATE, never-shadowed ingredient-name index (built fresh from `index` alone) for the
+  // ingredientsAsPrinted path - see buildIngredientIndex's own comment in resolve.js for why the
+  // combined brandIndex cannot be filtered after the fact to do this safely.
+  const ingredientIndex = buildIngredientIndex(index);
+  const resolved = resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, args.pendingNames, ingredientIndex);
   if (resolved.outcome === OUTCOME.NEEDS_CONFIRMATION) {
     const lineExt = resolved.reason === 'line_extensions_exist';
     return out(VERDICT.NEEDS_CONFIRMATION, { reason: resolved.reason || 'near_match', candidates: resolved.candidates,

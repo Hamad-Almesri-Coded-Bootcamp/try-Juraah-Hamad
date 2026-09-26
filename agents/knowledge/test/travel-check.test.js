@@ -370,6 +370,35 @@ test('a missing sfda-brands.json is simply "no SFDA rows", never an error - buil
   assert.equal(noSfda.has('brufen'), true, 'brand-map.json rows are unaffected');
 });
 
+// ---------------------------------------------------------------- reviewer fix: resolve.js's
+// ingredient-only path must never consult a brand or SFDA row (agents/knowledge/src/resolve.js,
+// buildIngredientIndex). Regression coverage for the exact scenario the finding described.
+test('reviewer fix: an SFDA base name equal to a real index ingredient (EZETIMIBE) never shadows it - a plain generic box still resolves to itself alone', () => {
+  const sfdaBrandIndex = buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE.names);
+  // Sanity: the fixture really does collide - EZETIMIBE is both a plain index ingredient and an SFDA
+  // base name with more than one distinct ingredient set (the shape that shadowed it before the fix).
+  assert.ok(sfdaBrandIndex.get('ezetimibe').ambiguousSets, 'sanity: the combined brandIndex entry for this key is the ambiguous SFDA row, not the plain ingredient - the collision this test exists to survive');
+  const r = travelCheck({ patientId: 't-patient', index, brandIndex: sfdaBrandIndex, language: 'en',
+    visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Ezetimibe'], strengthAsPrinted: null },
+    prescriptions: [rx('t-1', 'Amlodipine')] });
+  // Ezetimibe x Amlodipine is outside the loaded DDInter category files (the same profile the AP-06
+  // test above uses): a correct resolution lands on cannot_verify/pair_outside_loaded_categories.
+  // Before the fix this returned could_not_identify/combination_ingredient_unresolved instead - the
+  // SFDA row's ambiguousSets is never OUTCOME.RESOLVED, so resolveFields refused the whole reading.
+  assert.equal(r.verdict, 'cannot_verify', 'must resolve as the plain ingredient, not be shadowed by the colliding SFDA row');
+  assert.equal(r.reason, 'pair_outside_loaded_categories');
+  assert.ok(r.candidate, 'the ingredient must actually have resolved');
+  assert.deepEqual(r.candidate.ingredients, ['Ezetimibe']);
+  assert.equal(r.candidate.ingredientKeys[0], 'ezetimibe');
+});
+
+test('reviewer fix: a brand name typed into ingredientsAsPrinted (no brand printed) must not resolve via a brand-map or SFDA row', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Zocor'], strengthAsPrinted: null }, prescriptions: [] });
+  assert.equal(r.verdict, 'could_not_identify', 'ZOCOR is a brand, not an ingredient name - the ingredient-only path must refuse it, never resolve it to Simvastatin');
+  assert.equal(r.reason, 'combination_ingredient_unresolved');
+  assert.equal(r.candidate, null, 'never silently resolved to Simvastatin through the brand row');
+});
+
 test('appOutcomeFor: every VERDICT maps to exactly one DrugCheckOutcome kind; anything else stays fail-closed', () => {
   assert.deepEqual(appOutcomeFor(VERDICT.NOT_A_MEDICINE, 'X', 'ia-1'), { kind: 'not_a_medicine' }, 'no drugName, no alertId - not_a_medicine carries nothing else');
   assert.deepEqual(appOutcomeFor(VERDICT.INTERACTION_FOUND, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'interaction_found' });

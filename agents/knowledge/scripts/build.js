@@ -393,20 +393,27 @@ const travel = {
     webhook(TC(1), 'Check a medicine photo', 'jurah/travel-check', [-900, 0]),
     code(TC(2), 'input (deterministic)', TC_INPUT, [-680, 0]),
     ifNode(TC(3), 'valid request?', '={{ $json.valid }}', [-460, 0]),
-    // A5 (2026-09-26): the backend fetch and the vision call run one after another (never in
-    // parallel), so their worst cases ADD. Budget, worst case: backend 8000 + primary 14000 +
-    // fallback 14000 = 36000ms, inside the app's 45000ms VISION_TIMEOUT_MS with margin - see
-    // agents/knowledge/test/timeouts.test.js, which reads this built file and re-adds these numbers.
+    // A5 (2026-09-26, reviewer fix): the backend fetch, the vision call and - on the danger path -
+    // the alert POST all run one after another (never in parallel) on the way to 'Answer', so their
+    // worst cases ADD all the way, not just the first three. Budget, worst case: backend 8000 +
+    // primary 12000 + fallback 12000 + alert 6000 = 38000ms, inside the app's 45000ms
+    // VISION_TIMEOUT_MS with margin (2000ms under the 40000ms target). The original version of this
+    // comment (and of agents/knowledge/test/timeouts.test.js) summed only the first three and left
+    // the alert POST at api()'s 15000ms default, uncounted - the test now walks wf.connections from
+    // the webhook to 'Answer' over every branch, so a future node on this path fails it on its own
+    // if it is not given an explicit timeout here.
     api(TC(4), 'backend: active prescriptions', 'GET', '={{ $json.rxUrl }}', [-240, -80], undefined, { timeout: 8000, maxTries: 1 }),
     gemini(TC(5), 'Gemini: read the name on the box', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-20, -160],
-      { timeout: 14000, hasFallback: true }),
+      { timeout: 12000, hasFallback: true }),
     // A6/decision (f): the primary model failed (error or timeout) - one fallback try, same body, a
     // different model. Never a second same-model retry (agent-travel-check dropped that with A5).
     gemini(TC(14), 'Gemini fallback: read the name on the box', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-20, 0],
-      { model: FALLBACK_VISION_MODEL, timeout: 14000 }),
+      { model: FALLBACK_VISION_MODEL, timeout: 12000 }),
     code(TC(6), 'check (deterministic)', TC_CHECK, [200, -80]),
     ifNode(TC(7), 'a danger finding?', '={{ $json.post }}', [420, -80]),
-    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}'),
+    // A5 fix: was api()'s 15000ms default, which the old (hand-picked) budget test never summed even
+    // though this node sits on the critical path to 'Answer' whenever a danger finding posts an alert.
+    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}', { timeout: 6000 }),
     code(TC(9), 'answer (deterministic)', TC_ANSWER, [860, -80]),
     respond(TC(10), 'Answer', [1080, -80]),
     respond(TC(11), 'Answer: invalid request', [-240, 120], 422),
@@ -511,17 +518,23 @@ const extraction = {
     webhook(EX(1), 'Extract a prescription', 'jurah/extract-prescription', [-900, 0]),
     code(EX(2), 'input (deterministic)', EX_INPUT, [-680, 0]),
     ifNode(EX(3), 'valid request?', '={{ $json.valid }}', [-460, 0]),
-    // A5/A6 (2026-09-26): no backend leg before the vision call here (unlike travel check), so the
-    // whole 45000ms VISION_TIMEOUT_MS budget is the two vision tries. Worst case 19000 + 19000 =
-    // 38000ms, inside budget with margin - see agents/knowledge/test/timeouts.test.js.
+    // A5/A6 (2026-09-26, reviewer fix): no backend leg before the vision call here (unlike travel
+    // check), but on the save:true path the save POST runs after both vision tries and before
+    // 'Answer', so it is on the critical path too and must be budgeted, not left at api()'s 15000ms
+    // default. Worst case: primary 15000 + fallback 15000 + save 8000 = 38000ms, inside the app's
+    // 45000ms VISION_TIMEOUT_MS with margin (2000ms under the 40000ms target) - see
+    // agents/knowledge/test/timeouts.test.js, which walks the built workflow's own connections from
+    // the webhook to 'Answer' rather than trusting a hand-picked list of node names.
     // Both nodes name 'input (deterministic)' explicitly (never plain $json): the fallback is fed
     // from the primary's ERROR output, where $json would be n8n's error item, not the vision body.
-    gemini(EX(4), 'Gemini: read the prescription', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-240, -160], { timeout: 19000, hasFallback: true }),
+    gemini(EX(4), 'Gemini: read the prescription', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-240, -160], { timeout: 15000, hasFallback: true }),
     gemini(EX(16), 'Gemini fallback: read the prescription', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-240, 0],
-      { model: FALLBACK_VISION_MODEL, timeout: 19000 }),
+      { model: FALLBACK_VISION_MODEL, timeout: 15000 }),
     code(EX(5), 'validate (deterministic)', EX_VALIDATE, [-20, -80]),
     ifNode(EX(6), 'save it?', '={{ $json.save }}', [200, -80]),
-    api(EX(7), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [420, -160], '={{ JSON.stringify($json.result.body) }}'),
+    // A5 fix: was api()'s 15000ms default, which the old (hand-picked) budget test never summed even
+    // though this node sits on the critical path to 'Answer' whenever save:true actually saves.
+    api(EX(7), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [420, -160], '={{ JSON.stringify($json.result.body) }}', { timeout: 8000 }),
     code(EX(8), 'after save', EX_AFTER_SAVE, [640, -160]),
     code(EX(11), 'answer (deterministic)', EX_ANSWER, [860, -80]),
     respond(EX(12), 'Answer', [1080, -80]),

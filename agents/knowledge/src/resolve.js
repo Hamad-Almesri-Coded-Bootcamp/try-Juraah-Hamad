@@ -50,6 +50,13 @@ const OUTCOME = {
  * `ambiguousSets` rather than picked for the patient: resolveToIngredient turns that into
  * needs_confirmation, never a guess at which formulation this box is.
  */
+/** The row shape for a name known only through the interaction index's own ingredient list - never a
+ *  brand or SFDA row. Shared by buildBrandIndex's own index.drugs loop and buildIngredientIndex below,
+ *  so the two can never quietly drift apart. */
+function indexRow(drug) {
+  return { brand: drug.label, ingredients: [drug.label], sfdaTradeName: null, verified: true, viaIndex: true };
+}
+
 function buildBrandIndex(brandRows, index, sfda) {
   const byKey = new Map();
   for (const row of brandRows || []) {
@@ -90,10 +97,32 @@ function buildBrandIndex(brandRows, index, sfda) {
   }
   if (index && index.drugs) {
     for (const [key, drug] of index.drugs) {
-      if (!byKey.has(key)) {
-        byKey.set(key, { brand: drug.label, ingredients: [drug.label], sfdaTradeName: null, verified: true, viaIndex: true });
-      }
+      if (!byKey.has(key)) byKey.set(key, indexRow(drug));
     }
+  }
+  return byKey;
+}
+
+/**
+ * A SEPARATE index of ingredient names ONLY, built straight from the interaction index's own
+ * `index.drugs` and nothing else - never a brand-map or SFDA row, and never shadowed by one.
+ *
+ * Why this cannot just be "filter buildBrandIndex's combined map to the viaIndex rows": that combined
+ * map is built key-by-key with a `!byKey.has(key)` first-writer-wins guard, and the SFDA loop runs
+ * BEFORE the index.drugs loop. When an SFDA base trade name happens to equal a plain ingredient name
+ * (SFDA registers plenty of generics under their own INN - "EZETIMIBE" the brand line, not just the
+ * molecule), the SFDA row claims that key first and the index-ingredient row for the very same key is
+ * never inserted into the combined map at all - there is nothing left to filter for. Building this
+ * index independently, straight from index.drugs, is the only way a filter can be correct.
+ *
+ * resolveFields uses this, never the combined brandIndex, for the ingredientsAsPrinted path (no brand
+ * printed - see resolveFields below): that field is a plain ingredient name by the vision schema's own
+ * contract, so it must resolve as one, never as a brand or an ambiguous SFDA trade name.
+ */
+function buildIngredientIndex(index) {
+  const byKey = new Map();
+  if (index && index.drugs) {
+    for (const [key, drug] of index.drugs) byKey.set(key, indexRow(drug));
   }
   return byKey;
 }
@@ -182,13 +211,14 @@ function resolveToIngredient(rawName, brandIndex, opts) {
 }
 
 /**
- * resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, pendingNames, opts)
+ * resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, pendingNames, ingredientIndex, opts)
  *
  * The field-by-field policy from the owner's 2026-09-26 decisions (a, d) on the new travel-check
  * vision schema ({ isMedicine, brandAsPrinted, ingredientsAsPrinted, strengthAsPrinted }):
  *
  *   1. brandAsPrinted is tried FIRST and ALONE, through the exact-match / one-edit-near-miss path
- *      above - never a fuzzy accept. A brand that IS printed but does not resolve is either a
+ *      above, against the FULL combined brandIndex (brand-map + SFDA + index ingredient names) -
+ *      never a fuzzy accept. A brand that IS printed but does not resolve is either a
  *      KNOWN-BUT-UNVERIFIED brand (brand_not_verified, from brand-map.json's own pendingVerification
  *      list) or a name this project has never heard of at all (not_in_mapping_table / an ambiguous
  *      near-miss menu). Either way, ingredientsAsPrinted is NEVER consulted as a fallback: a
@@ -196,12 +226,16 @@ function resolveToIngredient(rawName, brandIndex, opts) {
  *      to trust the model with on its own say-so.
  *   2. Only when NO brand is printed does ingredientsAsPrinted get used, each entry EXACT-matched
  *      only (no near-miss - "did you mean...?" only makes sense for a brand name, not for a string
- *      the model already claims is a plain ingredient). A combination resolves only when EVERY entry
- *      resolves; one miss refuses the whole reading rather than screening a partial list.
+ *      the model already claims is a plain ingredient) - and matched against `ingredientIndex` ALONE
+ *      (buildIngredientIndex's output), never the combined brandIndex: a brand name typed into this
+ *      field, or an SFDA/brand row whose key happens to collide with a real ingredient name, must
+ *      never resolve here (the exact bug this parameter closes - see buildIngredientIndex's own
+ *      comment and agents/knowledge/test/travel-check.test.js). A combination resolves only when
+ *      EVERY entry resolves; one miss refuses the whole reading rather than screening a partial list.
  *   3. Neither field printed or legible at all -> unresolved, 'no_readable_name' (the photo carried
  *      nothing to look up - the caller's G5 path).
  */
-function resolveFields(fields, brandIndex, pendingNames, opts) {
+function resolveFields(fields, brandIndex, pendingNames, ingredientIndex, opts) {
   const brand = fields && typeof fields.brandAsPrinted === 'string' ? fields.brandAsPrinted.trim() : '';
   const ingredients = Array.isArray(fields && fields.ingredientsAsPrinted)
     ? fields.ingredientsAsPrinted.filter((x) => typeof x === 'string' && x.trim())
@@ -221,11 +255,14 @@ function resolveFields(fields, brandIndex, pendingNames, opts) {
 
   if (ingredients.length === 0) return { outcome: OUTCOME.UNRESOLVED, reason: 'no_readable_name', input: null };
 
-  // Exact match only: pass a near-miss threshold no printed ingredient name can ever reach.
+  // Exact match only, against ingredientIndex alone (never brandIndex - see the parameter comment
+  // above): pass a near-miss threshold no printed ingredient name can ever reach. A missing
+  // ingredientIndex resolves nothing (fail closed) rather than silently falling back to the unsafe
+  // combined map.
   const exactOnly = Object.assign({}, opts, { minLenForNearMiss: Infinity });
   const parts = [];
   for (const name of ingredients) {
-    const r = resolveToIngredient(name, brandIndex, exactOnly);
+    const r = resolveToIngredient(name, ingredientIndex || new Map(), exactOnly);
     if (r.outcome !== OUTCOME.RESOLVED) {
       return { outcome: OUTCOME.UNRESOLVED, reason: 'combination_ingredient_unresolved', missing: name, input: ingredients };
     }
@@ -276,4 +313,4 @@ function buildPendingNames(rows) {
   return byKey;
 }
 
-module.exports = { OUTCOME, buildBrandIndex, resolveToIngredient, resolveFields, buildPendingNames };
+module.exports = { OUTCOME, buildBrandIndex, buildIngredientIndex, resolveToIngredient, resolveFields, buildPendingNames };
