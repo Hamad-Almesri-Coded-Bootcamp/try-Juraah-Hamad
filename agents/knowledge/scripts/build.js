@@ -47,9 +47,17 @@ const N8N_WEBHOOK_BASE = (process.env.N8N_WEBHOOK_BASE || 'https://mohammad-aljr
 if (N8N_WEBHOOK_BASE.includes('/webhook-test')) throw new Error('N8N_WEBHOOK_BASE must be the production /webhook base, never /webhook-test');
 if (!/^https:\/\//.test(API_BASE)) throw new Error('JURAH_API_BASE must be https');
 
-/** The same vision model agents/scripts/build.js uses (verified live there on 21 Sep). */
-const VISION_MODEL_PATH = 'gemini-3-flash-preview';
-const VISION_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + VISION_MODEL_PATH + ':generateContent';
+// Travel Check's vision prompt and schema live in src/travel-check.js (CR-099(b)): required here
+// rather than kept as a second copy, so the prompt this script sends and the one src/ tests against
+// are the same string.
+const { BRAND_PROMPT, RESPONSE_SCHEMA: TC_RESPONSE_SCHEMA } = require('../src/travel-check');
+
+/** The primary vision model (verified live in agents/scripts/build.js on 21 Sep), and decision (f)'s
+ *  fallback (2026-09-26): the same model agent-telegram-inbound's chat path already falls back to.
+ *  Used for agent-travel-check and agent-extraction only - see the gemini() node builder (A5/A6). */
+const PRIMARY_VISION_MODEL = 'gemini-3-flash-preview';
+const FALLBACK_VISION_MODEL = 'gemini-3.6-flash';
+const visionUrl = (model) => 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
 
 // ------------------------------------------------------------------------------ inlining
 // A Windows checkout (core.autocrlf=true) hands us CRLF; the committed workflows are LF.
@@ -79,9 +87,16 @@ const BRAND_MAP_DATA = JSON.parse(read('data/brand-map.json'));
 if (!Array.isArray(BRAND_MAP_DATA.pendingVerification && BRAND_MAP_DATA.pendingVerification.brands)) {
   throw new Error('data/brand-map.json: pendingVerification.brands must be an array - refusing to build agent-travel-check with the unverified-brand list missing');
 }
+// Decision (c), 2026-09-26: the whole Saudi SFDA registered-drug list becomes the brand source.
+// Produced by another builder (agents/knowledge/data/sfda-brands.json); a missing file is simply "no
+// SFDA rows" - never a build failure, since the brand-map.json rows alone are a complete build on
+// their own (this is exactly how the file behaved before the SFDA source existed).
+const SFDA_PATH = path.join(ROOT, 'data/sfda-brands.json');
+const SFDA_NAMES_JSON = fs.existsSync(SFDA_PATH) ? JSON.stringify(JSON.parse(read('data/sfda-brands.json')).names || {}) : '{}';
 const TRAVEL_SRC = dataConst('INDEX_JSON', 'data/interaction-index.json') + '\n' + dataConst('BRAND_MAP_JSON', 'data/brand-map.json') + '\n' +
+  'const SFDA_NAMES = ' + SFDA_NAMES_JSON + ';\n' +
   inline(['src/normalise.js', 'src/severity.js', 'src/interactions.js', 'src/resolve.js', 'src/text.js', 'src/validate.js', 'src/screening.js', 'src/travel-check.js']) +
-  '\nconst INDEX = loadIndex(INDEX_JSON);\nconst BRAND_INDEX = buildBrandIndex(BRAND_MAP_JSON.brands, INDEX);' +
+  '\nconst INDEX = loadIndex(INDEX_JSON);\nconst BRAND_INDEX = buildBrandIndex(BRAND_MAP_JSON.brands, INDEX, SFDA_NAMES);' +
   '\nconst PENDING_NAMES = buildPendingNames(BRAND_MAP_JSON.pendingVerification.brands);';
 const EXTRACTION_SRC = inline(['src/extraction.js']);
 const CONFIG = 'const API = ' + JSON.stringify(API_BASE) + ';\nconst N8N = ' + JSON.stringify(N8N_WEBHOOK_BASE) + ';';
@@ -107,28 +122,41 @@ const uuid = (prefix, n) => prefix + String(n).padStart(12, '0');
 const code = (id, name, jsCode, position) => ({ parameters: { jsCode }, id, name, type: 'n8n-nodes-base.code', typeVersion: 2, position });
 
 /** A call to the backend under the agent bearer. Full response, never throws: the next Code node
- * reads statusCode and decides (a refused write must never read as "done"). */
-function api(id, name, method, url, position, jsonBody) {
+ * reads statusCode and decides (a refused write must never read as "done"). `opts` overrides the
+ * timeout/retry defaults (A5: agent-travel-check's own backend fetch has to fit a tight budget
+ * alongside its vision call - see the time-budget comment above the travel workflow's nodes). */
+function api(id, name, method, url, position, jsonBody, opts) {
+  const o = opts || {};
+  const maxTries = o.maxTries || 2;
   const parameters = {
     method, url,
     authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
-    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 15000 }
+    options: { response: { response: { fullResponse: true, neverError: true } }, timeout: o.timeout || 15000 }
   };
   if (jsonBody) Object.assign(parameters, { sendBody: true, specifyBody: 'json', jsonBody });
   return { parameters, id, name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position,
-           retryOnFail: method === 'GET', maxTries: 2, waitBetweenTries: 1000 };
+           retryOnFail: (method === 'GET') && maxTries > 1, maxTries, waitBetweenTries: o.waitBetweenTries || 1000 };
 }
 
-function gemini(id, name, jsonBodyExpr, position) {
-  return {
+/** A vision call. A5/A6 (2026-09-26): ONE try per model, never a same-model retry - on failure
+ * (error or timeout) a node built with `hasFallback:true` routes to its error output instead of
+ * throwing the whole execution, so it can be wired to a second gemini() node calling
+ * FALLBACK_VISION_MODEL with the same body (decision (f)). The last leg in a chain omits
+ * `hasFallback` and keeps `neverError:true`, so the deterministic Code node reads its outcome the
+ * same way whichever model actually answered. */
+function gemini(id, name, jsonBodyExpr, position, opts) {
+  const o = opts || {};
+  const node = {
     parameters: {
-      method: 'POST', url: VISION_URL,
+      method: 'POST', url: visionUrl(o.model || PRIMARY_VISION_MODEL),
       authentication: 'predefinedCredentialType', nodeCredentialType: 'googlePalmApi',
       sendBody: true, specifyBody: 'json', jsonBody: jsonBodyExpr,
-      options: { response: { response: { fullResponse: true, neverError: true } }, timeout: 60000 }
+      options: { response: { response: { fullResponse: true, neverError: !o.hasFallback } }, timeout: o.timeout || 60000 }
     },
-    id, name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position, retryOnFail: true, maxTries: 2, waitBetweenTries: 2000
+    id, name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position, retryOnFail: false, maxTries: 1, waitBetweenTries: 2000
   };
+  if (o.hasFallback) node.onError = 'continueErrorOutput';
+  return node;
 }
 
 function ifNode(id, name, expression, position) {
@@ -165,8 +193,22 @@ const respond = (id, name, position, responseCode) => ({
 const link = (to) => ({ node: to, type: 'main', index: 0 });
 const main = (...outputs) => ({ main: outputs.map((o) => (Array.isArray(o) ? o : [o]).filter(Boolean).map((n) => link(n))) });
 
+/** A generated Code node this large means something got inlined that should not have been (most
+ *  likely data/sfda-brands.json, once it exists) - fail the build rather than ship an n8n Code node
+ *  this size. */
+const CODE_NODE_LIMIT_BYTES = 2 * 1024 * 1024;
+
 /** Escape every non-ASCII character; refuse to write if one survives or the file does not round-trip. */
 function write(workflow) {
+  for (const n of workflow.nodes) {
+    if (n.parameters && typeof n.parameters.jsCode === 'string') {
+      const bytes = Buffer.byteLength(n.parameters.jsCode, 'utf8');
+      if (bytes > CODE_NODE_LIMIT_BYTES) {
+        throw new Error('refusing to write ' + workflow.name + ': Code node "' + n.name + '" is ' + bytes +
+          ' bytes, over the ' + CODE_NODE_LIMIT_BYTES + '-byte limit (check data/sfda-brands.json is not unexpectedly huge)');
+      }
+    }
+  }
   const json = JSON.stringify(workflow, null, 2).replace(/[\u0080-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')) + '\n';
   if ([...json].some((c) => c.charCodeAt(0) > 0x7f)) throw new Error('refusing to write ' + workflow.name + ': non-ASCII survived');
   if (JSON.stringify(JSON.parse(json)) !== JSON.stringify(workflow)) throw new Error('refusing to write ' + workflow.name + ': no round trip');
@@ -282,16 +324,10 @@ const screening = {
 // =============================================================== 2. travel check
 const TC = (n) => uuid('c2000000-0000-4000-8000-', n);
 
-const BRAND_PROMPT = [
-  'Read ONLY the medicine product name printed on this package: the FULL trade (brand) name including any variant words printed with it (for example "Extra", "Night", "Cold & Flu", "Plus", "Forte"), or, if the box shows no trade name, the active ingredient name(s) exactly as printed.',
-  'Reply with that name and nothing else - no strength, no dosage form, no explanation.',
-  'If this is not a medicine package, or you cannot read a name clearly, reply with exactly: UNREADABLE.',
-  'Never guess. Never expand an abbreviation. Never supply a name that is not visibly printed.'
-].join('\n');
-
 const TC_INPUT = CONFIG + '\n' + INPUT_HELPERS + `
 
 const BRAND_PROMPT = ${JSON.stringify(BRAND_PROMPT)};
+const TC_RESPONSE_SCHEMA = ${JSON.stringify(TC_RESPONSE_SCHEMA)};
 // Body: { patientId, imageBase64, mimeType, language }. The profile is read from the BACKEND, never from the caller.
 const b = $input.first().json.body || {};
 const patientId = String(b.patientId || '');
@@ -301,31 +337,33 @@ if (img.error) return [{ json: { valid: false, ok: false, error: img.error } }];
 return [{ json: { valid: true, patientId, language: b.language === 'en' ? 'en' : 'ar',
   rxUrl: API + '/patients/' + encodeURIComponent(patientId) + '/prescriptions',
   visionBody: { contents: [{ role: 'user', parts: [{ text: BRAND_PROMPT }, { inlineData: { mimeType: img.mime, data: img.data } }] }],
-                generationConfig: { temperature: 0 } } } }];`;
+                generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: TC_RESPONSE_SCHEMA } } } }];`;
 
 const TC_CHECK = TRAVEL_SRC + `
 
-// THE DETERMINISTIC LAYER: the model read letters off a box; this decides everything else.
+// THE DETERMINISTIC LAYER: the model read the box; this decides everything else.
 const input = $('input (deterministic)').first().json;
 const rx = $('backend: active prescriptions').first().json;
 const vision = $input.first().json;
 const rxOk = rx.statusCode === 200 && !!rx.body && Array.isArray(rx.body.prescriptions);
-let text = '';
+let visionRead = null;
 let finish = null;
 if (vision.statusCode === 200) {
   try {
     finish = vision.body.candidates[0].finishReason || null;
-    text = vision.body.candidates[0].content.parts.map((p) => p.text || '').join('').trim();
-  } catch (e) { text = ''; }
+    // A truncated, blocked or otherwise unfinished answer is not a reading: never parsed.
+    if (finish === 'STOP') {
+      const parsed = JSON.parse(vision.body.candidates[0].content.parts.map((p) => p.text || '').join(''));
+      // A light shape check, same depth as extraction's own validate step: the deep semantics (is
+      // brandAsPrinted a string-or-null, etc.) are travelCheck's job, not this Code node's.
+      if (parsed && typeof parsed === 'object' && typeof parsed.isMedicine === 'boolean' && Array.isArray(parsed.ingredientsAsPrinted)) visionRead = parsed;
+    }
+  } catch (e) { visionRead = null; }
 }
-// A truncated, blocked or otherwise unfinished answer is not a reading: treat it as unreadable.
-if (finish !== 'STOP') text = '';
-// G5: the model's own refusal token is honoured, never second-guessed.
-if (/^UNREADABLE\\.?$/i.test(text)) text = '';
 // Never "no interaction" when the profile could not be read: travelCheck itself fails closed
-// (VERDICT.CANNOT_VERIFY, reason profile_unavailable) whenever prescriptions is not an array - an
-// unreadable photo (G5) or an unresolved name still answer first, unchanged, either way.
-const result = travelCheck({ patientId: input.patientId, visionText: text, prescriptions: rxOk ? rx.body.prescriptions : null,
+// (VERDICT.CANNOT_VERIFY, reason profile_unavailable) whenever prescriptions is not an array - a
+// not-a-medicine photo, an unusable model answer or an unresolved name still answer first, unchanged.
+const result = travelCheck({ patientId: input.patientId, visionRead, prescriptions: rxOk ? rx.body.prescriptions : null,
   index: INDEX, brandIndex: BRAND_INDEX, language: input.language, pendingNames: PENDING_NAMES });
 result.visionStatus = vision.statusCode;
 return [{ json: { post: !!result.alert,
@@ -355,11 +393,27 @@ const travel = {
     webhook(TC(1), 'Check a medicine photo', 'jurah/travel-check', [-900, 0]),
     code(TC(2), 'input (deterministic)', TC_INPUT, [-680, 0]),
     ifNode(TC(3), 'valid request?', '={{ $json.valid }}', [-460, 0]),
-    api(TC(4), 'backend: active prescriptions', 'GET', '={{ $json.rxUrl }}', [-240, -80]),
-    gemini(TC(5), 'Gemini: read the name on the box', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-20, -80]),
+    // A5 (2026-09-26, reviewer fix): the backend fetch, the vision call and - on the danger path -
+    // the alert POST all run one after another (never in parallel) on the way to 'Answer', so their
+    // worst cases ADD all the way, not just the first three. Budget, worst case: backend 8000 +
+    // primary 12000 + fallback 12000 + alert 6000 = 38000ms, inside the app's 45000ms
+    // VISION_TIMEOUT_MS with margin (2000ms under the 40000ms target). The original version of this
+    // comment (and of agents/knowledge/test/timeouts.test.js) summed only the first three and left
+    // the alert POST at api()'s 15000ms default, uncounted - the test now walks wf.connections from
+    // the webhook to 'Answer' over every branch, so a future node on this path fails it on its own
+    // if it is not given an explicit timeout here.
+    api(TC(4), 'backend: active prescriptions', 'GET', '={{ $json.rxUrl }}', [-240, -80], undefined, { timeout: 8000, maxTries: 1 }),
+    gemini(TC(5), 'Gemini: read the name on the box', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-20, -160],
+      { timeout: 12000, hasFallback: true }),
+    // A6/decision (f): the primary model failed (error or timeout) - one fallback try, same body, a
+    // different model. Never a second same-model retry (agent-travel-check dropped that with A5).
+    gemini(TC(14), 'Gemini fallback: read the name on the box', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-20, 0],
+      { model: FALLBACK_VISION_MODEL, timeout: 12000 }),
     code(TC(6), 'check (deterministic)', TC_CHECK, [200, -80]),
     ifNode(TC(7), 'a danger finding?', '={{ $json.post }}', [420, -80]),
-    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}'),
+    // A5 fix: was api()'s 15000ms default, which the old (hand-picked) budget test never summed even
+    // though this node sits on the critical path to 'Answer' whenever a danger finding posts an alert.
+    api(TC(8), 'backend: raise the alert', 'POST', API_BASE + '/alerts', [640, -160], '={{ JSON.stringify($json.alert) }}', { timeout: 6000 }),
     code(TC(9), 'answer (deterministic)', TC_ANSWER, [860, -80]),
     respond(TC(10), 'Answer', [1080, -80]),
     respond(TC(11), 'Answer: invalid request', [-240, 120], 422),
@@ -371,7 +425,8 @@ const travel = {
     'input (deterministic)': main('valid request?'),
     'valid request?': main('backend: active prescriptions', 'Answer: invalid request'),
     'backend: active prescriptions': main('Gemini: read the name on the box'),
-    'Gemini: read the name on the box': main('check (deterministic)'),
+    'Gemini: read the name on the box': main('check (deterministic)', 'Gemini fallback: read the name on the box'),
+    'Gemini fallback: read the name on the box': main('check (deterministic)'),
     'check (deterministic)': main('a danger finding?'),
     'a danger finding?': main('backend: raise the alert', 'answer (deterministic)'),
     'backend: raise the alert': main('answer (deterministic)'),
@@ -463,10 +518,23 @@ const extraction = {
     webhook(EX(1), 'Extract a prescription', 'jurah/extract-prescription', [-900, 0]),
     code(EX(2), 'input (deterministic)', EX_INPUT, [-680, 0]),
     ifNode(EX(3), 'valid request?', '={{ $json.valid }}', [-460, 0]),
-    gemini(EX(4), 'Gemini: read the prescription', '={{ JSON.stringify($json.visionBody) }}', [-240, -80]),
+    // A5/A6 (2026-09-26, reviewer fix): no backend leg before the vision call here (unlike travel
+    // check), but on the save:true path the save POST runs after both vision tries and before
+    // 'Answer', so it is on the critical path too and must be budgeted, not left at api()'s 15000ms
+    // default. Worst case: primary 15000 + fallback 15000 + save 8000 = 38000ms, inside the app's
+    // 45000ms VISION_TIMEOUT_MS with margin (2000ms under the 40000ms target) - see
+    // agents/knowledge/test/timeouts.test.js, which walks the built workflow's own connections from
+    // the webhook to 'Answer' rather than trusting a hand-picked list of node names.
+    // Both nodes name 'input (deterministic)' explicitly (never plain $json): the fallback is fed
+    // from the primary's ERROR output, where $json would be n8n's error item, not the vision body.
+    gemini(EX(4), 'Gemini: read the prescription', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-240, -160], { timeout: 15000, hasFallback: true }),
+    gemini(EX(16), 'Gemini fallback: read the prescription', "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}", [-240, 0],
+      { model: FALLBACK_VISION_MODEL, timeout: 15000 }),
     code(EX(5), 'validate (deterministic)', EX_VALIDATE, [-20, -80]),
     ifNode(EX(6), 'save it?', '={{ $json.save }}', [200, -80]),
-    api(EX(7), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [420, -160], '={{ JSON.stringify($json.result.body) }}'),
+    // A5 fix: was api()'s 15000ms default, which the old (hand-picked) budget test never summed even
+    // though this node sits on the critical path to 'Answer' whenever save:true actually saves.
+    api(EX(7), 'backend: save the prescription', 'POST', API_BASE + '/prescriptions', [420, -160], '={{ JSON.stringify($json.result.body) }}', { timeout: 8000 }),
     code(EX(8), 'after save', EX_AFTER_SAVE, [640, -160]),
     code(EX(11), 'answer (deterministic)', EX_ANSWER, [860, -80]),
     respond(EX(12), 'Answer', [1080, -80]),
@@ -478,7 +546,8 @@ const extraction = {
     'Extract a prescription': main('input (deterministic)'),
     'input (deterministic)': main('valid request?'),
     'valid request?': main('Gemini: read the prescription', 'Answer: invalid request'),
-    'Gemini: read the prescription': main('validate (deterministic)'),
+    'Gemini: read the prescription': main('validate (deterministic)', 'Gemini fallback: read the prescription'),
+    'Gemini fallback: read the prescription': main('validate (deterministic)'),
     'validate (deterministic)': main('save it?'),
     'save it?': main('backend: save the prescription', 'answer (deterministic)'),
     'backend: save the prescription': main('after save'),
@@ -490,6 +559,13 @@ const extraction = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' }
 };
 
-for (const wf of [screening, travel, extraction]) write(wf);
-console.log('JURAH_API_BASE = ' + API_BASE);
-console.log('N8N_WEBHOOK_BASE = ' + N8N_WEBHOOK_BASE);
+// Guarded so a test can `require()` this file (after setting a dummy JURAH_API_BASE) to reach
+// `write` and `CODE_NODE_LIMIT_BYTES` directly, without the side effect of overwriting the real
+// committed workflows with test/dummy content. `node scripts/build.js` still runs exactly as before.
+if (require.main === module) {
+  for (const wf of [screening, travel, extraction]) write(wf);
+  console.log('JURAH_API_BASE = ' + API_BASE);
+  console.log('N8N_WEBHOOK_BASE = ' + N8N_WEBHOOK_BASE);
+}
+
+module.exports = { write, screening, travel, extraction, CODE_NODE_LIMIT_BYTES };

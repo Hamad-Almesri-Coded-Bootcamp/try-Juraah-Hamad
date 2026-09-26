@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { index, brandIndex, pendingNames, seedActive, rx, BRANDS_JSON } = require('./helpers');
@@ -7,6 +9,11 @@ const { travelCheck, appOutcomeFor, VERDICT } = require('../src/travel-check');
 const { buildBrandIndex, resolveToIngredient } = require('../src/resolve');
 
 const check = (over) => travelCheck(Object.assign({ index, brandIndex, language: 'ar', patientId: 't-patient' }, over));
+
+// A fixture in the SFDA data-file shape (agents/knowledge/data/sfda-brands.json's `names` map),
+// not the real 20k-row register: another builder produces that file - resolve.js/build.js only need
+// to code against its shape, proven here with two small, clearly-fictional rows.
+const SFDA_FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'sfda-brands.sample.json'), 'utf8'));
 
 test('G5: empty or unreadable text -> could_not_identify, app outcome could_not_identify', () => {
   for (const t of ['', null, '   ', '®™']) {
@@ -280,7 +287,120 @@ test('a profile the backend never handed us is cannot_verify/profile_unavailable
   assert.equal(check({ visionText: 'ZOCOR', prescriptions: [] }).verdict, 'no_interaction_found');
 });
 
+// ---------------------------------------------------------------- 2026-09-26: the isMedicine gate,
+// the field-by-field resolver (brandAsPrinted / ingredientsAsPrinted), and the SFDA brand source.
+test('decision (a): isMedicine false -> not_a_medicine, decided before any lookup - no alert, no candidate', () => {
+  const r = check({ visionRead: { isMedicine: false, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }, prescriptions: seedActive('pt-01') });
+  assert.equal(r.verdict, 'not_a_medicine');
+  assert.deepEqual(r.appOutcome, { kind: 'not_a_medicine' });
+  assert.equal(r.candidate, null);
+  assert.equal(r.alert, null);
+  assert.deepEqual(r.findings, []);
+});
+
+test('a malformed/unparseable model answer (visionRead null) -> could_not_identify, model_response_unparseable, fail closed', () => {
+  const r = check({ visionRead: null, prescriptions: [] });
+  assert.equal(r.verdict, 'could_not_identify');
+  assert.equal(r.reason, 'model_response_unparseable');
+  assert.deepEqual(r.appOutcome, { kind: 'could_not_identify' });
+});
+
+test('isMedicine true but nothing legible (no brand, no ingredients) -> could_not_identify, no_readable_text (G5 restated in the new schema)', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }, prescriptions: [] });
+  assert.equal(r.verdict, 'could_not_identify');
+  assert.equal(r.reason, 'no_readable_text');
+});
+
+test('bilingual box: brandAsPrinted holds the Latin name only, so "Brufen" + Arabic print still resolves', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: 'Brufen', ingredientsAsPrinted: [], strengthAsPrinted: null }, prescriptions: [], language: 'en' });
+  assert.equal(r.verdict, 'no_interaction_found');
+  assert.equal(r.candidate.via, 'brand');
+  assert.deepEqual(r.candidate.ingredients, ['Ibuprofen']);
+});
+
+test('brand plus strength: strengthAsPrinted is carried on the candidate and never blocks resolution', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: 'BRUFEN', ingredientsAsPrinted: [], strengthAsPrinted: '400 mg' }, prescriptions: [], language: 'en' });
+  assert.equal(r.verdict, 'no_interaction_found');
+  assert.equal(r.candidate.strengthAsPrinted, '400 mg');
+  assert.deepEqual(r.candidate.ingredients, ['Ibuprofen']);
+});
+
+test('no brand printed: a combination resolves only when EVERY ingredientsAsPrinted entry resolves, never a partial screen', () => {
+  const both = check({ visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Acetaminophen', 'Caffeine'], strengthAsPrinted: null }, prescriptions: [], language: 'en' });
+  assert.equal(both.verdict, 'no_interaction_found');
+  assert.equal(both.candidate.isCombination, true);
+  assert.deepEqual(both.candidate.ingredients.sort(), ['Acetaminophen', 'Caffeine']);
+
+  const oneMissing = check({ visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Acetaminophen', 'Notarealingredientxyz'], strengthAsPrinted: null }, prescriptions: [] });
+  assert.equal(oneMissing.verdict, 'could_not_identify');
+  assert.equal(oneMissing.reason, 'combination_ingredient_unresolved');
+  assert.deepEqual(oneMissing.findings, [], 'never a partial screen on the one ingredient that DID resolve');
+});
+
+test('decision (d): a pending brand PLUS a printed ingredient still refuses - ingredientsAsPrinted is never a fallback for an unverified brand', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: 'Marevan', ingredientsAsPrinted: ['Warfarin'], strengthAsPrinted: null }, prescriptions: [], pendingNames });
+  assert.equal(r.verdict, 'cannot_verify');
+  assert.equal(r.reason, 'brand_not_verified');
+  assert.equal(r.brandLabel, 'MAREVAN');
+  assert.equal(r.candidate, null, 'never resolved to Warfarin through the ingredient field');
+});
+
+test('decision (c): SFDA brand source - a salt-form ingredient name reaches the interaction index key', () => {
+  const sfdaBrandIndex = buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE.names);
+  const r = travelCheck({ patientId: 't-patient', index, brandIndex: sfdaBrandIndex, language: 'en',
+    visionRead: { isMedicine: true, brandAsPrinted: 'GLUCOFORM', ingredientsAsPrinted: [], strengthAsPrinted: null },
+    prescriptions: [rx('t-1', 'Warfarin')] });
+  assert.equal(r.verdict, 'interaction_found', 'GLUCOFORM -> "Metformin Hydrochloride" -> metformin, and metformin x warfarin is a graded DDInter row');
+  assert.equal(r.candidate.ingredients[0], 'Metformin Hydrochloride');
+});
+
+test('decision (c): SFDA brand source - a base name registering more than one distinct ingredient set -> needs_confirmation, never a guess', () => {
+  const sfdaBrandIndex = buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE.names);
+  const r = travelCheck({ patientId: 't-patient', index, brandIndex: sfdaBrandIndex, language: 'en',
+    visionRead: { isMedicine: true, brandAsPrinted: 'COLDMEX', ingredientsAsPrinted: [], strengthAsPrinted: null },
+    prescriptions: [] });
+  assert.equal(r.verdict, 'needs_confirmation');
+  assert.equal(r.reason, 'sfda_multiple_ingredient_sets');
+  assert.deepEqual(r.candidates.sort(), ['Acetaminophen', 'Acetaminophen + Caffeine']);
+});
+
+test('a missing sfda-brands.json is simply "no SFDA rows", never an error - buildBrandIndex(rows, index) with no third argument is unchanged', () => {
+  const noSfda = buildBrandIndex(BRANDS_JSON.brands, index, undefined);
+  assert.equal(noSfda.has('glucoform'), false);
+  assert.equal(noSfda.has('brufen'), true, 'brand-map.json rows are unaffected');
+});
+
+// ---------------------------------------------------------------- reviewer fix: resolve.js's
+// ingredient-only path must never consult a brand or SFDA row (agents/knowledge/src/resolve.js,
+// buildIngredientIndex). Regression coverage for the exact scenario the finding described.
+test('reviewer fix: an SFDA base name equal to a real index ingredient (EZETIMIBE) never shadows it - a plain generic box still resolves to itself alone', () => {
+  const sfdaBrandIndex = buildBrandIndex(BRANDS_JSON.brands, index, SFDA_FIXTURE.names);
+  // Sanity: the fixture really does collide - EZETIMIBE is both a plain index ingredient and an SFDA
+  // base name with more than one distinct ingredient set (the shape that shadowed it before the fix).
+  assert.ok(sfdaBrandIndex.get('ezetimibe').ambiguousSets, 'sanity: the combined brandIndex entry for this key is the ambiguous SFDA row, not the plain ingredient - the collision this test exists to survive');
+  const r = travelCheck({ patientId: 't-patient', index, brandIndex: sfdaBrandIndex, language: 'en',
+    visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Ezetimibe'], strengthAsPrinted: null },
+    prescriptions: [rx('t-1', 'Amlodipine')] });
+  // Ezetimibe x Amlodipine is outside the loaded DDInter category files (the same profile the AP-06
+  // test above uses): a correct resolution lands on cannot_verify/pair_outside_loaded_categories.
+  // Before the fix this returned could_not_identify/combination_ingredient_unresolved instead - the
+  // SFDA row's ambiguousSets is never OUTCOME.RESOLVED, so resolveFields refused the whole reading.
+  assert.equal(r.verdict, 'cannot_verify', 'must resolve as the plain ingredient, not be shadowed by the colliding SFDA row');
+  assert.equal(r.reason, 'pair_outside_loaded_categories');
+  assert.ok(r.candidate, 'the ingredient must actually have resolved');
+  assert.deepEqual(r.candidate.ingredients, ['Ezetimibe']);
+  assert.equal(r.candidate.ingredientKeys[0], 'ezetimibe');
+});
+
+test('reviewer fix: a brand name typed into ingredientsAsPrinted (no brand printed) must not resolve via a brand-map or SFDA row', () => {
+  const r = check({ visionRead: { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: ['Zocor'], strengthAsPrinted: null }, prescriptions: [] });
+  assert.equal(r.verdict, 'could_not_identify', 'ZOCOR is a brand, not an ingredient name - the ingredient-only path must refuse it, never resolve it to Simvastatin');
+  assert.equal(r.reason, 'combination_ingredient_unresolved');
+  assert.equal(r.candidate, null, 'never silently resolved to Simvastatin through the brand row');
+});
+
 test('appOutcomeFor: every VERDICT maps to exactly one DrugCheckOutcome kind; anything else stays fail-closed', () => {
+  assert.deepEqual(appOutcomeFor(VERDICT.NOT_A_MEDICINE, 'X', 'ia-1'), { kind: 'not_a_medicine' }, 'no drugName, no alertId - not_a_medicine carries nothing else');
   assert.deepEqual(appOutcomeFor(VERDICT.INTERACTION_FOUND, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'interaction_found' });
   assert.deepEqual(appOutcomeFor(VERDICT.INTERACTION_FOUND, 'X', 'ia-1'), { kind: 'identified', drugName: 'X', verdict: 'interaction_found', alertId: 'ia-1' });
   assert.deepEqual(appOutcomeFor(VERDICT.ALREADY_TAKING, 'X', null), { kind: 'identified', drugName: 'X', verdict: 'interaction_found' });

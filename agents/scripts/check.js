@@ -666,10 +666,18 @@ async function scenarios() {
   await check('both packages\' generated nodes, end to end: a medicine box from Telegram reaches agent-travel-check; an UNVERIFIED SFDA brand (MAREVAN) answers cannot_verify/brand_not_verified and the patient reads the "cannot verify" line; a profile outage answers cannot_verify/profile_unavailable with ok:false and the patient reads the failure line - never an all-clear', async () => {
     const travel = JSON.parse(fs.readFileSync(path.join(ROOT, 'knowledge', 'workflows', 'agent-travel-check.json'), 'ascii'));
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-    const boxName = (text) => http(200, { candidates: [{ finishReason: 'STOP', content: { parts: [{ text }] } }] });
+    // 2026-09-26: the model's answer is JSON matching the isMedicine/brandAsPrinted/ingredientsAsPrinted
+    // /strengthAsPrinted schema (travel-check.js RESPONSE_SCHEMA), not a bare name - this end-to-end
+    // merge test has to send the same shape the real build now parses, or every case fails closed as
+    // model_response_unparseable before it ever reaches the resolver this test means to exercise.
+    const boxRead = (over) => http(200, { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(Object.assign(
+      { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }, over)) }] } }] });
     const cases = [
-      { box: 'MAREVAN', profile: http(200, { prescriptions: [] }), reason: 'brand_not_verified', ok: true, reads: /ما قدرنا نتأكد من هذا الدواء مقابل أدويتك/ },
-      { box: 'Ezetimibe', profile: http(503, { error: 'unavailable' }), reason: 'profile_unavailable', ok: false, reads: /صار خلل عندنا/ },
+      // MAREVAN is a known-but-unverified BRAND (AP-07 pendingVerification): read as brandAsPrinted.
+      { box: 'MAREVAN', read: { brandAsPrinted: 'MAREVAN' }, profile: http(200, { prescriptions: [] }), reason: 'brand_not_verified', ok: true, reads: /ما قدرنا نتأكد من هذا الدواء مقابل أدويتك/ },
+      // Ezetimibe is a bare INGREDIENT name, no brand printed: read as ingredientsAsPrinted (decision 4/(d)'s
+      // field-by-field policy only consults ingredientsAsPrinted when brandAsPrinted is empty).
+      { box: 'Ezetimibe', read: { ingredientsAsPrinted: ['Ezetimibe'] }, profile: http(503, { error: 'unavailable' }), reason: 'profile_unavailable', ok: false, reads: /صار خلل عندنا/ },
     ];
     for (const c of cases) {
       const { r } = await photoClassifiedAs('medicine_package', 0.9, relay({ patientId: 'pt-03', photoFileId: 'AgAC-' + c.box }), 'image/png', png);
@@ -678,7 +686,7 @@ async function scenarios() {
       const [input] = await t.code('input (deterministic)', [{ json: { body: req.json.travelBody } }]);
       assert.equal(input.json.valid, true, JSON.stringify(input.json));
       t.set('backend: active prescriptions', c.profile);
-      const [checked] = await t.code('check (deterministic)', t.set('Gemini: read the name on the box', boxName(c.box)));
+      const [checked] = await t.code('check (deterministic)', t.set('Gemini: read the name on the box', boxRead(c.read)));
       assert.equal(checked.json.post, false);
       assert.equal(checked.json.result.verdict, 'cannot_verify');
       assert.equal(checked.json.result.reason, c.reason);

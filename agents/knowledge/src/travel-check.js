@@ -19,20 +19,34 @@
  *                                                     that), or brand_not_verified (the box matches an
  *                                                     unverified SFDA brand row, AP-07 - never resolved
  *                                                     to its ingredient until a human verifies it)
- *   needs_confirmation  -> { kind:'could_not_identify' }   one near match; the chat can ask
- *   could_not_identify  -> { kind:'could_not_identify' }   G5 - unreadable, or a name never seen at all
+ *   needs_confirmation  -> { kind:'could_not_identify' }   one near match, or an SFDA base name that
+ *                                                     registers more than one ingredient set; the
+ *                                                     chat can ask
+ *   could_not_identify  -> { kind:'could_not_identify' }   G5 - unreadable, a name never seen at all,
+ *                                                     or the model's own answer could not be used
+ *                                                     (reason model_response_unparseable, fail closed)
+ *   not_a_medicine      -> { kind:'not_a_medicine' }   decided before any lookup, straight from the
+ *                                                     vision read's isMedicine field (owner decision
+ *                                                     (a), 2026-09-26) - no alert, no candidate
  * cannot_verify is its own DrugCheckOutcome, never could_not_identify and never no_interaction: the
  * app shows its own "we recognised the medicine but can't clear it" copy (C3, PR #13) instead of the
  * plain "could not identify" one, because a name we could read is not the same finding as a name we
  * could not.
+ *
+ * The vision call (BRAND_PROMPT, RESPONSE_SCHEMA, both exported - CR-099(b)) reads four fields, never
+ * a lookup: isMedicine, brandAsPrinted (Latin only), ingredientsAsPrinted[], strengthAsPrinted.
+ * resolve.js's resolveFields() is the field-by-field policy: a printed brand is tried alone, never
+ * falling back to ingredientsAsPrinted (decision (d) - the one reading this project does not trust
+ * the model to make unsupervised); ingredientsAsPrinted is only used when no brand was printed, and a
+ * combination resolves only when every entry does.
  *
  * A danger finding is escalated: one pending_medical_review alert body is
  * produced for POST /api/agent/alerts (involving the patient's conflicting
  * prescription), so the reviewer sees it and the app can link to it (alertId).
  * ------------------------------------------------------------------------- */
 
-const { normaliseDrugName, ingredientParts, ingredientsOf, candidateKeys } = require('./normalise');
-const { OUTCOME, resolveToIngredient } = require('./resolve');
+const { normaliseDrugName, ingredientParts, ingredientsOf } = require('./normalise');
+const { OUTCOME, resolveFields, buildIngredientIndex } = require('./resolve');
 const { isCovered, lookupPair } = require('./interactions');
 const { lang, unnamed, TRAVEL_TEXT, ALERT_TEXT, pairCitation } = require('./text');
 const { exclusionReason } = require('./screening');
@@ -44,11 +58,53 @@ const VERDICT = {
   NO_INTERACTION_FOUND: 'no_interaction_found',
   CANNOT_VERIFY: 'cannot_verify',
   NEEDS_CONFIRMATION: 'needs_confirmation',
-  COULD_NOT_IDENTIFY: 'could_not_identify'
+  COULD_NOT_IDENTIFY: 'could_not_identify',
+  // Decided before any lookup, from isMedicine alone (owner decision (a), 2026-09-26): the photo is
+  // not a medicine package at all. No alert, no candidate, nothing held against the patient's profile.
+  NOT_A_MEDICINE: 'not_a_medicine'
+};
+
+/**
+ * Read ONLY the medicine product name, active ingredient(s) and strength printed on the package -
+ * pure verbatim transcription, never a decision. Owner decisions (a)/(b)/(d), 2026-09-26: one Gemini
+ * call decides medicine-or-not AND reads the fields; the app trusts brandAsPrinted for lookup but
+ * never trusts a model-read ingredient behind an unverified brand (see resolve.js resolveFields).
+ * Exported (closes CR-099(b)): agents/knowledge/scripts/build.js requires this rather than keeping
+ * its own copy, so the prompt has exactly one source.
+ */
+const BRAND_PROMPT = [
+  'Look at this photo and return JSON matching the schema. You transcribe; you never decide what the medicine is, and you never look anything up.',
+  '',
+  'isMedicine is true for a medicine package, blister strip, bottle or pharmacy label - an over-the-counter product or a supplement in pharmaceutical packaging counts too. isMedicine is false for anything else (a receipt, a room, a hand, food, a document that is not a pharmacy label).',
+  '',
+  'When isMedicine is false: brandAsPrinted is null, ingredientsAsPrinted is [], strengthAsPrinted is null. Stop there - do not try to read a name off something that is not medicine packaging.',
+  '',
+  'When isMedicine is true:',
+  '- brandAsPrinted is the FULL trade (brand) name exactly as printed IN LATIN LETTERS, including any variant word printed with it (for example "Extra", "Night", "Cold & Flu", "Plus", "Forte"). null if no Latin trade name is printed, or if you cannot read it clearly. Never transliterate an Arabic-only name into Latin letters yourself - if only Arabic script is printed, leave this null.',
+  '- ingredientsAsPrinted lists each active ingredient name exactly as printed, in printed order. Empty array if none is printed or legible.',
+  '- strengthAsPrinted is the strength exactly as printed (for example "400 mg", "500 mg / 125 mg"). null if not printed or not legible.',
+  '',
+  'Never guess. Never expand an abbreviation. Never supply a brand, ingredient or strength that is not visibly printed - a field you cannot read clearly is null (or [] for ingredientsAsPrinted), never a plausible guess.'
+].join('\n');
+
+/** The Gemini responseSchema for BRAND_PROMPT: all four fields required, so the model must commit to
+ *  isMedicine either way, and every other field is explicitly null/empty rather than left out. */
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    isMedicine: { type: 'boolean' },
+    brandAsPrinted: { type: 'string', nullable: true },
+    ingredientsAsPrinted: { type: 'array', items: { type: 'string' } },
+    strengthAsPrinted: { type: 'string', nullable: true }
+  },
+  required: ['isMedicine', 'brandAsPrinted', 'ingredientsAsPrinted', 'strengthAsPrinted']
 };
 
 /** The app's DrugCheckOutcome for a verdict (types/views.ts). alertId only when an alert was raised. */
 function appOutcomeFor(verdict, drugName, alertId) {
+  // Shared contract with the app-side builder: not_a_medicine carries nothing else - no alert, no
+  // readAs, no drugName. Decided first, since nothing else about this verdict is ever meaningful.
+  if (verdict === VERDICT.NOT_A_MEDICINE) return { kind: 'not_a_medicine' };
   if (verdict === VERDICT.INTERACTION_FOUND || verdict === VERDICT.ALREADY_TAKING) {
     const o = { kind: 'identified', drugName, verdict: 'interaction_found' };
     if (alertId) o.alertId = alertId;
@@ -68,7 +124,7 @@ function appOutcomeFor(verdict, drugName, alertId) {
  * used only as a key into the verified mapping table, never as an identity.
  */
 function travelCheck(args) {
-  const { patientId, visionText, index, brandIndex } = args;
+  const { patientId, index, brandIndex } = args;
   const l = lang(args.language);
   const out = (verdict, extra) => {
     const r = Object.assign({ verdict, patientId, candidate: null, findings: [], alreadyTaking: [], notCovered: [], notCheckable: [],
@@ -77,35 +133,70 @@ function travelCheck(args) {
     return r;
   };
 
-  // G5 - an unreadable photo stops here. No guessing from partial text.
-  if (!visionText || !normaliseDrugName(visionText)) {
+  // The vision reading. The current shape is `visionRead` ({ isMedicine, brandAsPrinted,
+  // ingredientsAsPrinted, strengthAsPrinted } | null for "the model's answer could not be used" -
+  // TC_CHECK in build.js sets this to null on a JSON.parse failure or a shape mismatch, fail closed).
+  // `visionText` (a bare candidate string) is still accepted for every caller that only has a single
+  // name to offer: it is read as a printed brand, unless it carries no readable text at all, which is
+  // treated exactly like a medicine box with nothing legible on it (the original G5 case).
+  let read = args.visionRead;
+  if (read === undefined) {
+    const t = args.visionText;
+    read = (!t || !normaliseDrugName(t))
+      ? { isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }
+      : { isMedicine: true, brandAsPrinted: t, ingredientsAsPrinted: [], strengthAsPrinted: null };
+  }
+
+  // Malformed or unparseable model output: fail closed exactly like an unreadable photo, but named so
+  // a reviewer can tell "the model's answer could not be used" from "nothing was printed at all".
+  if (!read || typeof read !== 'object') {
+    return out(VERDICT.COULD_NOT_IDENTIFY, { reason: 'model_response_unparseable', message: TRAVEL_TEXT.could_not_identify(l) });
+  }
+
+  // Decision (a), 2026-09-26: medicine-or-not is decided BEFORE any lookup, straight from the vision
+  // read. No alert, no candidate, no readAs - the shared contract with the app is exactly this:
+  // appOutcome { kind: 'not_a_medicine' } and nothing else.
+  if (read.isMedicine === false) {
+    return out(VERDICT.NOT_A_MEDICINE, { message: TRAVEL_TEXT.not_a_medicine(l) });
+  }
+
+  const brandAsPrinted = typeof read.brandAsPrinted === 'string' ? read.brandAsPrinted.trim() : '';
+  const ingredientsAsPrinted = Array.isArray(read.ingredientsAsPrinted)
+    ? read.ingredientsAsPrinted.filter((x) => typeof x === 'string' && x.trim())
+    : [];
+  const strengthAsPrinted = typeof read.strengthAsPrinted === 'string' && read.strengthAsPrinted.trim() ? read.strengthAsPrinted.trim() : null;
+  const readAs = brandAsPrinted || ingredientsAsPrinted.join(' + ');
+
+  // G5 - a medicine package with nothing legible on it stops here. No guessing from partial text.
+  if (!brandAsPrinted && ingredientsAsPrinted.length === 0) {
     return out(VERDICT.COULD_NOT_IDENTIFY, { reason: 'no_readable_text', message: TRAVEL_TEXT.could_not_identify(l) });
   }
 
-  const resolved = resolveToIngredient(visionText, brandIndex);
+  // A SEPARATE, never-shadowed ingredient-name index (built fresh from `index` alone) for the
+  // ingredientsAsPrinted path - see buildIngredientIndex's own comment in resolve.js for why the
+  // combined brandIndex cannot be filtered after the fact to do this safely.
+  const ingredientIndex = buildIngredientIndex(index);
+  const resolved = resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, args.pendingNames, ingredientIndex);
   if (resolved.outcome === OUTCOME.NEEDS_CONFIRMATION) {
     const lineExt = resolved.reason === 'line_extensions_exist';
     return out(VERDICT.NEEDS_CONFIRMATION, { reason: resolved.reason || 'near_match', candidates: resolved.candidates,
                                              message: lineExt ? TRAVEL_TEXT.line_extensions(l, resolved.candidates) : TRAVEL_TEXT.needs_confirmation(l, resolved.candidates) });
   }
-  // G2 - unresolved is a refusal. We do not screen a drug we cannot name. One exception: a name that
-  // matches an UNVERIFIED SFDA brand row (AP-07) is not "unknown" - it is "not cleared yet", and the
-  // patient should be told that, not "could not identify". Never resolved to an ingredient, never
-  // screened: brandLabel comes from the data file, never from the raw (untrusted) vision text.
+  // G2 - unresolved is a refusal. We do not screen a drug we cannot name. One exception: a brand that
+  // IS printed but matches an UNVERIFIED SFDA brand row (AP-07) is not "unknown" - it is "not cleared
+  // yet", and the patient should be told that, not "could not identify". Decision (d): never resolved
+  // to an ingredient, never screened, and ingredientsAsPrinted is never consulted as a fallback here -
+  // brandLabel comes from the data file, never from the raw (untrusted) vision read.
   if (resolved.outcome !== OUTCOME.RESOLVED) {
-    if (resolved.reason === 'not_in_mapping_table' && args.pendingNames) {
-      let brandLabel = null;
-      for (const key of candidateKeys(visionText)) {
-        const label = args.pendingNames.get(key);
-        if (label) { brandLabel = label; break; }
-      }
-      if (brandLabel) return out(VERDICT.CANNOT_VERIFY, { reason: 'brand_not_verified', brandLabel, message: null });
+    if (resolved.reason === 'brand_not_verified') {
+      return out(VERDICT.CANNOT_VERIFY, { reason: 'brand_not_verified', brandLabel: resolved.brandLabel, message: null });
     }
-    return out(VERDICT.COULD_NOT_IDENTIFY, { reason: resolved.reason, readAs: visionText, message: TRAVEL_TEXT.could_not_identify(l) });
+    return out(VERDICT.COULD_NOT_IDENTIFY, { reason: resolved.reason, readAs, message: TRAVEL_TEXT.could_not_identify(l) });
   }
 
   const candidate = {
-    readAs: visionText,
+    readAs,
+    strengthAsPrinted,
     brandLabel: resolved.brandLabel,
     sfdaTradeName: resolved.sfdaTradeName,
     ingredients: resolved.ingredientLabels,
@@ -252,4 +343,4 @@ function travelCheck(args) {
   }));
 }
 
-module.exports = { VERDICT, appOutcomeFor, travelCheck };
+module.exports = { VERDICT, appOutcomeFor, travelCheck, BRAND_PROMPT, RESPONSE_SCHEMA };
