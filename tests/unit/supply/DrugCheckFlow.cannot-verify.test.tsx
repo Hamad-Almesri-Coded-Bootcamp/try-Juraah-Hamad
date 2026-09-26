@@ -46,7 +46,11 @@ describe.each([['ar'], ['en']] as const)('C3 — cannot_verify (%s)', (locale) =
     expect(getAlert).not.toHaveBeenCalled();
     expect(container.querySelector('a[href*="/app/safety/ia-"]')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: t(copy.supply.c3CheckAnotherButton, locale) }));
+    // findByRole, not getByRole: PhotoInput now hands the file over asynchronously (its own
+    // "preparing" decode step), so useTransition's isPending can still be clearing on the render
+    // right after c3CannotVerifyTitle first appears — the same race AddPrescriptionFlow.test.tsx
+    // fixed the same way, rather than assuming the button has already settled.
+    fireEvent.click(await screen.findByRole('button', { name: t(copy.supply.c3CheckAnotherButton, locale) }));
     // c3CaptureTitle and c3TakePhoto share the same English string, so — like the sibling
     // spec's own retry assertion — this checks the capture screen's unique photo label instead.
     await screen.findByText(t(copy.supply.c3PhotoLabel, locale));

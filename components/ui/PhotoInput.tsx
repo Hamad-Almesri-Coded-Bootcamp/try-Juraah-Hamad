@@ -187,6 +187,10 @@ export function PhotoInput({
   // A1 — the file the browser could not decode AND could not send unresized either: shown here,
   // inline, and the file is never handed to `onChange`. Cleared the moment a new file is picked.
   const [error, setError] = useState<string | null>(null);
+  // The decode/re-encode itself, before `onChange` ever fires: a 12 MP photo can take a few real
+  // seconds here (the <img> fallback alone has a 4 s timeout), and until this flips true nothing
+  // else on screen shows that work is happening — it must not still read as idle for that window.
+  const [preparing, setPreparing] = useState(false);
   // A picked file starts an async decode/re-encode before `onChange` ever fires; a later pick during
   // that window must win, never the one still resizing in the background.
   const pickSeq = useRef(0);
@@ -200,8 +204,10 @@ export function PhotoInput({
       onChange(null);
       return;
     }
+    setPreparing(true);
     const sent = await downscalePhoto(file);
     if (seq !== pickSeq.current) return; // superseded by a later pick
+    setPreparing(false);
     if (!sent) {
       setError(t(copy.vocabulary.photoTooLargeToSend, lang));
       return;
@@ -214,7 +220,7 @@ export function PhotoInput({
       <p className="wsf-photoinput__label type-label">{label}</p>
 
       {effectiveState === 'idle' && (
-        <div className="wsf-photoinput__actions">
+        <div className="wsf-photoinput__actions" aria-busy={preparing || undefined}>
           <input
             id={takeId}
             type="file"
@@ -222,6 +228,7 @@ export function PhotoInput({
             capture="environment"
             className="wsf-sr wsf-photoinput__input"
             onChange={handleFile}
+            disabled={preparing}
           />
           <label htmlFor={takeId} className="wsf-btn wsf-btn--secondary type-label wsf-photoinput__opt">
             <Icon name="camera" />
@@ -233,12 +240,24 @@ export function PhotoInput({
             accept="image/*"
             className="wsf-sr wsf-photoinput__input"
             onChange={handleFile}
+            disabled={preparing}
           />
           <label htmlFor={chooseId} className="wsf-btn wsf-btn--quiet type-label wsf-photoinput__opt">
             <Icon name="plus" />
             {chooseLabel ?? t(copy.vocabulary.choosePhoto, lang)}
           </label>
         </div>
+      )}
+
+      {/* The decode/re-encode window (A1): the same busy look the "analysing" state below uses
+          (spinner + label), reusing the same analysingLabel/vocabulary fallback — never a silent
+          screen for the seconds a 12 MP photo takes, and the disabled inputs above cannot be
+          reactivated mid-decode. */}
+      {effectiveState === 'idle' && preparing && (
+        <p role="status" aria-live="polite" className="wsf-field__note type-caption">
+          <span className="wsf-spinner" aria-hidden="true" />
+          {analysingLabel ?? t(copy.vocabulary.analysing, lang)}
+        </p>
       )}
 
       {effectiveState === 'idle' && error && (
