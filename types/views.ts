@@ -106,7 +106,11 @@ export type DrugCheckOutcome =
   | { kind: 'could_not_identify' }
   // CR-078: the medicine was recognised but Travel Check cannot screen it against the whole
   // profile right now. Carries no drugName and no verdict — nothing is guessed, nothing screened.
-  | { kind: 'cannot_verify' };
+  | { kind: 'cannot_verify' }
+  // The photo was read, but it is not a medicine at all (no packet, box or strip) — the agent's own
+  // classification, never inferred by the app. Carries no drugName, no verdict, no alertId: nothing
+  // was screened because there was nothing to screen.
+  | { kind: 'not_a_medicine' };
 
 // ---------------------------------------------------------------------------------------------
 // Supply

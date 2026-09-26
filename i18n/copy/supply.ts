@@ -84,6 +84,20 @@ export const supply = {
     placeholder: true,
   },
 
+  // Not a medicine — the photo was read, but it is not a medicine packet, box or strip at all (the
+  // agent's own classification, never inferred here). An explicit, honest state like
+  // could_not_identify (ErrorState tone): unlike cannot_verify, a retry with a different photo is
+  // exactly the fix, so it reuses could_not_identify's own retry label rather than a new one.
+  // NOTE (app copy is Fusha, not the dialect: docs/AGENTS-POLISH-PLAN.md:212, decision D7) — written
+  // in the same register as every other string in this file, not the Kuwaiti dialect the task brief
+  // suggested; see the session notes.
+  c3NotAMedicineTitle: { ar: 'لم نجد دواءً في هذه الصورة', en: 'This doesn’t look like a medicine', placeholder: true },
+  c3NotAMedicineBody: {
+    ar: 'صوّر علبة الدواء أو الشريط بحيث يظهر اسمه بوضوح أمام الكاميرا.',
+    en: 'Take a photo of the medicine box or strip, with its name facing the camera.',
+    placeholder: true,
+  },
+
   // ---------------------------------------------------------------------------------------------
   // D1 — Refill request (`/[locale]/app/more/refill`, also pushed from B3 with `?rx=`)
   // ---------------------------------------------------------------------------------------------
