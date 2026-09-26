@@ -140,7 +140,7 @@ missed - the status write first, and its recompute only after that write answers
 Alexa has already answered so the recompute never sits inside her 8-second budget. Alexa then says
 "I recorded it as missed and sent it to your Telegram" («سجّلتها إنها فاتتك وأرسلتها لك في
 تيليقرام»), and the patient's own Telegram chat gets "From your Alexa: I recorded ‹drug› ‹HH:MM› as
-‹word› ✖. Not right? Tap the right one 👇" with three **correction** buttons (`c:<doseId>:<word>`,
+‹word› 👍" with three **correction** buttons under it (`c:<doseId>:<word>`,
 which - unlike the plain `d:` buttons - may overwrite an already-recorded status with a *different*
 word only; CR-081/D9, the audit trigger records every change). Any OTHER passed, still-open dose
 keeps today's plain buttons. A write that does not answer 200 (a refusal, a timeout, a thrown error)

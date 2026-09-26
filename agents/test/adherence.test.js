@@ -185,11 +185,11 @@ test('CR-108 buildVoiceNotice: exact en/ar text, the three button labels as in b
   const d = dose('rx-008-20260924-0700', 'rx-008', '07:00', MISSED);
   const en = A.buildVoiceNotice({ chatId: 'c-1', language: 'en', dose: d, status: MISSED });
   assert.equal(en.chatId, 'c-1');
-  assert.equal(en.text, 'From your Alexa: I recorded Eltroxin 07:00 as missed ✖. Not right? Tap the right one 👇');
+  assert.equal(en.text, 'From your Alexa: I recorded Eltroxin 07:00 as missed 👍');
   assert.deepEqual(en.buttons.map((b) => b.text), ['Taken ✅', 'Taken late ⏰', 'Missed ✖']);
   assert.deepEqual(en.buttons.map((b) => b.data), ['c:rx-008-20260924-0700:taken_on_time', 'c:rx-008-20260924-0700:taken_late', 'c:rx-008-20260924-0700:missed']);
   const ar = A.buildVoiceNotice({ chatId: 'c-1', language: 'ar', dose: d, status: MISSED });
-  assert.equal(ar.text, 'من أليكسا: سجّلت Eltroxin 07:00 إنها فاتتك ✖. مو صح؟ اضغط الصح تحت 👇');
+  assert.equal(ar.text, 'من أليكسا: سجّلت Eltroxin 07:00 إنها فاتتك 👍');
   assert.deepEqual(ar.buttons.map((b) => b.text), ['أخذته ✅', 'أخذته متأخر ⏰', 'نسيت ✖']);
   assert.throws(() => A.buildVoiceNotice({ chatId: 'c-1', language: 'en', dose: d, status: 'raise_dose' }));
 });

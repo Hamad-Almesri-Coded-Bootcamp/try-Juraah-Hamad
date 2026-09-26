@@ -463,10 +463,11 @@ function buildCheckIn({ patientId, chatId, language, doses, referenceDate }) {
 }
 
 /**
- * CR-108 - the Telegram notice for a dose Alexa just recorded: "From your Alexa: I recorded <drug>
- * <HH:MM> as <word>. Not right? Tap the right one 👇", with that ONE dose's three CORRECTION
- * buttons (`c:<doseId>:<word>` - `parseTap`/`decide`, above, let a correction overwrite with a
- * DIFFERENT word). Only ever sent for the one dose the workflow's plan node actually wrote.
+ * CR-108 - the Telegram confirmation for a dose Alexa just recorded: "From your Alexa: I recorded
+ * <drug> <HH:MM> as <word> 👍" (the owner asked for a thumbs up at the end), with that ONE dose's
+ * three CORRECTION buttons (`c:<doseId>:<word>` - `parseTap`/`decide`, above, let a correction
+ * overwrite with a DIFFERENT word). Only ever sent for the one dose the workflow's plan node
+ * actually wrote.
  */
 function buildVoiceNotice({ chatId, language, dose, status }) {
   const l = lang(language);
@@ -474,13 +475,13 @@ function buildVoiceNotice({ chatId, language, dose, status }) {
     ? { taken: 'Taken ✅', late: 'Taken late ⏰', missed: 'Missed ✖' }
     : { taken: 'أخذته ✅', late: 'أخذته متأخر ⏰', missed: 'نسيت ✖' };
   const word = l === 'en'
-    ? { taken_on_time: 'taken ✅', taken_late: 'taken late ⏰', missed: 'missed ✖' }
-    : { taken_on_time: 'إنك أخذتها ✅', taken_late: 'إنك أخذتها متأخر ⏰', missed: 'إنها فاتتك ✖' };
+    ? { taken_on_time: 'taken', taken_late: 'taken late', missed: 'missed' }
+    : { taken_on_time: 'إنك أخذتها', taken_late: 'إنك أخذتها متأخر', missed: 'إنها فاتتك' };
   if (!Object.prototype.hasOwnProperty.call(word, status)) throw new Error('buildVoiceNotice: unknown status ' + status);
   const what = drugLabel(dose) + ' ' + kuwaitHHMM(dose.scheduledAt);
   const text = l === 'en'
-    ? 'From your Alexa: I recorded ' + what + ' as ' + word[status] + '. Not right? Tap the right one 👇'
-    : 'من أليكسا: سجّلت ' + what + ' ' + word[status] + '. مو صح؟ اضغط الصح تحت 👇';
+    ? 'From your Alexa: I recorded ' + what + ' as ' + word[status] + ' 👍'
+    : 'من أليكسا: سجّلت ' + what + ' ' + word[status] + ' 👍';
   return {
     chatId, text,
     buttons: [

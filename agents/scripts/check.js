@@ -1013,7 +1013,7 @@ async function alexaScenarios() {
     assert.equal(s.spoken.alexa.response.shouldEndSession, true);
     assert.equal(s.prompts.length, 1);
     assert.equal(s.prompts[0].chatId, '5550001');
-    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Eltroxin 00:05 إنها فاتتك ✖. مو صح؟ اضغط الصح تحت 👇');
+    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Eltroxin 00:05 إنها فاتتك 👍');
     assert.deepEqual(msgButtons(s.prompts[0]), ['c:rx-008-x-0005:taken_on_time', 'c:rx-008-x-0005:taken_late', 'c:rx-008-x-0005:missed']);
     const statusCall = s.calls.find((c) => /\/status$/.test(c.url));
     assert.match(statusCall.url, /\/doses\/rx-008-x-0005\/status$/);
@@ -1027,7 +1027,7 @@ async function alexaScenarios() {
     const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent', 'en-US'));
     assert.equal(text(s), 'The dose that passed is Eltroxin at 12:05 in the morning. Your next dose is Calcium carbonate + vitamin D3 at 11:55 in the evening. '
       + 'I recorded it as missed and sent it to your Telegram. If you have a question about the missed dose, ask your pharmacist.');
-    assert.equal(s.prompts[0].text, 'From your Alexa: I recorded Eltroxin 00:05 as missed ✖. Not right? Tap the right one 👇');
+    assert.equal(s.prompts[0].text, 'From your Alexa: I recorded Eltroxin 00:05 as missed 👍');
   });
   await check('CR-108: the status write fails (409, 500, or a thrown/timed-out error) -> fail closed - never "recorded", today\'s header + plain (d:) buttons instead, and the recompute is never attempted', async () => {
     for (const status of [409, 500, 'throw']) {
@@ -1046,7 +1046,7 @@ async function alexaScenarios() {
     const s = await walk(linked, body('IntentRequest', 'ForgotDoseIntent'), { doses: http(200, { doses: TWO_PASSED }) });
     assert.match(text(s), /الجرعة اللي فات وقتها Calcium carbonate \+ vitamin D3 الساعة 1 الظهر/);
     assert.equal(s.prompts.length, 3);
-    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Calcium carbonate + vitamin D3 13:00 إنها فاتتك ✖. مو صح؟ اضغط الصح تحت 👇');
+    assert.equal(s.prompts[0].text, 'من أليكسا: سجّلت Calcium carbonate + vitamin D3 13:00 إنها فاتتك 👍');
     assert.deepEqual(msgButtons(s.prompts[0]), ['c:rx-009-p2:taken_on_time', 'c:rx-009-p2:taken_late', 'c:rx-009-p2:missed']);
     assert.equal(s.prompts[1].buttons, null);
     assert.deepEqual(msgButtons(s.prompts[2]), ['d:rx-008-p1:taken_on_time', 'd:rx-008-p1:taken_late', 'd:rx-008-p1:missed']);
