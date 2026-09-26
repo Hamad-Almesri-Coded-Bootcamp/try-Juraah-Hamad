@@ -1,6 +1,6 @@
 # agents/ — the AI agents track, wired to the Phase 2 backend
 
-5 n8n workflows in `workflows/`, generated from tested source, that talk to this repository's
+6 n8n workflows in `workflows/`, generated from tested source, that talk to this repository's
 backend **only** through `/api/agent/**` (agent bearer) and receive Telegram replies **only**
 through the app's webhook relay (CR-063). No database credential, no service key and no Telegram
 Trigger in n8n.
@@ -11,6 +11,7 @@ Trigger in n8n.
 | `agent-checkin-daily` | 08:00 Asia/Kuwait, and `POST jurah/checkin-now` | none | check-in eligibility, the doses of the day | nothing to the backend; sends Telegram |
 | `agent-alexa` | `POST jurah/alexa` | Gemini, English free talk only | the doses of the day, who is eligible | one voice turn; a dose status (CR-108: «نسيت دواي», and a confirmed record request), plus its recompute for a miss |
 | `agent-webchat` | `POST jurah/webchat`, from the app's assistant (CR-067) | Gemini picks one of the 10 `WEBCHAT_INTENTS` | the doses of the day, who is eligible | nothing to the backend; sends one dose's buttons to the patient's own Telegram |
+| `agent-demo-reset` | the owner's private n8n form `jurah-demo-reset` (Basic Auth), CR-109 | none | nothing | one `POST /api/agent/demo/reset`: pt-03's doses of today and tomorrow back to unrecorded and the 21:00 rx-009 dose to 19:30 - it never records a status |
 | `agent-error` | the n8n Error Trigger (AP-18) | none | nothing | one Telegram message to the team chat, whose id Mohammad still owes |
 
 The three further workflows in `agents/knowledge/workflows/` — `agent-extraction`,
@@ -92,6 +93,7 @@ Nothing below may be typed by an assistant: every value is a secret the owner pa
    inbound secret* the webhooks use (agent-travel-check, `agents/knowledge`, must already be
    imported and activated on `jurah/travel-check` - AP-11 does not import it). The old
    `n8n: screen the new prescription` node is gone (AP-04): nothing else to bind.
+   CR-109: `agent-demo-reset` is bound separately - see "Demo reset (CR-109)" below.
 5. Activate each imported workflow with `POST /rest/workflows/<id>/activate {versionId}` (a
    `PATCH {active:true}` returns 200 and does nothing), and read the URLs back: `/webhook/`, never
    `/webhook-test/`.
@@ -108,7 +110,7 @@ and device links - a file id is a low-value secret, but it is not this repositor
 
 ## What is proven, and what is not
 
-Proven here: the decision layers (`agents/test`, 192 tests), every generated Code node compiles and
+Proven here: the decision layers (`agents/test`, 201 tests), every generated Code node compiles and
 runs the spec's scenarios (`scripts/check.js`, `scripts/check-error-workflow.js`), and every request
 body passes the backend's validators (`tests/unit/agent/agents-contract.test.ts` and
 `tests/unit/agent/knowledge-contract.test.ts`, 40 tests). The backend's two new reads and the relay
@@ -121,6 +123,7 @@ were run against the real seeded database by hand (docs/DECISIONS.md CR-062, CR-
   knowledge workflows were not (AP-01's read-only drift report, `docs/backend-notes/ap-01.md`).
 - No end-to-end run is recorded (`docs/VERIFICATION.md` "Agents, live", AP-14).
 - No accuracy threshold is measured ("Agents, accuracy", AP-15).
+- agent-demo-reset (CR-109) has never run live: its first proof is the owner's first press, in n8n's Executions list.
 
 Extraction's ≥90% accuracy target needs the ≥10 ground-truth samples; none exist.
 
@@ -250,3 +253,21 @@ list only ever resolves against that patient's own open, due doses). An Echo als
 speaking, so anyone in the room can say "I forgot my medicine" with no confirmation at all; the
 Telegram correction notice and its buttons are the only check. Both are accepted, disclosed demo
 limits (docs/DECISIONS.md CR-108), not bugs.
+
+## Demo reset (CR-109) - the owner's private page
+
+To rehearse Alexa's dose recording (CR-108) on the demo patient before the live demo, and to put the doses back afterwards, again and again, with one button: `agent-demo-reset`, an n8n form **outside** the Jur'ah app. The button is not in the app because of rule 1 (nothing in the interface may record or change a dose status). It never records a status; it only puts doses back to unrecorded.
+
+One press (`POST /api/agent/demo/reset`, one transaction, pt-03 only, today and tomorrow on the Kuwait calendar) does two things:
+1. the evening Calcium carbonate + vitamin D3 dose (rx-009) still open at 21:00 moves to 19:30, inside the 18:30-20:00 demo; a dose already at 19:30 is left alone;
+2. every dose on those two days that is recorded (taken on time, taken late, missed) goes back to unrecorded, with its recorded time cleared.
+
+Nothing is deleted, and no other patient, day, prescription or audit row is touched. The page answers "Done: N doses back to unrecorded; evening dose at 19:30" with the list, in English and Arabic, only when the backend answered 200 in exactly that shape. Any other answer (a refusal, a timeout, any other body) says it did NOT reset: open the execution in n8n. If a dose went back at 21:00, press once more to move it.
+
+Nodes: `Demo reset page` (Form Trigger 2.2, Basic Auth, no field, button "Reset demo doses") -> `backend: demo reset` (the only call, agent bearer, 15 s, never retried, onError continueRegularOutput) -> `answer (deterministic)` (`agents/lib/demo-reset.js`) -> `Show the answer` (Form Ending). No Telegram, no model. `scripts/check.js` `assertDemoReset` pins exactly this, and goes red on copies that add a node, drop Basic Auth, retry, send a body key or rewire the line.
+
+Going live (after the backend route is deployed; nothing here is typed by an assistant):
+1. **Mohammad, in n8n → Credentials**, creates one *Basic Auth* credential ("Jur'ah demo reset page"): a user name and password of his own. It is never written in this repository.
+2. **The lead** imports `workflows/agent-demo-reset.json` (built with `JURAH_API_BASE`) and binds `Demo reset page` → that *Basic Auth* credential and `backend: demo reset` → the existing *Header Auth* "Jur'ah agent bearer". Then the lead publishes (activates) it, the same way as step 5 above.
+3. The page is its **Production URL**, `https://mohammad-aljry.app.n8n.cloud/form/jurah-demo-reset`. The Test URL only works while the editor is listening; never use it.
+4. Run the live read-back: `cd agents && npm run drift -- --api` (`N8N_BASE_URL` and `N8N_API_KEY` in the lead's own shell), or `npm run drift -- --snippet`, paste it in the n8n page, save the JSON it prints, then `npm run drift -- --live <hashes.json>`. It must end `no drift`. Note: `drift.js` treats a committed workflow with no active live copy as drift, so publish this workflow in the same session it lands on `main`, and keep it active.

@@ -9,6 +9,7 @@
  *        v  node agents/scripts/build.js
  *   agents/workflows/agent-telegram-inbound.json       the relay (CR-063) -> adherence | extraction
  *   agents/workflows/agent-checkin-daily.json          08:00 Kuwait (+ a "send now" webhook)
+ *   agents/workflows/agent-demo-reset.json             the owner's private demo-reset page (CR-109, n8n form jurah-demo-reset)
  *
  * AP-04/CR-074: interaction screening is no longer generated here. The DDInter workflow
  * (agents/knowledge, agent-interaction-screening-ddinter.json) is the only one on
@@ -18,9 +19,10 @@
  * Windows clipboard tool and reached the patient as CP850 mojibake. Never edit the jsCode inside
  * the generated JSON - edit agents/lib and rebuild.
  *
- * Nothing secret is in these files. Four n8n credentials are bound by hand after import
+ * Nothing secret is in these files. Five n8n credentials are bound by hand after import
  * (agents/README.md): the agent bearer (Header Auth `Authorization: Bearer <JURAH_AGENT_TOKEN>`),
- * the inbound secret (Header Auth `x-jurah-secret`), the Telegram bot, and the Gemini key.
+ * the inbound secret (Header Auth `x-jurah-secret`), the Telegram bot, and the Gemini key,
+ * and the demo page's Basic Auth (CR-109; the owner creates it in n8n himself).
  *
  * Build-time, not secret:
  *   JURAH_API_BASE   the deployed backend's agent base, e.g. https://jurah.example/api/agent
@@ -71,6 +73,7 @@ const EXTRACTION = inline('knowledge/src/extraction.js') + '\n\n' + inline('lib/
 const VOICE = inline('lib/voice.js');
 const VOICE_ACTIONS = inline('lib/voice-actions.js');
 const WEBCHAT = inline('lib/webchat.js');
+const DEMO_RESET = inline('lib/demo-reset.js');
 
 const uuid = (prefix, n) => prefix + String(n).padStart(12, '0');
 const code = (id, name, jsCode, position) => ({
@@ -1159,5 +1162,36 @@ const webchat = {
   settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
 };
 
-for (const wf of [inbound, checkin, alexa, webchat]) write(wf);
+// =============================================================== 6. agent-demo-reset (CR-109, the owner's private tool)
+const DR = (n) => uuid('b7000000-0000-4000-8000-', n);
+/** CR-109 - one page OUTSIDE the Jur'ah app (rule 1: nothing in the app records or changes a dose status), one backend call, one
+ * deterministic answer. It never records a status: POST /demo/reset only puts pt-03's doses back to unrecorded (the backend's contract). */
+const DR_DESCRIPTION = "The owner's private demo tool (CR-109), outside the Jur'ah app. One press puts the demo patient's doses for today and tomorrow (Kuwait) back to unrecorded, and moves the evening calcium dose from 21:00 to 19:30. It never records a dose, and never touches any other patient.\n\nأداة خاصة بالمالك للعرض (CR-109)، خارج تطبيق جرعة. ضغطة واحدة ترجع جرعات مريضة العرض لليوم وبكرة (بتوقيت الكويت) إلى غير مسجّلة، وتنقل جرعة الكالسيوم المسائية من 21:00 إلى 19:30. لا تسجّل أي جرعة أبداً، ولا تلمس أي مريض آخر.";
+const DR_ANSWER = DEMO_RESET + `
+
+// CR-109 - what the page says, from what the backend ACTUALLY answered: only a 200 in the contract's exact shape reads as
+// done. The item is the HTTP node's full response or, on a timeout or network error (onError continueRegularOutput), an
+// item with no statusCode at all - read as not reset, never as success.
+return [{ json: resetAnswer($input.first().json) }];`;
+const demoReset = {
+  name: 'agent-demo-reset',
+  nodes: [
+    { parameters: { authentication: 'basicAuth', formTitle: "Jur'ah demo reset", formDescription: DR_DESCRIPTION, formFields: {},
+                    options: { path: 'jurah-demo-reset', buttonLabel: 'Reset demo doses', appendAttribution: false } },
+      id: DR(1), name: 'Demo reset page', type: 'n8n-nodes-base.formTrigger', typeVersion: 2.2, position: [-460, 0], webhookId: DR(1) },
+    { ...api(DR(2), 'backend: demo reset', 'POST', API_BASE + '/demo/reset', [-240, 0], '{}'), retryOnFail: false, onError: 'continueRegularOutput' },
+    code(DR(3), 'answer (deterministic)', DR_ANSWER, [-20, 0]),
+    { parameters: { operation: 'completion', respondWith: 'text', completionTitle: '={{ $json.title }}', completionMessage: '={{ $json.message }}',
+                    options: { formTitle: "Jur'ah demo reset", appendAttribution: false } },
+      id: DR(4), name: 'Show the answer', type: 'n8n-nodes-base.form', typeVersion: 1, position: [200, 0], webhookId: DR(4) },
+  ],
+  connections: {
+    'Demo reset page': main('backend: demo reset'),
+    'backend: demo reset': main('answer (deterministic)'),
+    'answer (deterministic)': main('Show the answer'),
+  },
+  settings: { executionOrder: 'v1', timezone: 'Asia/Kuwait' },
+};
+
+for (const wf of [inbound, checkin, alexa, webchat, demoReset]) write(wf);
 console.log('JURAH_API_BASE = ' + API_BASE + (process.env.JURAH_API_BASE ? '' : '   <- placeholder: rebuild with the deployed URL before import'));

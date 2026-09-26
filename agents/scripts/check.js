@@ -35,7 +35,7 @@ const CHECK_NOW = '2026-09-24T15:00:00+03:00';
 
 const ROOT = path.join(__dirname, '..');
 const WF = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'workflows', name + '.json'), 'ascii'));
-const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-alexa', 'agent-webchat'];
+const NAMES = ['agent-telegram-inbound', 'agent-checkin-daily', 'agent-alexa', 'agent-webchat', 'agent-demo-reset'];
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
 let failures = 0;
@@ -1406,6 +1406,210 @@ async function webchatScenarios() {
   });
 }
 
+// --------------------------------------------------------------- CR-109: agent-demo-reset
+/** The node types agent-demo-reset may hold: a Basic-Auth form, one HTTP call, one Code node, one
+ * Form Ending. Any other (Telegram, a model node, a second call, an Execute Workflow node, ...)
+ * could call out or answer with something nobody proved. */
+const DEMO_RESET_NODE_TYPES = ['n8n-nodes-base.formTrigger', 'n8n-nodes-base.httpRequest', 'n8n-nodes-base.code', 'n8n-nodes-base.form'];
+const DEMO_RESET_URL = /^https:\/\/[^\s{}$]+\/api\/agent\/demo\/reset$/;
+const edge = (to) => ({ main: [[{ node: to, type: 'main', index: 0 }]] });
+
+/** Every node name reachable from `start`, walking every connection kind and every branch of
+ * wf.connections - a plain DFS. Includes `start` itself. */
+function reachable(wf, start) {
+  const seen = new Set([start]);
+  const stack = [start];
+  while (stack.length) {
+    const name = stack.pop();
+    const outs = (wf.connections || {})[name] || {};
+    for (const kind of Object.values(outs)) {
+      for (const branch of kind) {
+        for (const c of branch) if (!seen.has(c.node)) { seen.add(c.node); stack.push(c.node); }
+      }
+    }
+  }
+  return seen;
+}
+
+/**
+ * CR-109 - what the demo-reset page may do, asserted on the workflow's own nodes and connections:
+ * a Basic-Auth form with no input field feeds exactly one POST /api/agent/demo/reset under the
+ * agent bearer, never retried, fail closed (onError continueRegularOutput), which feeds exactly
+ * one deterministic Code node, which feeds exactly one Form Ending - no Telegram, no model, no
+ * other call. Throws on the first breach. demoResetScenarios runs it on the committed workflow,
+ * and on copies edited to break it (each must throw).
+ * Runtime proof: the owner's first press, in the n8n Executions list (not yet run).
+ */
+function assertDemoReset(wf) {
+  assert.deepEqual(wf.nodes.map((n) => n.type).sort(), DEMO_RESET_NODE_TYPES.slice().sort(),
+    'agent-demo-reset must hold exactly these four node types and no other - no Telegram, no @n8n/n8n-nodes-langchain.*, no webhook, respondToWebhook or executeWorkflow node');
+
+  const trigger = wf.nodes.find((n) => n.type === 'n8n-nodes-base.formTrigger');
+  assert.equal(trigger.typeVersion, 2.2, 'trigger: typeVersion');
+  assert.equal(trigger.parameters.authentication, 'basicAuth', 'the page requires Basic Auth');
+  assert.equal((trigger.parameters.options || {}).path, 'jurah-demo-reset', 'trigger: Form Path');
+  assert.equal(trigger.parameters.formTitle, "Jur'ah demo reset", 'trigger: Form Title');
+  assert.equal((trigger.parameters.options || {}).buttonLabel, 'Reset demo doses', 'trigger: Button Label');
+  assert.ok(!((trigger.parameters.formFields || {}).values || []).length, 'trigger: no input field');
+  assert.ok(!('responseMode' in trigger.parameters), 'trigger: no responseMode key (n8n forces responseNode because a Form node follows)');
+  assert.ok(!('credentials' in trigger), 'trigger: no credentials key - bound by hand at import');
+  assert.ok(trigger.webhookId, 'trigger: a webhookId is present');
+
+  const call = wf.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest');
+  assert.equal(call.name, 'backend: demo reset', 'call: name');
+  assert.equal(call.parameters.method, 'POST', 'call: method');
+  assert.ok(DEMO_RESET_URL.test(call.parameters.url), 'call: url ' + call.parameters.url);
+  assert.equal(call.parameters.authentication, 'genericCredentialType', 'call: authentication');
+  assert.equal(call.parameters.genericAuthType, 'httpHeaderAuth', 'call: genericAuthType (the agent-bearer header-credential pattern)');
+  assert.equal(call.parameters.sendBody, true, 'call: sendBody');
+  assert.equal(call.parameters.specifyBody, 'json', 'call: specifyBody');
+  assert.equal(call.parameters.jsonBody, '{}', 'call: jsonBody must be an empty object - any key 422s the house validator');
+  assert.equal(call.parameters.options.timeout, 15000, 'call: timeout');
+  assert.deepEqual(call.parameters.options.response, { response: { fullResponse: true, neverError: true } }, 'call: fullResponse+neverError');
+  assert.equal(call.retryOnFail, false, 'call: retryOnFail - never retried, a retry could reset twice');
+  assert.equal(call.onError, 'continueRegularOutput', 'call: onError - fail closed, the page must still answer');
+  assert.ok(!WRITE_PATH.test(JSON.stringify(call.parameters)), 'call: names a /doses/ or /schedule/ URL');
+
+  const answerNode = wf.nodes.find((n) => n.type === 'n8n-nodes-base.code');
+  assert.ok(!/helpers\.httpRequest|\bfetch\s*\(|XMLHttpRequest/.test(answerNode.parameters.jsCode), 'answer: makes its own network call');
+
+  const ending = wf.nodes.find((n) => n.type === 'n8n-nodes-base.form');
+  assert.equal(ending.typeVersion, 1, 'ending: typeVersion');
+  assert.equal(ending.parameters.operation, 'completion', 'ending: operation (Form Ending)');
+  assert.equal(ending.parameters.respondWith, 'text', 'ending: respondWith');
+  assert.equal(ending.parameters.completionTitle, '={{ $json.title }}', 'ending: completionTitle');
+  assert.equal(ending.parameters.completionMessage, '={{ $json.message }}', 'ending: completionMessage');
+
+  assert.deepEqual(wf.connections, {
+    [trigger.name]: edge(call.name),
+    [call.name]: edge(answerNode.name),
+    [answerNode.name]: edge(ending.name),
+  }, 'one straight line: trigger -> call -> answer -> ending, nothing else');
+  assert.deepEqual(incomingEdges(wf, trigger.name), [], 'the trigger must have no incoming edge');
+  assert.deepEqual(incomingEdges(wf, call.name), [trigger.name + ' #0'], 'the call must be fed once, by the trigger alone: a submit makes exactly one call');
+  assert.deepEqual([...reachable(wf, trigger.name)].sort(), wf.nodes.map((n) => n.name).sort(), 'every node must be reachable from the trigger');
+
+  assert.equal(wf.settings.timezone, 'Asia/Kuwait', 'settings.timezone');
+  assert.ok(!('errorWorkflow' in wf.settings), 'no errorWorkflow key');
+}
+
+async function demoResetScenarios() {
+  console.log('\n######## agent-demo-reset (CR-109, the owner\'s private tool)');
+  const wf = WF('agent-demo-reset');
+
+  await check('the page (static, from the workflow\'s own nodes and connections): a Basic-Auth form with no field -> exactly one POST /api/agent/demo/reset under the agent bearer, never retried, fail closed -> one Code node -> the Form Ending; no Telegram, no model, no other call', () => {
+    assertDemoReset(wf);
+  });
+
+  await check('assertDemoReset goes red on copies edited to break it', () => {
+    const edits = [
+      ['a Telegram node pushed', (copy) => copy.nodes.push({ parameters: {}, id: 'x-telegram-0000000001', name: 'sneaky telegram', type: 'n8n-nodes-base.telegram', typeVersion: 1.2, position: [0, 0] })],
+      ['an lmChatGoogleGemini node pushed', (copy) => copy.nodes.push({ parameters: {}, id: 'x-gemini-00000000001', name: 'sneaky gemini', type: '@n8n/n8n-nodes-langchain.lmChatGoogleGemini', typeVersion: 1.1, position: [0, 0] })],
+      ['a second httpRequest node pushed', (copy) => { const c = copy.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest'); copy.nodes.push({ ...JSON.parse(JSON.stringify(c)), id: 'x-second-call-0000001', name: 'sneaky second call' }); }],
+      ['authentication set to none', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.formTrigger').parameters.authentication = 'none'; }],
+      ['the url pointed at a status write instead', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest').parameters.url = 'https://x.example/api/agent/doses/rx-009-20260926-2100/status'; }],
+      ['retryOnFail set to true', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest').retryOnFail = true; }],
+      ['onError deleted', (copy) => { delete copy.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest').onError; }],
+      ['jsonBody set to a body with a key', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.httpRequest').parameters.jsonBody = '{"patientId":"pt-01"}'; }],
+      ['the answer skipped (call wired straight to the ending)', (copy) => { copy.connections['backend: demo reset'] = edge('Show the answer'); }],
+      ['a second link from the answer back to the call', (copy) => { copy.connections['answer (deterministic)'].main[0].push({ node: 'backend: demo reset', type: 'main', index: 0 }); }],
+      ['a form field added', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.formTrigger').parameters.formFields = { values: [{ fieldLabel: 'Patient', requiredField: true }] }; }],
+      ['the form path changed', (copy) => { copy.nodes.find((n) => n.type === 'n8n-nodes-base.formTrigger').parameters.options.path = 'jurah-demo-reset-2'; }],
+    ];
+    for (const [label, mutate] of edits) {
+      const copy = JSON.parse(JSON.stringify(wf));
+      mutate(copy);
+      assert.throws(() => assertDemoReset(copy), Error, label);
+    }
+  });
+
+  const answer = async (item) => (await runner(wf).code('answer (deterministic)', [{ json: item }]))[0].json;
+  const OK = {
+    patientId: 'pt-03', dates: ['2026-09-26', '2026-09-27'],
+    moved: [{ id: 'rx-009-20260927-2100', from: '21:00', to: '19:30' }],
+    reset: [{ id: 'rx-008-20260926-0700', kuwaitTime: '07:00', was: W_MISS }, { id: 'rx-009-20260926-2100', kuwaitTime: '19:30', was: W_ON }],
+  };
+
+  await check('a 200 in the contract shape -> "Done: 2 doses back to unrecorded; evening dose at 19:30", in English and Arabic, every id listed', async () => {
+    const a = await answer({ statusCode: 200, body: OK });
+    assert.equal(a.done, true);
+    assert.equal(a.title, 'Done / تم');
+    assert.match(a.message, /^Done: 2 doses back to unrecorded; evening dose at 19:30$/m);
+    assert.match(a.message, /[؀-ۿ]/);
+    for (const id of ['rx-009-20260927-2100', 'rx-008-20260926-0700', 'rx-009-20260926-2100']) assert.ok(a.message.includes(id), id);
+    console.log('        -> ' + a.message.split('\n')[0]);
+  });
+
+  await check('200 with nothing to do -> done, "Done: 0 doses back to unrecorded", no evening clause, "Nothing needed changing."', async () => {
+    const a = await answer({ statusCode: 200, body: { ...OK, moved: [], reset: [] } });
+    assert.equal(a.done, true);
+    assert.match(a.message, /^Done: 0 doses back to unrecorded$/m);
+    assert.match(a.message, /Nothing needed changing\./);
+  });
+
+  await check('the same body as a JSON string (n8n text response) -> done', async () => {
+    const a = await answer({ statusCode: 200, body: JSON.stringify(OK) });
+    assert.equal(a.done, true);
+  });
+
+  await check('a reset dose still at 21:00 -> the answer says press once more', async () => {
+    const a = await answer({ statusCode: 200, body: { ...OK, reset: [{ id: 'rx-009-20260926-2100', kuwaitTime: '21:00', was: W_MISS }] } });
+    assert.equal(a.done, true);
+    assert.match(a.message, /press the button once more/);
+  });
+
+  await check('every refusal or failure -> "did not reset"', async () => {
+    for (const statusCode of [401, 403, 404, 422, 500, 503]) {
+      const a = await answer({ statusCode, body: {} });
+      assert.equal(a.done, false, String(statusCode));
+      assert.match(a.message, new RegExp('HTTP ' + statusCode));
+      assert.match(a.message, /n8n/);
+      assert.ok(!a.message.match(/^Done/m), String(statusCode));
+    }
+    const timeout = await answer({ error: { message: 'timeout' } });
+    assert.equal(timeout.done, false);
+    assert.match(timeout.message, /no answer/);
+    const empty = await answer({});
+    assert.equal(empty.done, false);
+  });
+
+  await check('200 but not the contract -> did not reset', async () => {
+    const bodies = [
+      null, [], 'not json',
+      { ...OK, patientId: 'pt-01' },
+      { ...OK, extra: 1 },
+      (() => { const { reset, ...rest } = OK; return rest; })(),
+      { ...OK, dates: ['2026-09-26'] },
+      { ...OK, dates: ['2026-09-26', '2026-09-28'] },
+      { ...OK, dates: ['2026-9-26', '2026-9-27'] },
+      { ...OK, dates: ['2026-02-30', '2026-03-01'] },
+      { ...OK, moved: [{ ...OK.moved[0], from: '13:00' }] },
+      { ...OK, moved: [{ ...OK.moved[0], to: '20:00' }] },
+      { ...OK, reset: [{ ...OK.reset[0], was: OPEN }] },
+      { ...OK, reset: [{ ...OK.reset[0], was: 'deleted' }] },
+      { ...OK, reset: [{ ...OK.reset[0], kuwaitTime: '25:00' }] },
+      { ...OK, reset: [{ ...OK.reset[0], id: '<b>x</b>' }] },
+      { ...OK, reset: [OK.reset[0], OK.reset[0]] },
+      { ...OK, reset: [{ ...OK.reset[0], extra: 1 }] },
+      { ...OK, reset: Array.from({ length: 51 }, (_, i) => ({ id: 'rx-extra-' + i, kuwaitTime: '19:30', was: W_ON })) },
+    ];
+    for (const body of bodies) {
+      const a = await answer({ statusCode: 200, body });
+      assert.equal(a.done, false, JSON.stringify(body));
+    }
+    assert.equal((await answer({ statusCode: '200', body: OK })).done, false);
+    assert.equal((await answer({ statusCode: 201, body: OK })).done, false);
+  });
+
+  await check('the answer never echoes the backend\'s own text', async () => {
+    const a = await answer({ statusCode: 500, body: { error: '<script>leak</script> pt-01' } });
+    assert.equal(a.done, false);
+    assert.ok(!a.message.includes('leak'));
+    assert.ok(!a.message.includes('<script'));
+    assert.ok(!a.message.includes('pt-01'));
+  });
+}
+
 // --------------------------------------------------------------- AP-04: one screening on the path
 /** AP-04/CR-074: only the DDInter workflow (agents/knowledge) may sit on jurah/screen-prescription,
  * and no OTHER node anywhere may even name that path - a hand-off n8n has forgotten to remove reads
@@ -1450,6 +1654,7 @@ async function oneScreeningCheck() {
   await scenarios();
   await alexaScenarios();
   await webchatScenarios();
+  await demoResetScenarios();
   console.log('\n' + (failures === 0 ? 'all checks passed' : failures + ' check(s) FAILED'));
   process.exit(failures === 0 ? 0 : 1);
 })();

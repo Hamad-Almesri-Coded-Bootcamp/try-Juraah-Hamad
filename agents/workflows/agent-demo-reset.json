@@ -1,0 +1,132 @@
+{
+  "name": "agent-demo-reset",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "Jur'ah demo reset",
+        "formDescription": "The owner's private demo tool (CR-109), outside the Jur'ah app. One press puts the demo patient's doses for today and tomorrow (Kuwait) back to unrecorded, and moves the evening calcium dose from 21:00 to 19:30. It never records a dose, and never touches any other patient.\n\n\u0623\u062f\u0627\u0629 \u062e\u0627\u0635\u0629 \u0628\u0627\u0644\u0645\u0627\u0644\u0643 \u0644\u0644\u0639\u0631\u0636 (CR-109)\u060c \u062e\u0627\u0631\u062c \u062a\u0637\u0628\u064a\u0642 \u062c\u0631\u0639\u0629. \u0636\u063a\u0637\u0629 \u0648\u0627\u062d\u062f\u0629 \u062a\u0631\u062c\u0639 \u062c\u0631\u0639\u0627\u062a \u0645\u0631\u064a\u0636\u0629 \u0627\u0644\u0639\u0631\u0636 \u0644\u0644\u064a\u0648\u0645 \u0648\u0628\u0643\u0631\u0629 (\u0628\u062a\u0648\u0642\u064a\u062a \u0627\u0644\u0643\u0648\u064a\u062a) \u0625\u0644\u0649 \u063a\u064a\u0631 \u0645\u0633\u062c\u0651\u0644\u0629\u060c \u0648\u062a\u0646\u0642\u0644 \u062c\u0631\u0639\u0629 \u0627\u0644\u0643\u0627\u0644\u0633\u064a\u0648\u0645 \u0627\u0644\u0645\u0633\u0627\u0626\u064a\u0629 \u0645\u0646 21:00 \u0625\u0644\u0649 19:30. \u0644\u0627 \u062a\u0633\u062c\u0651\u0644 \u0623\u064a \u062c\u0631\u0639\u0629 \u0623\u0628\u062f\u0627\u064b\u060c \u0648\u0644\u0627 \u062a\u0644\u0645\u0633 \u0623\u064a \u0645\u0631\u064a\u0636 \u0622\u062e\u0631.",
+        "formFields": {},
+        "options": {
+          "path": "jurah-demo-reset",
+          "buttonLabel": "Reset demo doses",
+          "appendAttribution": false
+        }
+      },
+      "id": "b7000000-0000-4000-8000-000000000001",
+      "name": "Demo reset page",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -460,
+        0
+      ],
+      "webhookId": "b7000000-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tryjuraaah.vercel.app/api/agent/demo/reset",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}"
+      },
+      "id": "b7000000-0000-4000-8000-000000000002",
+      "name": "backend: demo reset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        0
+      ],
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ===== generated from agents/lib/demo-reset.js - do not edit here; edit the source and rebuild ===== */\n/**\n * CR-109 (the owner, 2026-09-26). This is the demo-reset page's answer and the deterministic\n * layer, fail closed. Only an HTTP 200 whose body has exactly the contract's shape reads as done.\n * It never echoes the backend's body, only the status code. Every value it prints is\n * pattern-checked first, so the backend cannot put markup on the page.\n *\n * The page never shows patientId, the patient's name or body text.\n */\n\nconst DEMO_RESET_PATIENT = 'pt-03';\nconst EVENING_FROM = '21:00';\nconst EVENING_TO = '19:30';\n// Dose words by reference, never as a `status: '<word>'` literal (guard 4 / G1 scans agents/**/*.js).\nconst RECORDED_WORDS = ['taken_on_time', 'taken_late', 'missed'];\nconst MAX_ROWS = 50;\nconst DOSE_ID = /^[A-Za-z0-9_-]{1,64}$/;\nconst HHMM = /^([01]\\d|2[0-3]):[0-5]\\d$/;\nconst YMD = /^\\d{4}-\\d{2}-\\d{2}$/;\nconst BODY_KEYS = ['dates', 'moved', 'patientId', 'reset'];\n// Keys are the words themselves, never a `status:` literal.\nconst WAS = {\n  taken_on_time: { en: 'taken on time', ar: '\u0623\u064f\u062e\u0630\u062a \u0641\u064a \u0648\u0642\u062a\u0647\u0627' },\n  taken_late: { en: 'taken late', ar: '\u0623\u064f\u062e\u0630\u062a \u0645\u062a\u0623\u062e\u0631\u0629' },\n  missed: { en: 'missed', ar: '\u0641\u0627\u062a\u062a' },\n};\n\n// ------------------------------------------------------------------------------ small helpers\nfunction isPlain(v) {\n  return typeof v === 'object' && v !== null && !Array.isArray(v);\n}\nfunction sameKeys(o, keys) {\n  const actual = Object.keys(o).sort();\n  const expected = keys.slice().sort();\n  return actual.length === expected.length && actual.every((k, i) => k === expected[i]);\n}\nfunction validYmd(s) {\n  if (typeof s !== 'string' || !YMD.test(s)) return false;\n  const t = Date.parse(s + 'T00:00:00Z');\n  if (!Number.isFinite(t)) return false;\n  return new Date(t).toISOString().slice(0, 10) === s;\n}\nfunction nextDay(s) {\n  return new Date(Date.parse(s + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);\n}\nfunction isMove(m) {\n  return isPlain(m) && sameKeys(m, ['from', 'id', 'to']) &&\n    typeof m.id === 'string' && DOSE_ID.test(m.id) &&\n    m.from === EVENING_FROM && m.to === EVENING_TO;\n}\nfunction isReset(x) {\n  return isPlain(x) && sameKeys(x, ['id', 'kuwaitTime', 'was']) &&\n    typeof x.id === 'string' && DOSE_ID.test(x.id) &&\n    typeof x.kuwaitTime === 'string' && HHMM.test(x.kuwaitTime) &&\n    RECORDED_WORDS.includes(x.was);\n}\n/** n8n's text response mode can hand the body back as a JSON string rather than a parsed object. */\nfunction bodyOf(r) {\n  if (typeof r.body === 'string') {\n    try { return JSON.parse(r.body); } catch (e) { return null; }\n  }\n  return r.body;\n}\n\n/**\n * Reads the backend's answer to POST /demo/reset. Returns {ok:true, statusCode:200, dates, moved,\n * reset} only when the body is EXACTLY the agreed contract shape, for pt-03, with well-formed rows;\n * otherwise {ok:false, statusCode, reason}. Fail closed: any shape the contract does not name is a\n * refusal, never a guess.\n */\nfunction readReset(response) {\n  const r = response || {};\n  const statusCode = Number.isInteger(r.statusCode) ? r.statusCode : null;\n  if (statusCode !== 200) return { ok: false, statusCode, reason: statusCode === null ? 'no_answer' : 'http_' + statusCode };\n  const body = bodyOf(r);\n  if (!isPlain(body) || !sameKeys(body, BODY_KEYS)) return { ok: false, statusCode, reason: 'not_the_contract' };\n  if (body.patientId !== DEMO_RESET_PATIENT) return { ok: false, statusCode, reason: 'other_patient' };\n  const dates = body.dates;\n  if (!Array.isArray(dates) || dates.length !== 2 || !validYmd(dates[0]) || !validYmd(dates[1]) || nextDay(dates[0]) !== dates[1]) {\n    return { ok: false, statusCode, reason: 'bad_dates' };\n  }\n  const moved = body.moved;\n  if (!Array.isArray(moved) || moved.length > MAX_ROWS || !moved.every(isMove)) return { ok: false, statusCode, reason: 'bad_moved' };\n  const reset = body.reset;\n  if (!Array.isArray(reset) || reset.length > MAX_ROWS || !reset.every(isReset)) return { ok: false, statusCode, reason: 'bad_reset' };\n  const movedIds = moved.map((m) => m.id);\n  const resetIds = reset.map((x) => x.id);\n  if (new Set(movedIds).size !== movedIds.length || new Set(resetIds).size !== resetIds.length) {\n    return { ok: false, statusCode, reason: 'duplicate_id' };\n  }\n  return { ok: true, statusCode: 200, dates: dates.slice(), moved: moved.map((m) => ({ ...m })), reset: reset.map((x) => ({ ...x })) };\n}\n\n/**\n * The page's whole answer: done/not-done, why, and the bilingual text to show - built only from\n * values readReset already pattern-checked. Never echoes the backend's own body text.\n */\nfunction resetAnswer(response) {\n  const r = readReset(response);\n  if (r.ok) {\n    const n = r.reset.length;\n    const evening = r.reset.some((x) => x.kuwaitTime === EVENING_FROM);\n    const nothingChanged = r.moved.length === 0 && r.reset.length === 0;\n    const en = [];\n    en.push('Done: ' + n + ' dose' + (n === 1 ? '' : 's') + ' back to unrecorded' + (r.moved.length ? '; evening dose at 19:30' : ''));\n    en.push('Dates (Kuwait): ' + r.dates[0] + ', ' + r.dates[1]);\n    for (const m of r.moved) en.push('Moved ' + m.id + ': 21:00 to 19:30');\n    for (const x of r.reset) en.push('Back to unrecorded: ' + x.id + ' (' + x.kuwaitTime + ', was ' + WAS[x.was].en + ')');\n    if (nothingChanged) en.push('Nothing needed changing.');\n    if (evening) en.push('A dose went back to unrecorded at 21:00 - press the button once more to move it to 19:30.');\n    const ar = [];\n    ar.push('\u062a\u0645: \u0639\u062f\u062f \u0627\u0644\u062c\u0631\u0639\u0627\u062a \u0627\u0644\u062a\u064a \u0631\u062c\u0639\u062a \u0625\u0644\u0649 \u063a\u064a\u0631 \u0645\u0633\u062c\u0651\u0644\u0629: ' + n + (r.moved.length ? '\u060c \u0648\u062c\u0631\u0639\u0629 \u0627\u0644\u0645\u0633\u0627\u0621 \u0635\u0627\u0631\u062a \u0627\u0644\u0633\u0627\u0639\u0629 19:30' : ''));\n    ar.push('\u0627\u0644\u062a\u0648\u0627\u0631\u064a\u062e (\u0628\u062a\u0648\u0642\u064a\u062a \u0627\u0644\u0643\u0648\u064a\u062a): ' + r.dates[0] + '\u060c ' + r.dates[1]);\n    for (const m of r.moved) ar.push('\u0646\u064f\u0642\u0644\u062a ' + m.id + ': \u0645\u0646 21:00 \u0625\u0644\u0649 19:30');\n    for (const x of r.reset) ar.push('\u0631\u062c\u0639\u062a \u0625\u0644\u0649 \u063a\u064a\u0631 \u0645\u0633\u062c\u0651\u0644\u0629: ' + x.id + ' (' + x.kuwaitTime + '\u060c \u0643\u0627\u0646\u062a: ' + WAS[x.was].ar + ')');\n    if (nothingChanged) ar.push('\u0644\u0627 \u0634\u064a\u0621 \u0627\u062d\u062a\u0627\u062c \u062a\u063a\u064a\u064a\u0631\u0627\u064b.');\n    if (evening) ar.push('\u0631\u062c\u0639\u062a \u062c\u0631\u0639\u0629 \u0625\u0644\u0649 \u063a\u064a\u0631 \u0645\u0633\u062c\u0651\u0644\u0629 \u0639\u0646\u062f \u0627\u0644\u0633\u0627\u0639\u0629 21:00 - \u0627\u0636\u063a\u0637 \u0627\u0644\u0632\u0631 \u0645\u0631\u0629 \u062b\u0627\u0646\u064a\u0629 \u0644\u0646\u0642\u0644\u0647\u0627 \u0625\u0644\u0649 19:30.');\n    return {\n      done: true, reason: null, statusCode: r.statusCode, movedCount: r.moved.length, resetCount: r.reset.length,\n      title: 'Done / \u062a\u0645', message: [...en, '', ...ar].join('\\n'),\n    };\n  }\n  const w = r.statusCode === null ? 'The backend gave no answer (a timeout or a network error).'\n    : r.statusCode === 200 ? 'The backend answered HTTP 200, but not in the agreed shape.'\n    : 'The backend answered HTTP ' + r.statusCode + '.';\n  const wa = r.statusCode === null ? '\u0644\u0645 \u064a\u0635\u0644 \u0631\u062f \u0645\u0646 \u0627\u0644\u062e\u0627\u062f\u0645 (\u0627\u0646\u062a\u0647\u062a \u0627\u0644\u0645\u0647\u0644\u0629 \u0623\u0648 \u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u0634\u0628\u0643\u0629).'\n    : r.statusCode === 200 ? '\u0631\u062f\u0651 \u0627\u0644\u062e\u0627\u062f\u0645 HTTP 200 \u0644\u0643\u0646 \u0644\u064a\u0633 \u0628\u0627\u0644\u0634\u0643\u0644 \u0627\u0644\u0645\u062a\u0641\u0642 \u0639\u0644\u064a\u0647.'\n    : '\u0631\u062f\u0651 \u0627\u0644\u062e\u0627\u062f\u0645 HTTP ' + r.statusCode + '.';\n  const en = 'The demo doses were NOT reset. ' + w + ' Nothing is confirmed: open this execution in n8n (Executions tab) and check it before the demo.';\n  const ar = '\u0644\u0645 \u062a\u062a\u0645 \u0625\u0639\u0627\u062f\u0629 \u0636\u0628\u0637 \u062c\u0631\u0639\u0627\u062a \u0627\u0644\u0639\u0631\u0636. ' + wa + ' \u0644\u0627 \u0634\u064a\u0621 \u0645\u0624\u0643\u062f: \u0627\u0641\u062a\u062d \u0647\u0630\u0627 \u0627\u0644\u062a\u0646\u0641\u064a\u0630 \u0641\u064a n8n (\u062a\u0628\u0648\u064a\u0628 Executions) \u0648\u0631\u0627\u062c\u0639\u0647 \u0642\u0628\u0644 \u0627\u0644\u0639\u0631\u0636.';\n  return {\n    done: false, reason: r.reason, statusCode: r.statusCode, movedCount: 0, resetCount: 0,\n    title: 'Did not reset / \u0644\u0645 \u062a\u062a\u0645 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0636\u0628\u0637', message: [en, '', ar].join('\\n'),\n  };\n}\n/* ===== end generated ===== */\n\n// CR-109 - what the page says, from what the backend ACTUALLY answered: only a 200 in the contract's exact shape reads as\n// done. The item is the HTTP node's full response or, on a timeout or network error (onError continueRegularOutput), an\n// item with no statusCode at all - read as not reset, never as success.\nreturn [{ json: resetAnswer($input.first().json) }];"
+      },
+      "id": "b7000000-0000-4000-8000-000000000003",
+      "name": "answer (deterministic)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.title }}",
+        "completionMessage": "={{ $json.message }}",
+        "options": {
+          "formTitle": "Jur'ah demo reset",
+          "appendAttribution": false
+        }
+      },
+      "id": "b7000000-0000-4000-8000-000000000004",
+      "name": "Show the answer",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ],
+      "webhookId": "b7000000-0000-4000-8000-000000000004"
+    }
+  ],
+  "connections": {
+    "Demo reset page": {
+      "main": [
+        [
+          {
+            "node": "backend: demo reset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "backend: demo reset": {
+      "main": [
+        [
+          {
+            "node": "answer (deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "answer (deterministic)": {
+      "main": [
+        [
+          {
+            "node": "Show the answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kuwait"
+  }
+}
