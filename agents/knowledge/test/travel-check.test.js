@@ -171,8 +171,11 @@ test('no_interaction_found only when every pair was checkable - and the words ne
   assert.doesNotMatch(r.message, /\bsafe\b/i);
 });
 
-test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Ibuprofen x Ciprofloxacin) -> cannot_verify, never no_interaction; app cannot_verify (D6/CR-078)', () => {
-  for (const [box, onFile] of [['Ezetimibe', 'Amlodipine'], ['Ibuprofen 400 mg', 'Ciprofloxacin']]) {
+test('AP-06: both drugs outside the loaded DDInter files (Ezetimibe x Amlodipine, Atorvastatin x Ciprofloxacin) -> cannot_verify, never no_interaction; app cannot_verify (D6/CR-078)', () => {
+  // SFDA extension (2026-09-26): loading DDInter's file R turned up a real Ibuprofen x Ciprofloxacin
+  // row (Moderate), so that pair no longer demonstrates "cannot verify" - Atorvastatin (ATC C, never
+  // loaded by any of this build's eight files) takes its place here.
+  for (const [box, onFile] of [['Ezetimibe', 'Amlodipine'], ['Atorvastatin 20 mg', 'Ciprofloxacin']]) {
     const r = check({ visionText: box, prescriptions: [rx('t-1', onFile)], language: 'en' });
     assert.equal(r.verdict, 'cannot_verify', box);
     assert.equal(r.reason, 'pair_outside_loaded_categories');

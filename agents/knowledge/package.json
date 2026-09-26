@@ -7,6 +7,9 @@
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
     "build": "node scripts/build.js",
+    "build:index": "node scripts/build-demo-index.js",
+    "build:why": "node scripts/build-why.js",
+    "build:why-summaries": "node scripts/build-why-summaries.js",
     "check": "node scripts/check.js",
     "coverage": "node scripts/coverage.js",
     "verify": "npm run test && npm run build && npm run check"

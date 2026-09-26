@@ -180,8 +180,17 @@ test('TC-IX-02: both drugs covered, no row, one in a loaded category file -> no 
 });
 
 // ---------------------------------------------------------------- AP-06: the loaded DDInter category files
-test('AP-06 false reassurance: Ibuprofen (ATC M) x Ciprofloxacin (ATC J), both outside the loaded files A, B, H -> cannot verify, never "no interaction"', () => {
-  const p = [rx('t-1', 'Ibuprofen'), rx('t-2', 'Ciprofloxacin')];
+//
+// SFDA extension (2026-09-26): the build now loads all eight DDInter files (A, B, D, H, L, P, R, V),
+// not just A, B, H. Loading file R turned up REAL DDInter rows for two pairs this suite used to use
+// as its standard "cannot verify" examples - Ibuprofen x Ciprofloxacin (now a genuine Moderate row)
+// and Atorvastatin x Ibuprofen (now a genuine, ungraded/Unknown row) - so neither demonstrates the
+// cannot-verify path any more; they demonstrate the opposite: the wider index finding a real answer
+// where there used to be a gap. Ciprofloxacin's own ATC categories (J, S) and Atorvastatin's (C) sit
+// outside every one of these eight files regardless of DDInter's row content, so THEIR pair remains a
+// durable "cannot verify" example and takes over as the fixture below.
+test('AP-06 false reassurance: Ciprofloxacin (ATC J/S) x Atorvastatin (ATC C), both outside every loaded file (A, B, D, H, L, P, R, V) -> cannot verify, never "no interaction"', () => {
+  const p = [rx('t-1', 'Ciprofloxacin'), rx('t-2', 'Atorvastatin')];
   for (const language of ['ar', 'en']) {
     const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p, language });
     assert.equal(r.alerts.length, 1);
@@ -190,30 +199,33 @@ test('AP-06 false reassurance: Ibuprofen (ATC M) x Ciprofloxacin (ATC J), both o
     assert.equal(a.reviewStatus, 'pending_medical_review', 'to the reviewer, never auto_cleared');
     assert.deepEqual([...a.involvedPrescriptionIds].sort(), ['t-1', 't-2']);
     assert.match(a.description, /Ciprofloxacin/);
-    assert.match(a.description, /Ibuprofen/);
+    assert.match(a.description, /Atorvastatin/);
     assert.doesNotMatch(a.description, /تم فحص|لم نجد تعارضاً|no interaction is recorded|was screened/, 'never the nothing-found wording');
-    assert.match(a.sourceCitation, /DDInter category files A, B, H/);
-    assert.match(a.sourceCitation, /Ciprofloxacin \(DDInter384, ATC J\/S\) x Ibuprofen \(DDInter900, ATC C\/G\/M\/R\)/);
+    assert.match(a.sourceCitation, /DDInter category files A, B, D, H, L, P, R, V/);
+    assert.match(a.sourceCitation, /Atorvastatin \(DDInter133, ATC C\) x Ciprofloxacin \(DDInter384, ATC J\/S\)/);
     assert.match(a.sourceCitation, /nothing is cleared/);
     assert.ok(a.description.length <= 400);
     assertBackendShape(a, 't-patient');
-    assert.deepEqual(r.report.notCheckable, ['ciprofloxacin|ibuprofen']);
+    assert.deepEqual(r.report.notCheckable, ['atorvastatin|ciprofloxacin']);
     assert.equal(r.report.validationFailed, 0);
   }
   const en = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p, language: 'en' }).alerts[0];
-  assert.equal(en.description, 'We could not check for an interaction when taking Ciprofloxacin with Ibuprofen: the part of our drug-interaction database that records interactions for these medicines is not available to us yet. This will be shown to a medical reviewer.');
+  assert.equal(en.description, 'We could not check for an interaction when taking Atorvastatin with Ciprofloxacin: the part of our drug-interaction database that records interactions for these medicines is not available to us yet. This will be shown to a medical reviewer.');
   const ar = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p }).alerts[0];
-  assert.equal(ar.description, 'لم نستطع التحقق من وجود تعارض عند أخذ Ciprofloxacin مع Ibuprofen، لأن الجزء الذي يسجّل تداخلات هذه الأدوية في قاعدة بيانات التداخلات الدوائية ليس متوفراً لدينا بعد. سيُعرض ذلك على مختص طبي للمراجعة.');
+  assert.equal(ar.description, 'لم نستطع التحقق من وجود تعارض عند أخذ Atorvastatin مع Ciprofloxacin، لأن الجزء الذي يسجّل تداخلات هذه الأدوية في قاعدة بيانات التداخلات الدوائية ليس متوفراً لدينا بعد. سيُعرض ذلك على مختص طبي للمراجعة.');
   for (const a of [en, ar]) assert.doesNotMatch(a.description, /—/, 'no em dash');
 });
 
-test('AP-06 false reassurance: Atorvastatin (ATC C) x Ibuprofen (ATC M) - the seed\'s own rx-004 x rx-002 pair - is cannot verify', () => {
+test('AP-06: Atorvastatin (ATC C) x Ibuprofen (ATC M) - the seed\'s own rx-004 x rx-002 pair - used to be cannot verify; the SFDA extension\'s file R now finds a real, ungraded DDInter row for it (G8: to the reviewer, never auto-cleared)', () => {
   const p = [rx('t-1', 'Ibuprofen'), rx('t-2', 'Atorvastatin')];
   const r = screen({ patientId: 't-patient', newPrescriptionId: 't-2', prescriptions: p });
   assert.equal(r.alerts.length, 1);
+  assert.equal(r.alerts[0].severity, 'info');
   assert.equal(r.alerts[0].reviewStatus, 'pending_medical_review');
   assert.ok(!r.alerts.some((a) => a.reviewStatus === 'auto_cleared'));
-  assert.deepEqual(r.report.notCheckable, ['atorvastatin|ibuprofen']);
+  assert.match(r.alerts[0].sourceCitation, /Records with no severity grade \(level "Unknown"\): Atorvastatin \(DDInter133\) x Ibuprofen \(DDInter900\)/);
+  assert.deepEqual(r.report.notCheckable, [], 'found (ungraded), not uncheckable - this pair is no longer a gap');
+  assert.equal(r.report.ungraded, 1);
 });
 
 test('AP-06: Ezetimibe x Amlodipine (both ATC C, no ATC recorded here) - the old TC-IX-02 fixture was a false all-clear and is now cannot verify', () => {
@@ -260,18 +272,24 @@ test('AP-06 fail closed: an index that does not record its loaded category files
 });
 
 test('AP-06: a missing drug and an uncheckable pair are both sent to the reviewer, and nothing reads clean', () => {
-  const p = [rx('t-new', 'Ibuprofen'), rx('t-a', 'Gliclazide'), rx('t-b', 'Ciprofloxacin')];
+  // Ciprofloxacin (new) x Ibuprofen would now be FOUND (see the two tests above) - Atorvastatin
+  // stays a durable "cannot verify" partner for Ciprofloxacin regardless of DDInter's row content.
+  const p = [rx('t-new', 'Ciprofloxacin'), rx('t-a', 'Gliclazide'), rx('t-b', 'Atorvastatin')];
   const r = screen({ patientId: 't-patient', newPrescriptionId: 't-new', prescriptions: p, language: 'en' });
   assert.equal(r.alerts.length, 2);
   assert.ok(r.alerts.every((a) => a.severity === 'info' && a.reviewStatus === 'pending_medical_review'));
   assert.ok(r.alerts.some((a) => /Gliclazide/.test(a.description)));
-  assert.ok(r.alerts.some((a) => /Ibuprofen with Ciprofloxacin/.test(a.description)));
+  assert.ok(r.alerts.some((a) => /Ciprofloxacin with Atorvastatin/.test(a.description)));
   assert.equal(r.report.validationFailed, 0);
 });
 
 test('AP-06: many uncheckable pairs are capped in the text, never dropped for length; the citation keeps them all', () => {
-  const p = [rx('t-new', 'Ibuprofen'), rx('t-1', 'Ciprofloxacin'), rx('t-2', 'Atorvastatin'), rx('t-3', 'Ezetimibe'), rx('t-4', 'Amlodipine'),
-             rx('t-5', 'Caffeine'), rx('t-6', 'Chlorpheniramine'), rx('t-7', 'Pseudoephedrine')];
+  // Atorvastatin (ATC C, never loaded) as the new prescription: these seven partners are every one of
+  // the old fixture's candidates (plus Acetaminophen) that DDInter's now-larger, 8-file dataset still
+  // has no row for - Ciprofloxacin was dropped from this list because Atorvastatin x Ciprofloxacin is
+  // covered by the pair-level fixture above already, and this test wants its OWN seven.
+  const p = [rx('t-new', 'Atorvastatin'), rx('t-1', 'Ezetimibe'), rx('t-2', 'Amlodipine'), rx('t-3', 'Caffeine'),
+             rx('t-4', 'Chlorpheniramine'), rx('t-5', 'Pseudoephedrine'), rx('t-6', 'Diphenhydramine'), rx('t-7', 'Acetaminophen')];
   for (const language of ['ar', 'en']) {
     const r = screen({ patientId: 't-patient', newPrescriptionId: 't-new', prescriptions: p, language });
     assert.equal(r.report.validationFailed, 0, JSON.stringify(r.evidence.validationFailures));
@@ -281,7 +299,7 @@ test('AP-06: many uncheckable pairs are capped in the text, never dropped for le
     assert.equal(a.reviewStatus, 'pending_medical_review');
     assert.equal(a.involvedPrescriptionIds.length, 8);
     assert.ok(a.description.length <= 400, String(a.description.length));
-    for (const d of ['DDInter384', 'DDInter133', 'DDInter707', 'DDInter79']) assert.match(a.sourceCitation, new RegExp(d));
+    for (const d of ['DDInter133', 'DDInter707', 'DDInter79', 'DDInter14']) assert.match(a.sourceCitation, new RegExp(d));
   }
 });
 
