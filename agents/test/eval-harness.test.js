@@ -328,13 +328,16 @@ test('AP-08 step 2: non-interacting pairs are reported, with no invented thresho
 });
 
 // ------------------------------------------------------------------------------ travel
-test('AP-08 step 2: travel runs agent-travel-check\'s own nodes - its BRAND_PROMPT, then the SFDA brand map', async (t) => {
+test('AP-08 step 2: travel runs agent-travel-check\'s own nodes - its BRAND_PROMPT and schema, then the SFDA brand map', async (t) => {
+  const { RESPONSE_SCHEMA: TC_RESPONSE_SCHEMA } = require('../knowledge/src/travel-check.js');
   const dir = tmp(t);
   const brand = BRANDS.brands.find((b) => b.verified === true);
   fs.writeFileSync(path.join(dir, 'box.png'), PNG);
   const file = writeSet(dir, 'travel', [{ id: 'box-1', file: 'box.png', expected: { brand: brand.brand, ingredients: brand.ingredients }, suppliedBy: 'test fixture' }]);
   const calls = [];
-  const transport = async (req) => { calls.push(req); return gemini(brand.brand); };
+  // 2026-09-26: the model's answer is JSON matching TC_RESPONSE_SCHEMA, not a bare name.
+  const modelRead = (over) => JSON.stringify(Object.assign({ isMedicine: true, brandAsPrinted: null, ingredientsAsPrinted: [], strengthAsPrinted: null }, over));
+  const transport = async (req) => { calls.push(req); return gemini(modelRead({ brandAsPrinted: brand.brand })); };
   const p = printer();
   const r = await evaluate({ smoke: file, transport, sleep: noSleep, print: p.print, env: {} });
   assert.equal(r.exitCode, 0, p.out.join('\n'));
@@ -343,10 +346,15 @@ test('AP-08 step 2: travel runs agent-travel-check\'s own nodes - its BRAND_PROM
   const code = wf.nodes.find((n) => n.name === 'input (deterministic)').parameters.jsCode;
   const brandPrompt = JSON.parse(code.match(/^const BRAND_PROMPT = (".*");$/m)[1]);
   assert.equal(calls[0].body.contents[0].parts[0].text, brandPrompt);
-  assert.deepEqual(calls[0].body.generationConfig, { temperature: 0 });
+  assert.deepEqual(calls[0].body.generationConfig, { temperature: 0, responseMimeType: 'application/json', responseSchema: TC_RESPONSE_SCHEMA });
 
-  // G5: the model's UNREADABLE is honoured - not identified.
-  const r2 = await evaluate({ smoke: file, transport: async () => gemini('UNREADABLE'), sleep: noSleep, print: () => {}, env: {} });
+  // decision (a): isMedicine:false -> not_a_medicine, never identified.
+  const r0 = await evaluate({ smoke: file, transport: async () => gemini(modelRead({ isMedicine: false })), sleep: noSleep, print: () => {}, env: {} });
+  assert.equal(r0.exitCode, 1);
+  assert.equal(r0.sets[0].results[0].got, 'not_a_medicine');
+
+  // G5, restated in the new schema: isMedicine:true but nothing legible printed - not identified.
+  const r2 = await evaluate({ smoke: file, transport: async () => gemini(modelRead({})), sleep: noSleep, print: () => {}, env: {} });
   assert.equal(r2.exitCode, 1);
   assert.equal(r2.sets[0].results[0].got, 'could_not_identify');
 });

@@ -29,16 +29,28 @@ const OUTCOME = {
 };
 
 /**
- * Build a lookup index from the VERIFIED brand-map rows and the interaction
- * index's own ingredient names.
+ * Build a lookup index from the VERIFIED brand-map rows, the SFDA registered-drug list (decision (c),
+ * 2026-09-26 - "the whole Saudi SFDA registered-drug list becomes the brand source"), and the
+ * interaction index's own ingredient names.
  * Brand row shape: { brand, ingredients: string[], aliases?: string[], sfdaTradeName, verified }
  *
  * ingredients is an ARRAY because a trade name can carry several active
  * ingredients (Panadol Cold & Flu = paracetamol + pseudoephedrine +
  * chlorpheniramine). Resolving only the headline one would silently drop two
  * screenable drugs.
+ *
+ * sfda is agents/knowledge/data/sfda-brands.json's `names` map (produced by another builder; a
+ * missing file is simply `undefined`/`null` here, which contributes nothing - never an error):
+ *   { "<BASE TRADE NAME>": [["INGREDIENT A", "INGREDIENT B"], ...] }
+ * Each value is every DISTINCT ingredient set SFDA registers under that base name. brand-map.json's
+ * own hand-verified rows are added FIRST and always win a conflict (the `if (!byKey.has(key))` guard
+ * below never overwrites them) - SFDA is a bulk, unverified-by-a-human source; brand-map.json is
+ * where a human (AP-07) has actually looked. A base name with more than one distinct ingredient set
+ * is ambiguous (the very shape a bare "PANADOL" already asks about) and is marked with
+ * `ambiguousSets` rather than picked for the patient: resolveToIngredient turns that into
+ * needs_confirmation, never a guess at which formulation this box is.
  */
-function buildBrandIndex(brandRows, index) {
+function buildBrandIndex(brandRows, index, sfda) {
   const byKey = new Map();
   for (const row of brandRows || []) {
     if (!row || row.verified !== true) continue;
@@ -52,6 +64,26 @@ function buildBrandIndex(brandRows, index) {
     // combination product: one component must not resolve to the whole product.
     if ((row.ingredients || []).length === 1) {
       for (const key of candidateKeys(row.ingredients[0])) {
+        if (!byKey.has(key)) byKey.set(key, row);
+      }
+    }
+  }
+  if (sfda && typeof sfda === 'object') {
+    for (const [rawName, sets] of Object.entries(sfda)) {
+      if (!Array.isArray(sets) || sets.length === 0) continue;
+      const distinct = [];
+      for (const set of sets) {
+        if (!Array.isArray(set) || set.length === 0) continue;
+        const labels = set.map((x) => String(x)).filter(Boolean);
+        if (labels.length === 0) continue;
+        const setKey = labels.map((x) => candidateKeys(x)[0] || x.toLowerCase()).sort().join('+');
+        if (!distinct.some((s) => s.setKey === setKey)) distinct.push({ setKey, labels });
+      }
+      if (distinct.length === 0) continue;
+      const row = distinct.length === 1
+        ? { brand: rawName, ingredients: distinct[0].labels, sfdaTradeName: rawName, verified: true, viaSfda: true }
+        : { brand: rawName, ingredients: null, ambiguousSets: distinct.map((s) => s.labels), sfdaTradeName: rawName, verified: true, viaSfda: true };
+      for (const key of candidateKeys(rawName)) {
         if (!byKey.has(key)) byKey.set(key, row);
       }
     }
@@ -88,6 +120,13 @@ function resolveToIngredient(rawName, brandIndex, opts) {
   for (const key of keys) {
     const row = brandIndex.get(key);
     if (row) {
+      // The SFDA source (buildBrandIndex) marks a base name that registers more than one distinct
+      // ingredient set this way: the same box name, more than one possible formulation. Exactly the
+      // situation a bare family name already asks about below - never pick one, ask instead.
+      if (row.ambiguousSets) {
+        return { outcome: OUTCOME.NEEDS_CONFIRMATION, reason: 'sfda_multiple_ingredient_sets',
+                 candidates: row.ambiguousSets.map((set) => set.join(' + ')), input: rawName };
+      }
       // A bare family name ("PANADOL") while the map also holds line extensions of it
       // ("PANADOL COLD & FLU", "PANADOL NIGHT") is ambiguous: the box may be a combination
       // product whose extra ingredients would go unscreened. Never pick the base product. The
@@ -143,6 +182,78 @@ function resolveToIngredient(rawName, brandIndex, opts) {
 }
 
 /**
+ * resolveFields({ brandAsPrinted, ingredientsAsPrinted }, brandIndex, pendingNames, opts)
+ *
+ * The field-by-field policy from the owner's 2026-09-26 decisions (a, d) on the new travel-check
+ * vision schema ({ isMedicine, brandAsPrinted, ingredientsAsPrinted, strengthAsPrinted }):
+ *
+ *   1. brandAsPrinted is tried FIRST and ALONE, through the exact-match / one-edit-near-miss path
+ *      above - never a fuzzy accept. A brand that IS printed but does not resolve is either a
+ *      KNOWN-BUT-UNVERIFIED brand (brand_not_verified, from brand-map.json's own pendingVerification
+ *      list) or a name this project has never heard of at all (not_in_mapping_table / an ambiguous
+ *      near-miss menu). Either way, ingredientsAsPrinted is NEVER consulted as a fallback: a
+ *      printed-but-unverified brand's ingredients are exactly the one reading decision (d) says not
+ *      to trust the model with on its own say-so.
+ *   2. Only when NO brand is printed does ingredientsAsPrinted get used, each entry EXACT-matched
+ *      only (no near-miss - "did you mean...?" only makes sense for a brand name, not for a string
+ *      the model already claims is a plain ingredient). A combination resolves only when EVERY entry
+ *      resolves; one miss refuses the whole reading rather than screening a partial list.
+ *   3. Neither field printed or legible at all -> unresolved, 'no_readable_name' (the photo carried
+ *      nothing to look up - the caller's G5 path).
+ */
+function resolveFields(fields, brandIndex, pendingNames, opts) {
+  const brand = fields && typeof fields.brandAsPrinted === 'string' ? fields.brandAsPrinted.trim() : '';
+  const ingredients = Array.isArray(fields && fields.ingredientsAsPrinted)
+    ? fields.ingredientsAsPrinted.filter((x) => typeof x === 'string' && x.trim())
+    : [];
+
+  if (brand) {
+    const r = resolveToIngredient(brand, brandIndex, opts);
+    if (r.outcome === OUTCOME.RESOLVED || r.outcome === OUTCOME.NEEDS_CONFIRMATION) return r;
+    if (pendingNames) {
+      for (const key of candidateKeys(brand)) {
+        const label = pendingNames.get(key);
+        if (label) return { outcome: OUTCOME.UNRESOLVED, reason: 'brand_not_verified', brandLabel: label, input: brand };
+      }
+    }
+    return r;
+  }
+
+  if (ingredients.length === 0) return { outcome: OUTCOME.UNRESOLVED, reason: 'no_readable_name', input: null };
+
+  // Exact match only: pass a near-miss threshold no printed ingredient name can ever reach.
+  const exactOnly = Object.assign({}, opts, { minLenForNearMiss: Infinity });
+  const parts = [];
+  for (const name of ingredients) {
+    const r = resolveToIngredient(name, brandIndex, exactOnly);
+    if (r.outcome !== OUTCOME.RESOLVED) {
+      return { outcome: OUTCOME.UNRESOLVED, reason: 'combination_ingredient_unresolved', missing: name, input: ingredients };
+    }
+    parts.push(r);
+  }
+  const ingredientKeys = [];
+  const ingredientLabels = [];
+  for (const part of parts) {
+    for (let i = 0; i < part.ingredients.length; i++) {
+      if (ingredientKeys.indexOf(part.ingredients[i]) === -1) {
+        ingredientKeys.push(part.ingredients[i]);
+        ingredientLabels.push(part.ingredientLabels[i]);
+      }
+    }
+  }
+  return {
+    outcome: OUTCOME.RESOLVED,
+    ingredients: ingredientKeys,
+    ingredientLabels,
+    isCombination: ingredientKeys.length > 1,
+    brandLabel: ingredientLabels.join(' + '),
+    via: 'ingredients_as_printed',
+    matchedOn: ingredients.join(' + '),
+    sfdaTradeName: null
+  };
+}
+
+/**
  * A lookup from a normalised candidate key to an UNVERIFIED brand's own label (data/brand-map.json
  * pendingVerification.brands), so a box we refuse to resolve can still be told apart from a name we
  * have never heard of at all (CR-078: cannot_verify, reason brand_not_verified).
@@ -165,4 +276,4 @@ function buildPendingNames(rows) {
   return byKey;
 }
 
-module.exports = { OUTCOME, buildBrandIndex, resolveToIngredient, buildPendingNames };
+module.exports = { OUTCOME, buildBrandIndex, resolveToIngredient, resolveFields, buildPendingNames };

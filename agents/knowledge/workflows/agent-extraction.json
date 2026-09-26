@@ -74,15 +74,15 @@
         "nodeCredentialType": "googlePalmApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.visionBody) }}",
+        "jsonBody": "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}",
         "options": {
           "response": {
             "response": {
               "fullResponse": true,
-              "neverError": true
+              "neverError": false
             }
           },
-          "timeout": 60000
+          "timeout": 19000
         }
       },
       "id": "c3000000-0000-4000-8000-000000000004",
@@ -91,10 +91,42 @@
       "typeVersion": 4.2,
       "position": [
         -240,
-        -80
+        -160
       ],
-      "retryOnFail": true,
-      "maxTries": 2,
+      "retryOnFail": false,
+      "maxTries": 1,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('input (deterministic)').first().json.visionBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 19000
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000016",
+      "name": "Gemini fallback: read the prescription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        0
+      ],
+      "retryOnFail": false,
+      "maxTries": 1,
       "waitBetweenTries": 2000
     },
     {
@@ -324,6 +356,24 @@
       ]
     },
     "Gemini: read the prescription": {
+      "main": [
+        [
+          {
+            "node": "validate (deterministic)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini fallback: read the prescription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini fallback: read the prescription": {
       "main": [
         [
           {

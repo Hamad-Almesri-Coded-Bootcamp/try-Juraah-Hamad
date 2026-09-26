@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "source": "test fixture only - not a real SFDA export",
+    "url": "https://www.sfda.gov.sa/en/drugs-list",
+    "retrievedAt": "2026-09-26",
+    "sha256": "test-fixture-not-a-real-hash",
+    "rows": 3,
+    "names": 2
+  },
+  "names": {
+    "GLUCOFORM": [
+      ["Metformin Hydrochloride"]
+    ],
+    "COLDMEX": [
+      ["Acetaminophen"],
+      ["Acetaminophen", "Caffeine"]
+    ]
+  }
+}

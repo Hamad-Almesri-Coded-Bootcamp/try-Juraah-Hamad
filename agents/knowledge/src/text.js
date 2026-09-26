@@ -117,6 +117,11 @@ const ALERT_TEXT = {
 
 /** Travel-check answers (returned to the caller for the drug-check screen or a chat reply; not stored). */
 const TRAVEL_TEXT = {
+  not_a_medicine(l) {
+    return lang(l) === 'en'
+      ? "That does not look like a medicine package, so I have not checked it against your medicines. If it is medicine, try a clearer photo of the box, blister strip or label."
+      : 'ذا ما يبين إنه علبة دواء، فما فحصته مع أدويتك. إذا كان دواء فعلاً، جرّب صورة أوضح للعلبة أو الشريط أو الملصق.';
+  },
   could_not_identify(l) {
     return lang(l) === 'en'
       ? 'I could not read a medicine name I can match from that photo. Try a clearer picture of the front of the box, or ask a pharmacist before taking it.'
