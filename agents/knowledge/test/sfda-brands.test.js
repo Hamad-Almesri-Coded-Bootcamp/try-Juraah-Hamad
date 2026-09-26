@@ -85,9 +85,55 @@ test('form removal: dosage-form words are stripped, wherever they sit and whatev
   assert.equal(computeBaseTradeName('WIDGET film-coated tablet'), 'WIDGET');
   assert.equal(computeBaseTradeName('WIDGET SUSPENSION*'), 'WIDGET', 'a form word followed by stray punctuation (not whitespace) is still a whole word');
   assert.equal(computeBaseTradeName('WIDGET PRE-FILLED SYRINGE'), 'WIDGET');
-  // A near-miss spelling of a form word is NOT the form word and is left alone
-  // (this build corrects no typos in the source data):
-  assert.equal(computeBaseTradeName('WIDGET TABLETE'), 'WIDGET TABLETE');
+  // A near-miss spelling of a form word that is NOT on the documented misspelling list below is left
+  // alone (this build corrects no typo it has not actually observed in the source data):
+  assert.equal(computeBaseTradeName('WIDGET TABLZT'), 'WIDGET TABLZT');
+});
+
+test('form removal (reviewer findings, 2026-09-26): CAPLET(S), GRANULES, LOZENGES, SOFTGELS/SOFT GELATIN, ELIXIR, LOTION, SHAMPOO, TRANSDERMAL PATCH(ES), EXTENDED/PROLONGED/MODIFIED RELEASE, GASTRO RESISTANT, RECTAL and bare/ENTERIC COATED are stripped, and never leave a stranded prefix word', () => {
+  assert.equal(computeBaseTradeName('WIDGET CAPLET'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET CAPLETS'), 'WIDGET');
+  assert.equal(computeBaseTradeName('OFLAM GRANULES'), 'OFLAM', 'real row');
+  assert.equal(computeBaseTradeName('WIDGET LOZENGES'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SOFTGEL'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SOFT GELATIN'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET ELIXIR'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET LOTION'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SHAMPOO'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET TRANSDERMAL PATCH'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET TRANSDERMAL PATCHES'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET EXTENDED RELEASE'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET PROLONGED RELEASE'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET MODIFIED RELEASE'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET GASTRO RESISTANT'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET GASTRO-RESISTANT'), 'WIDGET');
+  // RECTAL is a route word, not identity (real rows: "ADOL RECTAL", "ADOL RECTAL SUUPPOSITORIES"):
+  assert.equal(computeBaseTradeName('ADOL RECTAL'), 'ADOL');
+  assert.equal(computeBaseTradeName('ADOL RECTAL SUUPPOSITORIES'), 'ADOL', 'RECTAL and the SUUPPOSITORIES typo both strip, never stranding RECTAL alone');
+  // Bare COATED (no FILM/ENTERIC prefix) and ENTERIC COATED, alongside the existing FILM COATED case:
+  assert.equal(computeBaseTradeName('KLACID COATED'), 'KLACID', 'real row - bare COATED with no FILM/ENTERIC prefix');
+  assert.equal(computeBaseTradeName('WIDGET ENTERIC COATED'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET FILM COATED TABLET'), 'WIDGET', 'still stripped after the COATED pattern was generalised');
+  assert.equal(computeBaseTradeName('WIDGET COATED'), 'WIDGET', 'a bare FILM/ENTERIC prefix is optional, so it is never left stranded when absent');
+});
+
+test('form removal (reviewer findings, 2026-09-26): the observed misspellings TABLETE, SUUPPOSITORIES, COTED and SYRING are stripped, without eating a correctly spelled neighbour', () => {
+  assert.equal(computeBaseTradeName('PANADOL ACTIFAST TABLETE'), 'PANADOL ACTIFAST', 'real row');
+  assert.equal(computeBaseTradeName('WIDGET SUUPPOSITORIES'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SUUPPOSITORY'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET COTED'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET FILM COTED'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SYRING'), 'WIDGET');
+  // The typo pattern is still a WHOLE word: it must never eat part of a correctly spelled neighbour.
+  assert.equal(computeBaseTradeName('WIDGET SYRINGE'), 'WIDGET SYRINGE', 'SYRING is bounded so it never matches as a prefix of the correctly spelled SYRINGE');
+});
+
+test('form removal (reviewer findings, 2026-09-26): the exact names the finding named now resolve to one base', () => {
+  assert.equal(computeBaseTradeName('ADOL EXTRA CAPLETS'), computeBaseTradeName('ADOL EXTRA'));
+  assert.equal(computeBaseTradeName('ADOL EXTRA CAPLETS'), 'ADOL EXTRA');
+  assert.equal(computeBaseTradeName('KLACID COATED'), computeBaseTradeName('KLACID'));
+  assert.equal(computeBaseTradeName('PANADOL SINUS CAPLET'), 'PANADOL SINUS');
+  assert.equal(computeBaseTradeName('PANADOL EXTRA CAPLETS'), computeBaseTradeName('PANADOL EXTRA'));
 });
 
 test('form removal: F.C. is recognised with a dot, a hyphen or a space (real row: "SEROQUEL 300MG F-C TABS")', () => {

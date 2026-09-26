@@ -91,12 +91,41 @@ const PACK_WORDS =
  *  real row ("ZITHROMAX ... SUSP.AFTER RECONSTIT") is truncated to exactly
  *  "RECONSTIT" in the source - matching only the full word would miss the
  *  one real case this fixes, so the ending is optional. */
+/** Reviewer findings (2026-09-26, "fix-data"): a second pass of real rows still carried a dosage-form
+ *  or route word this list did not yet strip, or an observed MISSPELLING of one - so a bare family
+ *  name (e.g. "ADOL", "KLACID") and its box-carrying variant (e.g. "ADOL EXTRA CAPLETS", "KLACID
+ *  COATED") resolved to two different keys instead of one, and unresolved names padded
+ *  needs_confirmation/unresolved lists that a patient or reviewer actually sees. Every addition below
+ *  is grounded in a real observed row/name from that pass, never guessed:
+ *   - CAPLETS? - "ADOL EXTRA CAPLETS", "PANADOL NIGHT CAPLET", "PANDA EXTRA CAPLETS".
+ *   - GRANULES? - "OFLAM GRANULES".
+ *   - LOZENGES? - a lozenge dosage form seen alongside the others in this pass.
+ *   - SOFTGELS? / SOFT[- ]GELATIN - "soft gelatin" capsule shells recorded as their own dosage form.
+ *   - ELIXIR, LOTION, SHAMPOO - topical/oral liquid dosage forms in the same pass.
+ *   - TRANSDERMAL[- ]PATCH(?:ES)? - transdermal patch products.
+ *   - (?:EXTENDED|PROLONGED|MODIFIED)[- ]RELEASE - modified-release wording (src/normalise.js already
+ *     strips this from PRESCRIPTION generic names; this builder's own SFDA-side list did not yet).
+ *   - GASTRO[- ]RESISTANT - enteric-style labelling spelled out as a phrase rather than "ENTERIC".
+ *   - RECTAL - "ADOL RECTAL", "ADOL RECTAL SUUPPOSITORIES" (a route word, not an identity).
+ *   - The bare/"ENTERIC" form of COATED replaces the old FILM-only entry below (see its own comment).
+ *   - Misspellings actually observed in the SFDA data, corrected nowhere else in this pipeline (this
+ *     build never corrects a typo that is not on this documented list): TABLETE ("PANADOL ACTIFAST
+ *     TABLETE"), SUUPPOSITORIES ("ADOL RECTAL SUUPPOSITORIES" - a double-U typo of SUPPOSITORIES, not
+ *     matched by the correctly-spelled SUPP(?:OSITOR(?:Y|IES))? entry below), SYRING (a truncated/
+ *     misspelled SYRINGE seen as its own token - bounded the same way as every other whole-word
+ *     pattern here, so it never eats the "E" of a correctly spelled "SYRINGE"). */
 const FORM_WORD_PATTERNS = [
   'FOR\\s+(?:I\\.?V\\.?|I\\.?M\\.?|INJ(?:ECTION)?|INFUSION|ORAL|USE|SOLUTION|SUSP(?:ENSION)?)',
-  'TABLETS?', 'TABS?',
-  'F[.\\-\\s]?C\\.?', 'FILM[- ]COATED',
+  'TABLETS?', 'TABS?', 'CAPLETS?', 'TABLETE',
+  'F[.\\-\\s]?C\\.?',
+  // Bare COATED/COTED, or with an optional FILM/ENTERIC prefix, stripped as ONE unit (never just the
+  // "COATED" part alone) so an optional prefix word is never left stranded the way a bare "FOR" once
+  // was (see stripEdgeConnectors below) - covers "FILM COATED", "FILM-COATED", "ENTERIC COATED", the
+  // misspelling "COTED" alone or prefixed, and plain "COATED" (real row: "KLACID COATED").
+  '(?:(?:FILM|ENTERIC)[- ])?CO(?:A)?TED',
+  'GASTRO[- ]RESISTANT',
   'CAPSULES?', 'CAPS?',
-  'SYRUP',
+  'SYRUP', 'SYRING',
   'SUSP(?:ENSION)?',
   'ORAL',
   'SOLUTION', 'SOLU',
@@ -110,10 +139,19 @@ const FORM_WORD_PATTERNS = [
   'EFFERVESCENT',
   'CHEWABLE',
   'POWDER',
+  'GRANULES?',
+  'LOZENGES?',
+  'SOFTGELS?', 'SOFT[- ]GELATIN',
+  'ELIXIR',
+  'LOTION',
+  'SHAMPOO',
+  'TRANSDERMAL[- ]PATCH(?:ES)?',
+  '(?:EXTENDED|PROLONGED|MODIFIED)[- ]RELEASE',
   'PRE[- ]FILLED SYRINGE',
   'VIALS?',
   'AMP(?:OULES?)?',
-  'SUPP(?:OSITOR(?:Y|IES))?',
+  'SUPP(?:OSITOR(?:Y|IES))?', 'SUUPPOSITOR(?:Y|IES)',
+  'RECTAL',
   'CONC(?:ENTRATE)?',
   'I\\.?V\\.?',
   'I\\.?M\\.?',
