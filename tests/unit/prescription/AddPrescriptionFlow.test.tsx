@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AddPrescriptionFlow } from '@/features/prescription/AddPrescriptionFlow';
-import { getPrescriptions } from '@/lib/data';
+import { getPrescriptions, savePrescriptionDraft, submitPrescriptionImage } from '@/lib/data';
 import { copy, t } from '@/i18n';
 import { reset } from '@/lib/data/mock/store';
 import { setScriptSession } from '@/lib/session/cookie';
@@ -16,10 +16,21 @@ import { setScriptSession } from '@/lib/session/cookie';
 const pushMock = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
 
+// A2 — every other test in this file calls straight through to the real implementation (the spy's
+// default behaviour, since it wraps `actual`); only the dedicated A2 describe block below overrides
+// one call at a time with `mockRejectedValueOnce`, to force the transport failure the real mock
+// backend has no honest path to produce.
+vi.mock('@/lib/data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/data')>();
+  return { ...actual, submitPrescriptionImage: vi.fn(actual.submitPrescriptionImage), savePrescriptionDraft: vi.fn(actual.savePrescriptionDraft) };
+});
+
 afterEach(() => {
   cleanup();
   setScriptSession(null);
   pushMock.mockClear();
+  vi.mocked(submitPrescriptionImage).mockClear();
+  vi.mocked(savePrescriptionDraft).mockClear();
 });
 
 beforeEach(() => {
@@ -58,7 +69,11 @@ describe('B4 — confident outcome (100+ bytes)', () => {
     // The prescriber note belongs to the capture step only (copy pass), never to the review.
     expect(screen.queryByText(t(copy.prescription.b4PrescriberFieldsNote, 'en'))).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm and save' }));
+    // findByRole, not getByRole: useTransition's isPending can still be clearing on the render right
+    // after b4ReviewHeading first appears (the button reads "Confirm and saveLoading" for that one
+    // commit), so this polls the same way findByText above already does rather than assuming the
+    // button has already settled.
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm and save' }));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/en/app/medicines'));
 
     const after = await getPrescriptions('pt-01');
@@ -73,7 +88,9 @@ describe('B4 — needs_review outcome (1–99 bytes)', () => {
 
     await screen.findByText(t(copy.prescription.b4NeedsReviewNoticeTitle, 'en'));
     expect(screen.getAllByText('Unclear in the photo').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Confirm and save' })).toBeInTheDocument();
+    // findByRole: see the sibling "confident outcome" test for why this polls rather than asserts
+    // the button has already settled out of useTransition's momentary "Loading" state.
+    expect(await screen.findByRole('button', { name: 'Confirm and save' })).toBeInTheDocument();
     // The draft's generic name is the seed's "(unreadable)": shown in words, never the literal.
     expect(container.textContent).not.toContain('(unreadable)');
     expect(container.textContent).not.toMatch(/[—–]/);
@@ -119,5 +136,32 @@ describe('B4 — unreadable outcome (0 bytes): no fabricated record', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Try another photo' }));
     expect(screen.getByText('Prescription photo')).toBeInTheDocument();
+  });
+});
+
+describe('B4 — A2: a forced rejection never leaves the screen stuck on "analysing"', () => {
+  it('the read itself throwing leaves analysing for the unreadable error state, with the generic send-failed line', async () => {
+    vi.mocked(submitPrescriptionImage).mockRejectedValueOnce(new Error('ECONNRESET'));
+    const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
+    choosePhoto(container, fileOfSize(150));
+
+    // Proves it does not hang: a stuck "analysing" would time this query out rather than resolve it.
+    await screen.findByText(t(copy.prescription.b4UnreadableTitle, 'en'));
+    expect(screen.queryByText('Reading your prescription…')).not.toBeInTheDocument();
+    expect(screen.getByText(t(copy.vocabulary.photoSendFailed, 'en'))).toBeInTheDocument();
+    expect(screen.queryByText(t(copy.prescription.b4UnreadableDescription, 'en'))).not.toBeInTheDocument();
+  });
+
+  it('confirming a real draft whose save then throws also lands on the unreadable error state, never a silent freeze', async () => {
+    vi.mocked(savePrescriptionDraft).mockRejectedValueOnce(new Error('ECONNRESET'));
+    const { container } = render(<AddPrescriptionFlow locale="en" patientId="pt-01" backHref="/en/app/medicines" />);
+    choosePhoto(container, fileOfSize(150));
+    await screen.findByText(t(copy.prescription.b4ReviewHeading, 'en'));
+
+    // findByRole: see the "confident outcome" test above for why this polls.
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm and save' }));
+    await screen.findByText(t(copy.prescription.b4UnreadableTitle, 'en'));
+    expect(screen.getByText(t(copy.vocabulary.photoSendFailed, 'en'))).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

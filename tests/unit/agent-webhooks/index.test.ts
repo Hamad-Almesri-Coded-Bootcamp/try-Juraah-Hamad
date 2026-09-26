@@ -63,6 +63,12 @@ describe('configured', () => {
     expect(body).toEqual({ patientId: 'pt-03', imageBase64: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64'), mimeType: 'image/jpeg', language: 'en' });
   });
 
+  it('travel check: a not_a_medicine appOutcome comes back unchanged too', async () => {
+    const m = await load({ ...URLS, JURAH_AGENT_INBOUND_SECRET: 'secret-value' });
+    fetchMock.mockResolvedValueOnce(reply(200, { ok: true, appOutcome: { kind: 'not_a_medicine' } }));
+    expect(await m.askTravelCheck('pt-03', JPEG(), 'ar')).toEqual({ kind: 'not_a_medicine' });
+  });
+
   it('travel check: a network error, a timeout or a non-image is could_not_identify — never the stub', async () => {
     const m = await load({ ...URLS, JURAH_AGENT_INBOUND_SECRET: 'secret-value' });
     fetchMock.mockRejectedValueOnce(new Error('ECONNRESET'));

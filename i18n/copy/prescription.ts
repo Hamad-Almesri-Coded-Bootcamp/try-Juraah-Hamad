@@ -126,7 +126,9 @@ export const prescription = {
   // B4 — analysing (visible text, not just the skeleton's screen-reader label — UX Principles §5:
   // "say what is happening and roughly how long")
   b4AnalysingTitle: { ar: 'جارٍ قراءة الوصفة…', en: 'Reading your prescription…', placeholder: true },
-  b4AnalysingBody: { ar: 'يستغرق هذا عادةً أقل من نصف دقيقة.', en: 'This usually takes less than half a minute.', placeholder: true },
+  // A5: true for VISION_TIMEOUT_MS (lib/agent-webhooks/index.ts) — the app's own 45 s ceiling, not a
+  // typical-case guess. Was "usually less than half a minute", which a 45 s worst case can outrun.
+  b4AnalysingBody: { ar: 'قد يستغرق هذا حتى ٤٥ ثانية.', en: 'This can take up to 45 seconds.', placeholder: true },
 
   // B4 — review-and-confirm
   b4ReviewHeading: { ar: 'راجع قبل الحفظ', en: 'Review before saving', placeholder: true },

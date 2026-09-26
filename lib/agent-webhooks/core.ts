@@ -5,8 +5,9 @@
  * Every answer from n8n is UNTRUSTED input. Each reader below accepts exactly the app's own shape
  * and turns anything else into the conservative outcome the screen already has:
  *   - drug check  → `could_not_identify` (never a guessed drug, never a false "no interaction"),
- *                    or `cannot_verify` (CR-078) when the agent recognised the medicine but could
- *                    not screen it against the whole profile;
+ *                    `cannot_verify` (CR-078) when the agent recognised the medicine but could
+ *                    not screen it against the whole profile, or `not_a_medicine` when the agent's
+ *                    own classification says the photo is not a medicine at all;
  *   - extraction  → `unreadable` (never a fabricated record).
  * An extracted prescription is checked with the backend's OWN validator (lib/agent/validate.ts
  * parsePrescriptionBody, the one POST /api/agent/prescriptions uses) plus CR-002 invariant (1), so
@@ -64,14 +65,15 @@ export function travelPayload(patientId: string, imageBase64: string, mimeType: 
 
 /**
  * agent-travel-check's answer → the app's DrugCheckOutcome. Only `appOutcome` is read; anything
- * unexpected is could_not_identify. `cannot_verify` (CR-078) passes through as its own outcome —
- * extra fields on it are never read.
+ * unexpected is could_not_identify. `cannot_verify` (CR-078) and `not_a_medicine` both pass through
+ * as their own outcome — extra fields on either are never read (no alert, no readAs).
  */
 export function readDrugCheck(status: number, body: unknown): DrugCheckOutcome {
   if (status < 200 || status >= 300 || !isObj(body) || !isObj(body.appOutcome)) return COULD_NOT_IDENTIFY;
   const o = body.appOutcome;
   if (o.kind === 'could_not_identify') return COULD_NOT_IDENTIFY;
   if (o.kind === 'cannot_verify') return { kind: 'cannot_verify' };
+  if (o.kind === 'not_a_medicine') return { kind: 'not_a_medicine' };
   if (o.kind !== 'identified') return COULD_NOT_IDENTIFY;
   if (typeof o.drugName !== 'string' || o.drugName.trim().length === 0 || o.drugName.length > 200) return COULD_NOT_IDENTIFY;
   if (o.verdict !== 'no_interaction' && o.verdict !== 'interaction_found') return COULD_NOT_IDENTIFY;
