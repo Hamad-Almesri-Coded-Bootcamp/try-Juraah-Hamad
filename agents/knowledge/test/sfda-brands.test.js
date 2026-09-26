@@ -18,6 +18,8 @@ const {
   ingredientSet,
   buildNamesIndex,
   buildBrandsFile,
+  stripEdgeConnectors,
+  stripOwnStrengthTokens,
   INPUT_PATH,
   OUTPUT_PATH
 } = require('../scripts/build-sfda-brands.js');
@@ -34,6 +36,46 @@ test('strength removal: a plain "NUMBER UNIT" strength token is stripped', () =>
   assert.equal(computeBaseTradeName('WIDGET 15MG-ML SOLU'), 'WIDGET');
 });
 
+test('strength removal: newly-recognised units (GM, MICROGM/MICROGRAM, MMOL, MEQ, dotted I.U) are stripped, including in the per-ML shape', () => {
+  assert.equal(computeBaseTradeName('WIDGET 1GM TAB'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 1.0 MICROGM'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 2MICROGRAM-ML'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 40MEQ'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 0.25MMOL-ML'), 'WIDGET');
+  // Real spellings of the same per-ML concentration: a dot, a space, both, or
+  // neither, and a bare backslash as the separator (real row: "NOVORAPID
+  // FLEXPEN 100U\ML"):
+  assert.equal(computeBaseTradeName('WIDGET 100 I.U - ML VIAL'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 100 I U ML VIAL'), 'WIDGET');
+  // "DISPOSABLE PEN" is a device descriptor, not a dosage-form word this
+  // build strips (out of scope) - only the per-ML token itself is removed:
+  assert.equal(computeBaseTradeName('WIDGET 100I.U-ML DISPOSABLE PEN'), 'WIDGET DISPOSABLE PEN');
+  assert.equal(computeBaseTradeName('WIDGET 100U\\ML'), 'WIDGET');
+});
+
+test('strength removal: the row\'s own strength value(s) are removed as a whole bare number, never a substring of a longer number (real rows: LYRICA, OLFEN, MESPORIN)', () => {
+  assert.equal(computeBaseTradeName('LYRICA 75', '75'), 'LYRICA');
+  assert.equal(computeBaseTradeName('LYRICA 75 MG CAPSULES', '75'), 'LYRICA');
+  assert.equal(computeBaseTradeName('OLFEN-75', '75,20'), 'OLFEN', 'a combination strength ("75,20") is split on the comma and each value tried');
+  assert.equal(computeBaseTradeName('MESPORIN 500 I.M.', '500'), 'MESPORIN');
+  // The bare number must be a WHOLE token: strength "75" must never eat part
+  // of an unrelated "1750" that merely contains "75":
+  assert.equal(computeBaseTradeName('WIDGET 1750', '75'), 'WIDGET 1750');
+  // No strength passed at all (as every other fixture in this file does):
+  // behaviour is unchanged from before this fix.
+  assert.equal(computeBaseTradeName('WIDGET 75'), 'WIDGET 75');
+});
+
+test('stripOwnStrengthTokens: a whole-token bare number is removed, but never a substring of a longer number or of a decimal (isolated from the later punctuation-normalise step, which turns EVERY dot into a space regardless)', () => {
+  assert.equal(stripOwnStrengthTokens('WIDGET 75', '75'), 'WIDGET  ');
+  assert.equal(stripOwnStrengthTokens('WIDGET 1750', '75'), 'WIDGET 1750', 'strength "75" is not a substring match inside "1750"');
+  assert.equal(stripOwnStrengthTokens('WIDGET 17.5', '5'), 'WIDGET 17.5', 'strength "5" does not eat the "5" inside the decimal "17.5"');
+  assert.equal(stripOwnStrengthTokens('WIDGET 17.5', '17.5'), 'WIDGET  ', 'the whole decimal value IS removed when it matches exactly');
+  assert.equal(stripOwnStrengthTokens('WIDGET', null), 'WIDGET');
+  assert.equal(stripOwnStrengthTokens('WIDGET', undefined), 'WIDGET');
+  assert.equal(stripOwnStrengthTokens('WIDGET', ''), 'WIDGET');
+});
+
 test('form removal: dosage-form words are stripped, wherever they sit and whatever punctuation touches them', () => {
   assert.equal(computeBaseTradeName('WIDGET SYRUP'), 'WIDGET');
   assert.equal(computeBaseTradeName('WIDGET TABLETS'), 'WIDGET');
@@ -46,6 +88,47 @@ test('form removal: dosage-form words are stripped, wherever they sit and whatev
   // A near-miss spelling of a form word is NOT the form word and is left alone
   // (this build corrects no typos in the source data):
   assert.equal(computeBaseTradeName('WIDGET TABLETE'), 'WIDGET TABLETE');
+});
+
+test('form removal: F.C. is recognised with a dot, a hyphen or a space (real row: "SEROQUEL 300MG F-C TABS")', () => {
+  assert.equal(computeBaseTradeName('WIDGET 300MG F-C TABS'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 300MG F C TABS'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 300MG FC TABS'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 300MG F.C. TABS'), 'WIDGET');
+});
+
+test('form removal: added route/administration and container words (VIAL, AMP, I.V/I.M, EYE, SPRAY, SUPP, CONC, INHALATION, RECONSTIT)', () => {
+  assert.equal(computeBaseTradeName('WIDGET VIAL'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET AMP'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET AMPOULE'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET I.V'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET I.M.'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET EYE DROPS'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET NASAL SPRAY'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET SUPPOSITORY'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET CONCENTRATE'), 'WIDGET');
+  // The real row is truncated to exactly "RECONSTIT" in the source (no
+  // "-UTED"), so that exact truncated spelling must be recognised too:
+  assert.equal(computeBaseTradeName('WIDGET RECONSTIT'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET RECONSTITUTED'), 'WIDGET');
+  // A real combined case, strength AND an added form word together (mirrors
+  // "MAXIL 750 VIAL", strength "750"):
+  assert.equal(computeBaseTradeName('WIDGET 750 VIAL', '750'), 'WIDGET');
+  assert.equal(computeBaseTradeName('WIDGET 2MCG-ML AMP.'), 'WIDGET', 'MCG-ML has a unit attached, so no strength argument is needed to strip it');
+});
+
+test('form removal: a "FOR <route>" phrase is stripped as one unit, so "FOR" is never left stranded (real rows: "MEGAMOX ES ... POWDER FOR ORAL SUSPENSION", "ORENCIA ... POWDER FOR SOLUTION FOR INFUSION")', () => {
+  assert.equal(computeBaseTradeName('MEGAMOX ES 600 MG POWDER FOR ORAL SUSPENSION'), 'MEGAMOX ES');
+  assert.equal(computeBaseTradeName('ORENCIA 250MG POWDER FOR SOLUTION FOR INFUSION'), 'ORENCIA');
+  assert.equal(computeBaseTradeName('AMOXIL POWDER FOR ORAL SUSPENSION FORTE 250MG-5ML'), 'AMOXIL FORTE', 'FORTE is a line-extension word and stays');
+});
+
+test('edge-connector cleanup: a lone FOR/PER/WITH/OR left at the start or end by stripping is removed, but the same word between two real words is not (real row: "Tyenne 200 mg per 10 ml")', () => {
+  assert.equal(stripEdgeConnectors('TYENNE PER'), 'TYENNE');
+  assert.equal(stripEdgeConnectors('FOR TYENNE'), 'TYENNE');
+  assert.equal(stripEdgeConnectors('FOR FOR'), '', 'both trailing connector words clear, one pass at a time');
+  assert.equal(stripEdgeConnectors('TYENNE WITH CAFFEINE'), 'TYENNE WITH CAFFEINE', 'a connector word with real words on both sides is left alone');
+  assert.equal(computeBaseTradeName('TYENNE 200 MG PER 10 ML'), 'TYENNE');
 });
 
 test('pack-count removal: "(NUMBER PACK-WORD)" is stripped; an unrelated bracket is not', () => {
@@ -68,6 +151,52 @@ test('multi-ingredient split: scientificName commas become a sorted, deduplicate
   assert.deepEqual(ingredientSet('Warfarin,warfarin'), ['WARFARIN'], 'a repeated ingredient in one row is deduplicated');
   assert.deepEqual(ingredientSet(''), []);
   assert.deepEqual(ingredientSet(null), []);
+});
+
+test('multi-ingredient split: a comma INSIDE parentheses does not split (real row: PRIORIX / M.M.R II)', () => {
+  assert.deepEqual(
+    ingredientSet(
+      'MUMPS VIRUS (JERYL LYNN, STRAIN RIT 4385) LIVE ATTENUATED,MEASLES VIRUS (SCHWARZ) LIVE ATTENUATED'
+    ),
+    [
+      'MEASLES VIRUS (SCHWARZ) LIVE ATTENUATED',
+      'MUMPS VIRUS (JERYL LYNN, STRAIN RIT 4385) LIVE ATTENUATED'
+    ],
+    'two ingredients, not three - the comma inside "(JERYL LYNN, STRAIN RIT 4385)" is not a separator'
+  );
+});
+
+test('multi-ingredient split: a short documented list of comma-names is re-joined even with no parentheses (real rows: KOATE DVI, ROTARIX, AMINOVEN)', () => {
+  assert.deepEqual(
+    ingredientSet('ANTIHEMOPHILIC FACTOR, HUMAN RECOMBINANT'),
+    ['ANTIHEMOPHILIC FACTOR, HUMAN RECOMBINANT'],
+    'one ingredient, comma kept: this is a name, not a separator'
+  );
+  assert.deepEqual(
+    ingredientSet('HUMAN ROTAVIRUS, LIVE ATTENUATED VACCINE'),
+    ['HUMAN ROTAVIRUS, LIVE ATTENUATED VACCINE']
+  );
+  assert.deepEqual(
+    ingredientSet('AMINO ACIDS, SOURCE UNSPECIFIED'),
+    ['AMINO ACIDS, SOURCE UNSPECIFIED']
+  );
+  // An ingredient list that happens to also contain one of the protected
+  // phrases still splits normally at every OTHER top-level comma:
+  assert.deepEqual(
+    ingredientSet('CAFFEINE,ANTIHEMOPHILIC FACTOR, HUMAN RECOMBINANT'),
+    ['ANTIHEMOPHILIC FACTOR, HUMAN RECOMBINANT', 'CAFFEINE']
+  );
+});
+
+test('a row whose scientificName yields no ingredient at all contributes no set (real row: "Entocort CR" with an empty scientificName)', () => {
+  const rows = [
+    { tradeName: 'ENTOCORT CR', scientificName: 'BUDESONIDE', strength: '3', dosageForm: 'Capsule', regNo: 'r1', page: 1 },
+    { tradeName: 'ENTOCORT CR', scientificName: '', strength: '', dosageForm: 'Capsule', regNo: 'r2', page: 1 }
+  ];
+  const names = buildNamesIndex(rows);
+  assert.deepEqual(names['ENTOCORT CR'], [['BUDESONIDE']], 'the empty-scientificName row added no second (empty) set');
+  const allRows = [{ tradeName: 'ONLY EMPTY', scientificName: '', strength: '', dosageForm: 'Tablet', regNo: 'r3', page: 1 }];
+  assert.deepEqual(buildNamesIndex(allRows), {}, 'a name with ONLY empty-ingredient rows gets no key at all, never a key with an empty list');
 });
 
 test('line extensions stay distinct: EXTRA, XR, PLUS, FORTE, NIGHT, ADVANCE, COLD & FLU, SR are kept, not stripped', () => {
@@ -162,6 +291,33 @@ test('sanity: PANADOL EXTRA differs from PANADOL, both present with their real i
   assert.deepEqual(built.names.PANADOL, [['PARACETAMOL']]);
   assert.deepEqual(built.names['PANADOL EXTRA'], [['CAFFEINE CITRATE', 'PARACETAMOL']]);
   assert.notDeepEqual(built.names.PANADOL, built.names['PANADOL EXTRA']);
+});
+
+test('sanity: LYRICA is the only key that starts with "LYRICA" (the row\'s own strength is stripped, so all six pregabalin rows collapse into one)', () => {
+  const built = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8'));
+  const lyricaKeys = Object.keys(built.names).filter((k) => k.startsWith('LYRICA'));
+  assert.deepEqual(lyricaKeys, ['LYRICA']);
+});
+
+test('sanity: no key contains a leftover digit+unit token or a bare "I U" (GM, MICROGM, MMOL, MEQ, dotted/undotted I.U are all recognised units now)', () => {
+  const built = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8'));
+  const bad = Object.keys(built.names).filter((k) => /\d+(GM|MG|ML|IU|MEQ|MMOL)\b|\bI U\b/.test(k));
+  assert.deepEqual(bad, [], 'these keys still carry a strength/unit token: ' + bad.slice(0, 10).join(', '));
+});
+
+test('sanity: no key ends with a stray " FOR", and SEROQUEL has no "F C" sibling', () => {
+  const built = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8'));
+  const badFor = Object.keys(built.names).filter((k) => k.endsWith(' FOR'));
+  assert.deepEqual(badFor, [], 'these keys still end with a stranded FOR: ' + badFor.slice(0, 10).join(', '));
+  assert.equal(Object.prototype.hasOwnProperty.call(built.names, 'SEROQUEL F C'), false);
+});
+
+test('sanity: no ingredient set in the built file is empty', () => {
+  const built = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8'));
+  const namesWithEmptySet = Object.keys(built.names).filter((name) =>
+    built.names[name].some((set) => set.length === 0)
+  );
+  assert.deepEqual(namesWithEmptySet, [], 'these names hold an empty ingredient set: ' + namesWithEmptySet.slice(0, 10).join(', '));
 });
 
 test('sanity: the built file is under 1.5 MB', () => {

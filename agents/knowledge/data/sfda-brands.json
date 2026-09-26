@@ -5,8 +5,8 @@
     "retrievedAt": "2026-09-26",
     "sha256": "90c6a59505e5ce7c8aaaf6548efe06bdfa30b02f12fadea4e4f86b9d1ac98010",
     "rows": 9112,
-    "names": 5190,
-    "method": "Group raw SFDA rows by trade name with strength/unit tokens, bracketed pack counts and named dosage-form words stripped (uppercased first, then punctuation normalised, spaces collapsed); scientific-name commas split into a sorted, deduplicated, uppercased ingredient set per row; a trade name that strips to empty keeps the plain uppercased trade name; line-extension words (EXTRA, PLUS, FORTE, NIGHT, COLD & FLU, ADVANCE, XR, SR, ...) are not stripped."
+    "names": 4873,
+    "method": "Group raw SFDA rows by trade name with the row's own strength value(s), strength/unit tokens, bracketed pack counts, route/dosage-form words and phrases stripped (uppercased first, then punctuation normalised, a lone FOR/PER/WITH/OR left at an edge removed, spaces collapsed); scientific-name commas split at parenthesis depth zero (a short documented list of known comma-names is protected first) into a sorted, deduplicated, uppercased ingredient set per row, rows with no ingredient dropped; a trade name that strips to empty keeps the plain uppercased trade name; line-extension words (EXTRA, PLUS, FORTE, NIGHT, COLD & FLU, ADVANCE, XR, SR, ...) are not stripped."
   },
   "names": {
     "SODIUM CHLORIDE B P": [
@@ -27,20 +27,26 @@
         "TRI SODIUM CITRATE"
       ]
     ],
-    "ORS 30GM": [
+    "ORS": [
       [
         "DEXTROSE",
         "POTASSIUM CHLORIDE",
         "SODIUM CHLORIDE",
         "TRI SODIUM CITRATE"
+      ],
+      [
+        "ANHYDROUS DEXTROSE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE",
+        "TRISODIUM CITRATE ANHYDROUS"
       ]
     ],
-    "ORENCIA FOR FOR": [
+    "ORENCIA": [
       [
         "ABATACEPT"
       ]
     ],
-    "ORENCIA FOR IN": [
+    "ORENCIA IN": [
       [
         "ABATACEPT"
       ]
@@ -80,12 +86,12 @@
         "TIMOLOL MALEATE"
       ]
     ],
-    "OPTIRAY FOR IV": [
+    "OPTIRAY": [
       [
         "IOVERSOL"
       ]
     ],
-    "ORALITE 28GM": [
+    "ORALITE": [
       [
         "DEXTROSE",
         "POTASSIUM CHLORIDE",
@@ -158,11 +164,6 @@
         "PANTOPRAZOLE"
       ]
     ],
-    "PANTOZOL I V FOR": [
-      [
-        "PANTOPRAZOLE"
-      ]
-    ],
     "PANTOZOL E C": [
       [
         "PANTOPRAZOLE"
@@ -188,7 +189,7 @@
         "PANTOPRAZOLE"
       ]
     ],
-    "OTOCOL EAR": [
+    "OTOCOL": [
       [
         "BENZOCAINE",
         "CHLORAMPHENICOL"
@@ -211,23 +212,23 @@
         "CHORIOGONADOTROPIN ALFA"
       ]
     ],
-    "OTRIVIN NASAL": [
+    "OTRIVIN": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "OTRIVIN MENTHOL NASAL SPRAY": [
+    "OTRIVIN MENTHOL": [
       [
         "MENTHOL",
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "OTRIVIN DOSING SPRAY": [
+    "OTRIVIN DOSING": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "OTOZOL EAR": [
+    "OTOZOL": [
       [
         "CLOTRIMAZOLE"
       ]
@@ -253,7 +254,7 @@
         "CLOPIDOGREL"
       ]
     ],
-    "PABAL RTS ML FOR": [
+    "PABAL RTS": [
       [
         "CARBETOCIN"
       ]
@@ -279,7 +280,7 @@
         "PARACETAMOL"
       ]
     ],
-    "OPTIFUCIN EYE": [
+    "OPTIFUCIN": [
       [
         "FUSIDIC ACID"
       ]
@@ -294,12 +295,12 @@
         "PIOGLITAZONE"
       ]
     ],
-    "OFLOX EYE": [
+    "OFLOX": [
       [
         "OFLOXACIN"
       ]
     ],
-    "OFLAM GRANULES FOR": [
+    "OFLAM GRANULES": [
       [
         "DICLOFENAC POTASSIUM"
       ]
@@ -336,11 +337,6 @@
         "FACTOR IX"
       ]
     ],
-    "OCTANINE F 1000 I U VIAL": [
-      [
-        "FACTOR IX"
-      ]
-    ],
     "OLAZINE": [
       [
         "OLANZAPINE"
@@ -362,28 +358,16 @@
         "OLMESARTAN MEDOXOMIL"
       ]
     ],
-    "OLFEN 75": [
+    "OLFEN": [
       [
         "DICLOFENAC SODIUM",
         "LIDOCAINE HYDROCHLORIDE"
-      ]
-    ],
-    "OLFEN 50": [
+      ],
       [
         "DICLOFENAC SODIUM"
       ]
     ],
-    "OLFEN 100": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "OLFEN": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "OCTANATE VIAL": [
+    "OCTANATE": [
       [
         "HUMAN COAGULATION FACTOR VIII"
       ]
@@ -393,13 +377,13 @@
         "REPAGLINIDE"
       ]
     ],
-    "NOVOMIX 30 FLEXPEN 100U ML": [
+    "NOVOMIX FLEXPEN": [
       [
         "INSULIN ASPART",
         "INSULIN ASPART PROTAMINE"
       ]
     ],
-    "NOVIRAX 15 GM": [
+    "NOVIRAX": [
       [
         "ACYCLOVIR"
       ]
@@ -409,22 +393,22 @@
         "ALLOPURINOL"
       ]
     ],
-    "NOVORAPID FLEXPEN 100U ML": [
+    "NOVORAPID FLEXPEN": [
       [
         "INSULIN ASPART"
       ]
     ],
-    "NOVORAPID PEN FILL 100 I U ML": [
+    "NOVORAPID PEN FILL": [
       [
         "INSULIN ASPART"
       ]
     ],
-    "NOVOSEVEN FOR FOR": [
+    "NOVOSEVEN": [
       [
         "RECOMBINAT DNA COAGULATING FACTOR VLLA EPTACOG ALFA ACTIVATED"
       ]
     ],
-    "OCTAGAM 1GM I V": [
+    "OCTAGAM": [
       [
         "NORMAL HUMAN IMMUNOGLOBULIN"
       ]
@@ -433,11 +417,6 @@
       [
         "EPINEPHRINE",
         "LIDOCAINE HYDROCHLORIDE"
-      ]
-    ],
-    "OCTANATE 1000 I U ML": [
-      [
-        "HUMAN COAGULATION FACTOR VIII"
       ]
     ],
     "NUVARING VAGINAL RING": [
@@ -467,7 +446,7 @@
         "LISINOPRIL"
       ]
     ],
-    "OMNITROPE FOR IN CARTRIDGE": [
+    "OMNITROPE IN CARTRIDGE": [
       [
         "SOMATROPIN"
       ]
@@ -475,11 +454,6 @@
     "OMNISCAN": [
       [
         "GADODIAMIDE"
-      ]
-    ],
-    "OMNIPAQUE FOR": [
-      [
-        "IOHEXOL"
       ]
     ],
     "OMNIPAQUE": [
@@ -498,12 +472,12 @@
         "PARACETAMOL"
       ]
     ],
-    "ONE ALPHA 1 0 MICROGM": [
+    "ONE ALPHA": [
       [
         "ALFACALCIDOL"
       ]
     ],
-    "OPTIDRIN EYE": [
+    "OPTIDRIN": [
       [
         "CROMOGLICATE SODIUM"
       ]
@@ -519,7 +493,7 @@
         "TETRACYCLINE"
       ]
     ],
-    "OPTICIN EYE": [
+    "OPTICIN": [
       [
         "CIPROFLOXACIN"
       ]
@@ -529,7 +503,7 @@
         "CHLORAMPHENICOL"
       ]
     ],
-    "OPRAZOLE VIAL I VI": [
+    "OPRAZOLE I VI": [
       [
         "OMEPRAZOLE"
       ]
@@ -548,21 +522,6 @@
     "OPIZOLE": [
       [
         "CLOTRIMAZOLE"
-      ]
-    ],
-    "ONE ALPHA 2MICROGRAM ML": [
-      [
-        "ALFACALCIDOL"
-      ]
-    ],
-    "ONE ALPHA 0 25 MICROGM": [
-      [
-        "ALFACALCIDOL"
-      ]
-    ],
-    "ONE ALPHA ML AMP": [
-      [
-        "ALFACALCIDOL"
       ]
     ],
     "OMCET": [
@@ -626,7 +585,7 @@
         "CEFDINIR"
       ]
     ],
-    "OMNIC OCAS F C": [
+    "OMNIC OCAS": [
       [
         "TAMSULOSIN HYDROCHLORIDE"
       ]
@@ -643,17 +602,12 @@
         "PARACETAMOL"
       ]
     ],
-    "PROLIA FOR": [
+    "PROLIA": [
       [
         "DENOSUMAB"
       ]
     ],
     "PROKININ": [
-      [
-        "DOMPERIDONE"
-      ]
-    ],
-    "PROKININ F C": [
       [
         "DOMPERIDONE"
       ]
@@ -695,7 +649,7 @@
         "PROMETHAZINE"
       ]
     ],
-    "PROSTIN VR AMP": [
+    "PROSTIN VR": [
       [
         "ALPROSTADIL"
       ]
@@ -705,12 +659,7 @@
         "DINOPROSTONE"
       ]
     ],
-    "PROSTIN E2 AMP": [
-      [
-        "DINOPROSTONE"
-      ]
-    ],
-    "PROSTIN E2 I V AMP": [
+    "PROSTIN E2": [
       [
         "DINOPROSTONE"
       ]
@@ -720,12 +669,7 @@
         "TAMSULOSIN HYDROCHLORIDE"
       ]
     ],
-    "PROPOFOL LIPURO OR INF AMPOULE": [
-      [
-        "PROPOFOL"
-      ]
-    ],
-    "PROPOFOL LIPURO OR INF VIAL": [
+    "PROPOFOL LIPURO OR INF": [
       [
         "PROPOFOL"
       ]
@@ -745,7 +689,7 @@
         "FINASTERIDE"
       ]
     ],
-    "PROSULF FOR": [
+    "PROSULF": [
       [
         "PROTAMINE SULFATE"
       ]
@@ -783,29 +727,23 @@
         "NORETHISTERONE"
       ]
     ],
-    "PRIMOVIST 0 25MMOL ML PRE FILLED SYRINGS": [
+    "PRIMOVIST PRE FILLED SYRINGS": [
       [
         "GADOXETIC ACID"
       ]
     ],
-    "PROCORALAN F C": [
+    "PROCORALAN": [
       [
         "IVABRADINE"
       ]
     ],
-    "PRIZMA 4GM 0 5GM FOR I V": [
+    "PRIZMA": [
       [
         "PIPERACILLIN",
         "TAZOBACTAM"
       ]
     ],
-    "PRIZMA 2GM 0 25GM FOR I V": [
-      [
-        "PIPERACILLIN",
-        "TAZOBACTAM"
-      ]
-    ],
-    "PRIVIGEN FOR": [
+    "PRIVIGEN": [
       [
         "HUMAN IMMUNOGLOBULIN G"
       ]
@@ -813,18 +751,21 @@
     "PRIORIX TETRA VACCINE": [
       [
         "MEASLES VIRUS (SCHWARZ) LIVE ATTENUATED",
-        "MUMPS VIRUS (JERYL LYNN",
+        "MUMPS VIRUS (JERYL LYNN, STRAIN RIT 4385) LIVE ATTENUATED",
         "RUBELLA VIRUS (WISTAR RA 27/3) LIVE ATTENUATED",
-        "STRAIN RIT 4385) LIVE ATTENUATED",
         "VARICELLA ZOSTER VIRUS (OKA STRAIN) LIVE ATTENUATED"
       ]
     ],
-    "PRIORIX VIAL": [
+    "PRIORIX": [
       [
         "MEASLES VIRUS (SCHWARZ) LIVE ATTENUATED",
-        "MUMPS VIRUS (JERYL LYNN",
-        "RUBELLA VIRUS (WISTAR RA 27/3) LIVE ATTENUATED",
-        "STRAIN RIT 4385) LIVE ATTENUATED"
+        "MUMPS VIRUS (JERYL LYNN, STRAIN RIT 4385) LIVE ATTENUATED",
+        "RUBELLA VIRUS (WISTAR RA 27/3) LIVE ATTENUATED"
+      ],
+      [
+        "MEASLES",
+        "MUMPS",
+        "RUBELLA"
       ]
     ],
     "PRIMPERAN": [
@@ -842,7 +783,7 @@
         "PREGABALIN"
       ]
     ],
-    "PROTEC 2 GM": [
+    "PROTEC": [
       [
         "CEFEPIME HYDROCHLORIDE"
       ]
@@ -867,7 +808,7 @@
         "PANTOPRAZOLE"
       ]
     ],
-    "RAPIFEN ML AMP": [
+    "RAPIFEN": [
       [
         "ALFENTANIL"
       ]
@@ -875,11 +816,6 @@
     "RAPIDUS": [
       [
         "DICLOFENAC POTASSIUM"
-      ]
-    ],
-    "PROTEC 1 GM": [
-      [
-        "CEFEPIME HYDROCHLORIDE"
       ]
     ],
     "PYRAZINAMIDE ANTIBIOTICE": [
@@ -913,7 +849,7 @@
         "SALICYLIC ACID"
       ]
     ],
-    "PUREGON 600 I U CARTRIDGE": [
+    "PUREGON CARTRIDGE": [
       [
         "FOLLITROPIN BETA"
       ]
@@ -923,12 +859,7 @@
         "BUDESONIDE"
       ]
     ],
-    "PUREGON 300I U CARTRIDGE": [
-      [
-        "FOLLITROPIN BETA"
-      ]
-    ],
-    "PERITONEAL DIALYSIS F C WITH DEXTROSE": [
+    "PERITONEAL DIALYSIS WITH DEXTROSE": [
       [
         "CALCIUM CHLORIDE",
         "DEXTROSE",
@@ -936,6 +867,13 @@
         "POTASSIUM CHLORIDE",
         "SODIUM CHLORIDE",
         "SODIUM LACTATE"
+      ],
+      [
+        "CALCIUM CHLORIDE",
+        "DEXTROSE",
+        "MAGNESIUM CHLORIDE",
+        "SODIUM ACETATE",
+        "SODIUM CHLORIDE"
       ]
     ],
     "PERITONEAL DIALYSIS F B WITH DEXTROSE": [
@@ -967,7 +905,7 @@
         "SODIUM LACTATE"
       ]
     ],
-    "PERGOVERIS VIAL": [
+    "PERGOVERIS": [
       [
         "FOLLITROPIN ALFA",
         "LUTROPIN ALFA"
@@ -1015,7 +953,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "PERITONEAL DIALYSIS DEX 140 21MMOL SO": [
+    "PERITONEAL DIALYSIS DEX SO": [
       [
         "CALCIUM CHLORIDE",
         "DEXTROSE",
@@ -1024,7 +962,7 @@
         "SODIUM LACTATE"
       ]
     ],
-    "PEPSOLAN FOR FOR": [
+    "PEPSOLAN": [
       [
         "PANTOPRAZOLE"
       ]
@@ -1038,7 +976,7 @@
         "SODIUM LACTATE"
       ]
     ],
-    "PERITONEAL DIALYSIS DEX 1 75MMOL EL": [
+    "PERITONEAL DIALYSIS DEX EL": [
       [
         "CALCIUM CHLORIDE",
         "DEXTROSE",
@@ -1047,7 +985,7 @@
         "SODIUM LACTATE"
       ]
     ],
-    "PENTOLATE EYE": [
+    "PENTOLATE": [
       [
         "CYCLOPENTOLATE"
       ]
@@ -1062,7 +1000,7 @@
         "PAROXETINE"
       ]
     ],
-    "PAROXAT F C": [
+    "PAROXAT": [
       [
         "PAROXETINE"
       ]
@@ -1087,12 +1025,12 @@
         "MESALAZINE"
       ]
     ],
-    "PENTASA 1GM SUPP": [
+    "PENTASA": [
       [
         "MESALAZINE"
       ]
     ],
-    "PENTASA 1GM PROLONGED RELEASE GRANULES": [
+    "PENTASA PROLONGED RELEASE GRANULES": [
       [
         "MESALAZINE"
       ]
@@ -1105,11 +1043,6 @@
     "PENTASA CONTROLLED RELEASE": [
       [
         "MESALAZINE"
-      ]
-    ],
-    "PENTAGLOBIN AMP I V": [
-      [
-        "PLASMA PROTEIN FRACTION"
       ]
     ],
     "PENTAGLOBIN": [
@@ -1148,12 +1081,12 @@
         "CLOPIDOGREL"
       ]
     ],
-    "POTASSIUM ACETATE F T V 40MEQ": [
+    "POTASSIUM ACETATE F T V": [
       [
         "POTASSIUM ACETATE"
       ]
     ],
-    "POTASSIUM CHLORIDE AMP": [
+    "POTASSIUM CHLORIDE": [
       [
         "POTASSIUM CHLORIDE"
       ]
@@ -1176,7 +1109,7 @@
         "PREDNISOLONE"
       ]
     ],
-    "PRECEDEX ML IV VIAL": [
+    "PRECEDEX": [
       [
         "DEXMEDETOMIDINE"
       ]
@@ -1186,7 +1119,7 @@
         "DABIGATRAN ETEXILATE"
       ]
     ],
-    "PLASMANATE FOR I V": [
+    "PLASMANATE": [
       [
         "PLASMA PROTEIN FRACTION"
       ]
@@ -1196,7 +1129,7 @@
         "PLASMA PROTEIN FRACTION"
       ]
     ],
-    "PHENTOLEP AMPOULE": [
+    "PHENTOLEP": [
       [
         "PHENYTOIN SODIUM"
       ]
@@ -1206,18 +1139,9 @@
         "CHLORAMPHENICOL"
       ]
     ],
-    "PERJETA CONCENTRATE FOR FOR": [
+    "PERJETA": [
       [
         "PERTUZUMAB"
-      ]
-    ],
-    "PERITONEAL DIALYSIS WITH DEXTROSE": [
-      [
-        "CALCIUM CHLORIDE",
-        "DEXTROSE",
-        "MAGNESIUM CHLORIDE",
-        "SODIUM ACETATE",
-        "SODIUM CHLORIDE"
       ]
     ],
     "PERITONEAL DIALYSIS SOLN DEXT HIGHNA": [
@@ -1244,7 +1168,7 @@
         "AMANTADINE SULFATE"
       ]
     ],
-    "PIPERACILLIN TAZOPACTAM SANDOZ 2 25GM VIAL": [
+    "PIPERACILLIN TAZOPACTAM SANDOZ": [
       [
         "PIPERACILLIN",
         "TAZOBACTAM"
@@ -1257,7 +1181,7 @@
         "TRETINOIN"
       ]
     ],
-    "PICOPREP FOR": [
+    "PICOPREP": [
       [
         "CITRIC ACID ANHYDROUS",
         "MAGNESIUM OXIDE",
@@ -1289,7 +1213,7 @@
         "HYOSCINE BUTYLBROMIDE"
       ]
     ],
-    "MABTHERA CONC FOR I V": [
+    "MABTHERA": [
       [
         "RITUXIMAB"
       ]
@@ -1312,31 +1236,6 @@
         "PREGABALIN"
       ]
     ],
-    "LYRICA 75": [
-      [
-        "PREGABALIN"
-      ]
-    ],
-    "LYRICA 50": [
-      [
-        "PREGABALIN"
-      ]
-    ],
-    "LYRICA 300": [
-      [
-        "PREGABALIN"
-      ]
-    ],
-    "LYRICA 25": [
-      [
-        "PREGABALIN"
-      ]
-    ],
-    "LYRICA 150": [
-      [
-        "PREGABALIN"
-      ]
-    ],
     "LUSTRAL": [
       [
         "SERTRALINE"
@@ -1353,19 +1252,14 @@
         "MAGNESIUM SULFATE"
       ]
     ],
-    "MAGNESIUM SULFATE I V": [
+    "MAGNESIUM SULFATE": [
       [
         "MAGNESIUM SULFATE"
       ]
     ],
-    "LUMIGAN EYE": [
+    "LUMIGAN": [
       [
         "BIMATOPROST"
-      ]
-    ],
-    "MAGNESIUM SULFATE AMPOULE": [
-      [
-        "MAGNESIUM SULFATE"
       ]
     ],
     "MAGNACEF": [
@@ -1425,12 +1319,12 @@
         "LORATADINE"
       ]
     ],
-    "LORVAST F C": [
+    "LORVAST": [
       [
         "ATORVASTATIN CALCIUM"
       ]
     ],
-    "LOXTRA EYE": [
+    "LOXTRA": [
       [
         "OFLOXACIN",
         "PREDNISOLONE",
@@ -1468,7 +1362,7 @@
         "OMEPRAZOLE"
       ]
     ],
-    "MEGION 0 5GM I V": [
+    "MEGION": [
       [
         "CEFTRIAXONE"
       ]
@@ -1483,20 +1377,9 @@
         "CLAVULANIC ACID"
       ]
     ],
-    "MEGAMOX 1GM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
     "ZOYLEX": [
       [
         "ACYCLOVIR"
-      ]
-    ],
-    "MEGION 1GM I V I M": [
-      [
-        "CEFTRIAXONE"
       ]
     ],
     "MEIACT": [
@@ -1504,12 +1387,12 @@
         "CEFDITOREN PIVOXIL"
       ]
     ],
-    "MESPORIN 1000 I V": [
+    "MESPORIN 1000": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "MESPORIN 1000 I M": [
+    "MESPORIN": [
       [
         "CEFTRIAXONE"
       ]
@@ -1526,19 +1409,10 @@
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "MENOGON 75 I U FSH & 75 I U LH AMPOULES": [
+    "MENOGON FSH & LH": [
       [
         "FOLLICLE STIMULATING HORMONE (FSH)",
         "LUTEINIZING HORMONE (LH)"
-      ]
-    ],
-    "MENACTRA FOR": [
-      [
-        "DIPHTHERIA TOXOID",
-        "MENINGOCOCCAL GROUP A (NEISSERIA MENINGITIDIS) POLYSACCHARIDE VACCINE",
-        "MENINGOCOCCAL GROUP C (NEISSERIA MENINGITIDIS) POLYSACCHARIDE",
-        "MENINGOCOCCAL GROUP W (NEISSERIA MENINGITIDIS) POLYSACCHARIDE",
-        "MENINGOCOCCAL GROUP Y (NEISSERIA MENINGITIDIS) POLYSACCHARIDE"
       ]
     ],
     "MENACTRA": [
@@ -1569,7 +1443,7 @@
         "MEPIVACAINE HYDROCHLORIDE"
       ]
     ],
-    "MAXIL 1500 VIAL": [
+    "MAXIL 1500": [
       [
         "CEFUROXIME SODIUM"
       ]
@@ -1580,17 +1454,12 @@
         "ETHINYLESTRADIOL"
       ]
     ],
-    "MANNITOL I V": [
-      [
-        "MANNITOL"
-      ]
-    ],
     "MANNITOL W V BOTTLES": [
       [
         "MANNITOL"
       ]
     ],
-    "MAXIL 750 VIAL": [
+    "MAXIL": [
       [
         "CEFUROXIME SODIUM"
       ]
@@ -1610,11 +1479,6 @@
         "IBUPROFEN"
       ]
     ],
-    "MEDACIN T TOPICAL": [
-      [
-        "CLINDAMYCIN PHOSPHATE"
-      ]
-    ],
     "MEDACIN T": [
       [
         "CLINDAMYCIN PHOSPHATE"
@@ -1625,7 +1489,7 @@
         "CEFACLOR"
       ]
     ],
-    "MESPORIN 2000 I V": [
+    "MESPORIN 2000": [
       [
         "CEFTRIAXONE"
       ]
@@ -1709,7 +1573,7 @@
         "VARDENAFIL"
       ]
     ],
-    "LEVEMIR FLEX PEN ML": [
+    "LEVEMIR FLEX PEN": [
       [
         "INSULIN DETEMIR"
       ]
@@ -1725,11 +1589,6 @@
       ]
     ],
     "LAMISIL": [
-      [
-        "TERBINAFINE"
-      ]
-    ],
-    "LAMISIL SPRAY": [
       [
         "TERBINAFINE"
       ]
@@ -1759,7 +1618,7 @@
         "OLANZAPINE"
       ]
     ],
-    "LANTUS 100 I U ML VIAL": [
+    "LANTUS": [
       [
         "INSULIN GLARGINE"
       ]
@@ -1769,17 +1628,12 @@
         "LANSOPRAZOLE"
       ]
     ],
-    "LANTUS SOLOSTAR 100I U ML DISPOSABLE PEN": [
+    "LANTUS SOLOSTAR DISPOSABLE PEN": [
       [
         "INSULIN GLARGINE"
       ]
     ],
-    "LIVOSTIN NASAL SPRAY": [
-      [
-        "LEVOCABASTINE"
-      ]
-    ],
-    "LIVOSTIN EYE": [
+    "LIVOSTIN": [
       [
         "LEVOCABASTINE"
       ]
@@ -1835,11 +1689,6 @@
         "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
-    "LIDOCAINE HCL AMPOULE": [
-      [
-        "LIDOCAINE HYDROCHLORIDE"
-      ]
-    ],
     "LEXOTANIL": [
       [
         "BROMAZEPAM"
@@ -1866,11 +1715,6 @@
         "BACLOFEN"
       ]
     ],
-    "MESPORIN 500 I M": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
     "NERVAX": [
       [
         "PREGABALIN"
@@ -1893,14 +1737,14 @@
         "THIAMINE"
       ]
     ],
-    "NEUROBION AMPOULES": [
+    "NEUROBION": [
       [
         "CYANOCOBALAMIN",
         "PYRIDOXINE",
         "THIAMINE"
       ]
     ],
-    "NEXAVAR F C": [
+    "NEXAVAR": [
       [
         "SORAFENIB"
       ]
@@ -1936,12 +1780,12 @@
         "GABAPENTIN"
       ]
     ],
-    "NAROPIN AMP": [
+    "NAROPIN": [
       [
         "ROPIVACAINE"
       ]
     ],
-    "NAROPIN PLASTIC AMP": [
+    "NAROPIN PLASTIC": [
       [
         "ROPIVACAINE"
       ]
@@ -1961,7 +1805,7 @@
         "NAPROXEN"
       ]
     ],
-    "NAPHCON A EYE": [
+    "NAPHCON A": [
       [
         "NAPHAZOLINE HYDROCHLORIDE",
         "PHENIRAMINE"
@@ -1972,7 +1816,7 @@
         "INDAPAMIDE"
       ]
     ],
-    "NAVELBINE I V VIAL": [
+    "NAVELBINE I V": [
       [
         "VINORELBINE"
       ]
@@ -1988,7 +1832,7 @@
         "NEBIVOLOL HYDROCHLORIDE"
       ]
     ],
-    "NEBIDO FOR": [
+    "NEBIDO": [
       [
         "TESTOSTERONE UNDECANOATE"
       ]
@@ -2013,7 +1857,7 @@
         "ATENOLOL"
       ]
     ],
-    "NORMAL SALINE I V": [
+    "NORMAL SALINE": [
       [
         "SODIUM CHLORIDE"
       ]
@@ -2063,7 +1907,7 @@
         "MYCOPHENOLATE SODIUM"
       ]
     ],
-    "MYDRIACYL EYE": [
+    "MYDRIACYL": [
       [
         "TROPICAMIDE"
       ]
@@ -2104,7 +1948,7 @@
         "TROPICAMIDE"
       ]
     ],
-    "MINIMS TROPICAMIDE EYE": [
+    "MINIMS TROPICAMIDE": [
       [
         "TROPICAMIDE"
       ]
@@ -2151,12 +1995,12 @@
         "MICONAZOLE NITRATE"
       ]
     ],
-    "METHOTREXATE FOR I V OR I M": [
+    "METHOTREXATE": [
       [
         "METHOTREXATE"
       ]
     ],
-    "METHOTREXATE EBEWE VIAL": [
+    "METHOTREXATE EBEWE": [
       [
         "METHOTREXATE"
       ]
@@ -2176,24 +2020,9 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "METFOR 500": [
-      [
-        "METFORMIN HYDROCHLORIDE"
-      ]
-    ],
-    "METALYSE 10000 U I V VIAL": [
+    "METALYSE": [
       [
         "TENECTEPLASE"
-      ]
-    ],
-    "MESPORIN 500 I V": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "METHOTREXATE": [
-      [
-        "METHOTREXATE"
       ]
     ],
     "MICARDIS": [
@@ -2201,12 +2030,12 @@
         "TELMISARTAN"
       ]
     ],
-    "MIACIN AMP": [
+    "MIACIN": [
       [
         "AMIKACIN"
       ]
     ],
-    "MIACALCIC AMP": [
+    "MIACALCIC": [
       [
         "CALCITONIN SALMON"
       ]
@@ -2298,12 +2127,12 @@
         "AMBROXOL HYDROCHLORIDE"
       ]
     ],
-    "MULTIPARIN 1000 UNITS ML": [
+    "MULTIPARIN": [
       [
         "HEPARIN SODIUM"
       ]
     ],
-    "MYCOSAT 100 ML": [
+    "MYCOSAT 100": [
       [
         "NYSTATIN"
       ]
@@ -2313,7 +2142,7 @@
         "MICONAZOLE NITRATE"
       ]
     ],
-    "MYCOHEAL VAGINAL SUPPOSITORIES": [
+    "MYCOHEAL VAGINAL": [
       [
         "MICONAZOLE NITRATE"
       ]
@@ -2323,19 +2152,9 @@
         "MICONAZOLE NITRATE"
       ]
     ],
-    "MYCAMINE 50 VIAL": [
+    "MYCAMINE 50": [
       [
         "MICAFUNGIN"
-      ]
-    ],
-    "MULTIPARIN 5000 UNITS ML": [
-      [
-        "HEPARIN SODIUM"
-      ]
-    ],
-    "MULTIPARIN 25000 UNITS ML": [
-      [
-        "HEPARIN SODIUM"
       ]
     ],
     "MONOZIDE": [
@@ -2358,12 +2177,12 @@
         "LEVONORGESTREL"
       ]
     ],
-    "MIRCERA SOLN FOR": [
+    "MIRCERA SOLN": [
       [
         "METHOXY POLYETHYLENE GLYCOL-EPOETIN BETA"
       ]
     ],
-    "MIXTARD 30": [
+    "MIXTARD": [
       [
         "INSULIN HUMAN",
         "INSULIN ISOPHANE"
@@ -2379,7 +2198,7 @@
         "MINOXIDIL"
       ]
     ],
-    "MINIRIN NASAL SPRAY": [
+    "MINIRIN": [
       [
         "DESMOPRESSIN ACETATE"
       ]
@@ -2389,13 +2208,13 @@
         "DESMOPRESSIN ACETATE"
       ]
     ],
-    "MIXTARD 30 PENFILL": [
+    "MIXTARD PENFILL": [
       [
         "INSULIN HUMAN",
         "INSULIN ISOPHANE"
       ]
     ],
-    "MONOPARIN 25000 U ML": [
+    "MONOPARIN": [
       [
         "HEPARIN SODIUM"
       ]
@@ -2432,24 +2251,24 @@
         "TRIPROLIDINE"
       ]
     ],
-    "UNI FRESH UNIT DOSE EYE": [
+    "UNI FRESH UNIT DOSE": [
       [
         "CARBOXYMETHYLCELLULOSE SODIUM"
       ]
     ],
-    "UNASYN 500 VIAL": [
+    "UNASYN 500": [
       [
         "AMPICILLIN",
         "SULBACTAM"
       ]
     ],
-    "UNASYN 1000 VIAL": [
+    "UNASYN": [
       [
         "AMPICILLIN",
         "SULBACTAM"
       ]
     ],
-    "UMAN ALBUMIN FOR": [
+    "UMAN ALBUMIN": [
       [
         "ALBUMIN HUMAN"
       ]
@@ -2480,7 +2299,7 @@
         "BENZYDAMINE HYDROCHLORIDE"
       ]
     ],
-    "V 2 PLUS": [
+    "V PLUS": [
       [
         "ASCORBIC ACID",
         "BIOTIN",
@@ -2507,7 +2326,7 @@
         "ZINC OXIDE"
       ]
     ],
-    "V 2": [
+    "V": [
       [
         "ASCORBIC ACID",
         "BIOTIN",
@@ -2549,11 +2368,6 @@
         "MESNA"
       ]
     ],
-    "UROMITEXAN AMP": [
-      [
-        "MESNA"
-      ]
-    ],
     "URITAB XL EXTENDED RELEASE": [
       [
         "ALFUZOSIN"
@@ -2583,7 +2397,7 @@
         "DL-ALPHA TOCOFERIL ACETATE"
       ]
     ],
-    "UNIVIT A FORT 50000 I U": [
+    "UNIVIT A FORT": [
       [
         "RETINOL"
       ]
@@ -2593,12 +2407,12 @@
         "BENZYDAMINE HYDROCHLORIDE"
       ]
     ],
-    "TYMER EYE": [
+    "TYMER": [
       [
         "GATIFLOXACIN"
       ]
     ],
-    "TYLENOL SUPP": [
+    "TYLENOL": [
       [
         "PARACETAMOL"
       ]
@@ -2608,7 +2422,7 @@
         "PARACETAMOL"
       ]
     ],
-    "TYGACIL LYOP POW FOR I V": [
+    "TYGACIL LYOP POW": [
       [
         "TIGECYCLINE"
       ]
@@ -2635,7 +2449,7 @@
         "PIRIBEDIL"
       ]
     ],
-    "TYPHIM VI FOR IN PREFILLED SYRINGE POLYSACCHARIDE TYPHOID VACCINE": [
+    "TYPHIM VI IN PREFILLED SYRINGE POLYSACCHARIDE TYPHOID VACCINE": [
       [
         "POLYSACCHARIDES OF SALMONELLA TYPHI (TY2 STRAIN)"
       ]
@@ -2674,7 +2488,7 @@
         "VALGANCICLOVIR"
       ]
     ],
-    "VALIUM AMP": [
+    "VALIUM": [
       [
         "DIAZEPAM"
       ]
@@ -2724,7 +2538,7 @@
         "SOLIFENACIN SUCCINATE"
       ]
     ],
-    "VICTOZA FOR": [
+    "VICTOZA": [
       [
         "LIRAGLUTIDE"
       ]
@@ -2737,7 +2551,7 @@
         "TURPENTINE OIL"
       ]
     ],
-    "VICKS SINEX NASAL SPRAY": [
+    "VICKS SINEX": [
       [
         "OXYMETAZOLINE"
       ]
@@ -2762,12 +2576,12 @@
         "SALBUTAMOL"
       ]
     ],
-    "VAQTA VACCINE 50 U VIAL": [
+    "VAQTA VACCINE": [
       [
         "HEPATITIS A VIRUS"
       ]
     ],
-    "VAQTA 25U SYRINGE I M": [
+    "VAQTA SYRINGE": [
       [
         "HEPATITIS A VIRUS STRAIN CR 326F ANTIGEN (FORMALDEHYDE INACTIVATED)"
       ]
@@ -2782,12 +2596,7 @@
         "VALPROATE SODIUM"
       ]
     ],
-    "VALIUM": [
-      [
-        "DIAZEPAM"
-      ]
-    ],
-    "VARILRIX 2000 PFU VIAL": [
+    "VARILRIX 2000 PFU": [
       [
         "VARICELLA ZOSTER VIRUS OKA STRAIN LIVE ATTENUATED"
       ]
@@ -2802,12 +2611,12 @@
         "VENLAFAXINE HYDROCHLORIDE"
       ]
     ],
-    "VELCADE FOR I V": [
+    "VELCADE": [
       [
         "BORTEZOMIB"
       ]
     ],
-    "VECTIBIX CONC FOR": [
+    "VECTIBIX": [
       [
         "PANITUMUMAB"
       ]
@@ -2855,50 +2664,39 @@
         "CARBAMAZEPINE"
       ]
     ],
-    "TAZORAX 4 5 GM FOR": [
+    "TAZORAX": [
       [
         "PIPERACILLIN",
         "TAZOBACTAM"
       ]
     ],
-    "TAZORAX 2 25 GM FOR": [
+    "TAZOLINE 5MLSOLV LIDOCAINE": [
+      [
+        "CEFAZOLIN"
+      ]
+    ],
+    "TAZOLINE WATER": [
+      [
+        "CEFAZOLIN"
+      ]
+    ],
+    "TAZOLINE 10MLWATER": [
+      [
+        "CEFAZOLIN"
+      ]
+    ],
+    "TAZOCIN EDTA": [
       [
         "PIPERACILLIN",
         "TAZOBACTAM"
       ]
     ],
-    "TAZOLINE0 5GM VIAL I M 5MLSOLV LIDOCAINE": [
-      [
-        "CEFAZOLIN"
-      ]
-    ],
-    "TAZOLINE 1GM VIAL IV WATER FOR": [
-      [
-        "CEFAZOLIN"
-      ]
-    ],
-    "TAZOLINE 1GM VIAL I M 5MLSOLV LIDOCAINE": [
-      [
-        "CEFAZOLIN"
-      ]
-    ],
-    "TAZOLINE 0 5GM VIAL IV 10MLWATER FOR": [
-      [
-        "CEFAZOLIN"
-      ]
-    ],
-    "TAZOCIN 4 5GM VIAL EDTA": [
-      [
-        "PIPERACILLIN",
-        "TAZOBACTAM"
-      ]
-    ],
-    "TEKAM VIAL": [
+    "TEKAM": [
       [
         "KETAMINE"
       ]
     ],
-    "TERRELL VAPOUR LIQUID FOR INHALATION": [
+    "TERRELL VAPOUR LIQUID": [
       [
         "ISOFLURANE"
       ]
@@ -2919,12 +2717,12 @@
         "CHLORTHALIDONE"
       ]
     ],
-    "TESTOVIRON DEPOT AMP": [
+    "TESTOVIRON DEPOT": [
       [
         "TESTOSTERONE"
       ]
     ],
-    "TAVANIC I V": [
+    "TAVANIC": [
       [
         "LEVOFLOXACIN"
       ]
@@ -2934,7 +2732,7 @@
         "VALSARTAN"
       ]
     ],
-    "TABUNEX NASAL SPRAY": [
+    "TABUNEX": [
       [
         "MOMETASONE FUROATE"
       ]
@@ -2944,7 +2742,7 @@
         "OSELTAMIVIR"
       ]
     ],
-    "TABOCINE 100": [
+    "TABOCINE": [
       [
         "DOXYCYCLINE"
       ]
@@ -2954,7 +2752,7 @@
         "MEMANTINE HYDROCHLORIDE"
       ]
     ],
-    "TABIVIR F C": [
+    "TABIVIR": [
       [
         "LAMIVUDINE"
       ]
@@ -3000,11 +2798,6 @@
         "NILOTINIB"
       ]
     ],
-    "TAVANIC": [
-      [
-        "LEVOFLOXACIN"
-      ]
-    ],
     "TAMIFLU": [
       [
         "OSELTAMIVIR"
@@ -3022,7 +2815,7 @@
         "TRIPROLIDINE"
       ]
     ],
-    "TETAVAX 40 I U": [
+    "TETAVAX": [
       [
         "TETANUS TOXOID"
       ]
@@ -3032,12 +2825,7 @@
         "EPROSARTAN MESILATE"
       ]
     ],
-    "TRACTOCILE CONCENTRATE FOR FOR": [
-      [
-        "ATOSIBAN"
-      ]
-    ],
-    "TRACTOCILE FOR": [
+    "TRACTOCILE": [
       [
         "ATOSIBAN"
       ]
@@ -3047,17 +2835,17 @@
         "BOSENTAN"
       ]
     ],
-    "TRABILIN AMPOULES": [
+    "TRABILIN": [
       [
         "TRAMADOL HYDROCHLORIDE"
       ]
     ],
-    "TOVAST F C": [
+    "TOVAST": [
       [
         "ATORVASTATIN CALCIUM"
       ]
     ],
-    "TOTAM 1GM IV IM": [
+    "TOTAM": [
       [
         "CEFOTAXIME"
       ]
@@ -3067,7 +2855,7 @@
         "ATORVASTATIN CALCIUM"
       ]
     ],
-    "TRACUTIL SOLUSION FOR AMPOULE": [
+    "TRACUTIL SOLUSION": [
       [
         "CHROMIUM CHLORIDE HEXAHYDRATE",
         "IRON CHLORIDE TETRAHYDRATE",
@@ -3089,17 +2877,17 @@
         "TETANUS TOXOID"
       ]
     ],
-    "TRIAXONE 1GM VIAL I V WATER FOR": [
+    "TRIAXONE WATER": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "TRIAXONE VIAL I V 5MLWATER FOR": [
+    "TRIAXONE 5MLWATER": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "TRIAXONE 1GM VIAL I M SOLV LIDOCAINE": [
+    "TRIAXONE SOLV LIDOCAINE": [
       [
         "CEFTRIAXONE"
       ]
@@ -3109,7 +2897,7 @@
         "PANTOPRAZOLE"
       ]
     ],
-    "TRIAXONE I M VIAL SOLV LIDOCAIN": [
+    "TRIAXONE SOLV LIDOCAIN": [
       [
         "CEFTRIAXONE"
       ]
@@ -3132,7 +2920,7 @@
         "LORATADINE"
       ]
     ],
-    "TICANASE NASAL SPRAY": [
+    "TICANASE": [
       [
         "FLUTICASONE PROPIONATE"
       ]
@@ -3142,7 +2930,7 @@
         "THEOPHYLLINE"
       ]
     ],
-    "TEVETEN PLUS 600": [
+    "TEVETEN PLUS": [
       [
         "EPROSARTAN MESILATE",
         "HYDROCHLOROTHIAZIDE"
@@ -3178,7 +2966,7 @@
         "IMIPRAMINE HYDROCHLORIDE"
       ]
     ],
-    "TOBRACIN EYE": [
+    "TOBRACIN": [
       [
         "TOBRAMYCIN"
       ]
@@ -3218,17 +3006,12 @@
         "AZITHROMYCIN"
       ]
     ],
-    "ZINOXIME 1 5GM VIAL FOR I V": [
+    "ZINOXIME": [
       [
         "CEFUROXIME SODIUM"
       ]
     ],
-    "ZINOXIME VIAL FOR I V I M": [
-      [
-        "CEFUROXIME SODIUM"
-      ]
-    ],
-    "ZOLECIN 1GM VIAL I V": [
+    "ZOLECIN": [
       [
         "CEFAZOLIN"
       ]
@@ -3243,7 +3026,7 @@
         "AZITHROMYCIN"
       ]
     ],
-    "ZOCIN POW FOR": [
+    "ZOCIN POW": [
       [
         "AZITHROMYCIN"
       ]
@@ -3253,7 +3036,7 @@
         "AZITHROMYCIN"
       ]
     ],
-    "ZITHROMAX AFTER RECONSTIT": [
+    "ZITHROMAX AFTER": [
       [
         "AZITHROMYCIN"
       ]
@@ -3263,17 +3046,12 @@
         "CEFUROXIME AXETIL"
       ]
     ],
-    "ZITHROMAX FOR IV": [
-      [
-        "AZITHROMYCIN"
-      ]
-    ],
-    "ZIDIME 2GM I V": [
+    "ZIDIME": [
       [
         "CEFTAZIDIME"
       ]
     ],
-    "ZEROX FOR": [
+    "ZEROX": [
       [
         "AZITHROMYCIN"
       ]
@@ -3283,7 +3061,7 @@
         "LORNOXICAM"
       ]
     ],
-    "ZEMITRON F C": [
+    "ZEMITRON": [
       [
         "ONDANSETRON"
       ]
@@ -3298,17 +3076,12 @@
         "LAMIVUDINE"
       ]
     ],
-    "ZEROX": [
-      [
-        "AZITHROMYCIN"
-      ]
-    ],
     "ZERTAZINE": [
       [
         "CETIRIZINE HYDROCHLORIDE"
       ]
     ],
-    "ZIDIME 1GM GLASS VIAL IV IM": [
+    "ZIDIME GLASS": [
       [
         "CEFTAZIDIME"
       ]
@@ -3323,12 +3096,7 @@
         "AZITHROMYCIN"
       ]
     ],
-    "ZETRON 300 PER": [
-      [
-        "AZITHROMYCIN"
-      ]
-    ],
-    "ZETRON PER": [
+    "ZETRON 300": [
       [
         "AZITHROMYCIN"
       ]
@@ -3364,7 +3132,7 @@
         "ZOLPIDEM"
       ]
     ],
-    "ZOMIDOR EYE": [
+    "ZOMIDOR": [
       [
         "DORZOLAMIDE"
       ]
@@ -3384,7 +3152,7 @@
         "ORAL REHYDRATION SALTS"
       ]
     ],
-    "YONDELIS FOR CONCENTRATE FOR FOR": [
+    "YONDELIS": [
       [
         "TRABECTEDIN"
       ]
@@ -3422,7 +3190,7 @@
         "VALSARTAN"
       ]
     ],
-    "XGEVA FOR": [
+    "XGEVA": [
       [
         "DENOSUMAB"
       ]
@@ -3479,7 +3247,7 @@
         "CETIRIZINE HYDROCHLORIDE"
       ]
     ],
-    "ZYVOX FOR": [
+    "ZYVOX": [
       [
         "LINEZOLID"
       ]
@@ -3489,12 +3257,7 @@
         "SILDENAFIL"
       ]
     ],
-    "VOTREX AMP": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "VOTREX 50": [
+    "VOTREX": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -3514,7 +3277,7 @@
         "DICLOFENAC SODIUM"
       ]
     ],
-    "VOLTIC FOR": [
+    "VOLTIC": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -3529,7 +3292,7 @@
         "DICLOFENAC SODIUM"
       ]
     ],
-    "WATER FOR": [
+    "WATER": [
       [
         "WATER"
       ],
@@ -3540,11 +3303,6 @@
     "VOLTAREN EMULGEL": [
       [
         "DICLOFENAC DIETHYLAMINE"
-      ]
-    ],
-    "WATER FOR AMP": [
-      [
-        "WATER"
       ]
     ],
     "WATENE": [
@@ -3597,45 +3355,40 @@
         "THIAMINE"
       ]
     ],
-    "VISIPAQUE FOR": [
-      [
-        "IODIXANOL"
-      ]
-    ],
     "VOCORT": [
       [
         "DIFLUCORTOLONE VALERATE",
         "ISOCONAZOLE NITRATE"
       ]
     ],
-    "XYLOCAINE DENTAL ADRENALINE FOR": [
+    "XYLOCAINE DENTAL ADRENALINE": [
       [
         "EPINEPHRINE",
         "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
-    "XOLAMOL EYE": [
+    "XOLAMOL": [
       [
         "DORZOLAMIDE",
         "TIMOLOL MALEATE"
       ]
     ],
-    "XYLO MEPHA NASAL SPRAY": [
+    "XYLO MEPHA": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "XYLOMET ADULT NASAL": [
+    "XYLOMET ADULT": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "XYLOMET PEADIATRIC NASAL": [
+    "XYLOMET PEADIATRIC": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "XYLONOR SPRAY": [
+    "XYLONOR": [
       [
         "CETRIMIDE",
         "LIDOCAINE HYDROCHLORIDE"
@@ -3646,27 +3399,12 @@
         "CEFUROXIME AXETIL"
       ]
     ],
-    "XOLAIR FOR": [
+    "XOLAIR": [
       [
         "OMALIZUMAB"
       ]
     ],
-    "XYNTHA 500 I U FOR FOR": [
-      [
-        "MOROCTOCOG ALFA"
-      ]
-    ],
-    "XYNTHA 250 I U FOR FOR": [
-      [
-        "MOROCTOCOG ALFA"
-      ]
-    ],
-    "XYNTHA 2000 I U FOR FOR": [
-      [
-        "MOROCTOCOG ALFA"
-      ]
-    ],
-    "XYNTHA 1000 I U FOR FOR": [
+    "XYNTHA": [
       [
         "MOROCTOCOG ALFA"
       ]
@@ -3696,7 +3434,7 @@
         "CEFIXIME"
       ]
     ],
-    "XALACOM EYE": [
+    "XALACOM": [
       [
         "LATANOPROST",
         "TIMOLOL MALEATE"
@@ -3712,7 +3450,7 @@
         "WATER"
       ]
     ],
-    "XALATAN ML EYE": [
+    "XALATAN": [
       [
         "LATANOPROST"
       ]
@@ -3727,7 +3465,7 @@
         "ORLISTAT"
       ]
     ],
-    "XENETIX IODINE ML SOLN FOR": [
+    "XENETIX IODINE ML SOLN": [
       [
         "IOBITRIDOL"
       ]
@@ -3747,12 +3485,7 @@
         "RIVAROXABAN"
       ]
     ],
-    "XEFO FOR": [
-      [
-        "LORNOXICAM"
-      ]
-    ],
-    "SYSTANE LUBRICANT EYE": [
+    "SYSTANE LUBRICANT": [
       [
         "POLYETHYLENE GLYCOL",
         "PROPYLENE GLYCOL"
@@ -3760,15 +3493,7 @@
     ],
     "SYNFLORIX VACCINE": [
       [
-        "14",
-        "18C",
-        "19F AND 23F) VACCINE",
-        "4",
-        "5",
-        "6B",
-        "7F",
-        "9V",
-        "PNEUMOCOCCAL (STREPTOCOCCUS PNEUMONIAE) POLYSACCHARIDE CONJUGATE (SEROTYPE 1"
+        "PNEUMOCOCCAL (STREPTOCOCCUS PNEUMONIAE) POLYSACCHARIDE CONJUGATE (SEROTYPE 1, 4, 5, 6B, 7F, 9V, 14, 18C, 19F AND 23F) VACCINE"
       ]
     ],
     "ROACCUTANE": [
@@ -3791,7 +3516,7 @@
         "METHYLPHENIDATE"
       ]
     ],
-    "RISPERDAL CONSTA I M VIAL": [
+    "RISPERDAL CONSTA": [
       [
         "RISPERIDONE"
       ]
@@ -3820,17 +3545,7 @@
         "DICLOFENAC DIETHYLAMINE"
       ]
     ],
-    "ROFENAC AMP": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
     "ROFENAC SUPPOSITORES": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "ROFENAC SUPP": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -3842,7 +3557,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "RINGER I V": [
+    "RINGER": [
       [
         "CALCIUM CHLORIDE",
         "POTASSIUM CHLORIDE",
@@ -3895,7 +3610,7 @@
         "TRIPROLIDINE"
       ]
     ],
-    "RINOCLENIL DOSE NASAL SPRAY": [
+    "RINOCLENIL DOSE": [
       [
         "BECLOMETHASONE DIPROPIONATE"
       ]
@@ -3931,12 +3646,12 @@
         "IBUPROFEN"
       ]
     ],
-    "SANDOSTATIN LAR VIAL": [
+    "SANDOSTATIN LAR": [
       [
         "OCTREOTIDE ACETATE"
       ]
     ],
-    "SANDOSTATIN AMP": [
+    "SANDOSTATIN": [
       [
         "OCTREOTIDE ACETATE"
       ]
@@ -3946,7 +3661,7 @@
         "GRANISETRON"
       ]
     ],
-    "SAMIXON VIAL SOLVENT": [
+    "SAMIXON SOLVENT": [
       [
         "CEFTRIAXONE"
       ]
@@ -3977,14 +3692,9 @@
         "AMIODARONE"
       ]
     ],
-    "SAMIXON VIAL": [
+    "SAMIXON": [
       [
         "CEFTRIAXONE"
-      ]
-    ],
-    "SEDACORON FOR": [
-      [
-        "AMIODARONE"
       ]
     ],
     "SECNID": [
@@ -4013,16 +3723,6 @@
         "MEPIVACAINE HYDROCHLORIDE"
       ]
     ],
-    "RONEM 1GM": [
-      [
-        "MEROPENEM"
-      ]
-    ],
-    "SAMIXON 1GM VIAL SOLVENT": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
     "SALOFALK": [
       [
         "MESALAZINE"
@@ -4049,8 +3749,7 @@
     ],
     "ROTARIX VACCINE": [
       [
-        "HUMAN ROTAVIRUS",
-        "LIVE ATTENUATED VACCINE"
+        "HUMAN ROTAVIRUS, LIVE ATTENUATED VACCINE"
       ]
     ],
     "ROZEX W W": [
@@ -4066,20 +3765,14 @@
         "DICLOFENAC DIETHYLAMINE"
       ]
     ],
-    "SALOFALK 4GM ENEMA": [
+    "SALOFALK ENEMA": [
       [
         "MESALAZINE"
       ]
     ],
-    "SALIPAX 20": [
+    "SALIPAX": [
       [
         "FLUOXETINE"
-      ]
-    ],
-    "SALIDEX TOPICAL": [
-      [
-        "DEXAMETHASONE",
-        "SALICYLIC ACID"
       ]
     ],
     "SALIDEX": [
@@ -4092,11 +3785,6 @@
       [
         "BETAMETHASONE DIPROPIONATE",
         "SALICYLIC ACID"
-      ]
-    ],
-    "SAMIXON 1GM VIAL": [
-      [
-        "CEFTRIAXONE"
       ]
     ],
     "SALBULASE": [
@@ -4157,27 +3845,27 @@
         "MICONAZOLE NITRATE"
       ]
     ],
-    "RECORMON PFS FOR": [
+    "RECORMON PFS": [
       [
         "EPOETIN BETA"
       ]
     ],
-    "RECORMON 2000 I U PREFILLED SYRINGE": [
+    "RECORMON PREFILLED SYRINGE": [
       [
         "EPOETIN BETA"
       ]
     ],
-    "REMICADE VIAL FOR": [
+    "REMICADE": [
       [
         "INFLIXIMAB"
       ]
     ],
-    "RELESTAT EYE": [
+    "RELESTAT": [
       [
         "EPINASTINE HYDROCHLORIDE"
       ]
     ],
-    "RELENZA FOR INHALATION": [
+    "RELENZA": [
       [
         "ZANAMIVIR"
       ]
@@ -4188,28 +3876,28 @@
         "PARACETAMOL"
       ]
     ],
-    "REGAINE TOPICAL SOLN": [
+    "REGAINE SOLN": [
       [
         "MINOXIDIL"
       ]
     ],
-    "REGAINE TOPICAL": [
+    "REGAINE": [
       [
         "MINOXIDIL"
       ]
     ],
-    "REFRESH TEARS EYE": [
+    "REFRESH TEARS": [
       [
         "CARMELLOSE"
       ]
     ],
-    "REFRESH P M EYE": [
+    "REFRESH P M": [
       [
         "MINERAL OIL",
         "WHITE PETROLATUM"
       ]
     ],
-    "REFRESH LIQUIGEL EYE": [
+    "REFRESH LIQUIGEL": [
       [
         "CARMELLOSE"
       ]
@@ -4230,7 +3918,7 @@
         "THEOPHYLLINE"
       ]
     ],
-    "RIAPHAN PER": [
+    "RIAPHAN": [
       [
         "DEXTROMETHORPHAN"
       ]
@@ -4301,7 +3989,7 @@
         "BENZATHINE PENICILLIN"
       ]
     ],
-    "RHINASE AQUEOUS NASAL SPRAY": [
+    "RHINASE AQUEOUS": [
       [
         "FLUTICASONE PROPIONATE"
       ]
@@ -4312,12 +4000,7 @@
         "PROMETHAZINE"
       ]
     ],
-    "RIACHOL EYE": [
-      [
-        "CHLORAMPHENICOL"
-      ]
-    ],
-    "RIACHOL EAR": [
+    "RIACHOL": [
       [
         "CHLORAMPHENICOL"
       ]
@@ -4327,12 +4010,12 @@
         "CARVEDILOL"
       ]
     ],
-    "RHOPHYLAC SOL FOR IN PFS": [
+    "RHOPHYLAC SOL IN PFS": [
       [
         "ANTI-D (RH0) IMMUNOGLOBULIN"
       ]
     ],
-    "RHINOCORT AQUA NASAL SPRAY": [
+    "RHINOCORT AQUA": [
       [
         "BUDESONIDE"
       ]
@@ -4369,13 +4052,7 @@
         "LOSARTAN POTASSIUM"
       ]
     ],
-    "SORTIVA H 50": [
-      [
-        "HYDROCHLOROTHIAZIDE",
-        "LOSARTAN POTASSIUM"
-      ]
-    ],
-    "SORTIVA H 100": [
+    "SORTIVA H": [
       [
         "HYDROCHLOROTHIAZIDE",
         "LOSARTAN POTASSIUM"
@@ -4391,7 +4068,7 @@
         "BROMHEXINE"
       ]
     ],
-    "MEDROL AND SOLVENT FOR FOR": [
+    "MEDROL AND SOLVENT": [
       [
         "METHYLPREDNISOLONE"
       ]
@@ -4431,28 +4108,7 @@
         "ALLERGEN EXTRACT \"ORIGIN MAINTENANCE\""
       ]
     ],
-    "STALEVO 50 12 5": [
-      [
-        "CARBIDOPA",
-        "ENTACAPONE",
-        "LEVODOPA"
-      ]
-    ],
-    "STALEVO 200 50": [
-      [
-        "CARBIDOPA",
-        "ENTACAPONE",
-        "LEVODOPA"
-      ]
-    ],
-    "STALEVO 150 37 5": [
-      [
-        "CARBIDOPA",
-        "ENTACAPONE",
-        "LEVODOPA"
-      ]
-    ],
-    "STALEVO 100 25": [
+    "STALEVO": [
       [
         "CARBIDOPA",
         "ENTACAPONE",
@@ -4469,37 +4125,22 @@
         "IBUPROFEN"
       ]
     ],
-    "SPASMOPAN AMP": [
-      [
-        "HYOSCINE BUTYLBROMIDE"
-      ]
-    ],
     "STALORAL MOULDS INITIAL": [
       [
         "ALLERGEN EXTRACT -MOULDS INITIAL"
       ]
     ],
-    "CORTEF ACT O VIAL AND SOLVENT FOR FOR": [
+    "CORTEF ACT O AND SOLVENT": [
       [
         "HYDROCORTISONE SODIUM SUCCINATE"
       ]
     ],
-    "SODIUM CHLORIDE AMP": [
-      [
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "SODIUM CHLORIDE I V": [
+    "SODIUM CHLORIDE": [
       [
         "SODIUM CHLORIDE"
       ]
     ],
     "SODIUM CHLORIDE SOLN": [
-      [
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "SODIUM CHLORIDE": [
       [
         "SODIUM CHLORIDE"
       ]
@@ -4516,17 +4157,17 @@
         "PARACETAMOL"
       ]
     ],
-    "SOLOTIK F C": [
+    "SOLOTIK": [
       [
         "SERTRALINE"
       ]
     ],
-    "SOJOURN VAPOUR LIQUID FOR INHALATION": [
+    "SOJOURN VAPOUR LIQUID": [
       [
         "SEVOFLURANE"
       ]
     ],
-    "CORTEF AOV AND SOLVENT FOR FOR": [
+    "CORTEF AOV AND SOLVENT": [
       [
         "HYDROCORTISONE SODIUM SUCCINATE"
       ]
@@ -4536,7 +4177,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM CHLORIDE & GLUCOSE I V": [
+    "SODIUM CHLORIDE & GLUCOSE": [
       [
         "DEXTROSE",
         "SODIUM CHLORIDE"
@@ -4557,12 +4198,12 @@
         "ALLERGEN EXTRACT -POLLENS MAINTENANCE"
       ]
     ],
-    "SUFENTA FORTE AMP ML": [
+    "SUFENTA FORTE": [
       [
         "SUFENTANIL"
       ]
     ],
-    "SUFENTA AMP ML": [
+    "SUFENTA": [
       [
         "SUFENTANIL"
       ]
@@ -4582,12 +4223,7 @@
         "CEFIXIME"
       ]
     ],
-    "SUPRAX 200": [
-      [
-        "CEFIXIME"
-      ]
-    ],
-    "SUPRAX 400": [
+    "SUPRAX": [
       [
         "CEFIXIME"
       ]
@@ -4609,7 +4245,7 @@
         "SUNITINIB"
       ]
     ],
-    "SURECURE TOPICAL": [
+    "SURECURE": [
       [
         "ADAPALENE"
       ]
@@ -4629,7 +4265,7 @@
         "ALLERGEN EXTRACT - POLLENS INITIAL"
       ]
     ],
-    "STELARA FOR": [
+    "STELARA": [
       [
         "USTEKINUMAB"
       ]
@@ -4639,12 +4275,7 @@
         "AMPICILLIN"
       ]
     ],
-    "STANDACILLIN VIAL WITH SOLVENT": [
-      [
-        "AMPICILLIN"
-      ]
-    ],
-    "STERILE WATER FOR": [
+    "STERILE WATER": [
       [
         "WATER"
       ]
@@ -4659,7 +4290,7 @@
         "STERILIZED APYROGENIC DISTILLED WATER"
       ]
     ],
-    "SMOFKABIVEN PERIPHERAL EMULSION FOR": [
+    "SMOFKABIVEN PERIPHERAL EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -4690,7 +4321,7 @@
         "ZINC SULPHATE"
       ]
     ],
-    "SINATEN 100000 I U VAGINAL": [
+    "SINATEN VAGINAL": [
       [
         "NYSTATIN"
       ]
@@ -4710,22 +4341,7 @@
         "TADALAFIL"
       ]
     ],
-    "SOD CHLORIDE I V": [
-      [
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "SOD CHLORIDE I V AMP": [
-      [
-        "SODIUM CHLORIDE"
-      ]
-    ],
     "SOD CHLORIDE": [
-      [
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "SOD CHLORIDE FOR": [
       [
         "SODIUM CHLORIDE"
       ]
@@ -4735,20 +4351,15 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "SOD CHLORIDE DEXTROSE I V INF": [
+    "SOD CHLORIDE DEXTROSE INF": [
       [
         "DEXTROSE",
         "SODIUM CHLORIDE"
       ]
     ],
-    "SIMCOR F C": [
+    "SIMCOR": [
       [
         "SIMVASTATIN"
-      ]
-    ],
-    "SEROQUEL F C": [
-      [
-        "QUETIAPINE"
       ]
     ],
     "SEROQUEL": [
@@ -4761,19 +4372,7 @@
         "NICERGOLINE"
       ]
     ],
-    "SERETIDE EVOHALER 25 50": [
-      [
-        "FLUTICASONE PROPIONATE",
-        "SALMETEROL"
-      ]
-    ],
     "SERETIDE EVOHALER": [
-      [
-        "FLUTICASONE PROPIONATE",
-        "SALMETEROL"
-      ]
-    ],
-    "SERETIDE DISKUS 50": [
       [
         "FLUTICASONE PROPIONATE",
         "SALMETEROL"
@@ -4822,14 +4421,9 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM CHLORID I V": [
+    "SODIUM CHLORID": [
       [
         "SODIUM CHLORIDE"
-      ]
-    ],
-    "SODIUM BICARBONATE 840GM": [
-      [
-        "SODIUM BICARBONATE"
       ]
     ],
     "SODIUM BICARBONATE": [
@@ -4838,16 +4432,6 @@
       ]
     ],
     "SODIUM BICARBONATE INF": [
-      [
-        "SODIUM BICARBONATE"
-      ]
-    ],
-    "SODIUM BICARBONATE I V": [
-      [
-        "SODIUM BICARBONATE"
-      ]
-    ],
-    "SODIUM BICARBONATE 650GM": [
       [
         "SODIUM BICARBONATE"
       ]
@@ -4869,7 +4453,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM CHLORIDE W V I V": [
+    "SODIUM CHLORIDE W V": [
       [
         "SODIUM CHLORIDE"
       ]
@@ -4879,19 +4463,19 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM CHLORIDE AND GLUCOSE I V": [
+    "SODIUM CHLORIDE AND GLUCOSE": [
       [
         "DEXTROSE",
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM CHLORIDE 0 225& DEXTROSE I V INF": [
+    "SODIUM CHLORIDE & DEXTROSE INF": [
       [
         "DEXTROSE",
         "SODIUM CHLORIDE"
       ]
     ],
-    "SODIUM ACETATE F T V 40MEQ": [
+    "SODIUM ACETATE F T V": [
       [
         "ACETATE SODIUM"
       ]
@@ -4920,19 +4504,7 @@
         "BECLOMETHASONE DIPROPIONATE"
       ]
     ],
-    "CLAVODAR 625GM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
     "CLAVODAR": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
-    "CLAVODAR 1GM": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -4959,12 +4531,12 @@
         "HYDROCORTISONE ACETATE"
       ]
     ],
-    "CLOPIXOL ACUPHASE OILY AMP": [
+    "CLOPIXOL ACUPHASE OILY": [
       [
         "ZUCLOPENTHIXOL ACETATE"
       ]
     ],
-    "CLOPIXOL DEPOT OILY AMP": [
+    "CLOPIXOL DEPOT OILY": [
       [
         "ZUCLOPENTHIXOL DECANOATE"
       ]
@@ -5060,7 +4632,7 @@
         "BISOPROLOL FUMARATE"
       ]
     ],
-    "CONCOR 5 PLUS": [
+    "CONCOR PLUS": [
       [
         "BISOPROLOL FUMARATE",
         "HYDROCHLOROTHIAZIDE"
@@ -5076,7 +4648,7 @@
         "METHYLPHENIDATE"
       ]
     ],
-    "CONAZOLE VAGINAL 1GM": [
+    "CONAZOLE VAGINAL": [
       [
         "MICONAZOLE NITRATE"
       ]
@@ -5105,7 +4677,7 @@
         "VALSARTAN"
       ]
     ],
-    "COSMOFER AMPOULES": [
+    "COSMOFER": [
       [
         "IRON DEXTRAN"
       ]
@@ -5124,7 +4696,7 @@
         "HYDROCHLOROTHIAZIDE"
       ]
     ],
-    "CORDARONE AMP": [
+    "CORDARONE": [
       [
         "AMIODARONE"
       ]
@@ -5148,6 +4720,9 @@
         "POTASSIUM CHLORIDE",
         "SODIUM CHLORIDE",
         "SODIUM LACTATE"
+      ],
+      [
+        "SODIUM LACTATE"
       ]
     ],
     "COBAL": [
@@ -5155,7 +4730,7 @@
         "METHYLCOBALAMIN"
       ]
     ],
-    "CO APROVEL 150": [
+    "CO APROVEL": [
       [
         "HYDROCHLOROTHIAZIDE",
         "IRBESARTAN"
@@ -5190,11 +4765,6 @@
     "CLOTREX": [
       [
         "CLOTRIMAZOLE"
-      ]
-    ],
-    "COMPOUND SODIUM LACTATE I V": [
-      [
-        "SODIUM LACTATE"
       ]
     ],
     "COMPOUND SODIUM LACTATE INF": [
@@ -5234,12 +4804,7 @@
         "CIPROFLOXACIN"
       ]
     ],
-    "CEFUREX FOR": [
-      [
-        "CEFUROXIME AXETIL"
-      ]
-    ],
-    "CEFUREX F C": [
+    "CEFUREX": [
       [
         "CEFUROXIME AXETIL"
       ]
@@ -5249,12 +4814,12 @@
         "CEFIXIME"
       ]
     ],
-    "CEFPROZ POWDR FOR": [
+    "CEFPROZ POWDR": [
       [
         "CEFPROZIL"
       ]
     ],
-    "CEFPROZ FOR": [
+    "CEFPROZ": [
       [
         "CEFPROZIL"
       ]
@@ -5284,7 +4849,7 @@
         "MYCOPHENOLATE MOFETIL"
       ]
     ],
-    "CEFOFIX VIALS": [
+    "CEFOFIX": [
       [
         "CEFUROXIME SODIUM"
       ]
@@ -5317,22 +4882,17 @@
         "CEFACLOR"
       ]
     ],
-    "CEFAXON 1GM I M LIDOCAINE VIAL": [
+    "CEFAXON LIDOCAINE": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "CEFAXON 1GM I V VIAL": [
+    "CEFAXON": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "CEFAXON I M LIDOCAINE VIAL": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "CEFIZOX 1000 VIAL I V": [
+    "CEFIZOX 1000 I V": [
       [
         "CEFTIZOXIME"
       ]
@@ -5345,11 +4905,6 @@
     "CEFIM": [
       [
         "CEFIXIME"
-      ]
-    ],
-    "CEFAXON I V VIAL": [
-      [
-        "CEFTRIAXONE"
       ]
     ],
     "CERAZETTE": [
@@ -5402,27 +4957,17 @@
         "CIPROFLOXACIN"
       ]
     ],
-    "CIPROMID F C": [
-      [
-        "CIPROFLOXACIN"
-      ]
-    ],
-    "CIPROBAY FOR": [
-      [
-        "CIPROFLOXACIN"
-      ]
-    ],
     "CIPROMAX": [
       [
         "CIPROFLOXACIN"
       ]
     ],
-    "CIPROLON 200 VIAL": [
+    "CIPROLON": [
       [
         "CIPROFLOXACIN"
       ]
     ],
-    "CEPROTIN FOR FOR OR": [
+    "CEPROTIN": [
       [
         "PROTEIN C"
       ]
@@ -5437,7 +4982,7 @@
         "CIPROFLOXACIN"
       ]
     ],
-    "CETROTIDE POW FOR FOR": [
+    "CETROTIDE POW": [
       [
         "CETRORELIX"
       ]
@@ -5463,17 +5008,12 @@
         "ASCORBIC ACID"
       ]
     ],
-    "CHAMPIX F C": [
+    "CHAMPIX": [
       [
         "VARENICLINE"
       ]
     ],
-    "CIFLOX I V": [
-      [
-        "CIPROFLOXACIN"
-      ]
-    ],
-    "CHORIOMON 5000 I U VIAL AMP OF SOLVENT": [
+    "CHORIOMON OF SOLVENT": [
       [
         "GONADOTROPHIN CHORIONIC HUMAN"
       ]
@@ -5493,7 +5033,7 @@
         "PERINDOPRIL ARGININE"
       ]
     ],
-    "DEXTROSE I V": [
+    "DEXTROSE": [
       [
         "DEXTROSE"
       ]
@@ -5513,11 +5053,6 @@
       [
         "DEXTROSE",
         "SODIUM CHLORIDE"
-      ]
-    ],
-    "DEXTROSE FOR": [
-      [
-        "DEXTROSE"
       ]
     ],
     "DEXTROSE IN 1 5NORMAL SALINE INFUSIO": [
@@ -5620,11 +5155,6 @@
         "RINGER(S) SOLUTION"
       ]
     ],
-    "DEXTROSE": [
-      [
-        "DEXTROSE"
-      ]
-    ],
     "DEXTROSE IN SOD CHLORIDE INFU": [
       [
         "DEXTROSE",
@@ -5685,14 +5215,17 @@
         "GLIBENCLAMIDE"
       ]
     ],
-    "DANSETRON ML AMP FOR I V": [
+    "DANSETRON": [
       [
         "ONDANSETRON"
       ]
     ],
-    "DALACIN C AMPOULE": [
+    "DALACIN C": [
       [
         "CLINDAMYCIN PHOSPHATE"
+      ],
+      [
+        "CLINDAMYCIN HYDROCHLORIDE"
       ]
     ],
     "DALACIN VAGINAL": [
@@ -5705,12 +5238,7 @@
         "CLINDAMYCIN PHOSPHATE"
       ]
     ],
-    "DANSETRON FOR": [
-      [
-        "ONDANSETRON"
-      ]
-    ],
-    "CURAM 1 2GM POW FOR SOLN FOR": [
+    "CURAM POW FOR SOLN": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -5736,7 +5264,7 @@
         "CROTAMITON"
       ]
     ],
-    "CROMA EYE": [
+    "CROMA": [
       [
         "SODIUM CROMOGLICATE",
         "TETRAHYDROZOLINE"
@@ -5757,13 +5285,7 @@
         "MELOXICAM"
       ]
     ],
-    "CURAM FOR": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
-    "CURAM 1GM": [
+    "CURAM": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -5779,19 +5301,7 @@
         "FLUTICASONE PROPIONATE"
       ]
     ],
-    "CURAM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
-    "CURAM POW FOR SOLN FOR": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
-    "CURAM POW FOR": [
+    "CURAM POW": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -5822,7 +5332,7 @@
         "CLOBETASOL PROPIONATE"
       ]
     ],
-    "DERMA T TOPICAL LOTION": [
+    "DERMA T LOTION": [
       [
         "CLINDAMYCIN PHOSPHATE"
       ]
@@ -5837,12 +5347,12 @@
         "CLOBETASOL PROPIONATE"
       ]
     ],
-    "DEXANOL 30 GM": [
+    "DEXANOL": [
       [
         "DEXPANTHENOL"
       ]
     ],
-    "DEXAMETHASONE SOD PHOSPHATE AMP": [
+    "DEXAMETHASONE SOD PHOSPHATE": [
       [
         "DEXAMETHASONE SODIUM PHOSPHATE"
       ]
@@ -5868,7 +5378,7 @@
         "DESLORATADINE"
       ]
     ],
-    "DESFERAL VIAL": [
+    "DESFERAL": [
       [
         "DEFEROXAMINE"
       ]
@@ -5898,7 +5408,7 @@
         "PARACETAMOL"
       ]
     ],
-    "DECOZAL NASAL SPRAY": [
+    "DECOZAL": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
@@ -5907,11 +5417,6 @@
       [
         "LORATADINE",
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
-      ]
-    ],
-    "DECOZAL NASAL": [
-      [
-        "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
     "DECAPEPTYL CR SYRINGE": [
@@ -5924,7 +5429,7 @@
         "TRIPTORELIN"
       ]
     ],
-    "DEFONEX NASAL SPRAY": [
+    "DEFONEX": [
       [
         "MOMETASONE FUROATE"
       ]
@@ -5934,17 +5439,17 @@
         "ACYCLOVIR"
       ]
     ],
-    "DEPO PROVERA VIAL I M": [
+    "DEPO PROVERA I M": [
       [
         "MEDROXYPROGESTERONE ACETATE"
       ]
     ],
-    "DEPO MEDROL VIAL SAS": [
+    "DEPO MEDROL SAS": [
       [
         "METHYLPREDNISOLONE"
       ]
     ],
-    "DEPAKINE FOR": [
+    "DEPAKINE": [
       [
         "VALPROATE SODIUM"
       ]
@@ -5971,7 +5476,7 @@
         "SALICYLIC ACID"
       ]
     ],
-    "CAVERJECT VIAL": [
+    "CAVERJECT": [
       [
         "ALPROSTADIL"
       ]
@@ -5986,7 +5491,7 @@
         "MAGALDRATE"
       ]
     ],
-    "ANEXATE AMP": [
+    "ANEXATE": [
       [
         "FLUMAZENIL"
       ]
@@ -6001,23 +5506,23 @@
         "DIPYRIDAMOLE"
       ]
     ],
-    "ANZATAX VIAL": [
+    "ANZATAX": [
       [
         "PACLITAXEL"
       ]
     ],
-    "APIMOL EYE": [
+    "APIMOL": [
       [
         "TIMOLOL MALEATE"
       ]
     ],
-    "APILLERG EYE": [
+    "APILLERG": [
       [
         "ANTAZOLINE HYDROCHLORIDE",
         "TETRAHYDROZOLINE"
       ]
     ],
-    "APIGEN EYE OINTEMENT": [
+    "APIGEN OINTEMENT": [
       [
         "GENTAMICIN"
       ]
@@ -6032,32 +5537,32 @@
         "AMLODIPINE BESILATE"
       ]
     ],
-    "APIFLOX EYE": [
+    "APIFLOX": [
       [
         "NORFLOXACIN"
       ]
     ],
-    "APICROM EYE": [
+    "APICROM": [
       [
         "CROMOLYN SODIUM"
       ]
     ],
-    "APICORT FORTE EYE": [
+    "APICORT FORTE": [
       [
         "PREDNISOLONE"
       ]
     ],
-    "APICORT EYE": [
+    "APICORT": [
       [
         "PREDNISOLONE"
       ]
     ],
-    "APICARPINE EYE": [
+    "APICARPINE": [
       [
         "PILOCARPINE HYDROCHLORIDE"
       ]
     ],
-    "APIDRA SOLOSTAR 100 U ML DISPOSABLE PEN": [
+    "APIDRA SOLOSTAR DISPOSABLE PEN": [
       [
         "INSULIN GLULISINE"
       ]
@@ -6084,8 +5589,7 @@
     ],
     "AMINOVEN": [
       [
-        "AMINO ACIDS",
-        "SOURCE UNSPECIFIED"
+        "AMINO ACIDS, SOURCE UNSPECIFIED"
       ]
     ],
     "AMINOPLASMAL B BRAUN": [
@@ -6109,7 +5613,7 @@
         "VALINE"
       ]
     ],
-    "AMINOPLASMAL I V SOLN": [
+    "AMINOPLASMAL SOLN": [
       [
         "ACETYLCYSTEINE",
         "ALANINE",
@@ -6136,27 +5640,22 @@
         "AMINOPHYLLINE"
       ]
     ],
-    "AMOCLAN 1 2 GM VIAL": [
+    "AMOCLAN": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
       ]
     ],
-    "AMPIPLUS 1 5GM FOR INGECTION": [
+    "AMPIPLUS FOR INGECTION": [
       [
         "AMPICILLIN",
         "SULBACTAM"
       ]
     ],
-    "AMOXIPLUS 1 2GM FOR": [
+    "AMOXIPLUS": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
-      ]
-    ],
-    "AMOXIL FOR": [
-      [
-        "AMOXICILLIN"
       ]
     ],
     "AMOXIL": [
@@ -6164,7 +5663,7 @@
         "AMOXICILLIN"
       ]
     ],
-    "AMOXIL FOR FORTE": [
+    "AMOXIL FORTE": [
       [
         "AMOXICILLIN"
       ]
@@ -6194,7 +5693,7 @@
         "SALBUTAMOL"
       ]
     ],
-    "ATACURE PER": [
+    "ATACURE": [
       [
         "ATRACURIUM BESILATE"
       ]
@@ -6214,7 +5713,7 @@
         "MESALAZINE"
       ]
     ],
-    "ASACOL SUPPOSITORIES": [
+    "ASACOL": [
       [
         "MESALAZINE"
       ]
@@ -6260,11 +5759,6 @@
         "VALSARTAN"
       ]
     ],
-    "ASACOL": [
-      [
-        "MESALAZINE"
-      ]
-    ],
     "ARBITEN": [
       [
         "VALSARTAN"
@@ -6284,7 +5778,7 @@
         "TETANUS TOXOID"
       ]
     ],
-    "ACTEMRA FOR": [
+    "ACTEMRA": [
       [
         "TOCILIZUMAB"
       ]
@@ -6304,7 +5798,7 @@
         "TRETINOIN"
       ]
     ],
-    "ACLASTA FOR": [
+    "ACLASTA": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -6319,7 +5813,7 @@
         "ALTEPLASE"
       ]
     ],
-    "ADENOHARDT FOR": [
+    "ADENOHARDT": [
       [
         "ADENOSINE"
       ]
@@ -6354,7 +5848,7 @@
         "ACETYLCYSTEINE"
       ]
     ],
-    "ACC FOR": [
+    "ACC": [
       [
         "ACETYLCYSTEINE"
       ]
@@ -6364,7 +5858,7 @@
         "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
-    "W V POTASSIUM CHLORIDE FOR USP": [
+    "W V POTASSIUM CHLORIDE USP": [
       [
         "POTASSIUM CHLORIDE"
       ]
@@ -6374,7 +5868,7 @@
         "CAPTOPRIL"
       ]
     ],
-    "ACID CONC HAEMODIALYSIS KSP 06 1 34": [
+    "ACID HAEMODIALYSIS KSP 06 1 34": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -6384,7 +5878,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "ACID CONC HAEMODIALYSIS KSP 05 1 44": [
+    "ACID HAEMODIALYSIS KSP 05 1 44": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -6393,7 +5887,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "ACID CONC HAEMODIALYSIS KSP 04 1 44": [
+    "ACID HAEMODIALYSIS KSP 04 1 44": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -6403,7 +5897,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "ACID CONC HAEMODIALYSIS KSP 03 1 44": [
+    "ACID HAEMODIALYSIS KSP 03 1 44": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -6429,12 +5923,12 @@
         "MAGALDRATE"
       ]
     ],
-    "ALLERFIN AMP": [
+    "ALLERFIN": [
       [
         "CHLORPHENIRAMINE MALEATE"
       ]
     ],
-    "ALKA UR EFFERVES 4GM GRANULES SUGARFREE": [
+    "ALKA UR EFFERVES GRANULES SUGARFREE": [
       [
         "CITRIC ACID ANHYDROUS",
         "SODIUM BICARBONATE",
@@ -6442,19 +5936,9 @@
         "TRI SODIUM CITRATE"
       ]
     ],
-    "ALEXAN VIAL": [
-      [
-        "CYTARABINE"
-      ]
-    ],
     "ALEXAN": [
       [
         "CYTARABINE"
-      ]
-    ],
-    "ALLERFIN": [
-      [
-        "CHLORPHENIRAMINE MALEATE"
       ]
     ],
     "ALLERGETIN": [
@@ -6463,7 +5947,7 @@
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "ALLERGODIL NASAL SPRAY WITH SPRAYER": [
+    "ALLERGODIL WITH SPRAYER": [
       [
         "AZELASTINE"
       ]
@@ -6473,7 +5957,7 @@
         "AMBROXOL HYDROCHLORIDE"
       ]
     ],
-    "AMBISOME VIAL": [
+    "AMBISOME": [
       [
         "AMPHOTERICIN B"
       ]
@@ -6493,7 +5977,7 @@
         "BRIMONIDINE TARTRATE"
       ]
     ],
-    "ALPAX AMP": [
+    "ALPAX": [
       [
         "PANCURONIUM BROMIDE"
       ]
@@ -6503,7 +5987,7 @@
         "ALENDRONIC ACID"
       ]
     ],
-    "AGGRASTAT I V VIAL": [
+    "AGGRASTAT": [
       [
         "TIROFIBAN"
       ]
@@ -6551,7 +6035,7 @@
         "IMIQUIMOD"
       ]
     ],
-    "ALBUTEIN SOLN FOR": [
+    "ALBUTEIN SOLN": [
       [
         "ALBUMIN HUMAN"
       ]
@@ -6571,12 +6055,12 @@
         "MONTELUKAST SODIUM"
       ]
     ],
-    "AIMAFIX 500I U POW FOR FOR INFU": [
+    "AIMAFIX POW FOR FOR INFU": [
       [
         "HUMAN PLASMA COAGULATION FACTOR IX"
       ]
     ],
-    "ATROPINE SULF E S ML": [
+    "ATROPINE SULF E S": [
       [
         "ATROPINE SULFATE"
       ]
@@ -6596,7 +6080,7 @@
         "TICAGRELOR"
       ]
     ],
-    "BOTOX 100UNITS": [
+    "BOTOX": [
       [
         "CLOSTRIDIUM BOTULINUM NEUROTOXIN A COMPLEX"
       ]
@@ -6616,19 +6100,7 @@
         "IBUPROFEN"
       ]
     ],
-    "CADUET 10 40": [
-      [
-        "AMLODIPINE BESILATE",
-        "ATORVASTATIN CALCIUM"
-      ]
-    ],
-    "CADUET 10 20": [
-      [
-        "AMLODIPINE BESILATE",
-        "ATORVASTATIN CALCIUM"
-      ]
-    ],
-    "CADUET 10 10": [
+    "CADUET": [
       [
         "AMLODIPINE BESILATE",
         "ATORVASTATIN CALCIUM"
@@ -6639,23 +6111,12 @@
         "BUDESONIDE"
       ]
     ],
-    "BUCAINE FOR": [
+    "BUCAINE": [
       [
         "BUPIVACAINE"
       ]
     ],
-    "BUCAINE VIAL": [
-      [
-        "BUPIVACAINE"
-      ]
-    ],
-    "CADUET 5 10": [
-      [
-        "AMLODIPINE BESILATE",
-        "ATORVASTATIN CALCIUM"
-      ]
-    ],
-    "BLOPRESS 8 PLUS": [
+    "BLOPRESS PLUS": [
       [
         "CANDESARTAN CILEXETIL",
         "HYDROCHLOROTHIAZIDE"
@@ -6715,12 +6176,6 @@
         "PRAZIQUANTEL"
       ]
     ],
-    "BLOPRESS 16 PLUS": [
-      [
-        "CANDESARTAN CILEXETIL",
-        "HYDROCHLOROTHIAZIDE"
-      ]
-    ],
     "BLOPRESS": [
       [
         "CANDESARTAN CILEXETIL"
@@ -6746,12 +6201,6 @@
     "BIOCEF": [
       [
         "CEFACLOR"
-      ]
-    ],
-    "CADUET 5 20": [
-      [
-        "AMLODIPINE BESILATE",
-        "ATORVASTATIN CALCIUM"
       ]
     ],
     "CARBOPLATIN EBEWE": [
@@ -6812,18 +6261,12 @@
         "BISOPROLOL FUMARATE"
       ]
     ],
-    "CADUET 5 40": [
-      [
-        "AMLODIPINE BESILATE",
-        "ATORVASTATIN CALCIUM"
-      ]
-    ],
-    "CALCIUM FOLINATE VIAL": [
+    "CALCIUM FOLINATE": [
       [
         "FOLINIC ACID"
       ]
     ],
-    "CALCIUMFOLINAT SANDOZ VIAL": [
+    "CALCIUMFOLINAT SANDOZ": [
       [
         "FOLINIC ACID"
       ]
@@ -6851,7 +6294,7 @@
         "HYDROCHLOROTHIAZIDE"
       ]
     ],
-    "CALCIUM GLUCONATE AMP": [
+    "CALCIUM GLUCONATE": [
       [
         "CALCIUM GLUCONATE"
       ]
@@ -6941,11 +6384,6 @@
         "MUPIROCIN CALCIUM"
       ]
     ],
-    "BACTROBAN NASAL": [
-      [
-        "MUPIROCIN CALCIUM"
-      ]
-    ],
     "BACTRIM": [
       [
         "SULFAMETHOXAZOLE",
@@ -6999,7 +6437,7 @@
         "CLAVULANIC ACID"
       ]
     ],
-    "ATROPINE SULPHATE ML AMPOULE": [
+    "ATROPINE SULPHATE": [
       [
         "ATROPINE SULFATE"
       ]
@@ -7023,34 +6461,29 @@
         "MUPIROCIN CALCIUM"
       ]
     ],
-    "AVAXIM 80U PEDIATRIC VACCINE": [
+    "AVAXIM PEDIATRIC VACCINE": [
       [
         "HEPATITIS A VIRUS"
       ]
     ],
-    "AVAXIM 160 UNITS VACCINE S D SYRINGE": [
+    "AVAXIM VACCINE S D SYRINGE": [
       [
         "HEPATITIS A GBM STRAIN"
       ]
     ],
-    "AVASTIN 400 FOR": [
+    "AVASTIN 400": [
       [
         "BEVACIZUMAB"
       ]
     ],
-    "AVOCOM AQUEOUS NASAL SPRAY": [
+    "AVOCOM AQUEOUS": [
       [
         "MOMETASONE FUROATE"
       ]
     ],
-    "AVASTIN 100 FOR": [
+    "AVASTIN 100": [
       [
         "BEVACIZUMAB"
-      ]
-    ],
-    "AVALOX FOR I V": [
-      [
-        "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
     "AVALOX": [
@@ -7068,7 +6501,7 @@
         "MOCLOBEMIDE"
       ]
     ],
-    "AVAMYS FOR NASAL SPRAY": [
+    "AVAMYS": [
       [
         "FLUTICASONE FUROATE"
       ]
@@ -7103,12 +6536,12 @@
         "BENZOYL PEROXIDE"
       ]
     ],
-    "BENLYSTA FOR FOR": [
+    "BENLYSTA": [
       [
         "BELIMUMAB"
       ]
     ],
-    "BETAFERON 8MIU ML VIAL": [
+    "BETAFERON 8MIU ML": [
       [
         "INTERFERON BETA-1B"
       ]
@@ -7140,27 +6573,12 @@
         "NEOMYCIN SULFATE"
       ]
     ],
-    "BETAMED TOPICAL": [
-      [
-        "BETAMETHASONE VALERATE"
-      ]
-    ],
     "BETAMED": [
       [
         "BETAMETHASONE VALERATE"
       ]
     ],
-    "BENEFIX 500 I U FOR FOR": [
-      [
-        "COAGULATION FACTOR IX RECOMBINANT HUMAN"
-      ]
-    ],
-    "BENEFIX 250 I U FOR FOR": [
-      [
-        "COAGULATION FACTOR IX RECOMBINANT HUMAN"
-      ]
-    ],
-    "BENEFIX 2000 I U FOR FOR": [
+    "BENEFIX": [
       [
         "COAGULATION FACTOR IX RECOMBINANT HUMAN"
       ]
@@ -7177,7 +6595,7 @@
         "TRIMETHOPRIM"
       ]
     ],
-    "BALANCED SALT AMPOULE": [
+    "BALANCED SALT": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7190,11 +6608,6 @@
     "CATALIN OPH": [
       [
         "PIRFENOXONE SODIUM"
-      ]
-    ],
-    "BENEFIX 1000 I U FOR FOR": [
-      [
-        "COAGULATION FACTOR IX RECOMBINANT HUMAN"
       ]
     ],
     "BENDAZOLE": [
@@ -7215,7 +6628,7 @@
         "FOLIC ACID"
       ]
     ],
-    "BASIC BICARBONATE CONCENTRATE INF": [
+    "BASIC BICARBONATE INF": [
       [
         "SODIUM BICARBONATE"
       ]
@@ -7232,27 +6645,22 @@
         "TOCOPHEROL"
       ]
     ],
-    "GRANITRON FOR": [
+    "GRANITRON": [
       [
         "GRANISETRON"
       ]
     ],
-    "GONAL F FOR IN PRE FILLED PEN": [
+    "GONAL F IN PRE FILLED PEN": [
       [
         "FOLLITROPIN ALFA"
       ]
     ],
-    "GONAL F AMPOULE": [
+    "GONAL F": [
       [
         "FOLLITROPIN ALFA"
       ]
     ],
-    "GLYPRESSIN FOR I V": [
-      [
-        "TERLIPRESSIN DIACETATE PENTAHYDRATE"
-      ]
-    ],
-    "GLYPRESSIN FOR": [
+    "GLYPRESSIN": [
       [
         "TERLIPRESSIN DIACETATE PENTAHYDRATE"
       ]
@@ -7334,11 +6742,6 @@
         "AMOXICILLIN"
       ]
     ],
-    "GLUCARE 850": [
-      [
-        "METFORMIN HYDROCHLORIDE"
-      ]
-    ],
     "GLUCOBAY": [
       [
         "ACARBOSE"
@@ -7354,13 +6757,13 @@
         "GLYCINE"
       ]
     ],
-    "GLUCOVANCE 2 5 500": [
+    "GLUCOVANCE": [
       [
         "GLIBENCLAMIDE",
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "GLUCOSE I V": [
+    "GLUCOSE": [
       [
         "DEXTROSE"
       ]
@@ -7370,13 +6773,7 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "GLUCOVANCE 5 500": [
-      [
-        "GLIBENCLAMIDE",
-        "METFORMIN HYDROCHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACETATE CONC 35X F 6": [
+    "HAEMODIALYSIS ACETATE 35X F 6": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7392,7 +6789,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACETATE CONC 35X F 40": [
+    "HAEMODIALYSIS ACETATE 35X F 40": [
       [
         "CALCIUM CHLORIDE",
         "DEXTROSE",
@@ -7402,7 +6799,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 8": [
+    "HAEMODIALYSIS ACID 45X C 8": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7412,7 +6809,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 6": [
+    "HAEMODIALYSIS ACID 45X C 6": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7422,7 +6819,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 16": [
+    "HAEMODIALYSIS ACID 45X C 16": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7432,7 +6829,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 15": [
+    "HAEMODIALYSIS ACID 45X C 15": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7442,7 +6839,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 13": [
+    "HAEMODIALYSIS ACID 45X C 13": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7452,7 +6849,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 10": [
+    "HAEMODIALYSIS ACID 45X C 10": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7461,17 +6858,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 9": [
-      [
-        "ACETIC ACID",
-        "CALCIUM CHLORIDE",
-        "DEXTROSE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACID CONC 45X C 12": [
+    "HAEMODIALYSIS ACID 35X F 9": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7481,7 +6868,17 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 9": [
+    "HAEMODIALYSIS ACID 45X C 12": [
+      [
+        "ACETIC ACID",
+        "CALCIUM CHLORIDE",
+        "DEXTROSE",
+        "MAGNESIUM CHLORIDE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE"
+      ]
+    ],
+    "HAEMODIALYSIS 35X FORM": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7490,7 +6887,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 7": [
+    "HAEMODIALYSIS 35X FORM 7": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7499,7 +6896,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 5": [
+    "HAEMODIALYSIS 35X FORM 5": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7508,7 +6905,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 33": [
+    "HAEMODIALYSIS 35X FORM 33": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7517,7 +6914,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 3": [
+    "HAEMODIALYSIS 35X FORM 3": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7526,7 +6923,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 19": [
+    "HAEMODIALYSIS 35X FORM 19": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7534,7 +6931,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 18": [
+    "HAEMODIALYSIS 35X FORM 18": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7543,7 +6940,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35X FORM 12": [
+    "HAEMODIALYSIS 35X FORM 12": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7560,7 +6957,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 19": [
+    "HAEMODIALYSIS ACID 35X F 19": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7570,7 +6967,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 45X C 5": [
+    "HAEMODIALYSIS ACID 45X C 5": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7580,7 +6977,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONC 35 X FORM 4": [
+    "HAEMODIALYSIS 35 X FORM 4": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -7589,7 +6986,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 18": [
+    "HAEMODIALYSIS ACID 35X F 18": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7598,17 +6995,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 17": [
-      [
-        "ACETIC ACID",
-        "CALCIUM CHLORIDE",
-        "DEXTROSE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACID CONC 35X F 24": [
+    "HAEMODIALYSIS ACID 35X F 17": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7618,7 +7005,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 21": [
+    "HAEMODIALYSIS ACID 35X F 24": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7628,7 +7015,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 10": [
+    "HAEMODIALYSIS ACID 35X F 21": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7638,7 +7025,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 25": [
+    "HAEMODIALYSIS ACID 35X F 10": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7648,7 +7035,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 27": [
+    "HAEMODIALYSIS ACID 35X F 25": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7658,7 +7045,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 16": [
+    "HAEMODIALYSIS ACID 35X F 27": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7668,25 +7055,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 13": [
-      [
-        "ACETIC ACID",
-        "CALCIUM CHLORIDE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACID CONC 35X F 12": [
-      [
-        "ACETIC ACID",
-        "CALCIUM CHLORIDE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACID CONC 35X F 7": [
+    "HAEMODIALYSIS ACID 35X F 16": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7696,7 +7065,25 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 5": [
+    "HAEMODIALYSIS ACID 35X F 13": [
+      [
+        "ACETIC ACID",
+        "CALCIUM CHLORIDE",
+        "MAGNESIUM CHLORIDE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE"
+      ]
+    ],
+    "HAEMODIALYSIS ACID 35X F 12": [
+      [
+        "ACETIC ACID",
+        "CALCIUM CHLORIDE",
+        "MAGNESIUM CHLORIDE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE"
+      ]
+    ],
+    "HAEMODIALYSIS ACID 35X F 7": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7706,16 +7093,7 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 3": [
-      [
-        "ACETIC ACID",
-        "CALCIUM CHLORIDE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE"
-      ]
-    ],
-    "HAEMODIALYSIS ACID CONC 35X F 29": [
+    "HAEMODIALYSIS ACID 35X F 5": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7725,7 +7103,16 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS ACID CONC 35X F 28": [
+    "HAEMODIALYSIS ACID 35X F 3": [
+      [
+        "ACETIC ACID",
+        "CALCIUM CHLORIDE",
+        "MAGNESIUM CHLORIDE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE"
+      ]
+    ],
+    "HAEMODIALYSIS ACID 35X F 29": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7735,7 +7122,17 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "HAEMODIALYSIS CONCENTRATE 35 F2": [
+    "HAEMODIALYSIS ACID 35X F 28": [
+      [
+        "ACETIC ACID",
+        "CALCIUM CHLORIDE",
+        "DEXTROSE",
+        "MAGNESIUM CHLORIDE",
+        "POTASSIUM CHLORIDE",
+        "SODIUM CHLORIDE"
+      ]
+    ],
+    "HAEMODIALYSIS 35 F2": [
       [
         "ACETIC ACID",
         "CALCIUM CHLORIDE",
@@ -7783,7 +7180,7 @@
         "FLUCONAZOLE"
       ]
     ],
-    "FUNGYZOLE TOPICAL": [
+    "FUNGYZOLE": [
       [
         "MICONAZOLE NITRATE"
       ]
@@ -7830,7 +7227,7 @@
         "VILDAGLIPTIN"
       ]
     ],
-    "GADOVIST 1MMOL ML": [
+    "GADOVIST": [
       [
         "GADOBUTROL"
       ]
@@ -7899,43 +7296,43 @@
         "FUSIDIC ACID"
       ]
     ],
-    "FOXITIN 1GM VIAL I V OR I M ADMINISTRATI": [
+    "FOXITIN OR ADMINISTRATI": [
       [
         "CEFOXITIN SODIUM"
       ]
     ],
-    "FOXIME VIAL AMP OF WATER IM IV USE": [
+    "FOXIME OF WATER USE": [
       [
         "CEFOTAXIME"
       ]
     ],
-    "FOXIME 1GM VIAL WATER FOR IV USE": [
+    "FOXIME WATER USE": [
       [
         "CEFOTAXIME"
       ]
     ],
-    "FOXIME 1GM VIAL SOLVENT LIDOCAINE IM": [
+    "FOXIME SOLVENT LIDOCAINE": [
       [
         "CEFOTAXIME"
       ]
     ],
-    "FOSTIMON HP VIAL IM USE": [
+    "FOSTIMON HP USE": [
       [
         "UROFOLLITROPIN"
       ]
     ],
-    "FOSTIMON HP VIAL IM WOMEN URIN": [
+    "FOSTIMON HP WOMEN URIN": [
       [
         "UROFOLLITROPIN"
       ]
     ],
-    "FOSTER PRESSURISED FOR INHALATION": [
+    "FOSTER PRESSURISED": [
       [
         "BECLOMETHASONE DIPROPIONATE",
         "FORMOTEROL FUMARATE"
       ]
     ],
-    "GANFORT EYE": [
+    "GANFORT": [
       [
         "BIMATOPROST",
         "TIMOLOL MALEATE"
@@ -7946,7 +7343,7 @@
         "GLIMEPIRIDE"
       ]
     ],
-    "GLIBIL 5": [
+    "GLIBIL": [
       [
         "GLIBENCLAMIDE"
       ]
@@ -7974,12 +7371,6 @@
     "GLIM": [
       [
         "GLIMEPIRIDE"
-      ]
-    ],
-    "GLOCLAV 1GM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
       ]
     ],
     "GLIVEC": [
@@ -8073,7 +7464,7 @@
         "SODIUM BICARBONATE"
       ]
     ],
-    "GENTAM AMP": [
+    "GENTAM": [
       [
         "GENTAMICIN"
       ]
@@ -8112,7 +7503,7 @@
         "SODIUM BICARBONATE"
       ]
     ],
-    "HAEMODIALYSIS CONCENTRATE 35X F 38": [
+    "HAEMODIALYSIS 35X F 38": [
       [
         "WATER"
       ]
@@ -8127,7 +7518,7 @@
         "VERAPAMIL HYDROCHLORIDE"
       ]
     ],
-    "ISOPTIN AMP": [
+    "ISOPTIN": [
       [
         "VERAPAMIL HYDROCHLORIDE"
       ]
@@ -8155,11 +7546,6 @@
     "IPRAMAX": [
       [
         "TOPIRAMATE"
-      ]
-    ],
-    "ISOPTIN": [
-      [
-        "VERAPAMIL HYDROCHLORIDE"
       ]
     ],
     "JOINTACE COLLAGEN": [
@@ -8198,7 +7584,7 @@
         "PIPERAZINE"
       ]
     ],
-    "JEDCOMAG GRANULES5GM": [
+    "JEDCOMAG GRANULES": [
       [
         "CITRIC ACID ANHYDROUS",
         "EFFERVESCENT BASE",
@@ -8212,7 +7598,7 @@
         "EFFERVESCENT BASE"
       ]
     ],
-    "OMECURE FOR I V": [
+    "OMECURE": [
       [
         "OMEPRAZOLE"
       ]
@@ -8237,22 +7623,12 @@
         "INSULIN HUMAN"
       ]
     ],
-    "INNOHEP 20000 ANTI XA IU ML VIAL": [
+    "INNOHEP ANTI XA IU ML": [
       [
         "TINZAPARIN SODIUM"
       ]
     ],
-    "INNOHEP 20000 ANTI XA IU ML SYRING": [
-      [
-        "TINZAPARIN SODIUM"
-      ]
-    ],
-    "INNOHEP 10000 ANTI XA IU ML VIAL": [
-      [
-        "TINZAPARIN SODIUM"
-      ]
-    ],
-    "INNOHEP 10000 ANTI XA IU ML SYRING": [
+    "INNOHEP ANTI XA IU ML SYRING": [
       [
         "TINZAPARIN SODIUM"
       ]
@@ -8274,12 +7650,15 @@
         "PALIPERIDONE"
       ]
     ],
-    "INTRATECT FOR": [
+    "INTRATECT": [
       [
         "HUMAN IMMUNOGLOBULIN G"
+      ],
+      [
+        "HUMAN NORMAL IMMUNOGLOBULIN"
       ]
     ],
-    "INFLA BAN SUPP": [
+    "INFLA BAN": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -8300,15 +7679,14 @@
         "ZINC OXIDE"
       ]
     ],
-    "KONAKION MM AMP I V": [
+    "KONAKION MM": [
       [
         "PHYTOMENADIONE"
       ]
     ],
-    "KOATE DVI VIAL": [
+    "KOATE DVI": [
       [
-        "ANTIHEMOPHILIC FACTOR",
-        "HUMAN RECOMBINANT"
+        "ANTIHEMOPHILIC FACTOR, HUMAN RECOMBINANT"
       ]
     ],
     "KLAVOX": [
@@ -8317,7 +7695,7 @@
         "CLAVULANIC ACID"
       ]
     ],
-    "KONAKION MM PAED AMP": [
+    "KONAKION MM PAED": [
       [
         "PHYTOMENADIONE"
       ]
@@ -8335,12 +7713,6 @@
     "LACINE": [
       [
         "LOSARTAN POTASSIUM"
-      ]
-    ],
-    "KLAVOX 1GM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
       ]
     ],
     "KETONIL": [
@@ -8361,7 +7733,7 @@
         "SALICYLIC ACID"
       ]
     ],
-    "KENACORT A ML": [
+    "KENACORT A": [
       [
         "TRIAMCINOLONE ACETONIDE"
       ]
@@ -8392,7 +7764,7 @@
         "CLARITHROMYCIN"
       ]
     ],
-    "KIOVIG FOR": [
+    "KIOVIG": [
       [
         "NORMAL HUMAN IMMUNOGLOBULIN"
       ]
@@ -8402,7 +7774,7 @@
         "CLARITHROMYCIN"
       ]
     ],
-    "INFLABAN SUPP": [
+    "INFLABAN": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -8412,7 +7784,7 @@
         "CHLORPHENIRAMINE MALEATE"
       ]
     ],
-    "HIKMA MIDAZOLAM AMPOULES": [
+    "HIKMA MIDAZOLAM": [
       [
         "MIDAZOLAM"
       ]
@@ -8427,27 +7799,7 @@
         "CALCIUM GLUBIONATE"
       ]
     ],
-    "HIBOR 7500 I U PREFILLED SYRINGE": [
-      [
-        "BEMIPARIN SODIUM"
-      ]
-    ],
-    "HIBOR 5000 I U PREFILLED SYRINGE": [
-      [
-        "BEMIPARIN SODIUM"
-      ]
-    ],
-    "HIBOR 3500 I U PREFILLED SYRINGE": [
-      [
-        "BEMIPARIN SODIUM"
-      ]
-    ],
-    "HIBOR 2500 I U PREFILLED SYRINGE": [
-      [
-        "BEMIPARIN SODIUM"
-      ]
-    ],
-    "HIBOR 10000 I U PREFILLED SYRINGE": [
+    "HIBOR PREFILLED SYRINGE": [
       [
         "BEMIPARIN SODIUM"
       ]
@@ -8482,27 +7834,17 @@
         "HYDROQUINONE"
       ]
     ],
-    "HOLOXAN VIAL IV": [
+    "HOLOXAN": [
       [
         "IFOSFAMIDE"
       ]
     ],
-    "HOLOXAN 2GM IV VIAL": [
-      [
-        "IFOSFAMIDE"
-      ]
-    ],
-    "HOLOXAN 1GM I V VIAL": [
-      [
-        "IFOSFAMIDE"
-      ]
-    ],
-    "HUMALOG 100 I U VIALS": [
+    "HUMALOG": [
       [
         "INSULIN LISPRO"
       ]
     ],
-    "HAVRIX 720 EFISA UNITS JUNIOR VACCI": [
+    "HAVRIX EFISA UNITS JUNIOR VACCI": [
       [
         "HEPATITIS A VIRUS"
       ]
@@ -8518,11 +7860,6 @@
       ]
     ],
     "HALDOL DECANOAS": [
-      [
-        "HALOPERIDOL"
-      ]
-    ],
-    "HALDOL AMP": [
       [
         "HALOPERIDOL"
       ]
@@ -8547,7 +7884,7 @@
         "MINOXIDIL"
       ]
     ],
-    "HAEMODIALYSIS CONCENTRATE 35 F1": [
+    "HAEMODIALYSIS 35 F1": [
       [
         "CALCIUM CHLORIDE",
         "DEXTROSE",
@@ -8572,17 +7909,17 @@
         "FOLIC ACID"
       ]
     ],
-    "HERCEPTIN VIAL": [
+    "HERCEPTIN": [
       [
         "TRASTUZUMAB"
       ]
     ],
-    "HEPSAL AMP 10 UNITS ML": [
+    "HEPSAL": [
       [
         "HEPARIN SODIUM"
       ]
     ],
-    "HEPIX F C": [
+    "HEPIX": [
       [
         "LAMIVUDINE"
       ]
@@ -8602,12 +7939,12 @@
         "ORNITHINE"
       ]
     ],
-    "HEMOFIL M VIAL": [
+    "HEMOFIL M": [
       [
         "OMFILOCTOCOG ALFA"
       ]
     ],
-    "HEMOFIL M VIAL STERIL WATER": [
+    "HEMOFIL M STERIL WATER": [
       [
         "OMFILOCTOCOG ALFA"
       ]
@@ -8627,27 +7964,10 @@
         "LOPERAMIDE"
       ]
     ],
-    "IMMUNATE S D 500 I U FOR": [
+    "IMMUNATE S D": [
       [
         "HUMAN COAGULATION FACTOR VIII",
         "HUMAN VON WILLEBRAND FACTOR"
-      ]
-    ],
-    "IMMUNATE S D 250 I U FOR": [
-      [
-        "HUMAN COAGULATION FACTOR VIII",
-        "HUMAN VON WILLEBRAND FACTOR"
-      ]
-    ],
-    "IMMUNATE S D 1000 I U FOR": [
-      [
-        "HUMAN COAGULATION FACTOR VIII",
-        "HUMAN VON WILLEBRAND FACTOR"
-      ]
-    ],
-    "IMIGRAN AMP": [
-      [
-        "SUMATRIPTAN"
       ]
     ],
     "IMIGRAN": [
@@ -8697,12 +8017,12 @@
         "ACYCLOVIR"
       ]
     ],
-    "HYMOX FOR": [
+    "HYMOX": [
       [
         "AMOXICILLIN"
       ]
     ],
-    "HYLO COMOD EYE": [
+    "HYLO COMOD": [
       [
         "SODIUM HYALURONATE"
       ]
@@ -8712,27 +8032,22 @@
         "HYDROCORTISONE"
       ]
     ],
-    "HYMOX": [
-      [
-        "AMOXICILLIN"
-      ]
-    ],
-    "HYDROCORTISONE 100M VIAL SOLVENT AMP": [
+    "HYDROCORTISONE 100M SOLVENT": [
       [
         "HYDROCORTISONE SODIUM SUCCINATE"
       ]
     ],
-    "HUMULIN R REGULAR 100 U ML": [
+    "HUMULIN R REGULAR": [
       [
         "INSULIN HUMAN"
       ]
     ],
-    "HUMULIN N NPH 100 U ML": [
+    "HUMULIN N NPH": [
       [
         "INSULIN ISOPHANE"
       ]
     ],
-    "HUMULIN 70 30 100U ML": [
+    "HUMULIN 70 30": [
       [
         "INSULIN ISOPHANE"
       ]
@@ -8754,7 +8069,7 @@
         "ICHTHAMMOL"
       ]
     ],
-    "BROFENEX 5GM 100GM": [
+    "BROFENEX": [
       [
         "IBUPROFEN"
       ]
@@ -8793,7 +8108,7 @@
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "DOBUTAMINE HCL VIAL": [
+    "DOBUTAMINE HCL": [
       [
         "DOBUTAMINE"
       ]
@@ -8808,11 +8123,6 @@
         "FUROSEMIDE"
       ]
     ],
-    "DIUSEMIDE AMP": [
-      [
-        "FUROSEMIDE"
-      ]
-    ],
     "DISPRIN": [
       [
         "ACETYLSALICYLIC ACID"
@@ -8823,14 +8133,9 @@
         "PIROXICAM"
       ]
     ],
-    "DISPERCAM AMP FOR I M USE": [
+    "DISPERCAM FOR I M USE": [
       [
         "PIROXICAM"
-      ]
-    ],
-    "DOGMATIL AMP": [
-      [
-        "SULPIRIDE"
       ]
     ],
     "DOGMATIL": [
@@ -8882,11 +8187,6 @@
         "ETAMSYLATE"
       ]
     ],
-    "DICYNONE AMP": [
-      [
-        "ETHAMSYLATE"
-      ]
-    ],
     "DICLON EMULGEL": [
       [
         "DICLOFENAC SODIUM"
@@ -8898,11 +8198,6 @@
       ]
     ],
     "DICLOMAX EMULGEL": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "DICLOGESIC SUPPOSITORY": [
       [
         "DICLOFENAC SODIUM"
       ]
@@ -8920,7 +8215,7 @@
         "TERBUTALINE"
       ]
     ],
-    "DIPEPTIVEN 20GM CONC": [
+    "DIPEPTIVEN": [
       [
         "ALANYL GLUTAMINE"
       ]
@@ -8956,22 +8251,12 @@
         "MEBEVERINE HYDROCHLORIDE"
       ]
     ],
-    "DUROGESIC TTS 75 UG HOUR": [
+    "DUROGESIC TTS UG HOUR": [
       [
         "FENTANYL"
       ]
     ],
-    "DUROGESIC TTS 50 UG HOUR POUCH": [
-      [
-        "FENTANYL"
-      ]
-    ],
-    "DUROGESIC TTS 25 UG HOUR POUCH": [
-      [
-        "FENTANYL"
-      ]
-    ],
-    "DUROGESIC TTS 100 UG HOUR POUCH": [
+    "DUROGESIC TTS UG HOUR POUCH": [
       [
         "FENTANYL"
       ]
@@ -8987,11 +8272,6 @@
       ]
     ],
     "EBETAXEL": [
-      [
-        "PACLITAXEL"
-      ]
-    ],
-    "EBETAXEL FOR I V": [
       [
         "PACLITAXEL"
       ]
@@ -9016,7 +8296,7 @@
         "MOMETASONE FUROATE"
       ]
     ],
-    "ECALTA FOR CONCENTRATE FOR FOR": [
+    "ECALTA": [
       [
         "ANIDULAFUNGIN"
       ]
@@ -9056,13 +8336,13 @@
         "CABERGOLINE"
       ]
     ],
-    "DOROFEN 500": [
+    "DOROFEN": [
       [
         "GINKGO BILOBA",
         "GLUCOSAMINE SULFATE"
       ]
     ],
-    "DORMICUM AMP": [
+    "DORMICUM": [
       [
         "MIDAZOLAM"
       ]
@@ -9188,11 +8468,6 @@
         "PARACETAMOL"
       ]
     ],
-    "FEVADOL SUPPOSITORY": [
-      [
-        "PARACETAMOL"
-      ]
-    ],
     "FERTAB": [
       [
         "CLOMIFENE"
@@ -9209,7 +8484,7 @@
         "DEFERIPRONE"
       ]
     ],
-    "FEROTON FOR I V": [
+    "FEROTON": [
       [
         "IRON SUCROSE"
       ]
@@ -9246,7 +8521,7 @@
         "NIZATIDINE"
       ]
     ],
-    "FIRMAGON FOR FOR": [
+    "FIRMAGON": [
       [
         "DEGARELIX"
       ]
@@ -9286,7 +8561,7 @@
         "FINASTERIDE"
       ]
     ],
-    "FEROSAC AMP": [
+    "FEROSAC": [
       [
         "IRON SUCROSE"
       ]
@@ -9306,25 +8581,17 @@
         "FEXOFENADINE HYDROCHLORIDE"
       ]
     ],
-    "FEMOSTON 2 10": [
+    "FEMOSTON": [
       [
         "DYDROGESTERONE",
         "ESTRADIOL"
-      ]
-    ],
-    "FEMOSTON 1 5": [
-      [
-        "DYDROGESTERONE",
-        "ESTRADIOL"
-      ]
-    ],
-    "FEMOSTON 1 10": [
+      ],
       [
         "DYDROGESTERONE",
         "ETHINYLESTRADIOL"
       ]
     ],
-    "FELDENE AMP": [
+    "FELDENE": [
       [
         "PIROXICAM"
       ]
@@ -9363,7 +8630,7 @@
         "FERROUS SULFATE"
       ]
     ],
-    "FENTANYL PIRAMAL AMPOULES": [
+    "FENTANYL PIRAMAL": [
       [
         "FENTANYL"
       ]
@@ -9407,12 +8674,12 @@
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "FLUCO SOL FOR I V": [
+    "FLUCO SOL": [
       [
         "FLUCONAZOLE"
       ]
     ],
-    "FLUCAND VIAL": [
+    "FLUCAND": [
       [
         "FLUCONAZOLE"
       ]
@@ -9428,17 +8695,12 @@
         "FLUPENTIXOL"
       ]
     ],
-    "FLUANXOL DEPOT I M AMP": [
-      [
-        "FLUPENTIXOL"
-      ]
-    ],
     "FLUANXOL": [
       [
         "FLUPENTIXOL"
       ]
     ],
-    "FLUIMUCIL 1GM GRANULES FOR": [
+    "FLUIMUCIL GRANULES": [
       [
         "ACETYLCYSTEINE"
       ]
@@ -9460,12 +8722,12 @@
         "PSEUDOEPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "FLUKAS 200 VIAL": [
+    "FLUKAS 200": [
       [
         "FLUCONAZOLE"
       ]
     ],
-    "FLUKAS 100 VIAL": [
+    "FLUKAS 100": [
       [
         "FLUCONAZOLE"
       ]
@@ -9480,7 +8742,7 @@
         "FLUTICASONE PROPIONATE"
       ]
     ],
-    "OTRI ALLERGY NASAL SPRAY": [
+    "OTRI ALLERGY": [
       [
         "FLUTICASONE PROPIONATE"
       ]
@@ -9491,7 +8753,7 @@
         "SODIUM PHOSPHATE"
       ]
     ],
-    "FLECTOR EP TISSUGEL 1GM PATCHES": [
+    "FLECTOR EP TISSUGEL PATCHES": [
       [
         "DICLOFENAC EPOLAMINE"
       ]
@@ -9521,12 +8783,12 @@
         "ORLISTAT"
       ]
     ],
-    "EPICOCILLIN VIAL": [
+    "EPICOCILLIN": [
       [
         "AMPICILLIN"
       ]
     ],
-    "EPENTAL VIAL": [
+    "EPENTAL": [
       [
         "THIOPENTAL SODIUM"
       ]
@@ -9546,12 +8808,7 @@
         "BUDESONIDE"
       ]
     ],
-    "ENDOXAN VIAL": [
-      [
-        "CYCLOPHOSPHAMIDE"
-      ]
-    ],
-    "ENDOXAN VIAL 1 GM": [
+    "ENDOXAN": [
       [
         "CYCLOPHOSPHAMIDE"
       ]
@@ -9568,7 +8825,7 @@
         "MAGNESIUM HYDROXIDE"
       ]
     ],
-    "EPIFASI LYOPHILIZED FOR I M": [
+    "EPIFASI LYOPHILIZED": [
       [
         "GONADOTROPHIN CHORIONIC HUMAN"
       ]
@@ -9578,12 +8835,7 @@
         "LAMIVUDINE"
       ]
     ],
-    "EPIVIR ML": [
-      [
-        "LAMIVUDINE"
-      ]
-    ],
-    "EPISTIGMIN VIAL": [
+    "EPISTIGMIN": [
       [
         "NEOSTIGMINE METHYLSULFATE"
       ]
@@ -9608,18 +8860,18 @@
         "NIFEDIPINE"
       ]
     ],
-    "EPIGONAL 75 I U LYOPHILIZED FOR I M": [
+    "EPIGONAL LYOPHILIZED": [
       [
         "FOLLICLE STIMULATING HORMONE (FSH)",
         "LUTEINIZING HORMONE (LH)"
       ]
     ],
-    "EPIFENAC FOR": [
+    "EPIFENAC": [
       [
         "DICLOFENAC SODIUM"
       ]
     ],
-    "EPIZOLONE DEPOT VIAL": [
+    "EPIZOLONE DEPOT": [
       [
         "METHYLPREDNISOLONE"
       ]
@@ -9686,11 +8938,6 @@
         "DICLOFENAC SODIUM"
       ]
     ],
-    "EMIFEN F C": [
-      [
-        "IBUPROFEN"
-      ]
-    ],
     "EMIFEN": [
       [
         "IBUPROFEN"
@@ -9701,17 +8948,7 @@
         "AMOXICILLIN"
       ]
     ],
-    "EPREX 1000 U PREFILLED SYRING": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "EPREX 10000 U ML PREFILLED SYRING": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "EPREX 2000 U PREFILLED SYRING": [
+    "EPREX PREFILLED SYRING": [
       [
         "EPOETIN ALFA"
       ]
@@ -9729,12 +8966,6 @@
       ]
     ],
     "EXFORGE": [
-      [
-        "AMLODIPINE BESILATE",
-        "VALSARTAN"
-      ]
-    ],
-    "EXFORGE F C": [
       [
         "AMLODIPINE BESILATE",
         "VALSARTAN"
@@ -9817,7 +9048,7 @@
         "LACTULOSE"
       ]
     ],
-    "EYLOX EYE": [
+    "EYLOX": [
       [
         "OFLOXACIN"
       ]
@@ -9842,17 +9073,17 @@
         "EPOETIN ALFA"
       ]
     ],
-    "EPREX ML": [
+    "EPREX": [
       [
         "EPOETIN ALFA"
       ]
     ],
-    "ESMERON ML VIAL": [
+    "ESMERON": [
       [
         "ROCURONIUM BROMIDE"
       ]
     ],
-    "ETOPOSID EBEWE VIAL": [
+    "ETOPOSID EBEWE": [
       [
         "ETOPOSIDE"
       ]
@@ -9885,7 +9116,7 @@
         "LEVOCETIRIZINE DIHYDROCHLORIDE"
       ]
     ],
-    "STABLIX FOR VIALS": [
+    "STABLIX": [
       [
         "TETANUS TOXOID"
       ]
@@ -9895,17 +9126,17 @@
         "TRIAMCINOLONE ACETONIDE"
       ]
     ],
-    "ENCIFER FOR I V": [
+    "ENCIFER": [
       [
         "IRON SUCROSE"
       ]
     ],
-    "IMTUS SOL FOR": [
+    "IMTUS SOL": [
       [
         "IRINOTECAN"
       ]
     ],
-    "ZOLEDRONIC ACID SPC SOL FOR": [
+    "ZOLEDRONIC ACID SPC SOL": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -9920,7 +9151,7 @@
         "SOMATROPIN"
       ]
     ],
-    "HUMALOG KWIK PEN MIX 25": [
+    "HUMALOG KWIK PEN MIX": [
       [
         "INSULIN LISPRO",
         "INSULIN PROTAMINE"
@@ -9936,7 +9167,7 @@
         "APREMILAST"
       ]
     ],
-    "FLORYL FOR": [
+    "FLORYL": [
       [
         "FLUOROURACIL"
       ]
@@ -9971,7 +9202,7 @@
         "CHOLECALCIFEROL"
       ]
     ],
-    "ZOTIMOS VIAL": [
+    "ZOTIMOS": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -9986,7 +9217,7 @@
         "ROSUVASTATIN"
       ]
     ],
-    "ZINFORO I V VIAL": [
+    "ZINFORO": [
       [
         "CEFTAROLINE FOSAMIL"
       ]
@@ -10012,7 +9243,7 @@
         "ONDANSETRON"
       ]
     ],
-    "FOSTER NEXTHALER INHALATION": [
+    "FOSTER NEXTHALER": [
       [
         "BECLOMETHASONE DIPROPIONATE",
         "FORMOTEROL FUMARATE"
@@ -10023,12 +9254,7 @@
         "LEVETIRACETAM"
       ]
     ],
-    "FOSTIMON 300 I U": [
-      [
-        "UROFOLLITROPIN"
-      ]
-    ],
-    "FOSTIMON 225 I U": [
+    "FOSTIMON": [
       [
         "UROFOLLITROPIN"
       ]
@@ -10043,7 +9269,7 @@
         "PATIROMER SORBITEX CALCIUM"
       ]
     ],
-    "VARIVAX 1350 PFU VIAL": [
+    "VARIVAX PFU": [
       [
         "VARICELLA VIRUS VACCINE LIVE (OKA-MERCK)"
       ]
@@ -10063,7 +9289,7 @@
         "SOMATROPIN"
       ]
     ],
-    "VITOPEINE IV": [
+    "VITOPEINE": [
       [
         "PARACETAMOL"
       ]
@@ -10094,7 +9320,7 @@
         "MEROPENEM"
       ]
     ],
-    "MONOCLOX VIAL": [
+    "MONOCLOX": [
       [
         "CLOXACILLIN"
       ]
@@ -10129,7 +9355,7 @@
         "OXYCODONE HYDROCHLORIDE"
       ]
     ],
-    "JULPHACEF 1GM I M I V": [
+    "JULPHACEF": [
       [
         "CEFRADINE"
       ]
@@ -10154,22 +9380,22 @@
         "LANSOPRAZOLE"
       ]
     ],
-    "LAXOCODYL SUPP": [
+    "LAXOCODYL": [
       [
         "BISACODYL"
       ]
     ],
-    "LAXOLYNE SUPP FOR CHILDREN": [
+    "LAXOLYNE FOR CHILDREN": [
       [
         "GLYCERIN"
       ]
     ],
-    "LAXOLYNE SUPPOSITORIES": [
+    "LAXOLYNE": [
       [
         "GLYCERIN"
       ]
     ],
-    "JULMENTIN FORTE FOR": [
+    "JULMENTIN FORTE": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -10191,7 +9417,7 @@
         "MICONAZOLE NITRATE"
       ]
     ],
-    "GYNO MIKOZAL 78 GM": [
+    "GYNO MIKOZAL": [
       [
         "MICONAZOLE NITRATE"
       ]
@@ -10205,18 +9431,6 @@
     "HISTALOC": [
       [
         "PROMETHAZINE"
-      ]
-    ],
-    "JULMENTIN 1 2GM": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
-      ]
-    ],
-    "JULMENTIN FOR": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
       ]
     ],
     "JULMENTIN 2X": [
@@ -10235,22 +9449,7 @@
         "AMIKACIN"
       ]
     ],
-    "AMCOCID AMP": [
-      [
-        "AMIKACIN"
-      ]
-    ],
-    "MIKOSTAT 100000 U": [
-      [
-        "NYSTATIN"
-      ]
-    ],
-    "MIKOSTAT 100000U": [
-      [
-        "NYSTATIN"
-      ]
-    ],
-    "MIKOSTAT 100000U ML": [
+    "MIKOSTAT": [
       [
         "NYSTATIN"
       ]
@@ -10302,11 +9501,6 @@
         "ACYCLOVIR"
       ]
     ],
-    "LOVRAK FOR I V": [
-      [
-        "ACYCLOVIR"
-      ]
-    ],
     "LORADAD": [
       [
         "LORATADINE"
@@ -10342,32 +9536,22 @@
         "DOXYCYCLINE"
       ]
     ],
-    "ENOXIRT 0 25GM I M VIAL SOLVENT": [
+    "ENOXIRT SOLVENT": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "ENOXIRT 0 25GM I V VIAL SOLVENT": [
+    "ENOXIRT": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "ENOXIRT I V VIAL": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "ENOXIRT 1GM I M VIAL SOLVENT": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "CYNOVIT I M": [
+    "CYNOVIT": [
       [
         "CYANOCOBALAMIN"
       ]
     ],
-    "CIPRODAR 500": [
+    "CIPRODAR": [
       [
         "CIPROFLOXACIN"
       ]
@@ -10422,21 +9606,6 @@
         "CLOBETASOL PROPIONATE"
       ]
     ],
-    "ENOXIRT 1GM I V VIAL SOLVENT": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "ENOXIRT I M VIAL SOLVENT": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "ENOXIRT I V VIAL SOLVENT": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
     "EROMYCIN": [
       [
         "ERYTHROMYCIN"
@@ -10488,12 +9657,7 @@
         "NORFLOXACIN"
       ]
     ],
-    "VANCOLON 0 5GM VIAL I V": [
-      [
-        "VANCOMYCIN"
-      ]
-    ],
-    "VANCOLON 1GM FOR I V": [
+    "VANCOLON": [
       [
         "VANCOMYCIN"
       ]
@@ -10535,17 +9699,17 @@
         "TETRACYCLINE"
       ]
     ],
-    "XYLOLIN CHILD NASAL SPRAY": [
+    "XYLOLIN CHILD": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "XYLOLIN ADULT NASAL SPRAY": [
+    "XYLOLIN ADULT": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
     ],
-    "VEGGIE VITAMIN D3 50000 I U SOFT GELATIN": [
+    "VEGGIE VITAMIN D3 SOFT GELATIN": [
       [
         "COLECALCIFEROL"
       ]
@@ -10582,14 +9746,12 @@
         "VALSARTAN"
       ]
     ],
-    "DIVAD 10000 I U": [
+    "DIVAD": [
       [
         "COLECALCIFEROL"
-      ]
-    ],
-    "DIVAD 50000 I U": [
+      ],
       [
-        "COLECALCIFEROL"
+        "CHOLECALCIFEROL"
       ]
     ],
     "CLARIDAR XL": [
@@ -10612,7 +9774,7 @@
         "PREGABALIN"
       ]
     ],
-    "PANTONIX FOR": [
+    "PANTONIX": [
       [
         "PANTOPRAZOLE"
       ]
@@ -10661,17 +9823,7 @@
         "METOCLOPRAMIDE HYDROCHLORIDE"
       ]
     ],
-    "PRIMOCEF 0 5 GM I M I V VIAL": [
-      [
-        "CEFOTAXIME"
-      ]
-    ],
-    "PRIMOCEF FOR": [
-      [
-        "CEFOTAXIME"
-      ]
-    ],
-    "PRIMOCEF 1 GM I V VIAL": [
+    "PRIMOCEF": [
       [
         "CEFOTAXIME"
       ]
@@ -10704,12 +9856,7 @@
         "OXYMETAZOLINE"
       ]
     ],
-    "NEGACEF 1GM VIAL": [
-      [
-        "CEFTAZIDIME"
-      ]
-    ],
-    "NEGACEF 2GM": [
+    "NEGACEF": [
       [
         "CEFTAZIDIME"
       ]
@@ -10739,11 +9886,6 @@
         "SIMETHICONE"
       ]
     ],
-    "SALURIN AMPOULES": [
-      [
-        "FUROSEMIDE"
-      ]
-    ],
     "SALURIN": [
       [
         "FUROSEMIDE"
@@ -10752,11 +9894,6 @@
     "SARF": [
       [
         "CIPROFLOXACIN"
-      ]
-    ],
-    "SCOPINAL AMPOULE": [
-      [
-        "HYOSCINE BUTYLBROMIDE"
       ]
     ],
     "SCOPINAL": [
@@ -10781,7 +9918,7 @@
         "IBUPROFEN"
       ]
     ],
-    "ROTHACIN SUPPOSITORIES": [
+    "ROTHACIN": [
       [
         "INDOMETACIN"
       ]
@@ -10841,14 +9978,14 @@
         "AMLODIPINE BESILATE"
       ]
     ],
-    "3V AMPOULES": [
+    "3V": [
       [
         "CYANOCOBALAMIN",
         "PYRIDOXINE",
         "THIAMINE"
       ]
     ],
-    "ADOL RECTAL SUPPOSITORIES": [
+    "ADOL RECTAL": [
       [
         "PARACETAMOL"
       ]
@@ -10932,7 +10069,7 @@
         "CARBAMAZEPINE"
       ]
     ],
-    "CEFIM 100 FOR SUSPENTION": [
+    "CEFIM 100 SUSPENTION": [
       [
         "CEFIXIME"
       ]
@@ -10947,20 +10084,10 @@
         "CEFALEXIN"
       ]
     ],
-    "CEFUZIME FOR": [
-      [
-        "CEFUROXIME AXETIL"
-      ]
-    ],
     "CEFUZIME": [
       [
         "CEFUROXIME AXETIL"
       ],
-      [
-        "CEFUROXIME SODIUM"
-      ]
-    ],
-    "CEFUZIME I M I V VIAL": [
       [
         "CEFUROXIME SODIUM"
       ]
@@ -10973,13 +10100,6 @@
     "CETRALON": [
       [
         "CETIRIZINE HYDROCHLORIDE"
-      ]
-    ],
-    "3V": [
-      [
-        "CYANOCOBALAMIN",
-        "PYRIDOXINE",
-        "THIAMINE"
       ]
     ],
     "BUTALIN": [
@@ -11051,7 +10171,7 @@
         "PREGABALIN"
       ]
     ],
-    "ZENORIT LYOPHILISATE FOR FOR": [
+    "ZENORIT LYOPHILISATE": [
       [
         "LORNOXICAM"
       ]
@@ -11066,11 +10186,6 @@
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "LASIX AMP": [
-      [
-        "FUROSEMIDE"
-      ]
-    ],
     "LANOXIN ELIXIR": [
       [
         "DIGOXIN"
@@ -11081,7 +10196,7 @@
         "DESLORATADINE"
       ]
     ],
-    "COLAT FOR FOR": [
+    "COLAT": [
       [
         "VANCOMYCIN"
       ]
@@ -11174,7 +10289,7 @@
         "QUETIAPINE"
       ]
     ],
-    "CERUXIM FOR FOR OR": [
+    "CERUXIM": [
       [
         "CEFUROXIME SODIUM"
       ]
@@ -11184,14 +10299,9 @@
         "AMLODIPINE BESILATE"
       ]
     ],
-    "AVOBAN NASAL": [
+    "AVOBAN": [
       [
         "MUPIROCIN CALCIUM"
-      ]
-    ],
-    "ATROPINE SULPHATE ML": [
-      [
-        "ATROPINE SULFATE"
       ]
     ],
     "ATOZET": [
@@ -11210,18 +10320,13 @@
         "CEFDINIR"
       ]
     ],
-    "MINOCET FOR": [
-      [
-        "CEFDINIR"
-      ]
-    ],
-    "RYZODEG FLEXTOUCH 100 U ML": [
+    "RYZODEG FLEXTOUCH": [
       [
         "INSULIN ASPART",
         "INSULIN DEGLUDEC"
       ]
     ],
-    "MIRAN FOR": [
+    "MIRAN": [
       [
         "MEROPENEM"
       ]
@@ -11241,7 +10346,7 @@
         "DICLOFENAC POTASSIUM"
       ]
     ],
-    "VALPOHARDT FOR OR": [
+    "VALPOHARDT": [
       [
         "VALPROATE SODIUM"
       ]
@@ -11256,14 +10361,9 @@
         "CIPROFLOXACIN"
       ]
     ],
-    "CEREZYME 400 U FOR CONCENTRATE FOR FOR": [
+    "CEREZYME": [
       [
         "IMIGLUCERASE"
-      ]
-    ],
-    "VFONAZ FOR FOR": [
-      [
-        "VORICONAZOLE"
       ]
     ],
     "REZAL XR EXTENDED RELEASE": [
@@ -11307,7 +10407,7 @@
         "PROPRANOLOL"
       ]
     ],
-    "ARCHIFAR FOR FOR OR": [
+    "ARCHIFAR": [
       [
         "MEROPENEM"
       ]
@@ -11327,7 +10427,7 @@
         "ESCITALOPRAM"
       ]
     ],
-    "ENTYVIO FOR CONCENTRATE FOR FOR": [
+    "ENTYVIO": [
       [
         "VEDOLIZUMAB"
       ]
@@ -11337,7 +10437,7 @@
         "GLIMEPIRIDE"
       ]
     ],
-    "VANCO FOR FOR OR": [
+    "VANCO": [
       [
         "VANCOMYCIN"
       ]
@@ -11352,12 +10452,12 @@
         "LEVETIRACETAM"
       ]
     ],
-    "DOBUTAMINE JPI FOR IV": [
+    "DOBUTAMINE JPI": [
       [
         "DOBUTAMINE"
       ]
     ],
-    "MEGAMOX ES FOR": [
+    "MEGAMOX ES": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -11394,17 +10494,12 @@
         "RISPERIDONE"
       ]
     ],
-    "RIBOMUSTIN FOR CONCENTRATE FOR FOR": [
+    "RIBOMUSTIN": [
       [
         "BENDAMUSTINE HYDROCHLORIDE"
       ]
     ],
-    "CEFAJECT IV": [
-      [
-        "CEFTRIAXONE"
-      ]
-    ],
-    "CEFAJECT IM": [
+    "CEFAJECT": [
       [
         "CEFTRIAXONE"
       ]
@@ -11414,7 +10509,7 @@
         "PALBOCICLIB"
       ]
     ],
-    "ALOPEXY TOPICAL": [
+    "ALOPEXY": [
       [
         "MINOXIDIL"
       ]
@@ -11424,17 +10519,17 @@
         "TADALAFIL"
       ]
     ],
-    "FORTA Z FOR FOR": [
+    "FORTA Z": [
       [
         "CEFTAZIDIME"
       ]
     ],
-    "DOMINE CONCENTRATE FOR FOR": [
+    "DOMINE": [
       [
         "DOPAMINE HYDROCHLORIDE"
       ]
     ],
-    "GAZYVA CONCENTRATE FOR FOR": [
+    "GAZYVA": [
       [
         "OBINUTUZUMAB"
       ]
@@ -11450,7 +10545,7 @@
         "MOMETASONE FUROATE"
       ]
     ],
-    "ADACEL FOR": [
+    "ADACEL": [
       [
         "ACELLULAR PERTUSSIS",
         "DIPHTHERIA TOXOID",
@@ -11467,12 +10562,7 @@
         "BUPRENORPHINE"
       ]
     ],
-    "PLEGRIDY FOR": [
-      [
-        "PEGINTERFERON BETA-1A"
-      ]
-    ],
-    "PLEGRIDY 63 FOR": [
+    "PLEGRIDY": [
       [
         "PEGINTERFERON BETA-1A"
       ]
@@ -11508,13 +10598,13 @@
         "OXYCODONE HYDROCHLORIDE"
       ]
     ],
-    "LIDOCAINE HCL AND DEXTROSE IV USP": [
+    "LIDOCAINE HCL AND DEXTROSE USP": [
       [
         "DEXTROSE",
         "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
-    "CLOPRAM FOR": [
+    "CLOPRAM": [
       [
         "METOCLOPRAMIDE HYDROCHLORIDE"
       ]
@@ -11525,12 +10615,12 @@
         "GUAIFENESIN"
       ]
     ],
-    "ELOXATIN VIAL": [
+    "ELOXATIN": [
       [
         "OXALIPLATIN"
       ]
     ],
-    "ELOCTA FOR FOR": [
+    "ELOCTA": [
       [
         "EFMOROCTOCOG ALFA"
       ]
@@ -11583,7 +10673,7 @@
         "OLANZAPINE"
       ]
     ],
-    "DARZALEX PER": [
+    "DARZALEX": [
       [
         "DARATUMUMAB"
       ]
@@ -11608,7 +10698,7 @@
         "VENETOCLAX"
       ]
     ],
-    "DIPHERELINE P R FOR FOR": [
+    "DIPHERELINE P R": [
       [
         "TRIPTORELIN"
       ]
@@ -11623,7 +10713,7 @@
         "ROSUVASTATIN"
       ]
     ],
-    "RUCORON FOR IV BOLUS OR": [
+    "RUCORON BOLUS": [
       [
         "ROCURONIUM BROMIDE"
       ]
@@ -11646,7 +10736,7 @@
         "LACOSAMIDE"
       ]
     ],
-    "NUROFEN 400 DOUBLE STRENGTH": [
+    "NUROFEN DOUBLE STRENGTH": [
       [
         "IBUPROFEN"
       ]
@@ -11661,7 +10751,7 @@
         "LEVETIRACETAM"
       ]
     ],
-    "ELIGARD FOR FOR": [
+    "ELIGARD": [
       [
         "LEUPRORELIN"
       ]
@@ -11669,11 +10759,6 @@
     "ORFADIN": [
       [
         "NITISINONE"
-      ]
-    ],
-    "VIMPAT FOR": [
-      [
-        "LACOSAMIDE"
       ]
     ],
     "VULGA XR": [
@@ -11792,7 +10877,7 @@
         "VALSARTAN"
       ]
     ],
-    "AGRIPLAT FOR": [
+    "AGRIPLAT": [
       [
         "TIROFIBAN"
       ]
@@ -11817,7 +10902,7 @@
         "PARICALCITOL"
       ]
     ],
-    "OCUDINE EYE": [
+    "OCUDINE": [
       [
         "BRIMONIDINE TARTRATE"
       ]
@@ -11832,17 +10917,17 @@
         "OLANZAPINE"
       ]
     ],
-    "ADRENALINE EPINEPHRINE 1 1000": [
+    "ADRENALINE EPINEPHRINE 1000": [
       [
         "ADRENALINE"
       ]
     ],
-    "SEFARIX FOR": [
+    "SEFARIX": [
       [
         "CEFDINIR"
       ]
     ],
-    "SAXENDA SLOUTION FOR IN PRE FILLED PEN": [
+    "SAXENDA SLOUTION IN PRE FILLED PEN": [
       [
         "LIRAGLUTIDE"
       ]
@@ -11857,12 +10942,12 @@
         "PERINDOPRIL ARGININE"
       ]
     ],
-    "GAMUNEX FOR": [
+    "GAMUNEX": [
       [
         "NORMAL HUMAN IMMUNOGLOBULIN"
       ]
     ],
-    "REPLAGAL CONCETRATE FOR FOR": [
+    "REPLAGAL CONCETRATE": [
       [
         "AGALSIDASE ALFA"
       ]
@@ -11874,7 +10959,7 @@
         "LAMIVUDINE"
       ]
     ],
-    "AERRANE LIQUID FOR INHALATION": [
+    "AERRANE LIQUID": [
       [
         "ISOFLURANE"
       ]
@@ -11899,12 +10984,12 @@
         "VORTIOXETINE"
       ]
     ],
-    "HYCAMTIN I V VIAL": [
+    "HYCAMTIN": [
       [
         "TOPOTECAN"
       ]
     ],
-    "PRISMASOL 2 MMOL L POTASSIUM FOR HAEMO HAEMOFI": [
+    "PRISMASOL L POTASSIUM FOR HAEMO HAEMOFI": [
       [
         "CALCIUM CHLORIDE",
         "GLUCOSE",
@@ -11930,7 +11015,7 @@
         "OLANZAPINE"
       ]
     ],
-    "FLEBOGAMMA DIF FOR": [
+    "FLEBOGAMMA DIF": [
       [
         "NORMAL HUMAN IMMUNOGLOBULIN"
       ]
@@ -11947,20 +11032,9 @@
         "SODIUM CHLORIDE"
       ]
     ],
-    "ZOLEDRON PER": [
+    "ZOLEDRON": [
       [
         "ZOLEDRONIC ACID"
-      ]
-    ],
-    "PRISMASOL 4 MMOL L POTASSIUM FOR HAEMO HAEMOFI": [
-      [
-        "CALCIUM CHLORIDE",
-        "GLUCOSE",
-        "LACTIC ACID",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE",
-        "SODIUM HYDROGEN CARBONATE"
       ]
     ],
     "ARPENIA ORODISPERSIBLE": [
@@ -11988,7 +11062,7 @@
         "SILDENAFIL"
       ]
     ],
-    "RISILUD NASAL SPRAY": [
+    "RISILUD": [
       [
         "MOMETASONE FUROATE"
       ]
@@ -12029,7 +11103,7 @@
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "NOVOEIGHT & SOLVENT FOR FOR": [
+    "NOVOEIGHT & SOLVENT": [
       [
         "TUROCTOCOG ALFA"
       ]
@@ -12056,7 +11130,7 @@
         "CEFUROXIME AXETIL"
       ]
     ],
-    "KEYTRUDA CONCENTRATE FOR FOR": [
+    "KEYTRUDA": [
       [
         "PEMBROLIZUMAB"
       ]
@@ -12069,11 +11143,6 @@
     "PURINETHOL": [
       [
         "MERCAPTOPURINE"
-      ]
-    ],
-    "TRANDATE AMP": [
-      [
-        "LABETALOL HYDROCHLORIDE"
       ]
     ],
     "ATORLIP": [
@@ -12091,12 +11160,12 @@
         "KETOROLAC TROMETHAMINE"
       ]
     ],
-    "OPDIVO FOR": [
+    "OPDIVO": [
       [
         "NIVOLUMAB"
       ]
     ],
-    "OLIMEL N5E EMULSION FOR": [
+    "OLIMEL N5E EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -12139,23 +11208,17 @@
         "ACETYLSALICYLIC ACID"
       ]
     ],
-    "SORTIVA H": [
-      [
-        "HYDROCHLOROTHIAZIDE",
-        "LOSARTAN POTASSIUM"
-      ]
-    ],
     "JURNISTA PROLONGED RELEASE": [
       [
         "HYDROMORPHONE HYDROCHLORIDE"
       ]
     ],
-    "FENTANYL MCG ML FOR": [
+    "FENTANYL MCG ML": [
       [
         "FENTANYL"
       ]
     ],
-    "FENTANYL ML FOR": [
+    "FENTANYL": [
       [
         "FENTANYL"
       ]
@@ -12165,17 +11228,12 @@
         "INSULIN GLARGINE"
       ]
     ],
-    "RENVELA FOR": [
-      [
-        "SEVELAMER CARBONATE"
-      ]
-    ],
     "ENGERIX B": [
       [
         "HEPATITIS B VIRUS HBSAG SURFACE ANTIGEN"
       ]
     ],
-    "SURVANTA INTRATRACHEAL VIAL": [
+    "SURVANTA INTRATRACHEAL": [
       [
         "BERACTANT"
       ]
@@ -12213,7 +11271,7 @@
         "VEMURAFENIB"
       ]
     ],
-    "MORPHINE SULPHATE BP FOR": [
+    "MORPHINE SULPHATE BP": [
       [
         "MORPHINE SULFATE"
       ]
@@ -12223,7 +11281,7 @@
         "EPHEDRINE HYDROCHLORIDE"
       ]
     ],
-    "DILUTE ADRENALINE EPINEPHRINE 1 10 000 FOR": [
+    "DILUTE ADRENALINE EPINEPHRINE 1 10 000": [
       [
         "ADRENALINE"
       ]
@@ -12243,7 +11301,7 @@
         "PALIPERIDONE"
       ]
     ],
-    "SUSTANON 250 AMP": [
+    "SUSTANON 250": [
       [
         "TESTOSTERONE DECANOATE",
         "TESTOSTERONE ISOCAPROATE",
@@ -12271,7 +11329,7 @@
         "SALBUTAMOL"
       ]
     ],
-    "NATURAL E 400 SOFTGEL": [
+    "NATURAL E SOFTGEL": [
       [
         "ALPHA TOCOFERIL"
       ]
@@ -12281,7 +11339,7 @@
         "IRBESARTAN"
       ]
     ],
-    "MEDROLONE LYOPHILISATE FOR FOR": [
+    "MEDROLONE LYOPHILISATE": [
       [
         "METHYLPREDNISOLONE SODIUM SUCCINATE"
       ]
@@ -12291,12 +11349,12 @@
         "TACROLIMUS"
       ]
     ],
-    "BALANCED ELECTROLYTES PH 7 4 FOR": [
+    "BALANCED ELECTROLYTES PH 7 4": [
       [
         "BALANCED ELECTROLYTES"
       ]
     ],
-    "CODICERAN 16 12 5": [
+    "CODICERAN": [
       [
         "CANDESARTAN CILEXETIL",
         "HYDROCHLOROTHIAZIDE"
@@ -12312,7 +11370,7 @@
         "OLANZAPINE"
       ]
     ],
-    "ADCETRIS FOR CONCENTRATE FOR FOR": [
+    "ADCETRIS": [
       [
         "BRENTUXIMAB VEDOTIN"
       ]
@@ -12332,7 +11390,7 @@
         "CELECOXIB"
       ]
     ],
-    "BROFIX EYE": [
+    "BROFIX": [
       [
         "BROMFENAC SODIUM"
       ]
@@ -12368,11 +11426,6 @@
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "OCTAGAM FOR": [
-      [
-        "NORMAL HUMAN IMMUNOGLOBULIN"
-      ]
-    ],
     "TARGOPLANIN": [
       [
         "TEICOPLANIN"
@@ -12387,7 +11440,7 @@
         "TETANUS TOXOID"
       ]
     ],
-    "ZYMAXID EYE": [
+    "ZYMAXID": [
       [
         "GATIFLOXACIN"
       ]
@@ -12397,7 +11450,7 @@
         "DAPOXETINE"
       ]
     ],
-    "OLIMEL N7E EMULSION FOR": [
+    "OLIMEL N7E EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -12426,7 +11479,7 @@
         "VALINE"
       ]
     ],
-    "OLIMEL N9E EMULSION FOR": [
+    "OLIMEL N9E EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -12455,7 +11508,7 @@
         "VALINE"
       ]
     ],
-    "PERIOLIMEL N4E EMULSION FOR": [
+    "PERIOLIMEL N4E EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -12500,7 +11553,7 @@
         "ALFUZOSIN"
       ]
     ],
-    "HALURAN INHALATION": [
+    "HALURAN": [
       [
         "SEVOFLURANE"
       ]
@@ -12520,7 +11573,7 @@
         "QUETIAPINE"
       ]
     ],
-    "BREVIBLOC PREMIXED FOR": [
+    "BREVIBLOC PREMIXED": [
       [
         "ESMOLOL"
       ]
@@ -12550,7 +11603,7 @@
         "INDAPAMIDE"
       ]
     ],
-    "PARACETAMOL B BRAUN FOR": [
+    "PARACETAMOL B BRAUN": [
       [
         "PARACETAMOL"
       ]
@@ -12580,7 +11633,7 @@
         "TAZAROTENE"
       ]
     ],
-    "EYLEA FOR": [
+    "EYLEA": [
       [
         "AFLIBERCEPT"
       ]
@@ -12596,7 +11649,7 @@
         "LAMIVUDINE"
       ]
     ],
-    "OLIMEL N9 EMULSION FOR": [
+    "OLIMEL N9 EMULSION": [
       [
         "ALANINE",
         "ARGININE",
@@ -12644,7 +11697,7 @@
         "VILDAGLIPTIN"
       ]
     ],
-    "CITABOL FOR FOR": [
+    "CITABOL": [
       [
         "GEMCITABINE"
       ]
@@ -12659,7 +11712,7 @@
         "DALFAMPRIDINE"
       ]
     ],
-    "ATROSOL ML NEBULISER": [
+    "ATROSOL NEBULISER": [
       [
         "IPRATROPIUM BROMIDE"
       ]
@@ -12686,7 +11739,7 @@
         "SOFOSBUVIR"
       ]
     ],
-    "NOVOTHIRTEEN RFXIII AND SOLVENT FOR FOR": [
+    "NOVOTHIRTEEN RFXIII AND SOLVENT": [
       [
         "CATRIDECACOG"
       ]
@@ -12701,12 +11754,12 @@
         "BOVINE LIPID EXTRACT SURFACTANT"
       ]
     ],
-    "ZARZIO 30 MU FOR": [
+    "ZARZIO 30 MU": [
       [
         "FILGRASTIM"
       ]
     ],
-    "ZARZIO 48 MU FOR": [
+    "ZARZIO 48 MU": [
       [
         "FILGRASTIM"
       ]
@@ -12727,7 +11780,7 @@
         "QUETIAPINE"
       ]
     ],
-    "BALANCED ELECTROLYTES PH 5 5 FOR": [
+    "BALANCED ELECTROLYTES PH 5 5": [
       [
         "BALANCED ELECTROLYTES"
       ]
@@ -12737,7 +11790,7 @@
         "LEVETIRACETAM"
       ]
     ],
-    "IMATOX FOR": [
+    "IMATOX": [
       [
         "ONDANSETRON"
       ]
@@ -12772,7 +11825,7 @@
         "FAMCICLOVIR"
       ]
     ],
-    "TRILEPTAL ML SUSPENTION": [
+    "TRILEPTAL SUSPENTION": [
       [
         "OXCARBAZEPINE"
       ]
@@ -12787,7 +11840,7 @@
         "PIZOTIFEN"
       ]
     ],
-    "SANDIMMUN CONC FOR INFUSIN": [
+    "SANDIMMUN FOR INFUSIN": [
       [
         "CICLOSPORIN"
       ]
@@ -12807,17 +11860,12 @@
         "RANIBIZUMAB"
       ]
     ],
-    "VOLTAREN AMP": [
-      [
-        "DICLOFENAC SODIUM"
-      ]
-    ],
-    "LAVOXIN FOR": [
+    "LAVOXIN": [
       [
         "LEVOFLOXACIN"
       ]
     ],
-    "KADCYLA FOR CONCENTRATE FOR FOR": [
+    "KADCYLA": [
       [
         "TRASTUZUMAB EMTANSINE"
       ]
@@ -12832,7 +11880,7 @@
         "PIZOTIFEN"
       ]
     ],
-    "SIMULECT I V VIAL": [
+    "SIMULECT": [
       [
         "BASILIXIMAB"
       ]
@@ -12845,11 +11893,6 @@
     "SANDIMMUN AMPULE": [
       [
         "CICLOSPORIN"
-      ]
-    ],
-    "VOLTAREN SUPP": [
-      [
-        "DICLOFENAC SODIUM"
       ]
     ],
     "VOLTAREN SR": [
@@ -12867,7 +11910,7 @@
         "PARACETAMOL"
       ]
     ],
-    "GLYCOPYRRONIUM BROMIDE ML FOR": [
+    "GLYCOPYRRONIUM BROMIDE": [
       [
         "GLYCOPYRRONIUM BROMIDE"
       ]
@@ -12887,13 +11930,13 @@
         "CLOMIPRAMINE HYDROCHLORIDE"
       ]
     ],
-    "FLUTIFORM PRESSURISED INHALATION": [
+    "FLUTIFORM PRESSURISED": [
       [
         "FLUTICASONE PROPIONATE",
         "FORMOTEROL FUMARATE"
       ]
     ],
-    "NASELFAST NASAL SPRAY": [
+    "NASELFAST": [
       [
         "TRIAMCINOLONE ACETONIDE"
       ]
@@ -12921,16 +11964,6 @@
     "XATRAL XL": [
       [
         "ALFUZOSIN"
-      ]
-    ],
-    "CORDARONE": [
-      [
-        "AMIODARONE"
-      ]
-    ],
-    "DEPAKINE": [
-      [
-        "VALPROATE SODIUM"
       ]
     ],
     "FLAGYL": [
@@ -12981,17 +12014,17 @@
         "RIVAROXABAN"
       ]
     ],
-    "JEVTANA CONCENTRATE AND SOLVENT FOR FOR": [
+    "JEVTANA AND SOLVENT": [
       [
         "CABAZITAXEL"
       ]
     ],
-    "TABIFLEX FOR": [
+    "TABIFLEX": [
       [
         "DICLOFENAC SODIUM"
       ]
     ],
-    "GYNOCIN FOR": [
+    "GYNOCIN": [
       [
         "OXYTOCIN"
       ]
@@ -13006,7 +12039,7 @@
         "ARIPIPRAZOLE"
       ]
     ],
-    "FABRAZYME FOR CONCENTRATE FOR FOR": [
+    "FABRAZYME": [
       [
         "AGALSIDASE BETA"
       ]
@@ -13022,7 +12055,7 @@
         "MIRTAZAPINE"
       ]
     ],
-    "COAPROVEL 300": [
+    "COAPROVEL": [
       [
         "HYDROCHLOROTHIAZIDE",
         "IRBESARTAN"
@@ -13039,7 +12072,7 @@
         "EZETIMIBE"
       ]
     ],
-    "BALANCED ELECTROLYTES PH 5 AND DEXTROSE FOR": [
+    "BALANCED ELECTROLYTES PH 5 AND DEXTROSE": [
       [
         "DEXTROSE",
         "MAGNESIUM CHLORIDE",
@@ -13049,19 +12082,19 @@
         "SODIUM GLUCONATE"
       ]
     ],
-    "MULTILYTE PH 5 5 FOR": [
+    "MULTILYTE PH 5 5": [
       [
         "MAGNESIUM ACETATE TETRAHYDRATE",
         "POTASSIUM ACETATE",
         "SODIUM CHLORIDE"
       ]
     ],
-    "ADENOCOR VIAL": [
+    "ADENOCOR": [
       [
         "ADENOSINE"
       ]
     ],
-    "MENOPUR FOR FOR": [
+    "MENOPUR": [
       [
         "MENOTROPHIN"
       ]
@@ -13091,17 +12124,12 @@
         "MEMANTINE HYDROCHLORIDE"
       ]
     ],
-    "QUINOX FOR": [
-      [
-        "CIPROFLOXACIN"
-      ]
-    ],
-    "ILLUSOF FOR": [
+    "ILLUSOF": [
       [
         "IOHEXOL"
       ]
     ],
-    "LIDOCAINE HYDROCHLORIDE FOR": [
+    "LIDOCAINE HYDROCHLORIDE": [
       [
         "LIDOCAINE HYDROCHLORIDE"
       ]
@@ -13116,17 +12144,17 @@
         "MONTELUKAST SODIUM"
       ]
     ],
-    "SERONORM FOR IV": [
+    "SERONORM": [
       [
         "PALONOSETRON HYDROCHLORIDE"
       ]
     ],
-    "OSTADIL CONCENTRATE FOR IV": [
+    "OSTADIL": [
       [
         "ZOLEDRONIC ACID"
       ]
     ],
-    "AMBAFEN FOR": [
+    "AMBAFEN": [
       [
         "IBUPROFEN"
       ]
@@ -13136,12 +12164,12 @@
         "FEBUXOSTAT"
       ]
     ],
-    "COSENTYX FOR IN PRE FILLED PEN": [
+    "COSENTYX IN PRE FILLED PEN": [
       [
         "SECUKINUMAB"
       ]
     ],
-    "TRESIBA FLEXTOUCH 100 U ML FOR": [
+    "TRESIBA FLEXTOUCH": [
       [
         "INSULIN DEGLUDEC"
       ]
@@ -13171,7 +12199,7 @@
         "LEVETIRACETAM"
       ]
     ],
-    "LASTINEM FOR FOR": [
+    "LASTINEM": [
       [
         "CILASTATIN",
         "IMIPENEM"
@@ -13203,17 +12231,17 @@
         "SIMVASTATIN"
       ]
     ],
-    "CANCIDAS VIAL": [
+    "CANCIDAS": [
       [
         "CASPOFUNGIN"
       ]
     ],
-    "NASONEX NASAL SPRAY": [
+    "NASONEX": [
       [
         "MOMETASONE FUROATE"
       ]
     ],
-    "ATROVENT UDV FOR INHALATION": [
+    "ATROVENT UDV": [
       [
         "IPRATROPIUM BROMIDE"
       ]
@@ -13228,7 +12256,7 @@
         "DULOXETINE"
       ]
     ],
-    "REMSIMA FOR FOR": [
+    "REMSIMA": [
       [
         "INFLIXIMAB"
       ]
@@ -13263,7 +12291,7 @@
         "QUETIAPINE"
       ]
     ],
-    "BRIDION FOR": [
+    "BRIDION": [
       [
         "SUGAMMADEX"
       ]
@@ -13279,7 +12307,7 @@
         "EDOXABAN TOSILATE"
       ]
     ],
-    "INVANZ 1 GM FOR CONCENTRATE FOR FOR": [
+    "INVANZ": [
       [
         "ERTAPENEM SODIUM"
       ]
@@ -13309,7 +12337,7 @@
         "TOFACITINIB"
       ]
     ],
-    "THYROGEN FOR FOR": [
+    "THYROGEN": [
       [
         "THYROTROPIN ALFA"
       ]
@@ -13335,7 +12363,7 @@
         "GLIMEPIRIDE"
       ]
     ],
-    "CIPALIN VIAL": [
+    "CIPALIN": [
       [
         "CISPLATIN"
       ]
@@ -13361,27 +12389,27 @@
         "ALLERGEN EXTRACT -SKIN PRICK TEST (MOULD)"
       ]
     ],
-    "CLUSTEK 10 000 TU ML FOR INDOOR": [
+    "CLUSTEK 10 000 TU ML INDOOR": [
       [
         "POLIMERIZED ALLERGEN EXTRACT"
       ]
     ],
-    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL SPRAY POLLEN": [
+    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL POLLEN": [
       [
         "ALLERGEN EXTRACT"
       ]
     ],
-    "CLUSTEK 10 000 TU ML FOR POLLEN": [
+    "CLUSTEK 10 000 TU ML POLLEN": [
       [
         "POLIMERIZED ALLERGEN EXTRACT"
       ]
     ],
-    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL SPRAY INDOOR": [
+    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL INDOOR": [
       [
         "ALLERGEN EXTRACT"
       ]
     ],
-    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL SPRAY MOULD": [
+    "ORALTEK 30 000 TU ML SOL FOR SUBLINGUAL MOULD": [
       [
         "ALLERGEN EXTRACT"
       ]
@@ -13438,17 +12466,17 @@
         "TADALAFIL"
       ]
     ],
-    "SOMATULINE AUTOGEL FOR IN PRE FILLE": [
+    "SOMATULINE AUTOGEL IN PRE FILLE": [
       [
         "LANREOTIDE ACETATE"
       ]
     ],
-    "TOSTAF VIAL": [
+    "TOSTAF": [
       [
         "VANCOMYCIN"
       ]
     ],
-    "XULTOPHY 100 U ML FOR": [
+    "XULTOPHY": [
       [
         "INSULIN DEGLUDEC",
         "LIRAGLUTIDE"
@@ -13459,18 +12487,18 @@
         "LORNOXICAM"
       ]
     ],
-    "ZAVICEFTA VIAL": [
+    "ZAVICEFTA": [
       [
         "AVIBACTAM",
         "CEFTAZIDIME"
       ]
     ],
-    "ONDA FOR": [
+    "ONDA": [
       [
         "ONDANSETRON"
       ]
     ],
-    "TRAMAL AMPOULE": [
+    "TRAMAL": [
       [
         "TRAMADOL HYDROCHLORIDE"
       ]
@@ -13519,7 +12547,7 @@
         "BARICITINIB"
       ]
     ],
-    "MOZOBIL FOR": [
+    "MOZOBIL": [
       [
         "PLERIXAFOR"
       ]
@@ -13549,7 +12577,7 @@
         "AMLODIPINE BESILATE"
       ]
     ],
-    "ELONVA FOR": [
+    "ELONVA": [
       [
         "CORIFOLLITROPIN ALFA"
       ]
@@ -13580,7 +12608,7 @@
         "CABERGOLINE"
       ]
     ],
-    "VEELBORE FOR FOR": [
+    "VEELBORE": [
       [
         "BORTEZOMIB"
       ]
@@ -13596,12 +12624,12 @@
         "ETHINYLESTRADIOL"
       ]
     ],
-    "FLOMOXIN FOR": [
+    "FLOMOXIN": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "TEICO VIAL": [
+    "TEICO": [
       [
         "TEICOPLANIN"
       ]
@@ -13621,7 +12649,7 @@
         "LACTATED RINGER(S)"
       ]
     ],
-    "DOCETAXEL SPC FOR": [
+    "DOCETAXEL SPC": [
       [
         "DOCETAXEL"
       ]
@@ -13631,7 +12659,7 @@
         "IMATINIB MESILATE"
       ]
     ],
-    "SOLIQUA SOLOSTAR ML 100 U FOR": [
+    "SOLIQUA SOLOSTAR": [
       [
         "INSULIN GLARGINE",
         "LIXISENATIDE"
@@ -13652,12 +12680,7 @@
         "AZILSARTAN MEDOXOMIL"
       ]
     ],
-    "OMIZ FOR FOR": [
-      [
-        "OMEPRAZOLE"
-      ]
-    ],
-    "NIVESTIM FOR": [
+    "NIVESTIM": [
       [
         "FILGRASTIM"
       ]
@@ -13675,7 +12698,7 @@
         "TRIPROLIDINE"
       ]
     ],
-    "PEMETREXED SPC FOR FOR": [
+    "PEMETREXED SPC": [
       [
         "PEMETREXED"
       ]
@@ -13700,24 +12723,19 @@
         "LEVOCETIRIZINE DIHYDROCHLORIDE"
       ]
     ],
-    "LIPOPLUS EMULSION FOR": [
+    "LIPOPLUS EMULSION": [
       [
         "OMEGA-3-ACID ETHYL ESTERS",
         "SOYA OIL",
         "TRIGLYCERIDES MEDIUM CHAIN"
       ]
     ],
-    "BASAGLAR 100 U ML FOR IN PRE FILLED PEN": [
+    "BASAGLAR IN PRE FILLED PEN": [
       [
         "INSULIN GLARGINE"
       ]
     ],
-    "DELTACEF 1 GM VIAL": [
-      [
-        "CEFEPIME HYDROCHLORIDE"
-      ]
-    ],
-    "DELTACEF 2 GM VIAL": [
+    "DELTACEF": [
       [
         "CEFEPIME HYDROCHLORIDE"
       ]
@@ -13727,12 +12745,12 @@
         "DEFERASIROX"
       ]
     ],
-    "ROTUB CONCENTRATE FOR FOR": [
+    "ROTUB": [
       [
         "PACLITAXEL"
       ]
     ],
-    "DYNASTAT AND SOLVENT FOR FOR": [
+    "DYNASTAT AND SOLVENT": [
       [
         "PARECOXIB"
       ]
@@ -13742,7 +12760,7 @@
         "BETAXOLOL HYDROCHLORIDE"
       ]
     ],
-    "TOBRADEX EYE": [
+    "TOBRADEX": [
       [
         "DEXAMETHASONE",
         "TOBRAMYCIN"
@@ -13763,7 +12781,7 @@
         "RABEPRAZOLE SODIUM"
       ]
     ],
-    "HEMLIBRA FOR": [
+    "HEMLIBRA": [
       [
         "EMICIZUMAB"
       ]
@@ -13778,7 +12796,7 @@
         "DICLOFENAC POTASSIUM"
       ]
     ],
-    "PARACONICA FOR": [
+    "PARACONICA": [
       [
         "PARACETAMOL"
       ]
@@ -13801,7 +12819,7 @@
         "MENTHOL"
       ]
     ],
-    "DYSPORT 500U VIAL": [
+    "DYSPORT": [
       [
         "CLOSTRIDIUM BOTULINUM TYPE A TOXIN-HAEMAGGLUTININ COMPLEX"
       ]
@@ -13811,7 +12829,7 @@
         "ABEMACICLIB"
       ]
     ],
-    "DIAPAM SOL FOR INF": [
+    "DIAPAM SOL INF": [
       [
         "DIAZEPAM"
       ]
@@ -13821,7 +12839,7 @@
         "ENOXAPARIN SODIUM"
       ]
     ],
-    "KYPROLIS FOR FOR": [
+    "KYPROLIS": [
       [
         "CARFILZOMIB"
       ]
@@ -13829,9 +12847,8 @@
     "M M R II VACCINE DILUENT": [
       [
         "MEASLES VIRUS (SCHWARZ) LIVE ATTENUATED",
-        "MUMPS VIRUS (JERYL LYNN",
-        "RUBELLA VIRUS (WISTAR RA 27/3) LIVE ATTENUATED",
-        "STRAIN RIT 4385) LIVE ATTENUATED"
+        "MUMPS VIRUS (JERYL LYNN, STRAIN RIT 4385) LIVE ATTENUATED",
+        "RUBELLA VIRUS (WISTAR RA 27/3) LIVE ATTENUATED"
       ]
     ],
     "ARCOXIA": [
@@ -13869,7 +12886,7 @@
         "PA-21 FERRIC OXY-HYDROXIDE COMPONENT"
       ]
     ],
-    "MABTHERA FOR SUBCUTANEOUS FOR": [
+    "MABTHERA FOR SUBCUTANEOUS": [
       [
         "RITUXIMAB"
       ]
@@ -13899,7 +12916,7 @@
         "ETORICOXIB"
       ]
     ],
-    "MERISCAN 0 5MMOL ML VIAL": [
+    "MERISCAN": [
       [
         "GADODIAMIDE"
       ]
@@ -13930,12 +12947,12 @@
         "LACTULOSE"
       ]
     ],
-    "ZOLEDRONIC ACID FRESENIUS KABI CONC FOR FOR": [
+    "ZOLEDRONIC ACID FRESENIUS KABI": [
       [
         "ZOLEDRONIC ACID"
       ]
     ],
-    "MEPROSON FOR": [
+    "MEPROSON": [
       [
         "METHYLPREDNISOLONE"
       ],
@@ -13953,7 +12970,7 @@
         "PRASUGREL"
       ]
     ],
-    "MEXAT FOR": [
+    "MEXAT": [
       [
         "METHOTREXATE"
       ]
@@ -13963,19 +12980,17 @@
         "CIPROFLOXACIN"
       ]
     ],
-    "ULTIVA VIAL LYOPHILIZED": [
+    "ULTIVA LYOPHILIZED": [
       [
         "REMIFENTANIL HYDROCHLORIDE"
       ]
     ],
-    "DIBASA 100000 I U AMPOULE": [
+    "DIBASA": [
       [
         "COLECALCIFEROL"
-      ]
-    ],
-    "DIBASA 300000 I U AMPOULE": [
+      ],
       [
-        "COLECALCIFEROL"
+        "CHOLECALCIFEROL"
       ]
     ],
     "QATPEN XR": [
@@ -13994,7 +13009,7 @@
         "LENALIDOMIDE"
       ]
     ],
-    "PENTHROX LIQUID FOR INHALATION": [
+    "PENTHROX LIQUID": [
       [
         "METHOXYFLURANE"
       ]
@@ -14014,14 +13029,9 @@
         "ALOGLIPTIN"
       ]
     ],
-    "APISAL EYE NOSE": [
+    "APISAL NOSE": [
       [
         "SODIUM CHLORIDE"
-      ]
-    ],
-    "ATROSOL NEBULISER": [
-      [
-        "IPRATROPIUM BROMIDE"
       ]
     ],
     "VIBRAMYCIN": [
@@ -14039,7 +13049,7 @@
         "CRIZOTINIB"
       ]
     ],
-    "ZYTIGA 500": [
+    "ZYTIGA": [
       [
         "ABIRATERONE ACETATE"
       ]
@@ -14066,12 +13076,12 @@
         "BRINZOLAMIDE"
       ]
     ],
-    "ROXONE 1 GM FOR FOR": [
+    "ROXONE": [
       [
         "CEFTRIAXONE"
       ]
     ],
-    "DUOTRAV EYE": [
+    "DUOTRAV": [
       [
         "TIMOLOL MALEATE",
         "TRAVOPROST"
@@ -14098,7 +13108,7 @@
         "BRINZOLAMIDE"
       ]
     ],
-    "NEVANAC EYE": [
+    "NEVANAC": [
       [
         "NEPAFENAC"
       ]
@@ -14126,7 +13136,7 @@
         "WARFARIN SODIUM"
       ]
     ],
-    "AZARGA EYE": [
+    "AZARGA": [
       [
         "BRINZOLAMIDE",
         "TIMOLOL MALEATE"
@@ -14148,13 +13158,13 @@
         "TRIBENOSIDE"
       ]
     ],
-    "SYSTANE ULTRA UD LUBRICANT EYE": [
+    "SYSTANE ULTRA UD LUBRICANT": [
       [
         "POLYETHYLENE GLYCOL",
         "PROPYLENE GLYCOL"
       ]
     ],
-    "PHOXILIUM 1 2MMOL I SOL FOR HAEMODIAL HAEMOFILT": [
+    "PHOXILIUM I SOL FOR HAEMODIAL HAEMOFILT": [
       [
         "CALCIUM CHLORIDE",
         "DISODIUM PHOSPHATE",
@@ -14193,7 +13203,7 @@
         "EXEMESTANE"
       ]
     ],
-    "ACTEMRA FOR IN": [
+    "ACTEMRA IN": [
       [
         "TOCILIZUMAB"
       ]
@@ -14245,7 +13255,7 @@
         "TRIFLURIDINE"
       ]
     ],
-    "OCREVUS CONCENTRATE FOR FOR": [
+    "OCREVUS": [
       [
         "OCRELIZUMAB"
       ]
@@ -14260,18 +13270,12 @@
         "LORNOXICAM"
       ]
     ],
-    "HUMALOG KWIK PEN MIX 50": [
-      [
-        "INSULIN LISPRO",
-        "INSULIN PROTAMINE"
-      ]
-    ],
-    "NEXOL LYOPHILISATE FOR FOR": [
+    "NEXOL LYOPHILISATE": [
       [
         "ESOMEPRAZOLE"
       ]
     ],
-    "DOCETAXEL EBEWE CONCENTRATION FOR FOR": [
+    "DOCETAXEL EBEWE CONCENTRATION": [
       [
         "DOCETAXEL"
       ]
@@ -14334,19 +13338,14 @@
         "LINEZOLID"
       ]
     ],
-    "ZEVTERA FOR CONCENTRATION FOR FOR": [
+    "ZEVTERA FOR CONCENTRATION": [
       [
         "CEFTOBIPROLE MEDOCARIL SODIUM"
       ]
     ],
-    "PEMITRA VIAL": [
+    "PEMITRA": [
       [
         "PEMETREXED"
-      ]
-    ],
-    "SEFARIX": [
-      [
-        "CEFDINIR"
       ]
     ],
     "LEUKERAN": [
@@ -14381,7 +13380,7 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "SEVOFLURANE INHALATION ANESTHETIC": [
+    "SEVOFLURANE ANESTHETIC": [
       [
         "SEVOFLURANE"
       ]
@@ -14391,27 +13390,7 @@
         "BISOPROLOL FUMARATE"
       ]
     ],
-    "ALPROLIX 250 I U AND SOLVENT FOR FOR": [
-      [
-        "EFTRENONACOG ALFA"
-      ]
-    ],
-    "ALPROLIX 500 I U AND SOLVENT FOR FOR": [
-      [
-        "EFTRENONACOG ALFA"
-      ]
-    ],
-    "ALPROLIX 1000 I U AND SOLVENT FOR FOR": [
-      [
-        "EFTRENONACOG ALFA"
-      ]
-    ],
-    "ALPROLIX 2000 I U AND SOLVENT FOR FOR": [
-      [
-        "EFTRENONACOG ALFA"
-      ]
-    ],
-    "ALPROLIX 3000 I U AND SOLVENT FOR FOR": [
+    "ALPROLIX AND SOLVENT": [
       [
         "EFTRENONACOG ALFA"
       ]
@@ -14459,7 +13438,7 @@
         "OLMESARTAN MEDOXOMIL"
       ]
     ],
-    "RESOCAL FOR USE IN DRINKING WATER": [
+    "RESOCAL IN DRINKING WATER": [
       [
         "CALCIUM POLYSTYRENE SULFONATE"
       ]
@@ -14469,12 +13448,12 @@
         "LOXOPROFEN"
       ]
     ],
-    "IKOTREF FOR": [
+    "IKOTREF": [
       [
         "HYDROCORTISONE SODIUM SUCCINATE"
       ]
     ],
-    "PRAXBIND FOR": [
+    "PRAXBIND": [
       [
         "IDARUCIZUMAB"
       ]
@@ -14499,12 +13478,12 @@
         "FIDAXOMICIN"
       ]
     ],
-    "ALOXI FOR": [
+    "ALOXI": [
       [
         "PALONOSETRON HYDROCHLORIDE"
       ]
     ],
-    "FLEXBUMIN 200GM L FOR": [
+    "FLEXBUMIN L": [
       [
         "ALBUMIN HUMAN"
       ]
@@ -14530,7 +13509,7 @@
         "BLINATUMOMAB"
       ]
     ],
-    "IGAMAD FOR": [
+    "IGAMAD": [
       [
         "HUMAN RHO(D) IMMUNE GLOBULIN"
       ]
@@ -14545,11 +13524,6 @@
         "ACETYLSALICYLIC ACID"
       ]
     ],
-    "CANDEUR FOR": [
-      [
-        "FLUCONAZOLE"
-      ]
-    ],
     "ARVIDA": [
       [
         "ENTECAVIR"
@@ -14560,7 +13534,7 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "MEROZA FOR FOR OR": [
+    "MEROZA": [
       [
         "MEROPENEM"
       ]
@@ -14570,12 +13544,12 @@
         "DAPOXETINE"
       ]
     ],
-    "TRULICITY FOR IN PREFILLED PEN": [
+    "TRULICITY IN PREFILLED PEN": [
       [
         "DULAGLUTIDE"
       ]
     ],
-    "TOUJEO FOR IN PRE FILLED PEN": [
+    "TOUJEO IN PRE FILLED PEN": [
       [
         "INSULIN GLARGINE"
       ]
@@ -14646,35 +13620,25 @@
         "RUXOLITINIB"
       ]
     ],
-    "RESTASIS EYE EMULSION": [
+    "RESTASIS EMULSION": [
       [
         "CICLOSPORIN"
       ]
     ],
-    "IRINOTECAN JAZEERA CONCENTRATE FOR FOR": [
+    "IRINOTECAN JAZEERA": [
       [
         "IRINOTECAN"
       ]
     ],
-    "CEFAFOUR 1GM IV IM VIAL": [
+    "CEFAFOUR": [
       [
         "CEFEPIME HYDROCHLORIDE"
       ]
     ],
-    "CEFAFOUR 2 GM IV IM VIAL": [
-      [
-        "CEFEPIME HYDROCHLORIDE"
-      ]
-    ],
-    "COSOPT EYE": [
+    "COSOPT": [
       [
         "DORZOLAMIDE",
         "TIMOLOL MALEATE"
-      ]
-    ],
-    "ZEMPLAR ML FOR": [
-      [
-        "PARICALCITOL"
       ]
     ],
     "TRIOSOF": [
@@ -14692,38 +13656,27 @@
         "OSIMERTINIB MESILATE"
       ]
     ],
-    "BUTAFYL SPRAY": [
-      [
-        "BUTENAFINE"
-      ]
-    ],
     "NORMAL SALINE SODIUM CHLORIDE": [
       [
         "SODIUM CHLORIDE"
       ]
     ],
-    "PIPERACILLIN TAZOPACTAM SANDOZ 4 5GM VIAL": [
-      [
-        "PIPERACILLIN",
-        "TAZOBACTAM"
-      ]
-    ],
-    "PARALOK FOR I V": [
+    "PARALOK": [
       [
         "PANTOPRAZOLE"
       ]
     ],
-    "TECENTRIQ CONCENTRATE FOR FOR": [
+    "TECENTRIQ": [
       [
         "ATEZOLIZUMAB"
       ]
     ],
-    "REBIF FOR IN CARTRIDGE": [
+    "REBIF IN CARTRIDGE": [
       [
         "INTERFERON BETA-1A"
       ]
     ],
-    "WATER FOR USP": [
+    "WATER USP": [
       [
         "WATER"
       ]
@@ -14744,12 +13697,12 @@
         "CINACALCET"
       ]
     ],
-    "SIMPONI FOR IN PREFILLED PEN": [
+    "SIMPONI IN PREFILLED PEN": [
       [
         "GOLIMUMAB"
       ]
     ],
-    "SEDALERT ML IV VIAL": [
+    "SEDALERT": [
       [
         "DEXMEDETOMIDINE"
       ]
@@ -14759,7 +13712,7 @@
         "MONTELUKAST SODIUM"
       ]
     ],
-    "NEVOLEEN AMPOULE": [
+    "NEVOLEEN": [
       [
         "NOREPINEPHRINE BITARTRATE"
       ]
@@ -14769,7 +13722,7 @@
         "CAPSAICIN"
       ]
     ],
-    "HYFRESH EYE UD": [
+    "HYFRESH UD": [
       [
         "SODIUM HYALURONATE"
       ]
@@ -14799,28 +13752,23 @@
         "RAMUCIRUMAB"
       ]
     ],
-    "EPITAM I V": [
-      [
-        "LEVETIRACETAM"
-      ]
-    ],
     "RIFINAH": [
       [
         "ISONIAZID",
         "RIFAMPICIN"
       ]
     ],
-    "TRAVATAN EYE": [
+    "TRAVATAN": [
       [
         "TRAVOPROST"
       ]
     ],
-    "ZEPILEN 1GM FOR FOR": [
+    "ZEPILEN": [
       [
         "CEFAZOLIN"
       ]
     ],
-    "BINOCRIT 2000 I U FOR": [
+    "BINOCRIT": [
       [
         "EPOETIN ALFA"
       ]
@@ -14830,7 +13778,7 @@
         "BRIMONIDINE TARTRATE"
       ]
     ],
-    "DIPHERELINE FOR FOR": [
+    "DIPHERELINE": [
       [
         "TRIPTORELIN"
       ]
@@ -14861,7 +13809,7 @@
         "IXEKIZUMAB"
       ]
     ],
-    "MOXICLAV 1 GM FILM COTED": [
+    "MOXICLAV FILM COTED": [
       [
         "AMOXICILLIN",
         "CLAVULANIC ACID"
@@ -14872,7 +13820,7 @@
         "TRAMADOL HYDROCHLORIDE"
       ]
     ],
-    "VENTAVIS ML FOR INHALATION": [
+    "VENTAVIS": [
       [
         "ILOPROST"
       ]
@@ -14903,12 +13851,7 @@
         "SULFASALAZINE"
       ]
     ],
-    "MERONEM 1GM VIAL I V": [
-      [
-        "MEROPENEM"
-      ]
-    ],
-    "MERONEM VIAL I V": [
+    "MERONEM I V": [
       [
         "MEROPENEM"
       ]
@@ -14923,7 +13866,7 @@
         "ENTECAVIR"
       ]
     ],
-    "LINID FOR": [
+    "LINID": [
       [
         "LINEZOLID"
       ]
@@ -14931,11 +13874,6 @@
     "REXULTI": [
       [
         "BREXPIPRAZOLE"
-      ]
-    ],
-    "HERCEPTIN FOR": [
-      [
-        "TRASTUZUMAB"
       ]
     ],
     "GLOZAL": [
@@ -14959,17 +13897,17 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "REPATHA FOR": [
+    "REPATHA": [
       [
         "EVOLOCUMAB"
       ]
     ],
-    "ACCOFIL FOR": [
+    "ACCOFIL": [
       [
         "FILGRASTIM"
       ]
     ],
-    "LEVODIS FOR": [
+    "LEVODIS": [
       [
         "LEVOFLOXACIN"
       ]
@@ -14984,7 +13922,7 @@
         "ALIROCUMAB"
       ]
     ],
-    "TOPRAZOLE FOR FOR": [
+    "TOPRAZOLE": [
       [
         "PANTOPRAZOLE"
       ]
@@ -15010,14 +13948,9 @@
         "TIOTROPIUM"
       ]
     ],
-    "PROPOFOL LIPURO EMULSION FOR": [
+    "PROPOFOL LIPURO EMULSION": [
       [
         "PROPOFOL"
-      ]
-    ],
-    "STELARA CONCENTRATE FOR FOR": [
-      [
-        "USTEKINUMAB"
       ]
     ],
     "SPEDRA": [
@@ -15039,17 +13972,17 @@
         "TENOFOVIR ALAFENAMIDE"
       ]
     ],
-    "GEMCITABINE JAZEERA LYOPHILISATE FOR FOR": [
+    "GEMCITABINE JAZEERA LYOPHILISATE": [
       [
         "GEMCITABINE"
       ]
     ],
-    "COLISTIN JPI FOR FOR": [
+    "COLISTIN JPI": [
       [
         "COLISTIMETHATE SODIUM"
       ]
     ],
-    "ZIDRONIC VIAL": [
+    "ZIDRONIC": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -15059,7 +13992,7 @@
         "LETROZOLE"
       ]
     ],
-    "ZERBAXA FOR VIAL": [
+    "ZERBAXA": [
       [
         "CEFTOLOZANE",
         "TAZOBACTAM"
@@ -15096,31 +14029,6 @@
         "PANTOPRAZOLE"
       ]
     ],
-    "BINOCRIT 1000 I U FOR": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "BINOCRIT 4000 I U FOR": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "BINOCRIT 10000 I U FOR": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "BINOCRIT 30000 I U FOR": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
-    "BINOCRIT 40000 I U FOR": [
-      [
-        "EPOETIN ALFA"
-      ]
-    ],
     "DENACIF": [
       [
         "CEFDINIR"
@@ -15136,7 +14044,7 @@
         "RUPATADINE FUMARATE"
       ]
     ],
-    "STEROFUNDIN ISO FOR": [
+    "STEROFUNDIN ISO": [
       [
         "CALCIUM CHLORIDE",
         "MAGNESIUM CHLORIDE",
@@ -15151,12 +14059,12 @@
         "TADALAFIL"
       ]
     ],
-    "ACYCLOVIR JPI VIAL": [
+    "ACYCLOVIR JPI": [
       [
         "ACYCLOVIR"
       ]
     ],
-    "SUPRANE LIQUID FOR INHALATION": [
+    "SUPRANE LIQUID": [
       [
         "DESFLURANE"
       ]
@@ -15177,12 +14085,7 @@
         "FLUCONAZOLE"
       ]
     ],
-    "DALACIN C": [
-      [
-        "CLINDAMYCIN HYDROCHLORIDE"
-      ]
-    ],
-    "CAMPTO VIAL FOR I V": [
+    "CAMPTO": [
       [
         "IRINOTECAN"
       ]
@@ -15192,7 +14095,7 @@
         "GLICLAZIDE"
       ]
     ],
-    "MYOZYME FOR CONCENTRATE FOR FOR": [
+    "MYOZYME": [
       [
         "ALGLUCOSIDASE ALFA"
       ]
@@ -15202,7 +14105,7 @@
         "ALECTINIB HYDROCHLORIDE"
       ]
     ],
-    "ELORES FOR FOR": [
+    "ELORES": [
       [
         "CEFTRIAXONE",
         "SULBACTAM"
@@ -15218,7 +14121,7 @@
         "ALPHA.1-PROTEINASE INHIBITOR HUMAN"
       ]
     ],
-    "METOJECT FOR": [
+    "METOJECT": [
       [
         "METHOTREXATE"
       ]
@@ -15252,11 +14155,6 @@
         "TRYPTOPHAN",
         "TYROSINE",
         "VALINE"
-      ]
-    ],
-    "OXYNORM AMPOULE": [
-      [
-        "OXYCODONE HYDROCHLORIDE"
       ]
     ],
     "SEIZET DISPERSIBLE": [
@@ -15300,7 +14198,7 @@
         "BISOPROLOL FUMARATE"
       ]
     ],
-    "TRELEGY ELLIPTA INHALATION PRE DISPENSED": [
+    "TRELEGY ELLIPTA PRE DISPENSED": [
       [
         "FLUTICASONE FUROATE",
         "UMECLIDINIUM BROMIDE",
@@ -15337,11 +14235,6 @@
         "OLANZAPINE"
       ]
     ],
-    "XEVANEER FOR": [
-      [
-        "CEFDINIR"
-      ]
-    ],
     "REVCOX": [
       [
         "CELECOXIB"
@@ -15357,12 +14250,12 @@
         "OLANZAPINE"
       ]
     ],
-    "XALTIN CONC FOR FOR": [
+    "XALTIN": [
       [
         "OXALIPLATIN"
       ]
     ],
-    "REMIFENTANIL MEDIS VIAL": [
+    "REMIFENTANIL MEDIS": [
       [
         "REMIFENTANIL HYDROCHLORIDE"
       ]
@@ -15373,22 +14266,7 @@
         "VILANTEROL"
       ]
     ],
-    "IMIGRAN NASAL SPRAY": [
-      [
-        "SUMATRIPTAN"
-      ]
-    ],
-    "HUMAN ALBUMIN FOR": [
-      [
-        "ALBUMIN HUMAN"
-      ]
-    ],
-    "WELLBUTRIN XL 300 EXTENDED RELEASE": [
-      [
-        "BUPROPION HYDROCHLORIDE"
-      ]
-    ],
-    "WELLBUTRIN XL 150 EXTENDED RELEASE": [
+    "WELLBUTRIN XL EXTENDED RELEASE": [
       [
         "BUPROPION HYDROCHLORIDE"
       ]
@@ -15404,7 +14282,7 @@
         "VILANTEROL"
       ]
     ],
-    "ALIMTA FOR FOR": [
+    "ALIMTA": [
       [
         "PEMETREXED"
       ]
@@ -15414,33 +14292,22 @@
         "OXALIPLATIN"
       ]
     ],
-    "RELVAR ELLIPTA INHALATION": [
-      [
-        "FLUTICASONE FUROATE",
-        "VILANTEROL"
-      ]
-    ],
-    "VENTOLIN ML": [
-      [
-        "SALBUTAMOL"
-      ]
-    ],
     "MABRON": [
       [
         "TRAMADOL HYDROCHLORIDE"
       ]
     ],
-    "FUCITHALMIC VISCOUS EYE": [
+    "FUCITHALMIC VISCOUS": [
       [
         "FUSIDIC ACID"
       ]
     ],
-    "PARACETAMOL PHARCO B VIAL": [
+    "PARACETAMOL PHARCO B": [
       [
         "PARACETAMOL"
       ]
     ],
-    "WILATE AND SOLVENT FOR FOR": [
+    "WILATE AND SOLVENT": [
       [
         "HUMAN COAGULATION FACTOR VIII",
         "HUMAN VON WILLEBRAND FACTOR"
@@ -15478,7 +14345,7 @@
         "TRANEXAMIC ACID"
       ]
     ],
-    "CRESPINE FOR": [
+    "CRESPINE": [
       [
         "HYALURONIC ACID"
       ]
@@ -15488,7 +14355,7 @@
         "ETHIONAMIDE"
       ]
     ],
-    "MEDICURTAIN FOR": [
+    "MEDICURTAIN": [
       [
         "HYDROXYETHYL STARCH",
         "SODIUM HYALURONATE"
@@ -15499,7 +14366,7 @@
         "LURASIDONE"
       ]
     ],
-    "XEOMIN 50 U VIAL": [
+    "XEOMIN": [
       [
         "CLOSTRIDIUM BOTULINUM NEUROTOXIN A"
       ]
@@ -15519,7 +14386,7 @@
         "LEVONORGESTREL"
       ]
     ],
-    "BESPONSA VIAL": [
+    "BESPONSA": [
       [
         "INOTUZUMAB OZOGAMICIN"
       ]
@@ -15530,7 +14397,7 @@
         "IRBESARTAN"
       ]
     ],
-    "IBICAR INHALATION": [
+    "IBICAR": [
       [
         "BECLOMETHASONE DIPROPIONATE"
       ]
@@ -15540,12 +14407,12 @@
         "ANASTROZOLE"
       ]
     ],
-    "LUPRON DEPOT VIAL": [
+    "LUPRON DEPOT": [
       [
         "LEUPRORELIN"
       ]
     ],
-    "RESINCALCIO FOR": [
+    "RESINCALCIO": [
       [
         "CALCIUM POLYSTYRENE SULFONATE"
       ]
@@ -15555,7 +14422,7 @@
         "CARGLUMIC ACID"
       ]
     ],
-    "NUTRYELT CONC FOR FOR": [
+    "NUTRYELT": [
       [
         "CHROMIUM CHLORIDE HEXAHYDRATE",
         "COPPER GLUCONATE",
@@ -15583,12 +14450,12 @@
         "FOLLITROPIN ALFA"
       ]
     ],
-    "VPRIV 40 U FOR FOR": [
+    "VPRIV": [
       [
         "VELAGLUCERASE ALFA"
       ]
     ],
-    "GEMZAR LYPH VIAL": [
+    "GEMZAR LYPH": [
       [
         "GEMCITABINE"
       ]
@@ -15601,13 +14468,6 @@
     "ESIDREX": [
       [
         "HYDROCHLOROTHIAZIDE"
-      ]
-    ],
-    "NEUROBION": [
-      [
-        "CYANOCOBALAMIN",
-        "PYRIDOXINE",
-        "THIAMINE"
       ]
     ],
     "ROBITUSSIN CF": [
@@ -15623,7 +14483,7 @@
         "DERMATOPHAGOIDES PTERONYSSINUS EXTRACT"
       ]
     ],
-    "GEMCITABINE GLENMARK VIAL": [
+    "GEMCITABINE GLENMARK": [
       [
         "GEMCITABINE"
       ]
@@ -15666,7 +14526,7 @@
         "OLOPATADINE"
       ]
     ],
-    "FLORYL SOL FOR": [
+    "FLORYL SOL": [
       [
         "FLUOROURACIL"
       ]
@@ -15681,17 +14541,17 @@
         "LEVOFLOXACIN"
       ]
     ],
-    "CAFFEINE CITRATE FOR": [
+    "CAFFEINE CITRATE": [
       [
         "CAFFEINE CITRATE"
       ]
     ],
-    "EVISTA F C": [
+    "EVISTA": [
       [
         "RALOXIFENE"
       ]
     ],
-    "LOXAMOX SOL FOR IV": [
+    "LOXAMOX SOL": [
       [
         "LEVOFLOXACIN"
       ]
@@ -15701,22 +14561,12 @@
         "HEPARIN SODIUM"
       ]
     ],
-    "ONDANSETRON KABI SOL FOR": [
+    "ONDANSETRON KABI SOL": [
       [
         "ONDANSETRON"
       ]
     ],
-    "VALES CONCENTRATE FOR FOR": [
-      [
-        "LEVETIRACETAM"
-      ]
-    ],
-    "LOXAMOX SOL FOR": [
-      [
-        "LEVOFLOXACIN"
-      ]
-    ],
-    "AROX EYE": [
+    "AROX": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
@@ -15727,17 +14577,17 @@
         "DEXPANTHENOL"
       ]
     ],
-    "VONAL ML FOR": [
+    "VONAL": [
       [
         "PARACETAMOL"
       ]
     ],
-    "AZELASTIN COMOD EYE": [
+    "AZELASTIN COMOD": [
       [
         "AZELASTINE"
       ]
     ],
-    "DUPIXENT FOR IN": [
+    "DUPIXENT IN": [
       [
         "DUPILUMAB"
       ]
@@ -15773,7 +14623,7 @@
         "SUMATRIPTAN"
       ]
     ],
-    "INTIDROL LYOPHILISATE FOR FOR": [
+    "INTIDROL LYOPHILISATE": [
       [
         "METHYLPREDNISOLONE SODIUM SUCCINATE"
       ]
@@ -15784,12 +14634,12 @@
         "HESPERIDIN"
       ]
     ],
-    "EYMID EYE": [
+    "EYMID": [
       [
         "TROPICAMIDE"
       ]
     ],
-    "SECLODYN EYE": [
+    "SECLODYN": [
       [
         "CYCLOPENTOLATE"
       ]
@@ -15825,42 +14675,32 @@
         "CARBOPLATIN"
       ]
     ],
-    "CARTINUM VIAL": [
-      [
-        "CARBOPLATIN"
-      ]
-    ],
-    "INTIDROL 1GM LYOPHILISATE FOR FOR": [
-      [
-        "METHYLPREDNISOLONE SODIUM SUCCINATE"
-      ]
-    ],
-    "CIFOGRU VIAL": [
+    "CIFOGRU": [
       [
         "CIPROFLOXACIN"
       ]
     ],
-    "KEVZARA SOL FOR IN": [
+    "KEVZARA SOL IN": [
       [
         "SARILUMAB"
       ]
     ],
-    "DOCINE VIAL": [
+    "DOCINE": [
       [
         "DAPTOMYCIN"
       ]
     ],
-    "NPLATE FOR FOR": [
+    "NPLATE": [
       [
         "ROMIPLOSTIM"
       ]
     ],
-    "KEVZARA SOL FOR IN PRE FILLED PEN": [
+    "KEVZARA SOL IN PRE FILLED PEN": [
       [
         "SARILUMAB"
       ]
     ],
-    "LAZURE FOR": [
+    "LAZURE": [
       [
         "LACOSAMIDE"
       ]
@@ -15873,11 +14713,6 @@
     "ISONIAZID": [
       [
         "ISONIAZID"
-      ]
-    ],
-    "XEOMIN 100 U VIAL": [
-      [
-        "CLOSTRIDIUM BOTULINUM NEUROTOXIN A"
       ]
     ],
     "DOCADEX": [
@@ -15901,14 +14736,9 @@
         "ETHINYLESTRADIOL"
       ]
     ],
-    "MOMATE NASAL SPRAY": [
+    "MOMATE": [
       [
         "MOMETASONE FUROATE"
-      ]
-    ],
-    "KYTRIL AMP": [
-      [
-        "GRANISETRON"
       ]
     ],
     "PROZAC": [
@@ -15921,14 +14751,17 @@
         "POMALIDOMIDE"
       ]
     ],
-    "PLAXOTRIN CONCENTRATE FOR FOR": [
+    "PLAXOTRIN": [
       [
         "OXALIPLATIN"
       ]
     ],
-    "D SEUL 5000 I U SOFT GELATIN": [
+    "D SEUL SOFT GELATIN": [
       [
         "COLECALCIFEROL"
+      ],
+      [
+        "CHOLECALCIFEROL"
       ]
     ],
     "SABRIL": [
@@ -15936,17 +14769,12 @@
         "VIGABATRIN"
       ]
     ],
-    "DOCETAXEL ACCORD VIAL": [
+    "DOCETAXEL ACCORD": [
       [
         "DOCETAXEL"
       ]
     ],
-    "D SEUL 2000 I U SOFT GELATIN": [
-      [
-        "COLECALCIFEROL"
-      ]
-    ],
-    "DORAVIT I V": [
+    "DORAVIT": [
       [
         "DROPERIDOL"
       ]
@@ -15956,7 +14784,7 @@
         "VALPROATE SODIUM"
       ]
     ],
-    "ELAPRASE CONCENTRATE FOR FOR": [
+    "ELAPRASE": [
       [
         "IDURSULFASE"
       ]
@@ -15966,7 +14794,7 @@
         "SEMAGLUTIDE"
       ]
     ],
-    "D SEUL 2000 I U": [
+    "D SEUL": [
       [
         "COLECALCIFEROL"
       ]
@@ -15981,12 +14809,7 @@
         "VARDENAFIL"
       ]
     ],
-    "D SEUL 10000 SOFT GELATIN": [
-      [
-        "COLECALCIFEROL"
-      ]
-    ],
-    "IMIPENEM CILASTATIN LABATEC 500 500 VIAL": [
+    "IMIPENEM CILASTATIN LABATEC": [
       [
         "CILASTATIN",
         "IMIPENEM"
@@ -15997,24 +14820,9 @@
         "DOXAZOSIN"
       ]
     ],
-    "D SEUL 50000 SOFT GELATIN": [
-      [
-        "COLECALCIFEROL"
-      ]
-    ],
-    "CRESEMBA VIAL": [
-      [
-        "ISAVUCONAZONIUM SULFATE"
-      ]
-    ],
     "CRESEMBA": [
       [
         "ISAVUCONAZONIUM SULFATE"
-      ]
-    ],
-    "MABTHERA FOR SUBCUTANEOUS": [
-      [
-        "RITUXIMAB"
       ]
     ],
     "GASTROZOLE PLUS": [
@@ -16062,11 +14870,6 @@
         "CELECOXIB"
       ]
     ],
-    "CISPLATIN VIAL": [
-      [
-        "CISPLATIN"
-      ]
-    ],
     "LEVOBAT": [
       [
         "LEVOFLOXACIN"
@@ -16094,7 +14897,7 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "FLUARIX TETRA FOR IN": [
+    "FLUARIX TETRA IN": [
       [
         "MONOVALENT INACTIVATED SPILIT VIRION AH 1N1",
         "MONOVALENT INACTIVATED SPILIT VIRION AH 3N2",
@@ -16114,12 +14917,12 @@
         "PIOGLITAZONE"
       ]
     ],
-    "PENTASA XTEND 2 GM": [
+    "PENTASA XTEND": [
       [
         "MESALAZINE"
       ]
     ],
-    "ONDRON AMPOULE": [
+    "ONDRON": [
       [
         "ONDANSETRON"
       ]
@@ -16172,12 +14975,12 @@
         "AZILSARTAN MEDOXOMIL"
       ]
     ],
-    "PONIZEX VIAL": [
+    "PONIZEX": [
       [
         "PANTOPRAZOLE"
       ]
     ],
-    "CIMZIA FOR": [
+    "CIMZIA": [
       [
         "CERTOLIZUMAB PEGOL"
       ]
@@ -16196,7 +14999,7 @@
         "TENOFOVIR ALAFENAMIDE"
       ]
     ],
-    "ROMACIN FOR RECTAL": [
+    "ROMACIN RECTAL": [
       [
         "CALCIUM POLYSTYRENE SULFONATE"
       ]
@@ -16249,12 +15052,12 @@
         "METFORMIN HYDROCHLORIDE"
       ]
     ],
-    "CLARISCAN 0 5MMOL ML SOL FOR": [
+    "CLARISCAN SOL": [
       [
         "GADOTERIC ACID"
       ]
     ],
-    "PENTASA 4GM PROLONGED RELEASE GRANULES IN": [
+    "PENTASA PROLONGED RELEASE GRANULES IN": [
       [
         "MESALAZINE"
       ]
@@ -16303,31 +15106,20 @@
         "VILDAGLIPTIN"
       ]
     ],
-    "GLADOS MET 15 850": [
+    "GLADOS MET": [
       [
         "METFORMIN HYDROCHLORIDE",
         "PIOGLITAZONE"
       ]
     ],
-    "ALVANCO POW FOR": [
+    "ALVANCO POW": [
       [
         "VANCOMYCIN"
-      ]
-    ],
-    "GLADOS MET 15 500": [
-      [
-        "METFORMIN HYDROCHLORIDE",
-        "PIOGLITAZONE"
       ]
     ],
     "RELIF": [
       [
         "CELECOXIB"
-      ]
-    ],
-    "IMATOX": [
-      [
-        "ONDANSETRON"
       ]
     ],
     "EZORA GASTRO RESISTANT HARD 14S": [
@@ -16345,13 +15137,13 @@
         "CHLOROTHIAZIDE"
       ]
     ],
-    "IMESTA FOR IV 10S": [
+    "IMESTA 10S": [
       [
         "CILASTATIN",
         "IMIPENEM"
       ]
     ],
-    "IMESTA FOR IV": [
+    "IMESTA": [
       [
         "CILASTATIN",
         "IMIPENEM"
@@ -16365,29 +15157,7 @@
     ],
     "PNEUMOVAX 23 PNEUMOCOCCAL VACCINE POLYVALENT": [
       [
-        "10A",
-        "11A",
-        "12F",
-        "14",
-        "15B",
-        "17F",
-        "18C",
-        "19A",
-        "19F",
-        "2",
-        "20",
-        "22F",
-        "23F",
-        "3",
-        "33F)",
-        "4",
-        "5",
-        "6B",
-        "7F",
-        "8",
-        "9N",
-        "9V",
-        "PNEUMOCOCCAL (STREPTOCOCCUS PNEUMONIAE) POLYSACCHARIDE (SEROTYPE 1"
+        "PNEUMOCOCCAL (STREPTOCOCCUS PNEUMONIAE) POLYSACCHARIDE (SEROTYPE 1, 2, 3, 4, 5, 6B, 7F, 8, 9N, 9V, 10A, 11A, 12F, 14, 15B, 17F, 18C, 19A, 19F, 20, 22F, 23F, 33F)"
       ]
     ],
     "IMUTIN": [
@@ -16445,7 +15215,7 @@
         "TADALAFIL"
       ]
     ],
-    "NIMBEX ML": [
+    "NIMBEX": [
       [
         "CISATRACURIUM"
       ]
@@ -16460,12 +15230,12 @@
         "BRIVARACETAM"
       ]
     ],
-    "SODANOR FOR RECTAL": [
+    "SODANOR RECTAL": [
       [
         "SODIUM POLYSTYRENE SULFONATE"
       ]
     ],
-    "ACIDOXAX VIAL": [
+    "ACIDOXAX": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -16547,7 +15317,7 @@
         "IRBESARTAN"
       ]
     ],
-    "SAFLUTAN ML EYE": [
+    "SAFLUTAN": [
       [
         "TAFLUPROST"
       ]
@@ -16562,7 +15332,7 @@
         "VILDAGLIPTIN"
       ]
     ],
-    "DOXORUBICIN FOR": [
+    "DOXORUBICIN": [
       [
         "DOXORUBICIN HYDROCHLORIDE"
       ]
@@ -16572,7 +15342,7 @@
         "CARVEDILOL"
       ]
     ],
-    "VINCRISTIN SULPH VIAL": [
+    "VINCRISTIN SULPH": [
       [
         "VINCRISTINE"
       ]
@@ -16587,7 +15357,7 @@
         "ETORICOXIB"
       ]
     ],
-    "CORTRIEF NASAL SPRAY": [
+    "CORTRIEF": [
       [
         "BUDESONIDE"
       ]
@@ -16618,7 +15388,7 @@
         "TROSPIUM"
       ]
     ],
-    "XOFIGO 1100 KBQ ML FOR": [
+    "XOFIGO KBQ ML": [
       [
         "RADIUM RA-223 DICHLORIDE"
       ]
@@ -16635,17 +15405,12 @@
         "ETANERCEPT"
       ]
     ],
-    "TRAMAL": [
-      [
-        "TRAMADOL HYDROCHLORIDE"
-      ]
-    ],
     "LOCOID LIPO": [
       [
         "HYDROCORTISONE BUTYRATE"
       ]
     ],
-    "TRIUM UD EYE": [
+    "TRIUM UD": [
       [
         "GINKO BILOBA",
         "HYALURONIC ACID"
@@ -16666,17 +15431,12 @@
         "CABOZANTINIB"
       ]
     ],
-    "AVORES 400": [
+    "AVORES": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
-    "BRIVIACT VIAL": [
-      [
-        "BRIVARACETAM"
-      ]
-    ],
-    "FENTEX FOR": [
+    "FENTEX": [
       [
         "PHENYTOIN SODIUM"
       ]
@@ -16691,7 +15451,7 @@
         "LENVATINIB"
       ]
     ],
-    "SYNAGIS ML I M FOR": [
+    "SYNAGIS": [
       [
         "PALIVIZUMAB"
       ]
@@ -16737,7 +15497,7 @@
         "CELECOXIB"
       ]
     ],
-    "PROPOVEN VIAL": [
+    "PROPOVEN": [
       [
         "PROPOFOL"
       ]
@@ -16763,7 +15523,7 @@
         "DICLOFENAC EPOLAMINE"
       ]
     ],
-    "BIOQ ROPIVACAINE SOL FOR": [
+    "BIOQ ROPIVACAINE SOL": [
       [
         "ROPIVACAINE"
       ]
@@ -16773,7 +15533,7 @@
         "TACROLIMUS"
       ]
     ],
-    "CANHERA VIAL": [
+    "CANHERA": [
       [
         "TRASTUZUMAB"
       ]
@@ -16818,7 +15578,7 @@
         "ADALIMUMAB"
       ]
     ],
-    "ALDURAZYME 100 U ML VIAL": [
+    "ALDURAZYME": [
       [
         "LARONIDASE"
       ]
@@ -16833,7 +15593,7 @@
         "LAROTRECTINIB"
       ]
     ],
-    "JIVI AND SOLVENT FOR FOR": [
+    "JIVI AND SOLVENT": [
       [
         "PEGYLATED B DOMAIN DELETED RECOMBINANT HUMAN COAGULATION FACTOR VIII DAMOCTOCOG ALFA PEGOL"
       ]
@@ -16865,7 +15625,7 @@
         "IMIQUIMOD"
       ]
     ],
-    "BORTEZON FOR FOR": [
+    "BORTEZON": [
       [
         "BORTEZOMIB"
       ]
@@ -16885,12 +15645,12 @@
         "NICOTINE"
       ]
     ],
-    "OXIDOTE 1GM VIAL": [
+    "OXIDOTE": [
       [
         "PRALIDOXIME CHLORIDE"
       ]
     ],
-    "APRELEX ML INHALATION": [
+    "APRELEX": [
       [
         "ILOPROST"
       ]
@@ -16910,7 +15670,7 @@
         "ABIRATERONE ACETATE"
       ]
     ],
-    "HERZUMA VIAL": [
+    "HERZUMA": [
       [
         "TRASTUZUMAB"
       ]
@@ -16920,7 +15680,7 @@
         "MIDAZOLAM"
       ]
     ],
-    "ESOBLOC FOR": [
+    "ESOBLOC": [
       [
         "ESMOLOL"
       ]
@@ -16930,7 +15690,7 @@
         "RITUXIMAB"
       ]
     ],
-    "FLUSORT NASAL SPRAY": [
+    "FLUSORT": [
       [
         "FLUTICASONE PROPIONATE"
       ]
@@ -16954,11 +15714,6 @@
     "DAMESTA": [
       [
         "ESCITALOPRAM"
-      ]
-    ],
-    "LAZURE": [
-      [
-        "LACOSAMIDE"
       ]
     ],
     "PIRAMYL MET": [
@@ -16987,7 +15742,7 @@
         "APIXABAN"
       ]
     ],
-    "BATIPAN PER VIAL": [
+    "BATIPAN": [
       [
         "OXALIPLATIN"
       ]
@@ -17006,12 +15761,12 @@
         "HEPATITIS B VACCINE (RECOMBINANT)"
       ]
     ],
-    "FOLOTYN FOR": [
+    "FOLOTYN": [
       [
         "PRALATREXATE"
       ]
     ],
-    "TECANA VIAL": [
+    "TECANA": [
       [
         "IRINOTECAN"
       ]
@@ -17036,7 +15791,7 @@
         "KETOCONAZOLE"
       ]
     ],
-    "SPINRAZA VIAL": [
+    "SPINRAZA": [
       [
         "NUSINERSEN"
       ]
@@ -17093,7 +15848,7 @@
         "PNEUMOCOCCAL POLYSACCHARIDE SEROTYPE 9V"
       ]
     ],
-    "CYTARABINE VIAL": [
+    "CYTARABINE": [
       [
         "CYTARABINE"
       ]
@@ -17114,17 +15869,12 @@
         "ENTECAVIR"
       ]
     ],
-    "VFEND FOR FOR": [
-      [
-        "VORICONAZOLE"
-      ]
-    ],
-    "TAXOTERE FOR": [
+    "TAXOTERE": [
       [
         "DOCETAXEL"
       ]
     ],
-    "HYQVIA FOR": [
+    "HYQVIA": [
       [
         "HUMAN NORMAL IMMUNOGLOBULIN"
       ]
@@ -17134,7 +15884,7 @@
         "CARVEDILOL"
       ]
     ],
-    "LEMTRADA CONCENTRATE FOR FOR": [
+    "LEMTRADA": [
       [
         "ALEMTUZUMAB"
       ]
@@ -17149,7 +15899,7 @@
         "PROGESTERONE"
       ]
     ],
-    "PECFENT NASAL SPRAY": [
+    "PECFENT": [
       [
         "FENTANYL"
       ]
@@ -17165,7 +15915,7 @@
         "ESOMEPRAZOLE"
       ]
     ],
-    "CARBOPLATIN VIAL": [
+    "CARBOPLATIN": [
       [
         "CARBOPLATIN"
       ]
@@ -17180,13 +15930,13 @@
         "CLOSTRIDIUM BOTULINUM NEUROTOXIN A COMPLEX"
       ]
     ],
-    "TWINZOL EYE": [
+    "TWINZOL": [
       [
         "DORZOLAMIDE",
         "TIMOLOL MALEATE"
       ]
     ],
-    "XIIDRA EYE": [
+    "XIIDRA": [
       [
         "LIFITEGRAST"
       ]
@@ -17201,7 +15951,7 @@
         "SODIUM HYALURONATE"
       ]
     ],
-    "VINBLASTINE SULPHATE VIAL": [
+    "VINBLASTINE SULPHATE": [
       [
         "VINBLASTINE"
       ]
@@ -17241,7 +15991,7 @@
         "HEPATITIS B VIRUS HBSAG SURFACE ANTIGEN"
       ]
     ],
-    "COPSFIN VIAL": [
+    "COPSFIN": [
       [
         "CASPOFUNGIN"
       ]
@@ -17282,17 +16032,17 @@
         "PRASTERONE"
       ]
     ],
-    "SISACURE AMPOULE": [
+    "SISACURE": [
       [
         "CISATRACURIUM"
       ]
     ],
-    "ZYTEDIN FOR": [
+    "ZYTEDIN": [
       [
         "AZACITIDINE"
       ]
     ],
-    "UNAIRA 3GM": [
+    "UNAIRA": [
       [
         "FOSFOMYCIN"
       ]
@@ -17302,12 +16052,12 @@
         "TOBRAMYCIN"
       ]
     ],
-    "BUSULCAN VIAL": [
+    "BUSULCAN": [
       [
         "BUSULFAN"
       ]
     ],
-    "VOSTRAN FOR": [
+    "VOSTRAN": [
       [
         "ONDANSETRON"
       ]
@@ -17352,7 +16102,7 @@
         "TADALAFIL"
       ]
     ],
-    "MOPIZALE FOR": [
+    "MOPIZALE": [
       [
         "METRONIDAZOLE"
       ]
@@ -17368,11 +16118,6 @@
       ],
       [
         "DESETHYL CANDESARTAN CILEXETIL"
-      ]
-    ],
-    "NEXIUM VIAL FOR IV": [
-      [
-        "ESOMEPRAZOLE"
       ]
     ],
     "IRIS": [
@@ -17416,11 +16161,6 @@
         "GLICLAZIDE"
       ]
     ],
-    "BENLYSTA": [
-      [
-        "BELIMUMAB"
-      ]
-    ],
     "DOVATO": [
       [
         "DOLUTEGRAVIR SODIUM",
@@ -17443,7 +16183,7 @@
         "TRETINOIN"
       ]
     ],
-    "RIBOLISIN EYE": [
+    "RIBOLISIN": [
       [
         "SODIUM HYALURONATE"
       ]
@@ -17479,17 +16219,12 @@
         "FINGOLIMOD HYDROCHLORIDE"
       ]
     ],
-    "DOTAGRAF 0 5 MMOL ML FOR": [
+    "DOTAGRAF": [
       [
         "GADOTERIC ACID"
       ]
     ],
-    "D SEUL SOFT GELATIN": [
-      [
-        "CHOLECALCIFEROL"
-      ]
-    ],
-    "TREVICTA PROLONGED RELEASE FOR": [
+    "TREVICTA PROLONGED RELEASE": [
       [
         "PALIPERIDONE"
       ]
@@ -17516,34 +16251,29 @@
         "VARDENAFIL"
       ]
     ],
-    "BATIPAN": [
-      [
-        "OXALIPLATIN"
-      ]
-    ],
-    "AUGE CARE EYE": [
+    "AUGE CARE": [
       [
         "DEXPANTHENOL",
         "HYDRAFLEX"
       ]
     ],
-    "HYE MONO EYE": [
+    "HYE MONO": [
       [
         "HYALURONIC ACID"
       ]
     ],
-    "HYE MULTI EYE": [
+    "HYE MULTI": [
       [
         "HYALURONIC ACID"
       ]
     ],
-    "XILOIAL MONO EYE": [
+    "XILOIAL MONO": [
       [
         "HYALURONIC ACID",
         "TS-POLYSACCHARIDE"
       ]
     ],
-    "XILOIAL EYE": [
+    "XILOIAL": [
       [
         "HYALURONIC ACID",
         "TS-POLYSACCHARIDE"
@@ -17633,13 +16363,7 @@
         "TRIGLYCERIDES MEDIUM CHAIN"
       ]
     ],
-    "LISONORM 20 10": [
-      [
-        "AMLODIPINE BESILATE",
-        "LISINOPRIL"
-      ]
-    ],
-    "LISONORM 10 5": [
+    "LISONORM": [
       [
         "AMLODIPINE BESILATE",
         "LISINOPRIL"
@@ -17731,17 +16455,7 @@
         "CAPLACIZUMAB"
       ]
     ],
-    "FERASIRO 90": [
-      [
-        "DEFERASIROX"
-      ]
-    ],
-    "FERASIRO 180": [
-      [
-        "DEFERASIROX"
-      ]
-    ],
-    "FERASIRO 360": [
+    "FERASIRO": [
       [
         "DEFERASIROX"
       ]
@@ -17756,28 +16470,7 @@
         "HYALURONIC ACID"
       ]
     ],
-    "SENERGY PLUS 10 160 25 MG": [
-      [
-        "AMLODIPINE BESILATE",
-        "HYDROCHLOROTHIAZIDE",
-        "VALSARTAN"
-      ]
-    ],
-    "SENERGY PLUS 10 160 12 5 MG": [
-      [
-        "AMLODIPINE BESILATE",
-        "HYDROCHLOROTHIAZIDE",
-        "VALSARTAN"
-      ]
-    ],
-    "SENERGY PLUS 5 160 25 MG": [
-      [
-        "AMLODIPINE BESILATE",
-        "HYDROCHLOROTHIAZIDE",
-        "VALSARTAN"
-      ]
-    ],
-    "SENERGY PLUS 5 160 12 5 MG": [
+    "SENERGY PLUS MG": [
       [
         "AMLODIPINE BESILATE",
         "HYDROCHLOROTHIAZIDE",
@@ -17815,7 +16508,7 @@
         "GLATIRAMER"
       ]
     ],
-    "DECOZAL METERED DOSE NASAL SPRAY": [
+    "DECOZAL METERED DOSE": [
       [
         "XYLOMETAZOLINE HYDROCHLORIDE"
       ]
@@ -17896,7 +16589,7 @@
         "PARACETAMOL"
       ]
     ],
-    "IMIPENEM CILASTATIN KABI VIAL": [
+    "IMIPENEM CILASTATIN KABI": [
       [
         "CILASTATIN"
       ]
@@ -17911,7 +16604,7 @@
         "SODIUM HYALURONATE"
       ]
     ],
-    "FEIBA 50U &SOLVENT": [
+    "FEIBA &SOLVENT": [
       [
         "FACTOR VIII INHIBITOR BYPASSING FRACTION"
       ]
@@ -17986,13 +16679,6 @@
         "CISATRACURIUM"
       ]
     ],
-    "AMLOVAN HCT 5 160": [
-      [
-        "AMLODIPINE BESILATE",
-        "HYDROCHLOROTHIAZIDE",
-        "VALSARTAN"
-      ]
-    ],
     "XIFAXAN": [
       [
         "RIFAXIMIN"
@@ -18022,11 +16708,6 @@
     "ATOX": [
       [
         "ETORICOXIB"
-      ]
-    ],
-    "TEDO 5": [
-      [
-        "TADALAFIL"
       ]
     ],
     "FOLICRON SR": [
@@ -18080,7 +16761,7 @@
         "CARIPRAZINE HYDROCHLORIDE"
       ]
     ],
-    "LAMSEV 800": [
+    "LAMSEV": [
       [
         "SEVELAMER CARBONATE"
       ]
@@ -18106,7 +16787,7 @@
         "OBETICHOLIC ACID"
       ]
     ],
-    "ETIMICOL 10": [
+    "ETIMICOL": [
       [
         "EZETIMIBE"
       ]
@@ -18317,19 +16998,9 @@
         "OLMESARTAN MEDOXOMIL"
       ]
     ],
-    "ILLUSOF": [
-      [
-        "IOHEXOL"
-      ]
-    ],
     "XIVAR": [
       [
         "RIVAROXABAN"
-      ]
-    ],
-    "CANHERA": [
-      [
-        "TRASTUZUMAB"
       ]
     ],
     "CLARISCAN": [
@@ -18352,7 +17023,7 @@
         "CAPECITABINE"
       ]
     ],
-    "ZAVEDOS VIAL": [
+    "ZAVEDOS": [
       [
         "IDARUBICIN HYDROCHLORIDE"
       ]
@@ -18508,7 +17179,7 @@
         "BRIGATINIB"
       ]
     ],
-    "EYLEA FOR IN": [
+    "EYLEA IN": [
       [
         "AFLIBERCEPT"
       ]
@@ -18582,7 +17253,7 @@
         "ENOXAPARIN SODIUM"
       ]
     ],
-    "PROTON IV": [
+    "PROTON": [
       [
         "PANTOPRAZOLE"
       ]
@@ -18645,14 +17316,9 @@
         "MORPHINE SULFATE"
       ]
     ],
-    "CARMUSTINE FOR USP": [
+    "CARMUSTINE USP": [
       [
         "CARMUSTINE"
-      ]
-    ],
-    "RESINCALCIO": [
-      [
-        "CALCIUM POLYSTYRENE SULFONATE"
       ]
     ],
     "SARCLISA": [
@@ -18708,7 +17374,7 @@
         "ZINC CHLORIDE"
       ]
     ],
-    "EUVAX B VIAL": [
+    "EUVAX B": [
       [
         "HEPATITIS B VIRUS HBSAG SURFACE ANTIGEN"
       ]
@@ -18834,7 +17500,7 @@
         "ONDANSETRON"
       ]
     ],
-    "CARDESINE FOR": [
+    "CARDESINE": [
       [
         "ADENOSINE"
       ]
@@ -19148,11 +17814,6 @@
         "TELAVANCIN HYDROCHLORIDE"
       ]
     ],
-    "VANCOLON 0 5 GM VIAL": [
-      [
-        "VANCOMYCIN"
-      ]
-    ],
     "PRILIGY": [
       [
         "DAPOXETINE"
@@ -19161,11 +17822,6 @@
     "HIDRASEC": [
       [
         "RACECADOTRIL"
-      ]
-    ],
-    "HERZUMA": [
-      [
-        "TRASTUZUMAB"
       ]
     ],
     "FONDAPARINUX SPC": [
@@ -19215,8 +17871,7 @@
     ],
     "VAXIGRIPTETRA": [
       [
-        "FORMALDEHYDE INACTIVATED)",
-        "INFLUENZA A VIRUS A/INDONESIA/5/2005 (H5N1) ANTIGEN (UV"
+        "INFLUENZA A VIRUS A/INDONESIA/5/2005 (H5N1) ANTIGEN (UV, FORMALDEHYDE INACTIVATED)"
       ],
       [
         "INFLUENZA VIRUS INACTIVATED SPLIT"
@@ -19245,11 +17900,6 @@
     "DERGIT": [
       [
         "SOLIFENACIN SUCCINATE"
-      ]
-    ],
-    "AVOBAN": [
-      [
-        "MUPIROCIN CALCIUM"
       ]
     ],
     "VALTROZA": [
@@ -19384,7 +18034,7 @@
         "ZINC GLUCONATE"
       ]
     ],
-    "ABELCET IV VIAL": [
+    "ABELCET": [
       [
         "AMPHOTERICIN B"
       ]
@@ -19394,14 +18044,9 @@
         "RITUXIMAB"
       ]
     ],
-    "AROX UD EYE": [
+    "AROX UD": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
-      ]
-    ],
-    "KLACID IV FOR": [
-      [
-        "CLARITHROMYCIN"
       ]
     ],
     "ZINOLE": [
@@ -19447,11 +18092,6 @@
     "BORTADA": [
       [
         "BORTEZOMIB"
-      ]
-    ],
-    "POTASSIUM CHLORIDE": [
-      [
-        "POTASSIUM CHLORIDE"
       ]
     ],
     "APRIVA": [
@@ -19509,11 +18149,6 @@
     "FEROMENTA": [
       [
         "IRON POLYMALTOSE"
-      ]
-    ],
-    "ENGERIX B 20": [
-      [
-        "HEPATITIS B VIRUS HBSAG SURFACE ANTIGEN"
       ]
     ],
     "KOVALTRY": [
@@ -19745,15 +18380,7 @@
     ],
     "DENGVAXIA": [
       [
-        "2",
-        "3 & 4)",
-        "CYD DENGUE VIRUS SEROTYPE (1"
-      ]
-    ],
-    "PERGOVERIS": [
-      [
-        "FOLLITROPIN ALFA",
-        "LUTROPIN ALFA"
+        "CYD DENGUE VIRUS SEROTYPE (1,2,3 & 4)"
       ]
     ],
     "PXIDONE": [
@@ -19840,7 +18467,7 @@
         "PREDNISOLONE"
       ]
     ],
-    "FIRAZYR PER": [
+    "FIRAZYR": [
       [
         "ICATIBANT"
       ]
@@ -19885,7 +18512,7 @@
         "VORICONAZOLE"
       ]
     ],
-    "MEGVAL PER": [
+    "MEGVAL": [
       [
         "MELPHALAN"
       ]
@@ -19920,22 +18547,17 @@
         "PEMETREXED"
       ]
     ],
-    "VFEND FOR": [
-      [
-        "VORICONAZOLE"
-      ]
-    ],
     "PANAMOL": [
       [
         "PARACETAMOL"
       ]
     ],
-    "EMPAVELI PER": [
+    "EMPAVELI": [
       [
         "PEGCETACOPLAN"
       ]
     ],
-    "EMPAVELI PER 8 VIALS": [
+    "EMPAVELI PER 8": [
       [
         "PEGCETACOPLAN"
       ]
@@ -19945,7 +18567,7 @@
         "TADALAFIL"
       ]
     ],
-    "FENTANYL MEDIS AMPOULE": [
+    "FENTANYL MEDIS": [
       [
         "FENTANYL"
       ]
@@ -20038,7 +18660,7 @@
         "SUNITINIB"
       ]
     ],
-    "ERBITUX PER": [
+    "ERBITUX": [
       [
         "CETUXIMAB"
       ]
@@ -20137,11 +18759,6 @@
         "PREGABALIN"
       ]
     ],
-    "ENTYVIO": [
-      [
-        "VEDOLIZUMAB"
-      ]
-    ],
     "EZOKAMINE": [
       [
         "MICAFUNGIN"
@@ -20180,8 +18797,7 @@
     ],
     "ENERZAIR BREEZHALER": [
       [
-        "(INDACATEROL (AS ACETATE",
-        "GLYCOPYRRONIUM BROMIDE",
+        "(INDACATEROL (AS ACETATE,GLYCOPYRRONIUM BROMIDE",
         "MOMETASONE FUROATE"
       ]
     ],
@@ -20215,7 +18831,7 @@
         "ANIDULAFUNGIN"
       ]
     ],
-    "FLORISTIL PER": [
+    "FLORISTIL": [
       [
         "FULVESTRANT"
       ]
@@ -20225,7 +18841,7 @@
         "ALPROSTADIL"
       ]
     ],
-    "VASCEPA 1GM": [
+    "VASCEPA": [
       [
         "ICOSAPENT ETHYL"
       ]
@@ -20235,7 +18851,7 @@
         "DESLORATADINE"
       ]
     ],
-    "INCRELEX PER": [
+    "INCRELEX": [
       [
         "MECASERMIN"
       ]
@@ -20245,7 +18861,7 @@
         "IOHEXOL"
       ]
     ],
-    "DECITABINE SPC FOR": [
+    "DECITABINE SPC": [
       [
         "DECITABINE"
       ]
@@ -20332,17 +18948,12 @@
         "EPIRUBICIN HYDROCHLORIDE"
       ]
     ],
-    "FARMARUBICIN VIAL": [
-      [
-        "EPIRUBICIN HYDROCHLORIDE"
-      ]
-    ],
     "SALOCAN": [
       [
         "CISATRACURIUM"
       ]
     ],
-    "PRALUENT PER": [
+    "PRALUENT": [
       [
         "ALIROCUMAB"
       ]
@@ -20409,7 +19020,7 @@
         "ROSUVASTATIN"
       ]
     ],
-    "ATECTURA INHALATION HARD": [
+    "ATECTURA HARD": [
       [
         "(INDACATEROL (AS ACETATE",
         "MOMETASONE FUROATE"
@@ -20421,7 +19032,7 @@
         "MOMETASONE FUROATE"
       ]
     ],
-    "EMLOP AMPOULE": [
+    "EMLOP": [
       [
         "GRANISETRON"
       ]
@@ -20449,16 +19060,6 @@
     "XENOR": [
       [
         "CEFTRIAXONE"
-      ]
-    ],
-    "PONIZEX": [
-      [
-        "PANTOPRAZOLE"
-      ]
-    ],
-    "DIBASA": [
-      [
-        "CHOLECALCIFEROL"
       ]
     ],
     "UTROGESTAN": [
@@ -20554,12 +19155,6 @@
         "DAPAGLIFLOZIN"
       ]
     ],
-    "GLUCOVANCE": [
-      [
-        "GLIBENCLAMIDE",
-        "METFORMIN HYDROCHLORIDE"
-      ]
-    ],
     "VALGIVER": [
       [
         "VALGANCICLOVIR"
@@ -20585,14 +19180,9 @@
         "DOPAMINE HYDROCHLORIDE"
       ]
     ],
-    "EPHEDRINE FOR IN": [
+    "EPHEDRINE IN": [
       [
         "EPHEDRINE HYDROCHLORIDE"
-      ]
-    ],
-    "DIVAD 5000 I U": [
-      [
-        "CHOLECALCIFEROL"
       ]
     ],
     "RYDAPT SOFT": [
@@ -20613,11 +19203,6 @@
     "DULLARMA": [
       [
         "IBRUTINIB"
-      ]
-    ],
-    "CALCIUM CHLORIDE I V": [
-      [
-        "CALCIUM CHLORIDE"
       ]
     ],
     "VESUV": [
@@ -20761,7 +19346,7 @@
         "TEMOZOLOMIDE"
       ]
     ],
-    "SIMLANDI FOR PFS": [
+    "SIMLANDI PFS": [
       [
         "ADALIMUMAB"
       ]
@@ -20772,7 +19357,7 @@
         "ROSUVASTATIN"
       ]
     ],
-    "EPIPEN PER": [
+    "EPIPEN": [
       [
         "ADRENALINE"
       ]
@@ -20787,13 +19372,7 @@
         "CELECOXIB"
       ]
     ],
-    "SEROFLO 25 125 INHALER": [
-      [
-        "FLUTICASONE PROPIONATE",
-        "SALMETEROL"
-      ]
-    ],
-    "SEROFLO 25 250 INHALER": [
+    "SEROFLO INHALER": [
       [
         "FLUTICASONE PROPIONATE",
         "SALMETEROL"
@@ -20819,7 +19398,7 @@
         "OLOPATADINE"
       ]
     ],
-    "COSOPT PRESERVATIVE FREE EYE": [
+    "COSOPT PRESERVATIVE FREE": [
       [
         "DORZOLAMIDE",
         "TIMOLOL MALEATE"
@@ -20851,17 +19430,12 @@
         "VORICONAZOLE"
       ]
     ],
-    "VALGAN FOR": [
-      [
-        "VALGANCICLOVIR"
-      ]
-    ],
     "BINOVEN XL": [
       [
         "VENLAFAXINE HYDROCHLORIDE"
       ]
     ],
-    "GRASUSTEK PER": [
+    "GRASUSTEK": [
       [
         "PEGFILGRASTIM"
       ]
@@ -20911,7 +19485,7 @@
         "MACITENTAN"
       ]
     ],
-    "HIZENTRA PER VIAL": [
+    "HIZENTRA": [
       [
         "HUMAN NORMAL IMMUNOGLOBULIN"
       ]
@@ -20991,7 +19565,7 @@
         "SUGAMMADEX"
       ]
     ],
-    "MELIGAMET 50 M": [
+    "MELIGAMET M": [
       [
         "METFORMIN HYDROCHLORIDE",
         "SITAGLIPTIN HYDROCHLORIDE"
@@ -21056,19 +19630,22 @@
         "SODIUM PHENYLACETATE"
       ]
     ],
-    "COSENTYX FOR IN": [
+    "COSENTYX IN": [
       [
         "SECUKINUMAB"
       ]
     ],
-    "COSENTYX PER FOR IN PRE FILLED PEN": [
+    "COSENTYX PER IN PRE FILLED PEN": [
       [
         "SECUKINUMAB"
       ]
     ],
-    "DEMSONE PER": [
+    "DEMSONE": [
       [
         "DEXAMETHASONE"
+      ],
+      [
+        "DEXAMETHASONE SODIUM PHOSPHATE"
       ]
     ],
     "MUNDELL": [
@@ -21122,7 +19699,7 @@
         "ESMOLOL"
       ]
     ],
-    "ZODRIC PER": [
+    "ZODRIC": [
       [
         "ZOLEDRONIC ACID"
       ]
@@ -21132,7 +19709,7 @@
         "APREMILAST"
       ]
     ],
-    "TRANEXAMIC ACID PSI PER": [
+    "TRANEXAMIC ACID PSI": [
       [
         "TRANEXAMIC ACID"
       ]
@@ -21162,7 +19739,7 @@
         "VALGANCICLOVIR"
       ]
     ],
-    "RUXIENCE PER": [
+    "RUXIENCE": [
       [
         "RITUXIMAB"
       ]
@@ -21182,12 +19759,12 @@
         "DEFERASIROX"
       ]
     ],
-    "PEDEA FOR": [
+    "PEDEA": [
       [
         "IBUPROFEN"
       ]
     ],
-    "OXALIPLATIN AQVIDA PER": [
+    "OXALIPLATIN AQVIDA": [
       [
         "OXALIPLATIN"
       ]
@@ -21278,11 +19855,6 @@
         "HUMAN HEMIN"
       ]
     ],
-    "XOLAIR": [
-      [
-        "OMALIZUMAB"
-      ]
-    ],
     "ETORUMA": [
       [
         "ETORICOXIB"
@@ -21306,12 +19878,6 @@
     "MONTELAIR GRANULES": [
       [
         "MONTELUKAST SODIUM"
-      ]
-    ],
-    "XOLAMOL": [
-      [
-        "DORZOLAMIDE",
-        "TIMOLOL MALEATE"
       ]
     ],
     "PLERIX": [
@@ -21416,11 +19982,6 @@
         "ERLOTINIB"
       ]
     ],
-    "TEKAM": [
-      [
-        "KETAMINE"
-      ]
-    ],
     "MOXIWAR": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
@@ -21431,13 +19992,7 @@
         "BENDAMUSTINE HYDROCHLORIDE"
       ]
     ],
-    "SEROFLO 50 100 CIPHALER": [
-      [
-        "FLUTICASONE PROPIONATE",
-        "SALMETEROL"
-      ]
-    ],
-    "SEROFLO 50 250 CIPHALER": [
+    "SEROFLO CIPHALER": [
       [
         "FLUTICASONE PROPIONATE",
         "SALMETEROL"
@@ -21471,12 +20026,6 @@
     "LOTAC": [
       [
         "TICAGRELOR"
-      ]
-    ],
-    "SEROFLO 50 500 CIPHALER": [
-      [
-        "FLUTICASONE PROPIONATE",
-        "SALMETEROL"
       ]
     ],
     "EXTAQ": [
@@ -21530,7 +20079,7 @@
         "VORICONAZOLE"
       ]
     ],
-    "CARCIVOR PER": [
+    "CARCIVOR": [
       [
         "FULVESTRANT"
       ]
@@ -21571,13 +20120,7 @@
         "PALBOCICLIB"
       ]
     ],
-    "CHOLIB 145 20": [
-      [
-        "FENOFIBRATE",
-        "SIMVASTATIN"
-      ]
-    ],
-    "CHOLIB 145 40": [
+    "CHOLIB": [
       [
         "FENOFIBRATE",
         "SIMVASTATIN"
@@ -21653,7 +20196,7 @@
         "TACROLIMUS"
       ]
     ],
-    "SAPHNELO PER": [
+    "SAPHNELO": [
       [
         "ANIFROLUMAB"
       ]
@@ -21676,11 +20219,6 @@
     "MEKTOVI": [
       [
         "BINIMETINIB"
-      ]
-    ],
-    "LIDOCAINE HYDROCHLORIDE": [
-      [
-        "LIDOCAINE HYDROCHLORIDE"
       ]
     ],
     "NGENLA": [
@@ -21708,7 +20246,7 @@
         "EPOETIN ALFA"
       ]
     ],
-    "DEROXI LIPOSOMAL PER": [
+    "DEROXI LIPOSOMAL": [
       [
         "DOXORUBICIN HYDROCHLORIDE"
       ]
@@ -21729,7 +20267,7 @@
         "HUMAN THROMBIN"
       ]
     ],
-    "FARINOX FOR": [
+    "FARINOX": [
       [
         "ENOXAPARIN SODIUM"
       ]
@@ -21785,15 +20323,10 @@
         "PEGVISOMANT"
       ]
     ],
-    "KLAVOX ES 600": [
+    "KLAVOX ES": [
       [
         "AMOXICILLIN TRIHYDRATE",
         "POTASSIUM CLAVULANATE"
-      ]
-    ],
-    "PROPOVEN": [
-      [
-        "PROPOFOL"
       ]
     ],
     "APROLIN": [
@@ -21831,11 +20364,6 @@
     "RICAVO": [
       [
         "SUGAMMADEX"
-      ]
-    ],
-    "SKYRIZI PER": [
-      [
-        "RISANKIZUMAB"
       ]
     ],
     "HEPAGAM B": [
@@ -21923,12 +20451,12 @@
         "LEVOCETIRIZINE DIHYDROCHLORIDE"
       ]
     ],
-    "FUROSEMIDE PSI PER": [
+    "FUROSEMIDE PSI": [
       [
         "FUROSEMIDE"
       ]
     ],
-    "VABYSMO PER": [
+    "VABYSMO": [
       [
         "FARICIMAB"
       ]
@@ -21943,14 +20471,9 @@
         "GLYCERIN"
       ]
     ],
-    "TEZSPIRE PER": [
+    "TEZSPIRE": [
       [
         "TEZEPELUMAB"
-      ]
-    ],
-    "COLISTIN JPI": [
-      [
-        "COLISTIMETHATE SODIUM"
       ]
     ],
     "DEZEROGA": [
@@ -21970,11 +20493,6 @@
         "PERINDOPRIL ARGININE"
       ]
     ],
-    "TREPADIO PER": [
-      [
-        "LACOSAMIDE"
-      ]
-    ],
     "QUENFIL": [
       [
         "HYDROXYCHLOROQUINE SULFATE"
@@ -21990,7 +20508,7 @@
         "FUSIDIC ACID"
       ]
     ],
-    "COGUPERIN PER": [
+    "COGUPERIN": [
       [
         "ENOXAPARIN SODIUM"
       ]
@@ -22007,7 +20525,7 @@
         "RAMIPRIL"
       ]
     ],
-    "LABIROL PER": [
+    "LABIROL": [
       [
         "LABETALOL HYDROCHLORIDE"
       ]
@@ -22019,8 +20537,7 @@
     ],
     "VAXNEUVANCE": [
       [
-        "ADSORBED)",
-        "PNEUMOCOCCAL POLYSACCHARIDE CONJUGATE VACCINE (15-VALENT"
+        "PNEUMOCOCCAL POLYSACCHARIDE CONJUGATE VACCINE (15-VALENT, ADSORBED)"
       ]
     ],
     "BYANNLI": [
@@ -22095,12 +20612,12 @@
         "CANDESARTAN CILEXETIL"
       ]
     ],
-    "RYBREVANT PER": [
+    "RYBREVANT": [
       [
         "AMIVANTAMAB"
       ]
     ],
-    "ELFONIS PER": [
+    "ELFONIS": [
       [
         "MOXIFLOXACIN HYDROCHLORIDE"
       ]
@@ -22125,22 +20642,17 @@
         "CLOFARABINE"
       ]
     ],
-    "ZOLECIN": [
-      [
-        "CEFAZOLIN"
-      ]
-    ],
     "LOMIPAT": [
       [
         "LACOSAMIDE"
       ]
     ],
-    "DOCETAXEL AQVIDA PER": [
+    "DOCETAXEL AQVIDA": [
       [
         "DOCETAXEL"
       ]
     ],
-    "SULBUS PER": [
+    "SULBUS": [
       [
         "BUSULFAN"
       ]
@@ -22203,17 +20715,17 @@
         "COLISTIMETHATE SODIUM"
       ]
     ],
-    "SUMADIX 500 PER VIALS": [
+    "SUMADIX 500": [
       [
         "SUGAMMADEX"
       ]
     ],
-    "SUMADIX 200 PER VIALS": [
+    "SUMADIX 200": [
       [
         "SUGAMMADEX"
       ]
     ],
-    "PADUCA PER VIALS": [
+    "PADUCA": [
       [
         "IBUPROFEN"
       ]
@@ -22254,11 +20766,6 @@
         "BETAHISTINE DIHYDROCHLORIDE"
       ]
     ],
-    "GLIBIL": [
-      [
-        "GLIBENCLAMIDE"
-      ]
-    ],
     "RANEXA": [
       [
         "RANOLAZINE"
@@ -22289,11 +20796,6 @@
         "LERCANIDIPINE HYDROCHLORIDE"
       ]
     ],
-    "GONAL F PER": [
-      [
-        "FOLLITROPIN ALFA"
-      ]
-    ],
     "GENCEBOK": [
       [
         "CAFFEINE CITRATE"
@@ -22314,18 +20816,12 @@
         "AZELAIC ACID"
       ]
     ],
-    "SPEVIGO PER": [
+    "SPEVIGO": [
       [
         "SPESOLIMAB"
       ]
     ],
-    "PLIAGLIS 15 GRAM": [
-      [
-        "LIDOCAINE HYDROCHLORIDE",
-        "TETRACAINE HYDROCHLORIDE"
-      ]
-    ],
-    "PLIAGLIS 30 GRAM": [
+    "PLIAGLIS": [
       [
         "LIDOCAINE HYDROCHLORIDE",
         "TETRACAINE HYDROCHLORIDE"
@@ -22371,7 +20867,7 @@
         "FINASTERIDE"
       ]
     ],
-    "PANKAINE PER": [
+    "PANKAINE": [
       [
         "BUPIVACAINE"
       ]
@@ -22391,7 +20887,7 @@
         "ATORVASTATIN CALCIUM"
       ]
     ],
-    "WEKASURG PER": [
+    "WEKASURG": [
       [
         "SUGAMMADEX"
       ]
@@ -22414,16 +20910,6 @@
     "GRATEZIANO": [
       [
         "SOFOSBUVIR"
-      ]
-    ],
-    "BALANCED SALT": [
-      [
-        "CALCIUM CHLORIDE",
-        "MAGNESIUM CHLORIDE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM ACETATE",
-        "SODIUM CHLORIDE",
-        "SODIUM CITRATE"
       ]
     ],
     "RENFLEXIS": [
@@ -22478,7 +20964,7 @@
         "DIFELIKEFALIN"
       ]
     ],
-    "IRCAN PER": [
+    "IRCAN": [
       [
         "IRINOTECAN"
       ]
@@ -22524,11 +21010,6 @@
         "FLUTICASONE PROPIONATE"
       ]
     ],
-    "DEROXI LIPOSOMAL": [
-      [
-        "DOXORUBICIN HYDROCHLORIDE"
-      ]
-    ],
     "VALENCIN": [
       [
         "DAPTOMYCIN"
@@ -22544,7 +21025,7 @@
         "RIVAROXABAN"
       ]
     ],
-    "LIPRO SPRAY": [
+    "LIPRO": [
       [
         "LIDOCAINE"
       ]
@@ -22584,11 +21065,6 @@
         "TIGECYCLINE"
       ]
     ],
-    "SUPRAX": [
-      [
-        "CEFIXIME"
-      ]
-    ],
     "VANTAG": [
       [
         "TIGECYCLINE"
@@ -22616,11 +21092,6 @@
       [
         "HYDROCHLOROTHIAZIDE",
         "OLMESARTAN MEDOXOMIL"
-      ]
-    ],
-    "EYLEA": [
-      [
-        "AFLIBERCEPT"
       ]
     ],
     "NOVALIR": [
@@ -22658,11 +21129,6 @@
         "LINAGLIPTIN"
       ]
     ],
-    "DECOZAL": [
-      [
-        "XYLOMETAZOLINE HYDROCHLORIDE"
-      ]
-    ],
     "LOANTA": [
       [
         "BACLOFEN"
@@ -22688,11 +21154,6 @@
         "DAPOXETINE"
       ]
     ],
-    "BEYFORTUS PER": [
-      [
-        "NIRSEVIMAB"
-      ]
-    ],
     "BEYFORTUS": [
       [
         "NIRSEVIMAB"
@@ -22708,7 +21169,7 @@
         "BIVALIRUDIN"
       ]
     ],
-    "LABETALOL PSI PER": [
+    "LABETALOL PSI": [
       [
         "LABETALOL HYDROCHLORIDE"
       ]
@@ -22728,22 +21189,22 @@
         "TERIFLUNOMIDE"
       ]
     ],
-    "RAVEGZA PER": [
+    "RAVEGZA": [
       [
         "RANIBIZUMAB"
       ]
     ],
-    "AMGEVITA PER": [
+    "AMGEVITA": [
       [
         "ADALIMUMAB"
       ]
     ],
-    "TYENNE 80 ME PER": [
+    "TYENNE 80 ME": [
       [
         "TOCILIZUMAB"
       ]
     ],
-    "TYENNE PER": [
+    "TYENNE": [
       [
         "TOCILIZUMAB"
       ]
@@ -22870,11 +21331,6 @@
         "VILDAGLIPTIN"
       ]
     ],
-    "DIPHERELINE P R": [
-      [
-        "TRIPTORELIN"
-      ]
-    ],
     "ABROTEN": [
       [
         "ABIRATERONE ACETATE"
@@ -22951,12 +21407,12 @@
         "PEGFILGRASTIM"
       ]
     ],
-    "MORPHINE SULFATE PER": [
+    "MORPHINE SULFATE": [
       [
         "MORPHINE SULFATE"
       ]
     ],
-    "RETALEX PER": [
+    "RETALEX": [
       [
         "ATRACURIUM BESILATE"
       ]
@@ -22981,7 +21437,7 @@
         "TAFASITAMAB"
       ]
     ],
-    "SUDEX PER": [
+    "SUDEX": [
       [
         "SUGAMMADEX"
       ]
@@ -23078,12 +21534,12 @@
         "DOSTARLIMAB"
       ]
     ],
-    "KRABEVA 100 PER": [
+    "KRABEVA 100": [
       [
         "BEVACIZUMAB"
       ]
     ],
-    "KRABEVA PER": [
+    "KRABEVA": [
       [
         "BEVACIZUMAB"
       ]
@@ -23093,12 +21549,12 @@
         "ALBUTREPENONACOG ALFA (RECOMBINANT FUSION PROTEIN LINKING COAGULATION FACTOR IX WITH ALBUMIN)"
       ]
     ],
-    "ETALON PER": [
+    "ETALON": [
       [
         "PALONOSETRON HYDROCHLORIDE"
       ]
     ],
-    "PROPOFOL LIPURO PER": [
+    "PROPOFOL LIPURO": [
       [
         "PROPOFOL"
       ]
@@ -23113,7 +21569,7 @@
         "ODEVIXIBAT"
       ]
     ],
-    "DUPIXENT FOR IN PRE FILLED PEN": [
+    "DUPIXENT IN PRE FILLED PEN": [
       [
         "DUPILUMAB"
       ]
@@ -23123,12 +21579,12 @@
         "BACLOFEN"
       ]
     ],
-    "ZELYSSA PER": [
+    "ZELYSSA": [
       [
         "LIRAGLUTIDE"
       ]
     ],
-    "EVONANZ PER": [
+    "EVONANZ": [
       [
         "LIRAGLUTIDE"
       ]
@@ -23138,7 +21594,7 @@
         "APREMILAST"
       ]
     ],
-    "AMBIFUL PER": [
+    "AMBIFUL": [
       [
         "FULVESTRANT"
       ]
@@ -23150,11 +21606,6 @@
       ]
     ],
     "SUNLENCA": [
-      [
-        "LENACAPAVIR"
-      ]
-    ],
-    "SUNLENCA PER": [
       [
         "LENACAPAVIR"
       ]
@@ -23204,7 +21655,7 @@
         "ESOMEPRAZOLE MAGNESIUM"
       ]
     ],
-    "REDUNIX PER": [
+    "REDUNIX": [
       [
         "TREPROSTINIL"
       ]
@@ -23235,7 +21686,7 @@
         "KETOROLAC TROMETHAMINE"
       ]
     ],
-    "FAMOTIDINE FOR": [
+    "FAMOTIDINE": [
       [
         "FAMOTIDINE"
       ]
@@ -23567,14 +22018,6 @@
         "GANCICLOVIR"
       ]
     ],
-    "ORS": [
-      [
-        "ANHYDROUS DEXTROSE",
-        "POTASSIUM CHLORIDE",
-        "SODIUM CHLORIDE",
-        "TRISODIUM CITRATE ANHYDROUS"
-      ]
-    ],
     "PRATIMA DUO": [
       [
         "AMLODIPINE BESILATE",
@@ -23601,8 +22044,12 @@
         "MYCOPHENOLATE SODIUM"
       ]
     ],
-    "DOPAMINE HYDROCHLORIDE IN DEXTROSE ML": [
+    "DOPAMINE HYDROCHLORIDE IN DEXTROSE": [
       [
+        "DOPAMINE HYDROCHLORIDE"
+      ],
+      [
+        "DEXTROSE",
         "DOPAMINE HYDROCHLORIDE"
       ]
     ],
@@ -23626,11 +22073,6 @@
     "TAYCAN": [
       [
         "VANCOMYCIN"
-      ]
-    ],
-    "AVORES": [
-      [
-        "MOXIFLOXACIN HYDROCHLORIDE"
       ]
     ],
     "PARAXON": [
@@ -23944,11 +22386,6 @@
         "RECOMBINANT CRISANTASPASE"
       ]
     ],
-    "RETALEX": [
-      [
-        "ATRACURIUM BESILATE"
-      ]
-    ],
     "POSENOX": [
       [
         "POSACONAZOLE"
@@ -24011,12 +22448,6 @@
       [
         "LOTEPREDNOL ETABONATE",
         "TOBRAMYCIN"
-      ]
-    ],
-    "AMOCLAN": [
-      [
-        "AMOXICILLIN",
-        "CLAVULANIC ACID"
       ]
     ],
     "CRONOXAM PLUS": [
@@ -24516,11 +22947,6 @@
         "TIMOLOL"
       ]
     ],
-    "METOJECT": [
-      [
-        "METHOTREXATE"
-      ]
-    ],
     "LAXIRA": [
       [
         "ROCURONIUM BROMIDE"
@@ -24556,7 +22982,7 @@
         "ANDUSOMERAN"
       ]
     ],
-    "SPIKEVAX JN1 50 MICROGRAMS DISPERSION FOR IN": [
+    "SPIKEVAX JN1 DISPERSION IN": [
       [
         "ANDUSOMERAN"
       ]
@@ -24822,11 +23248,6 @@
         "SETMELANOTIDE"
       ]
     ],
-    "GYNOCIN": [
-      [
-        "OXYTOCIN"
-      ]
-    ],
     "FOMICYT": [
       [
         "FOSFOMYCIN"
@@ -24894,11 +23315,6 @@
     "ESOXO": [
       [
         "ESOMEPRAZOLE"
-      ]
-    ],
-    "FARINOX": [
-      [
-        "ENOXAPARIN SODIUM"
       ]
     ],
     "VEGZELMA": [
@@ -25157,12 +23573,6 @@
       [
         "METFORMIN HYDROCHLORIDE",
         "VILDAGLIPTIN"
-      ]
-    ],
-    "DOPAMINE HYDROCHLORIDE IN DEXTROSE": [
-      [
-        "DEXTROSE",
-        "DOPAMINE HYDROCHLORIDE"
       ]
     ],
     "VERAPAMIL QO": [
@@ -25477,10 +23887,9 @@
     ],
     "FLUMIST": [
       [
-        "INFLUENZA VACCINE (INTRANASAL",
+        "INFLUENZA VACCINE (INTRANASAL, LIVE ATTENUATED) (LAIV TRIVALENT): INFLUENZA VIRUS TYPE A H1N1",
         "INFLUENZA VIRUS TYPE A H3N2",
-        "INFLUENZA VIRUS TYPE B (VICTORIA LINEAGE)",
-        "LIVE ATTENUATED) (LAIV TRIVALENT): INFLUENZA VIRUS TYPE A H1N1"
+        "INFLUENZA VIRUS TYPE B (VICTORIA LINEAGE)"
       ]
     ],
     "GOLIFA": [
@@ -25522,21 +23931,9 @@
         "POTASSIUM CITRATE"
       ]
     ],
-    "PRIORIX": [
-      [
-        "MEASLES",
-        "MUMPS",
-        "RUBELLA"
-      ]
-    ],
     "ULTRAVIST": [
       [
         "IOPROMIDE"
-      ]
-    ],
-    "TYENNE": [
-      [
-        "TOCILIZUMAB"
       ]
     ],
     "ZYDOLEV": [
@@ -25571,11 +23968,6 @@
         "SULBACTAM"
       ]
     ],
-    "DEMSONE": [
-      [
-        "DEXAMETHASONE SODIUM PHOSPHATE"
-      ]
-    ],
     "MELPHALAN HYDROCHLORIDE TBM": [
       [
         "MELPHALAN"
@@ -25591,17 +23983,12 @@
         "TAMOXIFEN"
       ]
     ],
-    "TYMER": [
-      [
-        "GATIFLOXACIN"
-      ]
-    ],
     "AMLODIPINE QO": [
       [
         "AMLODIPINE BESILATE"
       ]
     ],
-    "SPIKEVAX LP 8 1 DISPERSION FOR IN": [
+    "SPIKEVAX LP 8 1 DISPERSION IN": [
       [
         "CX 045346",
         "MRNA1273 167 LNP B"
@@ -25750,7 +24137,7 @@
         "FLUDEOXYGLUCOSE"
       ]
     ],
-    "LEDAGA 160 MICROGRAMS G": [
+    "LEDAGA G": [
       [
         "CHLORMETHINE"
       ]
@@ -25759,11 +24146,6 @@
       [
         "LINAGLIPTIN",
         "METFORMIN HYDROCHLORIDE"
-      ]
-    ],
-    "STELARA": [
-      [
-        "USTEKINUMAB"
       ]
     ],
     "FOVLYA": [
@@ -26048,11 +24430,6 @@
         "SPIRONOLACTONE"
       ]
     ],
-    "VANCO": [
-      [
-        "VANCOMYCIN"
-      ]
-    ],
     "OPSYNVI": [
       [
         "MACITENTAN",
@@ -26316,11 +24693,6 @@
         "MOMETASONE FUROATE"
       ]
     ],
-    "OCREVUS": [
-      [
-        "OCRELIZUMAB"
-      ]
-    ],
     "BALTHERA": [
       [
         "ARIPIPRAZOLE"
@@ -26352,11 +24724,6 @@
         "ENMETAZOBACTAM"
       ]
     ],
-    "VABYSMO": [
-      [
-        "FARICIMAB"
-      ]
-    ],
     "SUGARELAX TV": [
       [
         "SUGAMMADEX"
@@ -26380,11 +24747,6 @@
     "POSAVIV": [
       [
         "POSACONAZOLE"
-      ]
-    ],
-    "DOMINE": [
-      [
-        "DOPAMINE HYDROCHLORIDE"
       ]
     ],
     "ANKTIVA": [
@@ -26457,13 +24819,6 @@
     "CIPROBAT": [
       [
         "CIPROFLOXACIN"
-      ]
-    ],
-    "ADACEL": [
-      [
-        "ACELLULAR PERTUSSIS",
-        "DIPHTHERIA TOXOID",
-        "TETANUS TOXOID"
       ]
     ],
     "DAPINZO": [
@@ -26698,11 +25053,6 @@
     "AWIQLI": [
       [
         "INSULIN ICODEC"
-      ]
-    ],
-    "RYBREVANT": [
-      [
-        "AMIVANTAMAB"
       ]
     ],
     "ELAHERE": [
@@ -27337,11 +25687,6 @@
         "ABIRATERONE ACETATE"
       ]
     ],
-    "VOSTRAN": [
-      [
-        "ONDANSETRON"
-      ]
-    ],
     "ERPASIB": [
       [
         "PARECOXIB"
@@ -27697,11 +26042,6 @@
         "REMIFENTANIL HYDROCHLORIDE"
       ]
     ],
-    "INTRATECT": [
-      [
-        "HUMAN NORMAL IMMUNOGLOBULIN"
-      ]
-    ],
     "UNTILYRA": [
       [
         "USTEKINUMAB"
@@ -27805,11 +26145,6 @@
         "DONANEMAB"
       ]
     ],
-    "KEYTRUDA": [
-      [
-        "PEMBROLIZUMAB"
-      ]
-    ],
     "PANADOL MIGRAINE": [
       [
         "ASPIRIN",
@@ -27845,8 +26180,7 @@
     "ENTOCORT CR": [
       [
         "BUDESONIDE"
-      ],
-      []
+      ]
     ],
     "FIBROGAMMIN": [
       [
@@ -27860,8 +26194,7 @@
     ],
     "VAXIGRIP": [
       [
-        "INACTIVATED)",
-        "TRIVALENT INFLUENZA VACCINE (SPLIT VIRION"
+        "TRIVALENT INFLUENZA VACCINE (SPLIT VIRION, INACTIVATED)"
       ]
     ],
     "FLUZONE HIGH DOSE": [
